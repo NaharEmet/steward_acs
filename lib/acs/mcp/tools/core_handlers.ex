@@ -441,4 +441,8 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   def acs_time(%{"action" => action}) do
     {:error, "Unknown action '#{action}'. Use 'get' or 'set'."}
   end
+
+  def list_plugins(_args) do
+    Acs.MCP.ToolRegistry.list_plugins()
+  end
 end

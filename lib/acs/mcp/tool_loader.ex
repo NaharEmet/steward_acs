@@ -164,8 +164,11 @@ defmodule Acs.MCP.ToolLoader do
         {:error, "'tools' list cannot be empty"}
 
       true ->
+        # Validate optional app-level metadata fields (version, plugin)
+        app_errors = validate_app_meta(config)
+
         # Validate each tool
-        errors =
+        tool_errors =
           config["tools"]
           |> Enum.with_index()
           |> Enum.reduce([], fn {tool, idx}, acc ->
@@ -176,12 +179,51 @@ defmodule Acs.MCP.ToolLoader do
           end)
           |> Enum.reverse()
 
+        errors = app_errors ++ tool_errors
+
         if errors == [] do
           :ok
         else
           {:error, Enum.join(errors, "; ")}
         end
     end
+  end
+
+  defp validate_app_meta(config) do
+    errors = []
+
+    errors =
+      if is_map_key(config, "version") and not is_binary(config["version"]) do
+        ["'version' must be a string" | errors]
+      else
+        errors
+      end
+
+    errors =
+      if is_map_key(config, "plugin") and not is_map(config["plugin"]) do
+        ["'plugin' must be a map" | errors]
+      else
+        errors
+      end
+
+    errors =
+      if is_map_key(config, "plugin") and is_map(config["plugin"]) do
+        plugin = config["plugin"]
+
+        ["source", "description", "homepage"]
+        |> Enum.filter(&is_map_key(plugin, &1))
+        |> Enum.reduce(errors, fn key, acc ->
+          if is_binary(plugin[key]) do
+            acc
+          else
+            ["'plugin.#{key}' must be a string" | acc]
+          end
+        end)
+      else
+        errors
+      end
+
+    Enum.reverse(errors)
   end
 
   defp validate_tool(tool) do
@@ -321,7 +363,11 @@ defmodule Acs.MCP.ToolLoader do
         "params" => params,
         "permissions" => tool["permissions"],
         "timeout" => tool["timeout"],
-        "response_transform" => tool["response_transform"]
+        "response_transform" => tool["response_transform"],
+        "_app_meta" => %{
+          "version" => app_config["version"],
+          "plugin" => app_config["plugin"]
+        }
       }
     end)
   end

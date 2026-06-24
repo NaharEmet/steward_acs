@@ -456,6 +456,12 @@ defmodule Acs.MCP.Tools do
         },
         []
       ),
+      tool_def(
+        "list_plugins",
+        "List all registered plugin apps with their metadata, tool counts, and health status. Returns app name, version, plugin source info, and tools provided by each plugin.",
+        %{},
+        []
+      ),
 
     ]
   end
@@ -498,6 +504,7 @@ defmodule Acs.MCP.Tools do
     "connection_diagnostic" => &DiagnosticHandlers.connection_diagnostic/1,
     "find_similar_code" => &DiagnosticHandlers.find_similar_code/1,
     "memory_health_check" => &DiagnosticHandlers.memory_health_check/1,
+    "list_plugins" => &CoreHandlers.list_plugins/1,
     "exec_command" => &ClusterHandlers.exec_command/1,
     "read_file" => &ClusterHandlers.read_file/1,
     "write_file" => &ClusterHandlers.write_file/1,

@@ -87,6 +87,13 @@ defmodule Acs.MCP.ToolRegistry do
   end
 
   @doc """
+  Lists all registered plugin apps with their metadata, tool counts, and tools.
+  """
+  def list_plugins do
+    GenServer.call(__MODULE__, :list_plugins)
+  end
+
+  @doc """
   Checks if a tool is authorized for the given agent role and optional permissions.
   Returns `:ok` or `{:error, reason}`.
 
@@ -139,6 +146,8 @@ defmodule Acs.MCP.ToolRegistry do
       by_category: %{},
       # list of app configs
       apps: [],
+      # app_name => %{version: ..., plugin: ...}
+      apps_meta: %{},
       # Telemetry tracking
       # timestamp of last error for burst detection
       last_error_at: nil,
@@ -357,6 +366,27 @@ defmodule Acs.MCP.ToolRegistry do
   end
 
   @impl true
+  def handle_call(:list_plugins, _from, state) do
+    plugins =
+      Enum.map(state.apps, fn app_config ->
+        app_name = app_config["app"]
+        tools = Map.get(state.by_app, app_name, [])
+        meta = Map.get(state.apps_meta, app_name, %{})
+
+        %{
+          app: app_name,
+          version: meta["version"],
+          plugin: meta["plugin"],
+          tool_count: length(tools),
+          tools: Enum.map(tools, & &1["name"])
+        }
+      end)
+      |> Enum.sort_by(& &1.app)
+
+    {:reply, {:ok, %{plugins: plugins, count: length(plugins)}}, state}
+  end
+
+  @impl true
   def handle_call({:register_tool, tool_def}, _from, state) do
     name = tool_def["name"]
 
@@ -486,11 +516,11 @@ defmodule Acs.MCP.ToolRegistry do
         {:error, "No tools loaded", state}
 
       {:ok, tools_by_app} ->
-        {tools, by_app, by_category, apps} =
+        {tools, by_app, by_category, apps, apps_meta} =
           Enum.reduce(
             tools_by_app,
-            {state.tools, state.by_app, state.by_category, state.apps},
-            fn {app_name, app_config}, {tools_acc, by_app_acc, by_cat_acc, apps_acc} ->
+            {state.tools, state.by_app, state.by_category, state.apps, state.apps_meta},
+            fn {app_name, app_config}, {tools_acc, by_app_acc, by_cat_acc, apps_acc, apps_meta_acc} ->
               tool_defs = Acs.MCP.ToolLoader.to_mcp_tools(app_config)
 
               # Index by name
@@ -509,11 +539,19 @@ defmodule Acs.MCP.ToolRegistry do
               # Index by app
               by_app_acc = Map.put(by_app_acc, app_name, tool_defs)
 
-              {tools_acc, by_app_acc, by_cat_acc, [app_config | apps_acc]}
+              # Collect app metadata
+              app_meta = %{
+                "version" => app_config["version"],
+                "plugin" => app_config["plugin"]
+              }
+
+              apps_meta_acc = Map.put(apps_meta_acc, app_name, app_meta)
+
+              {tools_acc, by_app_acc, by_cat_acc, [app_config | apps_acc], apps_meta_acc}
             end
           )
 
-        new_state = %{state | tools: tools, by_app: by_app, by_category: by_category, apps: apps}
+        new_state = %{state | tools: tools, by_app: by_app, by_category: by_category, apps: apps, apps_meta: apps_meta}
 
         {:ok, new_state}
 
