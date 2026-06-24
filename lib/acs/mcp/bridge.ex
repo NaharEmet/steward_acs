@@ -300,6 +300,8 @@ defmodule Acs.MCP.Bridge do
     end
   end
 
+  defp index_results([]), do: %{"results" => %{}, "ids" => []}
+
   defp index_results(results) when is_list(results) do
     indexed =
       results
