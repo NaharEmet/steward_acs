@@ -1,0 +1,710 @@
+defmodule Acs.Memory.Auditor do
+  @moduledoc """
+  GenServer that periodically audits proposed memory entries for quality,
+  noise, contradictions, and title quality using LLM evaluation.
+
+  Polls every configured interval (default 30 seconds) for proposed memories
+  that have passed their cooling-off period. Each memory goes through:
+  1. Cooling-off check (skip if created_at < 30s ago)
+  2. Parse error skip (skip if status is parse_error)
+   3. Pre-filter rules (auto-generated task feedback templates, test data patterns, 
+      content length, empty scope, title==content, duplicates)
+  4. LLM evaluation with context from same-scope approved memories
+  5. Decision: approve / reject / human_review
+  6. DB update via Indexer
+
+  Supports max 2 concurrent LLM evaluations and retries failed ones up to 3 times
+   with exponential backoff (2s, 5s, 15s).
+  """
+
+  use GenServer
+  require Logger
+
+  alias Acs.LLM
+  alias Acs.Memory.Indexer
+  alias Acs.Memory.Schema
+  alias Acs.Repo
+
+  # Default polling interval: 30 seconds
+  @default_audit_interval 30_000
+
+  # Cooling-off period: 30 seconds
+  @cooling_off_seconds 30
+
+  # Max concurrent LLM evaluations via Task.async_stream
+  @max_concurrency 2
+
+  # Retry configuration
+  @max_retries 3
+
+  # Exponential backoff delays in milliseconds (longer for production resilience)
+  @backoff_delays [2_000, 5_000, 15_000, 30_000, 60_000]
+
+  # Pre-filter thresholds
+  @min_content_length 20
+  @low_content_length 50
+
+  @doc """
+  Starts the Auditor GenServer.
+  """
+  def start_link(_opts \\ []) do
+    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  end
+
+  @doc """
+  Manually triggers an audit cycle. Useful for testing or on-demand evaluation.
+  """
+  def trigger_audit do
+    GenServer.cast(__MODULE__, :trigger_audit)
+  end
+
+  @doc """
+  Returns the current audit interval configuration.
+  """
+  def audit_interval do
+    Application.get_env(:steward_acs, :auditor_interval, @default_audit_interval)
+  end
+
+  @impl true
+  def init(_opts) do
+    interval = audit_interval()
+    Logger.info("[Acs.Memory.Auditor] Starting with interval: #{interval}ms")
+    schedule_audit(interval)
+    {:ok, %{audit_in_progress: false}}
+  end
+
+  @impl true
+  def handle_info(:audit, %{audit_in_progress: true} = state) do
+    Logger.debug("[Acs.Memory.Auditor] Audit already in progress, skipping")
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:audit, state) do
+    Logger.info("[Acs.Memory.Auditor] Starting audit cycle")
+    state = %{state | audit_in_progress: true}
+
+    try do
+      do_audit_cycle()
+    after
+      # Always reset flag and reschedule, even on crash
+      schedule_audit(audit_interval())
+    end
+
+    {:noreply, %{state | audit_in_progress: false}}
+  end
+
+  @impl true
+  def handle_cast(:trigger_audit, %{audit_in_progress: true} = state) do
+    Logger.info("[Acs.Memory.Auditor] Audit already in progress, ignoring manual trigger")
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast(:trigger_audit, state) do
+    Logger.info("[Acs.Memory.Auditor] Manual audit triggered")
+    state = %{state | audit_in_progress: true}
+
+    try do
+      do_audit_cycle()
+    after
+      # Reset flag but don't reschedule (manual trigger)
+    end
+
+    {:noreply, %{state | audit_in_progress: false}}
+  end
+
+  @impl true
+  def terminate(_reason, _state) do
+    Logger.warning("[Acs.Memory.Auditor] Terminating, resetting audit_in_progress flag")
+    # Reset any stale audit_in_progress state in DB if needed
+    :ok
+  end
+
+  # Schedules the next audit cycle
+  defp schedule_audit(interval) do
+    Process.send_after(self(), :audit, interval)
+  end
+
+  # Main audit cycle logic
+  defp do_audit_cycle do
+    Logger.info("[Acs.Memory.Auditor] Starting audit cycle")
+    start_time = DateTime.utc_now()
+
+    proposed_memories = fetch_auditable_memories()
+
+    Logger.info(
+      "[Acs.Memory.Auditor] Found #{length(proposed_memories)} memories to audit (batch size: #{@max_concurrency} concurrent)"
+    )
+
+    if proposed_memories == [] do
+      :ok
+    else
+      # Process with max concurrency via Task.async_stream
+      proposed_memories
+      |> Task.async_stream(fn memory -> audit_memory_with_retry(memory) end,
+        max_concurrency: @max_concurrency,
+        timeout: :infinity
+      )
+      |> Enum.each(fn
+        {:ok, result} -> result
+        {:error, reason} -> Logger.error("[Acs.Memory.Auditor] Task error: #{inspect(reason)}")
+      end)
+    end
+
+    end_time = DateTime.utc_now()
+    duration = DateTime.diff(end_time, start_time, :millisecond)
+    Logger.info("[Acs.Memory.Auditor] Audit cycle completed in #{duration}ms")
+  end
+
+  # Fetches proposed memories that have passed cooling-off and are not parse_error
+  defp fetch_auditable_memories do
+    cooling_off_threshold = DateTime.utc_now() |> DateTime.add(-@cooling_off_seconds, :second)
+
+    Indexer.list_memories(status: "proposed", order_by: [asc: :created_at], limit: 200)
+    |> Enum.reject(fn m -> m.parse_error && m.parse_error != "" end)
+    |> Enum.filter(fn m ->
+      case m.created_at do
+        nil -> false
+        dt -> DateTime.compare(dt, cooling_off_threshold) == :lt
+      end
+    end)
+  end
+
+  # Audits a single memory with retry logic
+  defp audit_memory_with_retry(memory) do
+    memory_id = memory.id
+    with_retries(memory_id, memory, @max_retries, @backoff_delays)
+  end
+
+  # Retry wrapper with exponential backoff
+  defp with_retries(memory_id, _memory, 0, _delays) do
+    Logger.warning("[Acs.Memory.Auditor] Max retries exceeded for memory #{memory_id}")
+    increment_audit_error(memory_id, "Max retries exceeded")
+    :max_retries_exceeded
+  end
+
+  # When retries are exhausted AND providers are truly unavailable (not just temporarily failing),
+  # mark the memory for human_review so it doesn't keep being retried
+  defp with_retries(memory_id, memory, retries_left, [delay | rest_delays]) do
+    case audit_single_memory(memory) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        # If LLM providers are not configured or permanently failed, skip retries immediately
+        # and mark the memory for human review instead of wasting retries.
+        if providers_unavailable?(reason) do
+          Logger.warning(
+            "[Acs.Memory.Auditor] LLM providers unavailable for #{memory_id}, marking for human review"
+          )
+
+          mark_for_human_review_after_max_retries(memory_id, inspect(reason))
+          :ok
+        else
+          Logger.warning(
+            "[Acs.Memory.Auditor] Audit failed for #{memory_id}: #{inspect(reason)}. Retrying in #{delay}ms"
+          )
+
+          Process.sleep(delay)
+          with_retries(memory_id, memory, retries_left - 1, rest_delays)
+        end
+    end
+  end
+
+  # Detect if the error is caused by missing LLM API keys (provider unavailability).
+  # Only matches actual configuration issues — runtime failures (bad JSON, rate limits, HTTP errors)
+  # pass through so retry logic handles them.
+  defp providers_unavailable?(:no_providers_configured), do: true
+
+  # All providers failed at runtime — providers ARE available and tried,
+  # they just all happened to fail. Let retry logic handle these.
+  defp providers_unavailable?({:all_providers_failed, _errors}), do: false
+
+  defp providers_unavailable?(_), do: false
+
+  # Mark memory for human review after max retries when providers are truly unavailable
+  defp mark_for_human_review_after_max_retries(memory_id, reason) do
+    import Ecto.Query
+    alias Acs.Memory.Schema
+    alias Acs.Repo
+
+    case Repo.get(Schema, memory_id) do
+      nil ->
+        Logger.error("[Acs.Memory.Auditor] Memory not found: #{memory_id}")
+
+      memory ->
+        existing_flags = decode_auditor_flags(memory.auditor_flags)
+
+        merged_flags =
+          existing_flags
+          |> Map.merge(%{
+            "audit_error_count" => Map.get(existing_flags, "audit_error_count", 0) + 1,
+            "last_audit_error" => "Providers unavailable: #{reason}",
+            "last_audit_error_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+            "needs_human_review" => true,
+            "human_review_reason" => "LLM providers unavailable after max retries"
+          })
+
+        flags_json = Jason.encode!(merged_flags)
+
+        Repo.update_all(
+          from(m in Schema, where: m.id == ^memory_id),
+          set: [
+            auditor_flags: flags_json,
+            updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          ]
+        )
+
+        Logger.info(
+          "[Acs.Memory.Auditor] Memory #{memory_id} marked for human review (providers unavailable)"
+        )
+    end
+  rescue
+    e ->
+      Logger.error(
+        "[Acs.Memory.Auditor] Failed to mark memory #{memory_id} for human review: #{inspect(e)}"
+      )
+  end
+
+  # Audits a single memory through the full pipeline
+  defp audit_single_memory(memory) do
+    memory_id = memory.id
+
+    # Step 1: Pre-filter checks
+    case pre_filter_check(memory) do
+      {:skip, reason} ->
+        Logger.debug("[Acs.Memory.Auditor] Pre-filter skip for #{memory_id}: #{reason}")
+        :ok
+
+      :continue ->
+        # Step 2: Build memory attrs for LLM
+        memory_attrs = build_memory_attrs(memory)
+
+        # Step 3: LLM evaluation with timing
+        {elapsed_us, result} =
+          :timer.tc(fn -> LLM.evaluate_memory(memory_id, memory_attrs) end)
+
+        elapsed_ms = div(elapsed_us, 1000)
+        Logger.info("[Acs.Memory.Auditor] LLM evaluation for #{memory_id} took #{elapsed_ms}ms")
+
+        case result do
+          {:ok, evaluation} ->
+            # Step 4: Apply decision
+            decision = apply_audit_decision(memory_id, evaluation)
+            Logger.info("[Acs.Memory.Auditor] Memory #{memory_id} evaluated: #{decision}")
+            decision
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+    end
+  end
+
+  # Pre-filter check returns {:skip, reason} or :continue
+  defp pre_filter_check(memory) do
+    cond do
+      # Auto-generated task feedback template → reject
+      String.starts_with?(memory.title || "", "Key learning from task") or
+        String.starts_with?(memory.title || "", "Issue encountered in task") or
+          memory.title == "Improvement suggestion from task feedback" ->
+        mark_as_rejected(memory.id, "Auto-generated task feedback template")
+        {:skip, "auto-generated task feedback"}
+
+      # Test/harness data patterns → reject
+      String.starts_with?(memory.scope_path || "", "test/") or
+          String.starts_with?(memory.scope_path || "", "test_app/") ->
+        mark_as_rejected(memory.id, "Test/harness scope_path")
+        {:skip, "test scope_path"}
+
+      # Test/harness data by known ID patterns → reject
+      # Catches: lifecycle_rebuild*, guidance_test*, e2e_pipeline*, test_hybrid*
+      is_test_noise_id?(memory.id) ->
+        mark_as_rejected(memory.id, "Test/harness data by ID pattern")
+        {:skip, "test data by id"}
+
+      # Empty scope → reject
+      is_nil(memory.scope_path) or memory.scope_path == "" ->
+        mark_as_rejected(memory.id, "Empty scope_path")
+        {:skip, "empty scope"}
+
+      # Title equals content → reject
+      memory.title == memory.content ->
+        mark_as_rejected(memory.id, "Title same as content")
+        {:skip, "title equals content"}
+
+      # Content too short (<20 chars) → flag for human review
+      content_length(memory.content) < @min_content_length ->
+        mark_needs_human_review(
+          memory.id,
+          "Content too short (#{content_length(memory.content)} chars)"
+        )
+
+        {:skip, "content too short"}
+
+      # Content borderline (20-50 chars) → flag + proceed with LLM
+      content_length(memory.content) < @low_content_length ->
+        Logger.debug(
+          "[Acs.Memory.Auditor] Memory #{memory.id} has short content (#{content_length(memory.content)} chars), flagging for LLM review"
+        )
+
+        :continue
+
+      # Check for fuzzy duplicates
+      true ->
+        case find_fuzzy_duplicate(memory) do
+          nil ->
+            :continue
+
+          duplicate_id ->
+            mark_flagged(memory.id, "Possible duplicate of #{duplicate_id}")
+            {:skip, "fuzzy duplicate detected"}
+        end
+    end
+  end
+
+  defp content_length(nil), do: 0
+  defp content_length(content) when is_binary(content), do: String.length(content)
+
+  # Check if memory ID matches any known test/harness noise pattern
+  defp is_test_noise_id?(id) when is_binary(id) do
+    id_lower = String.downcase(id)
+
+    String.starts_with?(id_lower, "lifecycle_rebuild") or
+      String.contains?(id_lower, "guidance_test") or
+      String.contains?(id_lower, "e2e_pipeline") or
+      String.contains?(id_lower, "test_hybrid")
+  end
+
+  defp is_test_noise_id?(_), do: false
+
+  # Find potential fuzzy duplicate by title similarity
+  defp find_fuzzy_duplicate(memory) do
+    # Search for memories with similar titles in the same scope
+    candidates =
+      Indexer.list_memories(
+        scope_path: memory.scope_path,
+        status: "approved",
+        limit: 20
+      )
+
+    memory_title = String.downcase(memory.title || "")
+
+    duplicate =
+      Enum.find(candidates, fn candidate ->
+        candidate_title = String.downcase(candidate.title || "")
+
+        candidate_title != "" &&
+          memory_title != "" &&
+          String.jaro_distance(memory_title, candidate_title) > 0.85
+      end)
+
+    duplicate && duplicate.id
+  end
+
+  # Build atom-keyed map for LLM evaluation
+  defp build_memory_attrs(memory) do
+    %{
+      title: memory.title || "",
+      content: memory.content || "",
+      kind: memory.kind || "",
+      scope_path: memory.scope_path || "",
+      tags: decode_tags(memory.tags_json)
+    }
+  end
+
+  defp decode_tags(nil), do: []
+
+  defp decode_tags(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, tags} -> tags
+      _ -> []
+    end
+  end
+
+  # Apply the LLM evaluation decision to the memory
+  defp apply_audit_decision(memory_id, evaluation) do
+    # Parse: extract recommendation from string-keyed map (already normalized by LLM parser),
+    # fall back to atom keys for safety, then default to "human_review" because the pre-filter
+    # already catches noise (task feedback templates, test data, empty scope, title==content, etc).
+    # If LLM fails (e.g., query timeout), default to human_review to avoid auto-approving junk.
+    recommendation = evaluation["recommendation"] || evaluation[:recommendation] || "human_review"
+
+    auditor_flags = %{
+      audit_verdict: recommendation,
+      quality_score: Map.get(evaluation, "quality_score") || Map.get(evaluation, :quality_score),
+      title_quality: Map.get(evaluation, "title_quality") || Map.get(evaluation, :title_quality),
+      is_noise: Map.get(evaluation, "is_noise") || Map.get(evaluation, :is_noise),
+      reasoning: Map.get(evaluation, "reasoning") || Map.get(evaluation, :reasoning),
+      improvements: Map.get(evaluation, "improvements"),
+      suggested_title: Map.get(evaluation, "suggested_title"),
+      is_duplicate_of: Map.get(evaluation, "is_duplicate_of"),
+      audited_at: DateTime.utc_now() |> DateTime.to_iso8601()
+    }
+
+    result =
+      case recommendation do
+        "approve" ->
+          # Apply auto-improvements before updating status
+          memory = Repo.get(Schema, memory_id)
+
+          auditor_flags =
+            memory
+            |> apply_suggested_title(evaluation, auditor_flags)
+            |> then(&apply_improvements(memory, evaluation, &1))
+
+          update_memory_status(memory_id, "approved", auditor_flags)
+
+        "reject" ->
+          update_memory_status(memory_id, "rejected", auditor_flags)
+
+        _ ->
+          # human_review or any other value
+          mark_needs_human_review_with_flags(memory_id, auditor_flags)
+      end
+
+    # Log the result (both success and failure)
+    case result do
+      :ok ->
+        Logger.info("[Acs.Memory.Auditor] Memory #{memory_id} evaluated: #{recommendation}")
+
+      {:error, reason} ->
+        Logger.error(
+          "[Acs.Memory.Auditor] Memory #{memory_id} evaluation failed: #{inspect(reason)}"
+        )
+    end
+
+    result
+  end
+
+  defp apply_suggested_title(memory, evaluation, flags) do
+    suggested = Map.get(evaluation, "suggested_title") || Map.get(evaluation, :suggested_title)
+
+    if suggested && is_binary(suggested) && String.trim(suggested) != "" &&
+         String.trim(suggested) != memory.title do
+      case Indexer.update_field(memory.id, :title, String.trim(suggested)) do
+        {:ok, _} ->
+          Logger.info(
+            "[Acs.Memory.Auditor] Auto-improved title for #{memory.id}: '#{memory.title}' → '#{String.trim(suggested)}'"
+          )
+
+          Map.merge(flags, %{
+            title_improved: true,
+            previous_title: memory.title,
+            new_title: String.trim(suggested)
+          })
+
+        {:error, reason} ->
+          Logger.error(
+            "[Acs.Memory.Auditor] Failed to apply suggested_title for #{memory.id}: #{inspect(reason)}"
+          )
+
+          flags
+      end
+    else
+      flags
+    end
+  end
+
+  defp apply_improvements(memory, evaluation, flags) do
+    improvements = Map.get(evaluation, "improvements") || Map.get(evaluation, :improvements)
+
+    if improvements && is_binary(improvements) && String.trim(improvements) != "" do
+      new_content = memory.content <> "\n\n---\nImprovements: " <> String.trim(improvements)
+
+      case Indexer.update_field(memory.id, :content, new_content) do
+        {:ok, _} ->
+          Logger.info("[Acs.Memory.Auditor] Auto-improved content for #{memory.id}")
+          Map.put(flags, :content_improved, true)
+
+        {:error, reason} ->
+          Logger.error(
+            "[Acs.Memory.Auditor] Failed to apply improvements for #{memory.id}: #{inspect(reason)}"
+          )
+
+          flags
+      end
+    else
+      flags
+    end
+  end
+
+  # Update memory status in DB
+  defp update_memory_status(memory_id, new_status, auditor_flags) do
+    flags_json = Jason.encode!(auditor_flags)
+
+    with {:ok, _} <- Indexer.update_status(memory_id, new_status) do
+      # Also update auditor_flags field
+      import Ecto.Query
+      alias Acs.Memory.Schema
+      alias Acs.Repo
+
+      Repo.update_all(
+        from(m in Schema, where: m.id == ^memory_id),
+        set: [
+          auditor_flags: flags_json,
+          updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        ]
+      )
+
+      Logger.info("[Acs.Memory.Auditor] Memory #{memory_id} → #{new_status}")
+      :ok
+    end
+  rescue
+    e ->
+      Logger.error("[Acs.Memory.Auditor] Failed to update memory #{memory_id}: #{inspect(e)}")
+      {:error, e}
+  end
+
+  # Mark memory as rejected with reason
+  defp mark_as_rejected(memory_id, reason) do
+    auditor_flags = %{
+      audit_verdict: "reject",
+      reasoning: "Pre-filter: #{reason}",
+      audited_at: DateTime.utc_now() |> DateTime.to_iso8601()
+    }
+
+    update_memory_status(memory_id, "rejected", auditor_flags)
+  end
+
+  # Mark memory as needing human review
+  defp mark_needs_human_review(memory_id, reason) do
+    Logger.info("[Acs.Memory.Auditor] Memory #{memory_id} flagged for human review: #{reason}")
+    increment_audit_error(memory_id, "Pre-filter: #{reason}")
+  end
+
+  defp mark_needs_human_review_with_flags(memory_id, auditor_flags) do
+    import Ecto.Query
+    alias Acs.Memory.Schema
+    alias Acs.Repo
+
+    # Update auditor_flags with LLM evaluation data AND increment error count via the same update
+    case Repo.get(Schema, memory_id) do
+      nil ->
+        {:error, "Memory not found"}
+
+      memory ->
+        existing_flags = decode_auditor_flags(memory.auditor_flags)
+        current_count = Map.get(existing_flags, "audit_error_count", 0)
+
+        merged_flags =
+          auditor_flags
+          |> Map.put("audit_error_count", current_count + 1)
+          |> Map.put("last_audit_error", "LLM recommended human_review")
+          |> Map.put("last_audit_error_at", DateTime.utc_now() |> DateTime.to_iso8601())
+
+        flags_json = Jason.encode!(merged_flags)
+
+        Repo.update_all(
+          from(m in Schema, where: m.id == ^memory_id),
+          set: [
+            auditor_flags: flags_json,
+            updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          ]
+        )
+
+        Logger.info(
+          "[Acs.Memory.Auditor] Memory #{memory_id} → flagged for human review (error #{current_count + 1})"
+        )
+
+        :ok
+    end
+  rescue
+    e ->
+      Logger.error("[Acs.Memory.Auditor] Failed to flag memory #{memory_id}: #{inspect(e)}")
+      {:error, e}
+  end
+
+  # Mark memory with a duplicate flag but keep as proposed
+  defp mark_flagged(memory_id, reason) do
+    import Ecto.Query
+    alias Acs.Memory.Schema
+    alias Acs.Repo
+
+    case Repo.get(Schema, memory_id) do
+      nil ->
+        {:error, "Memory not found"}
+
+      memory ->
+        existing_flags = decode_auditor_flags(memory.auditor_flags)
+
+        flags_json =
+          existing_flags
+          |> Map.merge(%{
+            flagged_reason: reason,
+            flagged_at: DateTime.utc_now() |> DateTime.to_iso8601()
+          })
+          |> Jason.encode!()
+
+        Repo.update_all(
+          from(m in Schema, where: m.id == ^memory_id),
+          set: [
+            auditor_flags: flags_json,
+            updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          ]
+        )
+
+        Logger.info("[Acs.Memory.Auditor] Memory #{memory_id} flagged: #{reason}")
+        :ok
+    end
+  rescue
+    e ->
+      Logger.error("[Acs.Memory.Auditor] Failed to flag memory #{memory_id}: #{inspect(e)}")
+      {:error, e}
+  end
+
+  defp decode_auditor_flags(nil), do: %{}
+
+  defp decode_auditor_flags(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, map} -> map
+      _ -> %{}
+    end
+  end
+
+  defp increment_audit_error(memory_id, reason) do
+    import Ecto.Query
+    alias Acs.Memory.Schema
+    alias Acs.Repo
+
+    case Repo.get(Schema, memory_id) do
+      nil ->
+        {:error, "Memory not found"}
+
+      memory ->
+        existing_flags = decode_auditor_flags(memory.auditor_flags)
+        current_count = Map.get(existing_flags, "audit_error_count", 0)
+
+        updated_flags =
+          existing_flags
+          |> Map.merge(%{
+            "audit_error_count" => current_count + 1,
+            "last_audit_error" => reason,
+            "last_audit_error_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+          })
+
+        flags_json = Jason.encode!(updated_flags)
+
+        Repo.update_all(
+          from(m in Schema, where: m.id == ^memory_id),
+          set: [
+            auditor_flags: flags_json,
+            updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          ]
+        )
+
+        Logger.info(
+          "[Acs.Memory.Auditor] Incremented audit error for #{memory_id} (count: #{current_count + 1})"
+        )
+
+        :ok
+    end
+  rescue
+    e ->
+      Logger.error(
+        "[Acs.Memory.Auditor] Failed to increment audit error for #{memory_id}: #{inspect(e)}"
+      )
+
+      {:error, e}
+  end
+end

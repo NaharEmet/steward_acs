@@ -1,0 +1,39 @@
+<% pending_count = assigns[:pending_requests_count] || 0 %>
+<% nav_current_path = assigns[:current_path] || "/" %>
+
+    <header class="header">
+      <div class="header-inner">
+        <div style="display: flex; align-items: center; gap: 32px;">
+          <div class="logo">
+            <span class="logo-mark">ACS</span>
+            <span class="logo-text">Dashboard</span>
+          </div>
+          <nav style="display: flex; align-items: center; gap: 4px;">
+            <.link navigate={~p"/"} class={"nav-tab #{if nav_current_path == "/", do: "active"}"}>Dashboard</.link>
+            <.link navigate={~p"/tools"} class={"nav-tab #{if nav_current_path == "/tools", do: "active"}"}>Tools</.link>
+            <.link navigate={~p"/tools/requests"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/tools/requests"), do: "active"}"}>
+              Requests
+              <%= if pending_count > 0 do %>
+                <span class="pending-badge"><%= pending_count %></span>
+              <% end %>
+            </.link>
+            <.link navigate={~p"/memories"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/memories"), do: "active"}"}>Memories</.link>
+            <.link navigate={~p"/specs"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/specs"), do: "active"}"}>Specs</.link>
+            <.link navigate={~p"/error-traces"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/error-traces"), do: "active"}"}>Error Traces</.link>
+          </nav>
+        </div>
+        <div class="header-meta">
+          <div class="header-actions">
+            <button phx-click="refresh" class="btn btn-ghost" style="padding: 6px 14px; font-size: 0.72rem;">
+              ↻ Refresh
+            </button>
+          </div>
+          <span class="port-badge">Port 4001</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <.flash_group flash={@flash} />
+      <%= @inner_content %>
+    </main>

@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Steward ACS — Agent Coordination System</title>
+  <meta name="description" content="The Agent Coordination System — task lifecycles, file locking, knowledge memory, and MCP tools for AI agent infrastructure.">
+
+  <!-- Fonts: Fraunces (display) + Spectral (body) + JetBrains Mono (code) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400..700,0..100&family=Spectral:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ============================================================
+       NAVBAR
+       ============================================================ -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a class="navbar-logo" id="nav-home" role="button" tabindex="0" aria-label="Home">
+        <span class="navbar-logo-icon">S</span>
+        Steward ACS
+      </a>
+
+      <button class="navbar-hamburger" id="hamburger" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <ul class="navbar-links" id="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">Architecture</a></li>
+        <li><a href="#quickstart">Quick Start</a></li>
+        <li><a class="docs-toggle" id="nav-docs" role="button" tabindex="0">Documentation</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       LANDING VIEW
+       ============================================================ -->
+  <main class="landing-view" id="landing-view">
+
+    <!-- HERO -->
+    <section class="hero" id="hero">
+      <div class="hero-glow-1"></div>
+      <div class="hero-glow-2"></div>
+      <div class="container">
+        <div class="hero-content">
+          <div class="hero-badge reveal">
+            <span class="hero-badge-dot"></span>
+            v1.0.0 — Agent Coordination Infrastructure
+          </div>
+          <h1 class="reveal reveal-delay-1">
+            Steward<br>
+            <span class="highlight">ACS</span>
+          </h1>
+          <p class="hero-subtitle reveal reveal-delay-2">
+            Coordinate your AI agents with precision.
+            <br>
+            The Agent Coordination System — task lifecycles, file locking, knowledge memory, and MCP tools for AI agent infrastructure.
+          </p>
+          <div class="hero-actions reveal reveal-delay-3">
+            <a href="#quickstart" class="btn btn-primary">Get Started →</a>
+            <a class="btn btn-secondary" id="hero-docs" role="button" tabindex="0">Read Documentation</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHAT IS STEWARD ACS -->
+    <section class="section what-section" id="what-is">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-accent"></span>
+          <h2>What is Steward ACS?</h2>
+          <p>Infrastructure layer that coordinates AI agents — preventing conflicts, sharing knowledge, and providing structured tooling.</p>
+        </div>
+        <div class="what-grid">
+          <div class="what-text reveal">
+            <p>
+              <strong>Steward ACS</strong> is a standalone coordination system for AI agent fleets. It provides task lifecycle management, distributed file locking, persistent knowledge memory, and an MCP tool gateway — all accessible via simple tool calls that agents can invoke directly.
+            </p>
+            <p>
+              Think of it as <strong>air traffic control for AI agents</strong>. Each agent registers its presence, claims work, locks resources, and shares learnings. The system prevents duplicate work, resolves conflicts, and preserves institutional knowledge across sessions.
+            </p>
+            <p>
+              Built with Elixir/Phoenix and running on port 4001, it exposes a comprehensive set of <code>acs_*</code> MCP tools that any AI agent can call — no SDKs, no libraries, no vendor lock-in.
+            </p>
+          </div>
+          <div class="what-diagram reveal reveal-delay-2">
+            <div class="diagram-title">System Stack</div>
+            <div class="diagram-grid">
+              <div class="diagram-layer">
+                <div class="diagram-layer-icon agents">A</div>
+                <div>
+                  <div class="diagram-layer-label">AI Agents</div>
+                  <div class="diagram-layer-desc">Claude, GPT, Llama — any MCP-compatible agent</div>
+                </div>
+              </div>
+              <div class="diagram-arrow">▼ acs_* tools</div>
+              <div class="diagram-layer">
+                <div class="diagram-layer-icon gateway">M</div>
+                <div>
+                  <div class="diagram-layer-label">MCP Tool Gateway</div>
+                  <div class="diagram-layer-desc">YAML-defined, hot-reloadable REST bridge</div>
+                </div>
+              </div>
+              <div class="diagram-arrow">▼</div>
+              <div class="diagram-layer">
+                <div class="diagram-layer-icon core">C</div>
+                <div>
+                  <div class="diagram-layer-label">Core Engine (Elixir/Phoenix)</div>
+                  <div class="diagram-layer-desc">Task lifecycle, file locks, memory, presence</div>
+                </div>
+              </div>
+              <div class="diagram-arrow">▼</div>
+              <div class="diagram-layer">
+                <div class="diagram-layer-icon db">DB</div>
+                <div>
+                  <div class="diagram-layer-label">Persistence</div>
+                  <div class="diagram-layer-desc">PostgreSQL (prod) / SQLite (dev) / ETS cache</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="section features-section" id="features">
+      <div class="container">
+        <div class="section-header centered reveal">
+          <span class="section-accent"></span>
+          <h2>Key Features</h2>
+          <p>Everything you need to coordinate agent fleets at scale.</p>
+        </div>
+        <div class="features-grid stagger-children" id="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">T</div>
+            <h3>Task Lifecycle</h3>
+            <p>Create, claim, and release work units. 10-minute auto-release prevents stuck tasks. Similar-task warnings prevent duplicate work.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">F</div>
+            <h3>File Locking</h3>
+            <p>Lock files before editing. Prevents multi-agent edit conflicts. Auto-releases after inactivity.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">K</div>
+            <h3>Knowledge Memory</h3>
+            <p>Save eternal truths — patterns, decisions, warnings shared across all agents. Semantic search with LLM-powered embedding.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">M</div>
+            <h3>MCP Tool Gateway</h3>
+            <p>Expose any REST API as an agent-callable MCP tool. YAML-defined, hot-reloadable, no server restart needed.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">P</div>
+            <h3>Agent Presence</h3>
+            <p>See who's working on what. Track current task, purpose, application, and component for every agent.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">E</div>
+            <h3>Error Tracking</h3>
+            <p>Persistent error traces with acknowledgment and resolution workflow. Create investigation tasks directly from errors.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">C</div>
+            <h3>Cognition Specs</h3>
+            <p>Structured module documentation — purpose, invariants, workflows, failure modes. Auto-generated guidance packets.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">⛁</div>
+            <h3>Cluster Coordination</h3>
+            <p>Multi-cluster support. Operations scoped by cluster name. Independent environments per team.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="section how-section" id="how-it-works">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-accent"></span>
+          <h2>How It Works</h2>
+          <p>System architecture — from agents to persistence.</p>
+        </div>
+
+        <div class="architecture-diagram reveal">
+          <div class="arch-grid">
+
+            <!-- Top: Agents -->
+            <div class="arch-row">
+              <div class="arch-node">
+                <div class="arch-node-label">Agent Claude</div>
+                <div class="arch-node-desc">Coding tasks</div>
+              </div>
+              <div class="arch-node">
+                <div class="arch-node-label">Agent GPT</div>
+                <div class="arch-node-desc">Research tasks</div>
+              </div>
+              <div class="arch-node">
+                <div class="arch-node-label">Agent Llama</div>
+                <div class="arch-node-desc">Analysis tasks</div>
+              </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="arch-row" style="justify-content: center;">
+              <div class="arch-connector" style="flex-direction: column;">
+                <span>▼</span>
+                <span style="font-size:0.65rem;">acs_* MCP tool calls</span>
+                <span>▼</span>
+              </div>
+            </div>
+
+            <!-- Middle: Gateway -->
+            <div class="arch-row">
+              <div class="arch-node bridge">
+                <div class="arch-node-label">MCP Tool Gateway</div>
+                <div class="arch-node-desc">Routes agent tool calls to handlers · Port 4001</div>
+              </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="arch-row" style="justify-content: center;">
+              <div class="arch-connector" style="flex-direction: column;">
+                <span>▼</span>
+              </div>
+            </div>
+
+            <!-- Bottom: Core subsystems -->
+            <div class="arch-row">
+              <div class="arch-group" style="flex:1;">
+                <div class="arch-group-label">Core Engine</div>
+                <div class="arch-row-group">
+                  <div class="arch-node">
+                    <div class="arch-node-label">Task Manager</div>
+                    <div class="arch-node-desc">Lifecycle + auto-release</div>
+                  </div>
+                  <div class="arch-node">
+                    <div class="arch-node-label">Lock Manager</div>
+                    <div class="arch-node-desc">File-level locking</div>
+                  </div>
+                  <div class="arch-node">
+                    <div class="arch-node-label">Memory Store</div>
+                    <div class="arch-node-desc">Vector + semantic search</div>
+                  </div>
+                  <div class="arch-node">
+                    <div class="arch-node-label">Presence</div>
+                    <div class="arch-node-desc">Agent tracking</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="arch-row" style="justify-content: center;">
+              <div class="arch-connector" style="flex-direction: column;">
+                <span>▼</span>
+              </div>
+            </div>
+
+            <!-- Bottom: Persistence -->
+            <div class="arch-row">
+              <div class="arch-node">
+                <div class="arch-node-label">PostgreSQL / SQLite</div>
+                <div class="arch-node-desc">Persistent storage</div>
+              </div>
+              <div class="arch-node">
+                <div class="arch-node-label">ETS Cache</div>
+                <div class="arch-node-desc">In-memory fast access</div>
+              </div>
+              <div class="arch-node">
+                <div class="arch-node-label">Sweeper</div>
+                <div class="arch-node-desc">Background cleanup</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="arch-desc reveal">
+            <p>
+              <strong>Steward ACS</strong> runs as a standalone Phoenix web application (port 4001). It exposes MCP tools (<code>acs_*</code> prefix) that AI agents call directly. The system uses ETS for fast in-memory caching with a PostgreSQL (production) or SQLite3 (development) database for persistence. A background sweeper handles auto-release of stale tasks and locks. The MCP Gateway routes agent tool calls to internal Elixir handlers or external REST APIs via HTTP bridge.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK START -->
+    <section class="section quickstart-section" id="quickstart">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-accent"></span>
+          <h2>Quick Start</h2>
+          <p>Get Steward ACS running in under a minute.</p>
+        </div>
+
+        <div class="quickstart-grid">
+          <div class="reveal">
+            <div class="code-block">
+              <div class="code-block-header">
+                <span class="code-block-label">Terminal</span>
+                <button class="code-block-copy" data-copy="quickstart-code">Copy</button>
+              </div>
+              <pre id="quickstart-code"><code><span class="cm"># Clone and deploy Steward ACS</span>
+git clone <span class="str">https://github.com/NaharEmet/steward_acs.git</span>
+cd steward_acs
+
+<span class="cm"># Generate secrets and configure</span>
+echo <span class="str">"SECRET_KEY_BASE=$(mix phx.gen.secret)"</span> >> .env
+echo <span class="str">"DATABASE_URL=ecto://postgres:postgres@localhost:5432/acs"</span> >> .env
+
+<span class="cm"># Launch with Docker</span>
+docker compose -f docker-compose.steward_acs.yml up -d
+
+<span class="cm"># Verify it's alive</span>
+curl <span class="fn">http://localhost:4001/health</span>
+<span class="cm"># → {"status":"ok","version":"1.0.0"}</span></code></pre>
+            </div>
+          </div>
+
+          <div class="quickstart-note reveal reveal-delay-2">
+            <h3>
+              <span style="color: var(--color-accent);">⎈</span>
+              What you get
+            </h3>
+            <p><strong>A standalone Phoenix app</strong> (port 4001) with:</p>
+            <ul style="margin-top: var(--space-sm); padding-left: var(--space-md);">
+              <li style="color: var(--color-text-secondary); margin-bottom: 0.5rem;">Full task lifecycle management</li>
+              <li style="color: var(--color-text-secondary); margin-bottom: 0.5rem;">Distributed file locking</li>
+              <li style="color: var(--color-text-secondary); margin-bottom: 0.5rem;">LLM-powered knowledge memory</li>
+              <li style="color: var(--color-text-secondary); margin-bottom: 0.5rem;">MCP tool gateway (hot-reloadable)</li>
+              <li style="color: var(--color-text-secondary); margin-bottom: 0.5rem;">Agent presence monitoring</li>
+              <li style="color: var(--color-text-secondary);">Error tracking with resolution workflow</li>
+            </ul>
+            <p style="margin-top: var(--space-md);">
+              <strong>No SDKs.</strong> No vendor lock-in. Any MCP-compatible agent can connect.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer" id="footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div>
+            <div class="footer-brand">Steward ACS</div>
+            <p class="footer-desc">The Agent Coordination System — precise, reliable infrastructure for AI agent fleets. Built with Elixir/Phoenix.</p>
+          </div>
+          <div>
+            <div class="footer-heading">Navigation</div>
+            <ul class="footer-links">
+              <li><a href="#features">Features</a></li>
+              <li><a href="#how-it-works">Architecture</a></li>
+              <li><a href="#quickstart">Quick Start</a></li>
+              <li><a id="footer-docs" role="button" tabindex="0">Documentation</a></li>
+            </ul>
+          </div>
+          <div>
+            <div class="footer-heading">Resources</div>
+            <ul class="footer-links">
+              <li><a href="#">GitHub</a></li>
+              <li><a href="#">Hex.pm</a></li>
+              <li><a href="#">API Reference</a></li>
+              <li><a href="#">Changelog</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>&copy; 2026 Steward ACS. Open source under MIT License.</span>
+          <span>Built with Elixir &middot; Phoenix &middot; OTP</span>
+        </div>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- ============================================================
+       DOCUMENTATION VIEW
+       ============================================================ -->
+  <div class="docs-view" id="docs-view">
+
+    <div class="container">
+      <div class="docs-layout">
+
+        <!-- Sidebar -->
+        <aside class="docs-sidebar" id="docs-sidebar">
+          <div class="docs-sidebar-heading">Documentation</div>
+          <ul class="docs-nav" id="docs-nav">
+            <li><a class="active" data-section="docs-getting-started">Getting Started</a></li>
+            <li><a data-section="docs-agent-usage">Agent Usage</a></li>
+            <li><a data-section="docs-config">Configuration</a></li>
+            <li><a data-section="docs-tools">Tools Reference</a></li>
+            <li><a data-section="docs-architecture">Architecture</a></li>
+          </ul>
+          <div style="margin-top: var(--space-lg);">
+            <a id="docs-back" role="button" tabindex="0" style="font-size:0.85rem; color:var(--color-text-muted); cursor:pointer;">← Back to Home</a>
+          </div>
+        </aside>
+
+        <!-- Content -->
+        <div class="docs-content" id="docs-content">
+
+          <!-- GETTING STARTED -->
+          <section class="section" id="docs-getting-started">
+            <h2>Getting Started</h2>
+
+            <h3>Docker Quick-Start</h3>
+            <p>The fastest way to get Steward ACS running is with Docker Compose. The project includes a pre-configured <code>docker-compose.steward_acs.yml</code> file that sets up the application with PostgreSQL.</p>
+
+            <div class="code-block">
+              <div class="code-block-header">
+                <span class="code-block-label">Terminal</span>
+                <button class="code-block-copy" data-copy="docs-docker">Copy</button>
+              </div>
+              <pre id="docs-docker"><code><span class="cm"># Clone the repository</span>
+git clone <span class="str">https://github.com/NaharEmet/steward_acs.git</span>
+cd steward_acs
+
+<span class="cm"># Generate a secret key base</span>
+echo <span class="str">"SECRET_KEY_BASE=$(mix phx.gen.secret)"</span> >> .env
+
+<span class="cm"># Set the database URL</span>
+echo <span class="str">"DATABASE_URL=ecto://postgres:postgres@localhost:5432/acs"</span> >> .env
+
+<span class="cm"># Start the stack</span>
+docker compose -f docker-compose.steward_acs.yml up -d
+
+<span class="cm"># Verify health</span>
+curl <span class="fn">http://localhost:4001/health</span>
+<span class="cm"># → {"status":"ok","version":"1.0.0"}</span></code></pre>
+            </div>
+
+            <h3>Production Setup</h3>
+            <p>For production deployments, you'll need:</p>
+            <ul>
+              <li>A PostgreSQL database (version 14+)</li>
+              <li>A secret key base for session signing</li>
+              <li>Appropriate environment variables (see <a data-section="docs-config" class="docs-internal-link">Configuration Reference</a>)</li>
+            </ul>
+
+            <div class="code-block">
+              <div class="code-block-header">
+                <span class="code-block-label">Production</span>
+                <button class="code-block-copy" data-copy="docs-prod">Copy</button>
+              </div>
+              <pre id="docs-prod"><code><span class="cm"># Build release</span>
+MIX_ENV=prod mix distillery.release
+
+<span class="cm"># Run (or use systemd / container orchestration)</span>
+PORT=4001 \
+  SECRET_KEY_BASE=<span class="str">"your-secret"</span> \
+  DATABASE_URL=<span class="str">"ecto://user:pass@host:5432/acs"</span> \
+  ACS_CLUSTER_NAME=<span class="str">"production"</span> \
+  POOL_SIZE=<span class="num">20</span> \
+  _build/prod/rel/steward_acs/bin/steward_acs start</code></pre>
+            </div>
+
+            <h3>Verifying the Installation</h3>
+            <p>Once running, check these endpoints:</p>
+            <ul>
+              <li><code>GET /health</code> — Health check with version info</li>
+              <li><code>GET /api/tools</code> — List all registered MCP tools</li>
+              <li><code>GET /api/presence</code> — See active agents</li>
+            </ul>
+          </section>
+
+          <!-- AGENT USAGE -->
+          <section class="section" id="docs-agent-usage">
+            <h2>Agent Usage Guide</h2>
+
+            <p>Agents interact with Steward ACS through MCP tool calls. The workflow follows a predictable pattern: <strong>prepare → claim → work → save → release</strong>.</p>
+
+            <div class="workflow-steps">
+              <div class="workflow-step">
+                <div class="workflow-step-label">Step 1</div>
+                <div class="workflow-step-name">Prepare</div>
+              </div>
+              <div class="workflow-arrow">→</div>
+              <div class="workflow-step">
+                <div class="workflow-step-label">Step 2</div>
+                <div class="workflow-step-name">Claim</div>
+              </div>
+              <div class="workflow-arrow">→</div>
+              <div class="workflow-step">
+                <div class="workflow-step-label">Step 3</div>
+                <div class="workflow-step-name">Work</div>
+              </div>
+              <div class="workflow-arrow">→</div>
+              <div class="workflow-step">
+                <div class="workflow-step-label">Step 4</div>
+                <div class="workflow-step-name">Save</div>
+              </div>
+              <div class="workflow-arrow">→</div>
+              <div class="workflow-step">
+                <div class="workflow-step-label">Step 5</div>
+                <div class="workflow-step-name">Release</div>
+              </div>
+            </div>
+
+            <h3>Standard Workflow</h3>
+
+            <div class="code-block">
+              <div class="code-block-header">
+                <span class="code-block-label">Elixir</span>
+                <button class="code-block-copy" data-copy="agent-workflow">Copy</button>
+              </div>
+              <pre id="agent-workflow"><code><span class="cm"># Before starting work — get context</span>
+generate_guidance_packet(scope_path: <span class="str">"my/area"</span>)
+search_memories(query: <span class="str">"relevant topic"</span>)
+
+<span class="cm"># Step 1: Create and claim a task</span>
+create_work(agent_id: <span class="str">"MyAgent"</span>, title: <span class="str">"Implement feature X"</span>)
+<span class="cm"># → task_id: "abc-123"</span>
+
+claim_work(agent_id: <span class="str">"MyAgent"</span>, task_id: <span class="str">"abc-123"</span>)
+
+<span class="cm"># Step 2: Lock files before editing</span>
+lock_file(agent_id: <span class="str">"MyAgent"</span>, task_id: <span class="str">"abc-123"</span>, file_path: <span class="str">"lib/my_module.ex"</span>)
+
+<span class="cm"># Step 3: Do the work (edit files, run tests, etc.)</span>
+<span class="cm"># ...</span>
+
+<span class="cm"># Step 4: Save learnings for future agents</span>
+save_memory(
+  kind: <span class="str">"learning"</span>,
+  title: <span class="str">"Pattern: use guard clauses for edge cases"</span>,
+  content: <span class="str">"..."</span>,
+  scope_path: <span class="str">"my/area"</span>
+)
+
+<span class="cm"># Step 5: Release the task (also unlocks all files)</span>
+release_work(agent_id: <span class="str">"MyAgent"</span>, task_id: <span class="str">"abc-123"</span>)
+
+<span class="cm"># Step 6: Submit feedback to auto-generate memories</span>
+submit_task_feedback(
+  task_id: <span class="str">"abc-123"</span>,
+  agent_id: <span class="str">"MyAgent"</span>,
+  learned_for_agents: <span class="str">"..."</span>
+)</code></pre>
+            </div>
+
+            <h3>Tool Categories</h3>
+            <p>Steward ACS tools are organized by category. Each category serves a specific purpose in the agent workflow.</p>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Core Tools</div>
+              <div class="tool-list">
+                <div class="tool-item">create_work</div>
+                <div class="tool-item">claim_work</div>
+                <div class="tool-item">release_work</div>
+                <div class="tool-item">lock_file</div>
+                <div class="tool-item">unlock_file</div>
+                <div class="tool-item">get_present_status</div>
+                <div class="tool-item">list_tasks</div>
+                <div class="tool-item">sleep</div>
+                <div class="tool-item">wake</div>
+                <div class="tool-item">help</div>
+              </div>
+            </div>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Knowledge Tools</div>
+              <div class="tool-list">
+                <div class="tool-item">save_memory</div>
+                <div class="tool-item">search_memories</div>
+                <div class="tool-item">list_memories</div>
+                <div class="tool-item">set_memory_status</div>
+                <div class="tool-item">generate_guidance_packet</div>
+              </div>
+            </div>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Cognition Tools</div>
+              <div class="tool-list">
+                <div class="tool-item">cognition_get</div>
+                <div class="tool-item">cognition_search</div>
+                <div class="tool-item">cognition_propose</div>
+                <div class="tool-item">cognition_approve</div>
+                <div class="tool-item">cognition_reject</div>
+                <div class="tool-item">cognition_list</div>
+                <div class="tool-item">cognition_list_undocumented</div>
+              </div>
+            </div>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Diagnostic Tools</div>
+              <div class="tool-list">
+                <div class="tool-item">config_lookup</div>
+                <div class="tool-item">connection_diagnostic</div>
+                <div class="tool-item">find_similar_code</div>
+                <div class="tool-item">memory_health_check</div>
+                <div class="tool-item">get_logs</div>
+              </div>
+            </div>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Advanced Tools</div>
+              <div class="tool-list">
+                <div class="tool-item">write_tool</div>
+                <div class="tool-item">list_error_traces</div>
+                <div class="tool-item">ack_error_trace</div>
+                <div class="tool-item">resolve_error_trace</div>
+                <div class="tool-item">create_task_from_error_trace</div>
+                <div class="tool-item">time</div>
+                <div class="tool-item">list_orgs</div>
+                <div class="tool-item">list_categories</div>
+                <div class="tool-item">list_tools</div>
+                <div class="tool-item">refresh_tools</div>
+                <div class="tool-item">exec_command</div>
+                <div class="tool-item">read_file</div>
+                <div class="tool-item">write_file</div>
+                <div class="tool-item">read_dir</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- CONFIGURATION -->
+          <section class="section" id="docs-config">
+            <h2>Configuration Reference</h2>
+            <p>All environment variables that control Steward ACS behavior.</p>
+
+            <table class="docs-table">
+              <thead>
+                <tr>
+                  <th>Variable</th>
+                  <th>Required</th>
+                  <th>Default</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>SECRET_KEY_BASE</td>
+                  <td>Yes</td>
+                  <td>—</td>
+                  <td>Phoenix session signing secret. Generate with <code>mix phx.gen.secret</code>.</td>
+                </tr>
+                <tr>
+                  <td>DATABASE_URL</td>
+                  <td>Yes</td>
+                  <td><code>ecto://postgres:postgres@localhost:5432/acs</code></td>
+                  <td>Database connection string.</td>
+                </tr>
+                <tr>
+                  <td>ACS_CLUSTER_NAME</td>
+                  <td>No</td>
+                  <td><code>default</code></td>
+                  <td>Cluster identity for multi-cluster deployments.</td>
+                </tr>
+                <tr>
+                  <td>ACS_DEVELOPER_NAME</td>
+                  <td>No</td>
+                  <td><code>unknown</code></td>
+                  <td>Developer identity tag for auditing.</td>
+                </tr>
+                <tr>
+                  <td>POOL_SIZE</td>
+                  <td>No</td>
+                  <td><code>10</code></td>
+                  <td>Database connection pool size.</td>
+                </tr>
+                <tr>
+                  <td>AUDITOR_INTERVAL</td>
+                  <td>No</td>
+                  <td><code>30000</code></td>
+                  <td>Memory auditor polling interval in milliseconds.</td>
+                </tr>
+                <tr>
+                  <td>MIMO_API_KEY</td>
+                  <td>No</td>
+                  <td><code>""</code></td>
+                  <td>MIMO LLM API key for embeddings and synthesis.</td>
+                </tr>
+                <tr>
+                  <td>OLLAMA_URL</td>
+                  <td>No</td>
+                  <td><code>http://localhost:11434</code></td>
+                  <td>Ollama endpoint URL for local embeddings.</td>
+                </tr>
+                <tr>
+                  <td>ENABLED_LLM_PROVIDERS</td>
+                  <td>No</td>
+                  <td><code>All</code></td>
+                  <td>Comma-separated whitelist of enabled LLM providers.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- TOOLS REFERENCE -->
+          <section class="section" id="docs-tools">
+            <h2>Tools Reference</h2>
+            <p>Complete reference of all <code>acs_*</code> MCP tools, organized by category with their access levels.</p>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Core Tools (Level 1)</div>
+              <table class="docs-table">
+                <thead>
+                  <tr><th>Tool</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>create_work</td><td>Create a new task with similar-task warnings</td></tr>
+                  <tr><td>claim_work</td><td>Claim a task — returns guidance packet</td></tr>
+                  <tr><td>release_work</td><td>Release a task — returns feedback prompt</td></tr>
+                  <tr><td>lock_file</td><td>Lock a file before editing</td></tr>
+                  <tr><td>unlock_file</td><td>Unlock a file (single or all for a task)</td></tr>
+                  <tr><td>get_present_status</td><td>See what all agents are working on</td></tr>
+                  <tr><td>list_tasks</td><td>List tasks with optional status filter</td></tr>
+                  <tr><td>sleep</td><td>Put agent to sleep until a task arrives</td></tr>
+                  <tr><td>wake</td><td>Manually wake a sleeping agent</td></tr>
+                  <tr><td>help</td><td>Comprehensive reference of all MCP tools</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Knowledge Tools (Level 1)</div>
+              <table class="docs-table">
+                <thead>
+                  <tr><th>Tool</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>save_memory</td><td>Save an eternal truth as knowledge memory</td></tr>
+                  <tr><td>search_memories</td><td>Full-text search across approved memories</td></tr>
+                  <tr><td>list_memories</td><td>Browse existing knowledge for an area</td></tr>
+                  <tr><td>set_memory_status</td><td>Update a memory's status (approve/reject)</td></tr>
+                  <tr><td>generate_guidance_packet</td><td>Get structured guidance for a scope</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Cognition Tools (Level 1)</div>
+              <table class="docs-table">
+                <thead>
+                  <tr><th>Tool</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>cognition_get</td><td>Get the full spec for a module</td></tr>
+                  <tr><td>cognition_search</td><td>Full-text search across cognition specs</td></tr>
+                  <tr><td>cognition_propose</td><td>Propose a new spec or update existing</td></tr>
+                  <tr><td>cognition_approve</td><td>Approve a proposed spec</td></tr>
+                  <tr><td>cognition_reject</td><td>Soft-reject a proposed spec</td></tr>
+                  <tr><td>cognition_list</td><td>List all cognition specs</td></tr>
+                  <tr><td>cognition_list_undocumented</td><td>Scan for modules without specs</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Diagnostic Tools (Level 1)</div>
+              <table class="docs-table">
+                <thead>
+                  <tr><th>Tool</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>config_lookup</td><td>Look up opencode configuration settings</td></tr>
+                  <tr><td>connection_diagnostic</td><td>Check if external services are reachable</td></tr>
+                  <tr><td>find_similar_code</td><td>Semantic search for similar code patterns</td></tr>
+                  <tr><td>memory_health_check</td><td>Check health of the memory system</td></tr>
+                  <tr><td>get_logs</td><td>Retrieve application logs with filtering</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="tool-category">
+              <div class="tool-category-title">Advanced Tools (Level 1–3)</div>
+              <table class="docs-table">
+                <thead>
+                  <tr><th>Tool</th><th>Level</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>write_tool</td><td>1</td><td>Register a new MCP tool dynamically</td></tr>
+                  <tr><td>list_error_traces</td><td>1</td><td>List persistent error traces</td></tr>
+                  <tr><td>ack_error_trace</td><td>1</td><td>Acknowledge an error trace</td></tr>
+                  <tr><td>resolve_error_trace</td><td>1</td><td>Mark an error trace as resolved</td></tr>
+                  <tr><td>create_task_from_error_trace</td><td>1</td><td>Create investigation task from error</td></tr>
+                  <tr><td>time</td><td>3</td><td>Get or set ACS time offset</td></tr>
+                  <tr><td>list_orgs</td><td>1</td><td>List all organizations</td></tr>
+                  <tr><td>list_categories</td><td>1</td><td>List all tool categories</td></tr>
+                  <tr><td>list_tools</td><td>1</td><td>List tools in a category</td></tr>
+                  <tr><td>refresh_tools</td><td>1</td><td>Force reload tool definitions</td></tr>
+                  <tr><td>exec_command</td><td>1</td><td>Execute a shell command</td></tr>
+                  <tr><td>read_file</td><td>1</td><td>Read a file from the filesystem</td></tr>
+                  <tr><td>write_file</td><td>1</td><td>Write content to a file</td></tr>
+                  <tr><td>read_dir</td><td>1</td><td>List directory contents</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ARCHITECTURE -->
+          <section class="section" id="docs-architecture">
+            <h2>Architecture</h2>
+
+            <p>Steward ACS is designed as a modular, layered system optimized for AI agent coordination.</p>
+
+            <div class="arch-description">
+              <p>
+                <strong>Steward ACS</strong> runs as a standalone Phoenix web application (port 4001). It exposes MCP tools (<code>acs_*</code> prefix) that AI agents call directly. The system uses ETS for fast in-memory caching with a PostgreSQL (production) or SQLite3 (development) database for persistence. A background sweeper handles auto-release of stale tasks and locks. The MCP Gateway routes agent tool calls to internal Elixir handlers or external REST APIs via HTTP bridge.
+              </p>
+            </div>
+
+            <h3>System Layers</h3>
+
+            <h4>1. MCP Tool Gateway</h4>
+            <p>The outermost layer. All agent interactions flow through the MCP Gateway. Tool definitions are stored as YAML files and can be hot-reloaded without restarting the server. The gateway supports two handler types: internal Elixir modules (compiled) and external REST endpoints (HTTP bridge).</p>
+
+            <h4>2. Core Engine</h4>
+            <p>The central coordination logic, built with Elixir OTP. Key subsystems:</p>
+            <ul>
+              <li><strong>Task Manager</strong> — GenServer-based lifecycle management. Creates, claims, and releases work units. 10-minute auto-release timer prevents stuck tasks. Similar-task detection uses fuzzy matching on task titles.</li>
+              <li><strong>Lock Manager</strong> — Distributed file locking via ETS. Prevents multi-agent edit conflicts. Locks auto-release after inactivity (tied to task lifecycle).</li>
+              <li><strong>Memory Store</strong> — Vector database for semantic search. Stores "eternal truths" — patterns, decisions, warnings. Uses LLM-generated embeddings for similarity search.</li>
+              <li><strong>Presence System</strong> — Real-time agent tracking. Reports current task, purpose, application, and component for every connected agent.</li>
+              <li><strong>Error Registry</strong> — Persistent error traces with acknowledgment and resolution workflow. Create investigation tasks directly from error traces.</li>
+            </ul>
+
+            <h4>3. Persistence Layer</h4>
+            <p>Three-tier storage strategy:</p>
+            <ul>
+              <li><strong>ETS (in-memory)</strong> — Fast access for locks, presence, and active tasks. Sub-millisecond reads.</li>
+              <li><strong>PostgreSQL (production)</strong> — Full persistence for tasks, memories, errors, and configuration.</li>
+              <li><strong>SQLite3 (development)</strong> — Zero-config database for local development.</li>
+            </ul>
+
+            <h4>4. Background Processes</h4>
+            <ul>
+              <li><strong>Sweeper</strong> — Periodically scans for stale tasks and locks. Auto-releases after 10 minutes of inactivity.</li>
+              <li><strong>Memory Auditor</strong> — Validates memory quality and flags low-quality entries.</li>
+              <li><strong>Synthesis Engine</strong> — Clusters related claims into synthesized insights.</li>
+            </ul>
+
+            <h3>Data Flow</h3>
+            <div class="code-block">
+              <div class="code-block-header">
+                <span class="code-block-label">Sequence</span>
+                <button class="code-block-copy" data-copy="arch-flow">Copy</button>
+              </div>
+              <pre id="arch-flow"><code><span class="cm">## Agent → ACS tool call flow ##</span>
+
+<span class="fn">Agent</span>──acs_create_work──▶<span class="fn">MCP Gateway</span>
+                               │
+                               ▼
+                          <span class="fn">Router</span> (YAML-defined)
+                               │
+                    ┌──────────┼──────────┐
+                    ▼          ▼          ▼
+              <span class="fn">TaskMgr</span>   <span class="fn">LockMgr</span>   <span class="fn">Memory</span>
+                    │          │          │
+                    ▼          ▼          ▼
+              ┌─────────────────────────────┐
+              │      ETS Cache Layer        │
+              └──────────┬──────────────────┘
+                         ▼
+              ┌──────────────────────┐
+              │  PostgreSQL / SQLite  │
+              └──────────────────────┘</code></pre>
+            </div>
+
+            <h3>Multi-Cluster Architecture</h3>
+            <p>Steward ACS supports multiple independent clusters. Each cluster is identified by <code>ACS_CLUSTER_NAME</code> and maintains its own isolated task, lock, and memory namespace. This enables separate environments for development, staging, and production — or independent clusters per team within the same organization.</p>
+          </section>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
