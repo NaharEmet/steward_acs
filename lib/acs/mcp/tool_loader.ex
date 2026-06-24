@@ -90,10 +90,16 @@ defmodule Acs.MCP.ToolLoader do
         {:ok, app_config} ->
           app_name = app_config["app"]
           {:ok, Map.update(acc, app_name, app_config, fn existing ->
-            Map.update(existing, "tools", app_config["tools"], fn existing_tools ->
-              existing_tools ++ app_config["tools"]
-            end)
-          end)}
+          if existing["version"] != app_config["version"] do
+            Logger.warning(
+              "Version mismatch for app '#{app_name}': existing '#{existing["version"]}', file '#{file}' has '#{app_config["version"]}' — using existing version"
+            )
+          end
+
+          Map.update(existing, "tools", app_config["tools"], fn existing_tools ->
+            existing_tools ++ app_config["tools"]
+          end)
+        end)}
 
         {:error, reason} ->
           Logger.warning("Failed to load tool file #{file}: #{reason}")
@@ -193,7 +199,7 @@ defmodule Acs.MCP.ToolLoader do
     errors = []
 
     errors =
-      if is_map_key(config, "version") and not is_binary(config["version"]) do
+      if is_map_key(config, "version") and not (is_binary(config["version"]) and config["version"] != "") do
         ["'version' must be a string" | errors]
       else
         errors
@@ -213,7 +219,7 @@ defmodule Acs.MCP.ToolLoader do
         ["source", "description", "homepage"]
         |> Enum.filter(&is_map_key(plugin, &1))
         |> Enum.reduce(errors, fn key, acc ->
-          if is_binary(plugin[key]) do
+          if is_binary(plugin[key]) and plugin[key] != "" do
             acc
           else
             ["'plugin.#{key}' must be a string" | acc]

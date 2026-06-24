@@ -243,7 +243,7 @@ defmodule Acs.MCP.ToolRegistry do
         {:reply, result, state}
 
       "refresh_tools" ->
-        case load_tools(%{state | tools: %{}, by_app: %{}, by_category: %{}, apps: []}) do
+        case load_tools(%{state | tools: %{}, by_app: %{}, by_category: %{}, apps: [], apps_meta: %{}}) do
           {:ok, new_state} ->
             result = {:ok, %{refreshed: map_size(new_state.tools), apps: new_state.apps}}
 
@@ -340,7 +340,7 @@ defmodule Acs.MCP.ToolRegistry do
 
   @impl true
   def handle_call(:refresh, _from, state) do
-    case load_tools(%{state | tools: %{}, by_app: %{}, by_category: %{}, apps: []}) do
+    case load_tools(%{state | tools: %{}, by_app: %{}, by_category: %{}, apps: [], apps_meta: %{}}) do
       {:ok, new_state} ->
         Logger.info("ToolRegistry refreshed: #{map_size(new_state.tools)} tools")
         {:reply, :ok, new_state}
