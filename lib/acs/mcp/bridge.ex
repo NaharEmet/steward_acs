@@ -76,6 +76,7 @@ defmodule Acs.MCP.Bridge do
         case request_with_opts(req_opts) do
           {:ok, %{status: status, body: body}} when status in 200..299 ->
             result = format_response(body, tool_name)
+            result = maybe_transform_response(result, tool_def)
             # Handle session creation for ant_authenticate
             result = maybe_store_session(tool_name, result, api_key)
             {:ok, result}
@@ -267,4 +268,48 @@ defmodule Acs.MCP.Bridge do
 
   defp format_error_body(body) when is_binary(body), do: body
   defp format_error_body(body), do: inspect(body)
+
+  # --- Response Transform ---
+
+  defp maybe_transform_response(result, tool_def) do
+    transform = tool_def["response_transform"]
+
+    cond do
+      is_nil(transform) ->
+        result
+
+      extract_key = transform["extract_key"] ->
+        result = extract_key_response(result, extract_key)
+
+        if transform["index"] do
+          index_results(result)
+        else
+          result
+        end
+
+      true ->
+        result
+    end
+  end
+
+  defp extract_key_response(result, key) do
+    case result do
+      %{^key => value} when is_list(value) -> value
+      %{} -> result
+      _ -> result
+    end
+  end
+
+  defp index_results(results) when is_list(results) do
+    indexed =
+      results
+      |> Enum.with_index()
+      |> Map.new(fn {item, idx} -> {Integer.to_string(idx), item} end)
+
+    ids = Enum.map(0..(length(results) - 1), fn i -> Integer.to_string(i) end)
+    %{"results" => indexed, "ids" => ids}
+  end
+
+  defp index_results(%{"results" => _} = already_indexed), do: already_indexed
+  defp index_results(other), do: other
 end

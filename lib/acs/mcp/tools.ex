@@ -1,6 +1,5 @@
 defmodule Acs.MCP.Tools do
   @moduledoc "MCP Tool definitions and implementations for Acs."
-  alias Acs.MCP.Tools.AnanthaQuery
   alias Acs.MCP.Tools.CoreHandlers
   alias Acs.MCP.Tools.DynamicTools
   alias Acs.MCP.Tools.MemoryHandlers
@@ -505,18 +504,6 @@ defmodule Acs.MCP.Tools do
     "read_dir" => &ClusterHandlers.read_dir/1
   }
 
-  @gated_tools %{
-    "anantha_search_memory" => &AnanthaQuery.search_memory/1,
-    "anantha_get_synthesis" => &AnanthaQuery.get_synthesis/1,
-    "ant_get_claim" => &AnanthaQuery.get_claim/1,
-    "ant_get_observation" => &AnanthaQuery.get_observation/1,
-    "anantha_get_source_excerpt" => &AnanthaQuery.get_source_excerpt/1,
-    "anantha_get_entity" => &AnanthaQuery.get_entity/1,
-    "anantha_execute_query" => &AnanthaQuery.execute_query/1,
-    "anantha_export_dataset" => &AnanthaQuery.export_dataset/1,
-    "anantha_drilldown" => &AnanthaQuery.drilldown/1
-  }
-
   defp dispatch_map do
     # Tools needing closures (partial application) built at runtime
     %{
@@ -548,18 +535,8 @@ defmodule Acs.MCP.Tools do
               fun.(args)
 
             :error ->
-              case Map.fetch(@gated_tools, name) do
-                {:ok, fun} ->
-                  if anantha_tools_enabled?() do
-                    fun.(args)
-                  else
-                    {:error, "Anantha tools not enabled. Set config :steward_acs, :anantha_tools_enabled, true"}
-                  end
-
-                :error ->
-                  {:error, "Unknown tool: #{name}"}
+              {:error, "Unknown tool: #{name}"}
           end
-        end
       end
 
     Logger.info("MCP tool response: #{name} - #{tool_response_summary(name, result)}")
@@ -674,34 +651,6 @@ defmodule Acs.MCP.Tools do
   defp tool_action_summary("submit_task_feedback", %{"task_id" => task_id}),
     do: "submit feedback for task=#{task_id}"
 
-  # Anantha tools
-  defp tool_action_summary("anantha_search_memory", %{"query" => query}),
-    do: "search memory: #{query}"
-
-  defp tool_action_summary("anantha_get_synthesis", %{"id" => id}),
-    do: "get synthesis: #{id}"
-
-  defp tool_action_summary("anantha_get_claim", %{"id" => id}),
-    do: "get claim: #{id}"
-
-  defp tool_action_summary("anantha_get_observation", %{"id" => id}),
-    do: "get observation: #{id}"
-
-  defp tool_action_summary("anantha_get_source_excerpt", %{"id" => id}),
-    do: "get source excerpt: #{id}"
-
-  defp tool_action_summary("anantha_get_entity", %{"id" => id}),
-    do: "get entity: #{id}"
-
-  defp tool_action_summary("anantha_execute_query", %{"dataset" => dataset}),
-    do: "execute query on dataset: #{dataset}"
-
-  defp tool_action_summary("anantha_export_dataset", %{"dataset" => dataset}),
-    do: "export dataset: #{dataset}"
-
-  defp tool_action_summary("anantha_drilldown", %{"query_id" => qid, "row_index" => idx}),
-    do: "drilldown query=#{qid} row=#{idx}"
-
   # Cluster tools
   defp tool_action_summary("exec_command", %{"command" => cmd}),
     do: "exec: #{cmd}"
@@ -721,9 +670,5 @@ defmodule Acs.MCP.Tools do
   defp tool_action_summary("read_dir", _args), do: "list dir"
 
   defp tool_action_summary(_name, _args), do: "called"
-
-  defp anantha_tools_enabled? do
-    Application.get_env(:steward_acs, :anantha_tools_enabled, false)
-  end
 
 end
