@@ -319,7 +319,9 @@ defmodule Acs.MCP.ToolLoader do
         "method" => tool["method"],
         "handler" => tool["handler"],
         "params" => params,
-        "permissions" => tool["permissions"]
+        "permissions" => tool["permissions"],
+        "timeout" => tool["timeout"],
+        "response_transform" => tool["response_transform"]
       }
     end)
   end
