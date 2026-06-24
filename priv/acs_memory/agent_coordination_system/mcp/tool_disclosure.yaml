@@ -1,0 +1,53 @@
+content: |
+  ## Progressive Tool Disclosure
+  
+  ### What Changed
+  1. **ToolRegistry.list_tools_mcp/2**: Added `requested_level` parameter (default: 1). MCP `tools/list` now only shows Level 1 tools by default, instead of the previous hardcoded Level 2 filter.
+  
+  2. **Protocol tools/list handler**: Now extracts `level` from incoming params (`params["level"] || 1`) and passes to `list_tools_mcp`. File: `apps/agent_coordination_system/lib/acs/mcp/protocol.ex`
+  
+  3. **Guidance @tool_reference**: Updated with clear documentation of progressive disclosure — agents are told:
+     - Level 1 tools are shown by default
+     - Use `help` to discover ALL tools at all levels
+     - Use `list_tools(level: N)` to see tools at that level and below
+     - All tools are callable by name regardless of level
+  
+  ### How Agents Discover Higher Levels
+  - **help tool (Level 1)**: Lists ALL tools from all levels with full details — always accessible
+  - **list_tools(level: N)**: Returns tools at level N and below
+  - **Direct invocation**: Any tool can be called by name regardless of its level
+  
+  ### Files Modified
+  - `apps/agent_coordination_system/lib/acs/mcp/tool_registry.ex`
+  - `apps/agent_coordination_system/lib/acs/mcp/protocol.ex`
+  - `apps/agent_coordination_system/lib/acs/memory/guidance.ex`
+  
+  No changes needed to `acs/acstools/acs.yaml` — the `help` tool description already accurately says "only shows level 1."
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_progressive_tool_disclosure_implementation
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/tool_disclosure
+status: approved
+summary: ToolRegistry.list_tools_mcp now accepts a requested_level parameter (default 1), Protocol tools/list extracts level from params, and Guidance module explains progressive disclosure.
+tags:
+  - progressive-disclosure
+  - mcp
+  - tools
+  - levels
+title: Progressive Tool Disclosure Implementation
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.111735Z"
+  approved_by: human
+  status: approved

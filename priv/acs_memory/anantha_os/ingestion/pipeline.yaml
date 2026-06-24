@@ -1,0 +1,32 @@
+content: |
+  The webhook path in `Ingestion.Pipeline.maybe_create_message/2` now calls `ExtractionWorker.trigger_org(payload.org_id)` after successfully creating and enqueueing a message. This ensures the webhook path (which goes through `Ingestion.Pipeline`, not `InboundPipeline`) triggers instant extraction rather than waiting for the periodic timer.
+  
+  Previously, `ExtractionWorker.trigger_org` was only added to `InboundPipeline`, but the webhook path through `Ingestion.Pipeline` was missed. This caused a delay in extraction for webhook-ingested data.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_webhook_path_now_triggers_instant_extraction_via_e
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/pipeline
+status: approved
+summary:
+tags:
+  - ingestion
+  - webhook
+  - extraction
+  - pipeline
+title: Webhook path now triggers instant extraction via ExtractionWorker.trigger_org
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.471524Z"
+  approved_by: human
+  status: approved

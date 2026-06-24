@@ -1,0 +1,32 @@
+content: "When `phx-update=\"ignore\"` is on the same element that carries a `data-*` attribute being updated by LiveView, the attribute update is silently dropped. The `phx-update=\"ignore\"` directive tells LiveView to skip DOM diffing for that element entirely — including attribute changes. Always nest: put `phx-update=\"ignore\"` on an inner wrapper that contains only elements that need ignore behavior, while the outer element (with dynamic attributes) gets normal LiveView patching."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_phx_update_ignore_blocks_data_attribute_updates_on
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix_liveview/dom_patching
+status: approved
+summary: phx-update="ignore" blocks data-* attribute updates on same element
+tags:
+  - phoenix
+  - liveview
+  - phx-update
+  - data-attribute
+  - dom-patching
+title: phx-update="ignore" blocks data-* attribute updates on same element
+triggers:
+  - phx-update ignore data-chart-data
+  - LiveView attribute not updating
+  - chart data not refreshing
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.749121Z"
+  approved_by: human
+  status: approved

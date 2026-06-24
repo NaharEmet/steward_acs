@@ -1,0 +1,29 @@
+content: When returning Ecto query results as JSON API responses, Ecto structs can't be serialized by Jason because they contain internal metadata (`__meta__`), unloaded associations (`Ecto.Association.NotLoaded`), and schema metadata values. Convert structs to maps using `Map.from_struct/1` then strip `__meta__`, reject values matching `is_struct(v, Ecto.Association.NotLoaded)` or `%Ecto.Schema.Metadata{}`. Also, Ecto enum values in the database that don't match the schema enum will cause `ArgumentError` during struct loading - use `select` parameter to return only specific fields as maps to bypass this.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_ecto_struct_to_map_conversion_for_json_api_respons
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query
+status: approved
+summary:
+tags:
+  - ecto
+  - json
+  - serialization
+  - jason
+  - struct
+title: Ecto struct-to-map conversion for JSON API responses
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.725154Z"
+  approved_by: human
+  status: approved

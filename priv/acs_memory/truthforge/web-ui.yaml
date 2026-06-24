@@ -1,0 +1,28 @@
+content: Truthforge.History stores runs as `%Entry{}` structs containing `%ScoreCard{}` with aggregated per-type metrics. LiveView templates should NOT access Entry/ScoreCard fields directly. Instead use `entry_to_display_data/1` to transform into a flat map with percent-scaled pass_rates (* 100), converted per_type map to sorted list, and resolved trend from Summary. This decouples UI from backend data model. The review page shows per-type breakdown (not per-scenario) since individual evaluation results aren't persisted in History. Coverage data (CoverageReport) is NOT stored in History entries — it's only available during the Runner run cycle. For per-scenario review, Runner.evaluation_results would need to be stored separately.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_truthforge_liveview_must_transform_entry_scorecard
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: truthforge/web-ui
+status: approved
+summary:
+tags:
+  - truthforge
+  - liveview
+  - data-model
+  - scoring
+title: Truthforge LiveView must transform Entry/ScoreCard structs for templates
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.337031Z"
+  approved_by: human
+  status: approved

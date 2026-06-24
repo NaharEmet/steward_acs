@@ -1,0 +1,39 @@
+content: |
+  Client-side LiveView JS hooks call `this.pushEvent('event_name')` which dispatches to `handle_event("event_name", _params, socket)` on the server — NOT `handle_info/2`.
+  
+  **Common gotcha:** `handle_info/2` handles Elixir process messages sent via `send/2` (e.g., from `Process.send_after`). If you expect a client-pushed event but define `handle_info`, the event is silently dropped by LiveView with no error.
+  
+  **Pattern for polling dashboard charts:**
+  - Client (JS hook): `this.pushEvent('refresh_chart_data')` in the hook's `updated()` callback
+  - Server: `def handle_event("refresh_chart_data", _params, socket)` — collects system stats and assigns to socket
+  
+  The event name string must match exactly between client (`pushEvent`) and server (`handle_event`). Event names are always strings (not atoms) on the client side.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_liveview_handle_info_vs_handle_event_client_events
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/liveview/event-handling
+status: approved
+summary:
+tags:
+  - phoenix-liveview
+  - handle_info
+  - handle_event
+  - js-hooks
+  - event-handling
+title: "LiveView handle_info vs handle_event: client events use handle_event"
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.896337Z"
+  approved_by: human
+  status: approved

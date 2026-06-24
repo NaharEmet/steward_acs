@@ -1,0 +1,29 @@
+content: "When refactoring `Acs.LLM` module, the `provider_enabled?/1` private function is critical. It checks the `:enabled_llm_providers` application env whitelist — empty list means all providers enabled. This function must be preserved during refactoring. It is called from both `try_providers/5` and `get_enabled_providers/0`."
+created_at: "2026-06-21T12:17:09.947192Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_provider_enabled_function_needed_in_acs__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary: Don't delete provider_enabled?/1 in Acs.LLM refactors
+tags:
+  - acs
+  - llm
+  - provider
+  - refactoring
+title: provider_enabled? function needed in Acs.LLM when refactoring
+triggers: []
+updated_at: "2026-06-21T12:17:09.947208Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

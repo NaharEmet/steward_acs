@@ -1,0 +1,27 @@
+content: "get_present_status/0 must use Map.get for optional fields (:current_task_id, :application, :component) because agents can register with minimal status maps (e.g., %{purpose: \"active\"}) that lack these keys. Dot notation raises KeyError and crashes ToolRegistry GenServer."
+created_at: "2026-06-21T10:05:13.070374Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e2379dfb_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs
+status: proposed
+summary: "get_present_status/0 must use Map.get for optional fields (:current_task_id, :application, :component) because agents can register with minimal status maps (e.g., %{purpose: \"active\"}) that lack these"
+tags:
+  - feedback
+  - learning
+title: Key learning from task e2379dfb
+triggers: []
+updated_at: "2026-06-21T10:05:13.070390Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,50 @@
+content: |
+  Safety Connect CRM data (deals, contacts, companies) can be sent through the webhook endpoint by pre-formatting each record as a normalized payload with `source_type` and `source_id` in the payload body to bypass adapter lookup.
+  
+  Format for CRM webhook payload:
+  ```json
+  {
+    "source_type": "safety_connect",
+    "payload": {
+      "source_type": "safety_connect_deals",
+      "source_id": "{external_id}",
+      "org_id": "{org_uuid}",
+      "content": "Formatted description of the record...",
+      "raw_metadata": {full record data as map},
+      "external_actor_id": "{identifier}",
+      "retry_count": 0
+    }
+  }
+  ```
+  
+  This creates Events with entity_type matching the payload's source_type ("safety_connect_deals", "safety_connect_contacts", "safety_connect_companies") and EvidenceClusters with source_type "connector_ingest" (the fallback in normalize_source_type/1).
+  
+  Note: Sending individual records through the webhook creates Events + EvidenceClusters + async extraction. It does NOT run the full CRM pipeline (FieldClassifier, ClaimExtractor, IdentityResolver, RelationshipExtractor) that `Anantha.CRM.process_crm_records_batch/2` provides.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_crm_safety_connect_data_through_webhook
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: ingestion/safety_connect
+status: approved
+summary:
+tags:
+  - safety_connect
+  - crm
+  - webhook
+  - data_format
+title: CRM Safety Connect data through webhook
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.383924Z"
+  approved_by: human
+  status: approved

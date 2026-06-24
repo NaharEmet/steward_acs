@@ -1,0 +1,55 @@
+content: |
+  ## God Module Split Strategies
+  
+  ### Pattern 1: Public API + Pipeline (DotPrompt)
+  For modules with a clear public API + internal pipeline stages:
+  - Keep public API in main file (list, compile, render, cache, validate)
+  - Extract pipeline stages into `Compiler` (compile internals)
+  - Extract domain logic into `AST` (node handlers)
+  - Extract shared utilities into `Helpers` (path resolution, validation, tokens)
+  
+  ### Pattern 2: Dispatch + Lifecycle Phases (ExecutionTools)
+  For modules that dispatch to multiple workflow phases:
+  - Keep only `execute/2` dispatcher + thin delegation functions in main file
+  - Extract each phase: `Triggers`, `Propose`, `Lifecycle` (activate/deactivate/update/delete/list), `IRBuilder`, `Prepare`
+  - Cross-module calls between lifecycle phases are acceptable (e.g., Lifecycle calling Propose.create_pending_workflow_action/4)
+  - Import Ecto.Query inside function bodies when using binding variables like `[m]` — module-level imports cause compile errors with bindings
+  
+  ### Pattern 3: GenServer + Domain Logic (ExtractionWorker)
+  For GenServers with heavy domain logic:
+  - Keep GenServer callbacks + public API in main file (init, handle_call, handle_cast, handle_info, start_link)
+  - Extract pipeline: `Extraction` (cycle management, message processing)
+  - Extract pure functions: `Classification` (memory type mapping)
+  - Extract domain logic: `Sanitization` (actor/direction sanitization, regex extraction)
+  - Module attributes (@module_attr) are compile-time scoped in Elixir — must duplicate in each module that uses them, or extract to shared constants module
+  
+  ### Results from splitting 3 god modules:
+  - DotPrompt: 1668 → 384 lines (77% reduction)
+  - ExecutionTools: 1303 → 55 lines (96% reduction)
+  - ExtractionWorker: 1034 → 284 lines (73% reduction)
+  - 13 new files created total, 3 modified
+  - Zero compilation warnings/errors
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_god_module_split_strategies_by_type
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: codebase/refactoring/god-module-split
+status: approved
+summary: Three different strategies for splitting god modules by architecture type
+tags: []
+title: God module split strategies by type
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.342516Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,27 @@
+content: HubSpot search API fails with 400 for emails/tasks (missing searchable property) and 5xx for transient errors. The fix adds retry with exponential backoff for all non-429 errors (max 3 retries) and falls back to the list API when search API fails after retries. This prevents CRM sync from crashing on emails/tasks sync.
+created_at: "2026-06-23T07:30:53.822829Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_d04dab09_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm.sync_engine
+status: proposed
+summary: HubSpot search API fails with 400 for emails/tasks (missing searchable property) and 5xx for transient errors. The fix adds retry with exponential backoff for all non-429 errors (max 3 retries) and fa
+tags:
+  - feedback
+  - learning
+title: Key learning from task d04dab09
+triggers: []
+updated_at: "2026-06-23T07:30:53.822841Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

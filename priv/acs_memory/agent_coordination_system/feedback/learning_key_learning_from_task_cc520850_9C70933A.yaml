@@ -1,0 +1,27 @@
+content: "Mix tasks in sub-app (apps/agent_coordination_system/) compile/start faster than full root app. Run mix from the sub-app directory to avoid 5s MCP protocol timeout. Key: `cd apps/agent_coordination_system && mix run -e 'Acs.MetaHarness.Generator.generate()'` works, but `mix acs.meta_harness.generate` from root times out. DateTime struct passed as raw Exqlite param caused silent operation logging failure - fix is DateTime.to_iso8601(). Server restart + generation now shows 599 ops, 95.2% success."
+created_at: "2026-06-20T19:39:55.772637Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_cc520850_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "Mix tasks in sub-app (apps/agent_coordination_system/) compile/start faster than full root app. Run mix from the sub-app directory to avoid 5s MCP protocol timeout. Key: `cd apps/agent_coordination_sy"
+tags:
+  - feedback
+  - learning
+title: Key learning from task cc520850
+triggers: []
+updated_at: "2026-06-20T19:39:55.772654Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,41 @@
+content: |
+  Key learnings from ACS anti-pattern refactoring:
+  
+  1. **Dispatch Map Pattern**: Replace 50+ clause `case name do` with module attribute `@dispatch %{"name" => &handler/1}` map. O(1) lookup, cleaner, separates data from control flow.
+  
+  2. **try/rescue → ok tuples**: Many libraries already return `{:ok, _} | {:error, _}` tuples — never wrap them in try/rescue. `Req.request`, `Repo.query`, `File.write`, `Repo.get` all return tuples. Only `Repo.get!` raises — use `Repo.get` + nil match instead.
+  
+  3. **Legitimate rescues**: Port operations (`Port.close`) can raise `ArgumentError` — rescue is appropriate. Best-effort diagnostic functions where crash would cascade — rescue is acceptable but document why.
+  
+  4. **Dynamic atoms**: Use `String.to_existing_atom/1` with validation guards, never `String.to_atom/1` on dynamic input. Better yet: use `with` chain for validation before conversion.
+  
+  5. **Comment cleanup**: Section divider comments (`# ────`) add noise, not signal. Remove them. Use clear function names and @doc instead.
+created_at: "2026-06-21T13:26:15.665568Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_22603bad_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib
+status: proposed
+summary: |
+  Key learnings from ACS anti-pattern refactoring:
+  
+  1. **Dispatch Map Pattern**: Replace 50+ clause `case name do` with module attribute `@dispatch %{"name" => &handler/1}` map. O(1) lookup, cleaner, se
+tags:
+  - feedback
+  - learning
+title: Key learning from task 22603bad
+triggers: []
+updated_at: "2026-06-21T13:26:15.665579Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

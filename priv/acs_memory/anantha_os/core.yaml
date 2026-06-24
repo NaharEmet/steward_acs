@@ -1,0 +1,29 @@
+content: "When multiple entity types (claim, observation, synthesis, hypothesis) all share many-to-many relationships with ontology nodes, use a single `entity_ontology_links` polymorphic join table instead of N separate join tables. The table uses `entity_type` (string discriminator) + `entity_id` (binary_id) for polymorphic references. Ecto `many_to_many` associations use `join_through: \"entity_ontology_links\"`, `join_keys: [entity_id: :id, ontology_node_id: :ontology_node_id]`, and `where: [entity_type: \"type_name\"]` to scope associations. This eliminates 4 redundant tables and simplifies querying across entity types."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_polymorphic_join_via_entity_type_discriminator_for
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core
+status: approved
+summary:
+tags:
+  - ecto
+  - schema
+  - polymorphic
+  - join-table
+  - ontology
+title: Polymorphic join via entity_type discriminator for memory ontologies
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.539964Z"
+  approved_by: human
+  status: approved

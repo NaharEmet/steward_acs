@@ -1,0 +1,30 @@
+content: "The function Anantha.Core.Claims.list_claims/1 (single arity, org_id only) loads ALL claims for an organization into memory with no pagination. For orgs with 500k+ claims this causes DB pool connection timeouts. Always pass a `limit:` option via the two-arity version `list_claims(org_id, limit: N)` to restrict results. The default limit should be a reasonable value like 50."
+created_at: "2026-06-21T11:13:31.711269Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_claims_list_claims_1_loads_all_claims_in_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/core/claims
+status: proposed
+summary:
+tags:
+  - claims
+  - memory
+  - limit
+  - timeout
+  - performance
+title: Claims.list_claims/1 loads ALL claims into memory
+triggers: []
+updated_at: "2026-06-21T11:13:31.711285Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

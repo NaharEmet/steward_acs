@@ -1,0 +1,27 @@
+content: Memory search API returns Internal Server Error, had to read YAML files directly from filesystem to access feedback content.
+created_at: "2026-06-20T14:36:39.381356Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_ae8b4d87_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .opencode.guides
+status: proposed
+summary: Memory search API returns Internal Server Error, had to read YAML files directly from filesystem to access feedback content.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task ae8b4d87
+triggers: []
+updated_at: "2026-06-20T14:36:39.381372Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

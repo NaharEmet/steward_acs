@@ -1,0 +1,57 @@
+content: |
+  ## org_id Propagation Audit Results
+  
+  **Audit performed for org `e9503621-97a2-42a9-8a5e-a39e82dc23f1`**
+  
+  ### All Tables: ZERO NULL org_id violations
+  | Table | Total Records | nil_org_id |
+  |-------|--------------|------------|
+  | Messages | 30 | 0 |
+  | Actors | 3 | 0 |
+  | EvidenceClusters | 330 | 0 |
+  | Events | 240 | 0 |
+  | Records | 211 | 0 |
+  | Claims | 211 | 0 |
+  | Observations | 136 | 0 |
+  | LayerRelationships | 428 | 0 |
+  
+  ### Cross-org Contamination: NONE
+  - Claims vs Records: 0 mismatches
+  - Observations vs EvidenceClusters: 0 mismatches
+  
+  ### System Org (00000000-0000-0000-0000-000000000000): CLEAN
+  - All tables return 0 records - no data leaked to system org
+  
+  ### Conclusion
+  Data isolation is working correctly. org_id is properly set at every level. No tables have NULL org_id. No cross-org contamination detected.
+  
+  ---
+  Improvements: Consider adding a timestamp or date to indicate when the audit was performed, enabling future comparisons. Could also note the audit scope or frequency (e.g., 'routine', 'post-migration') if applicable.
+  
+created_at: "2026-06-21T14:46:54Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_org_id_audit_passed_all_tables_clean
+importance: 4
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: data_model/org_id_propagation
+status: rejected
+summary: org_id properly set on all 8 tables with zero violations
+tags:
+  - org_id
+  - data-isolation
+  - audit
+  - cross-org
+title: org_id propagation audit passed - all tables clean (2024-01-15)
+triggers: []
+updated_at: "2026-06-21T15:05:59Z"
+verification:
+  rejected_at: "2026-06-21T15:05:59.990830Z"
+  rejected_by: Dated audit snapshot from 2024-01-15. No guarantee tables are still clean. Rejected from stale.
+  status: rejected

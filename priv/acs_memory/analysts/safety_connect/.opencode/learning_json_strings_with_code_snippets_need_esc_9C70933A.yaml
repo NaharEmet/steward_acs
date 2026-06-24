@@ -1,0 +1,28 @@
+content: "When embedding code/backtick examples in JSON string values (opencode.json prompts), any double quotes inside the string must be escaped as `\\"`. Even though the double quotes are inside backticks (markdown code syntax), JSON doesn't understand markdown — it still requires proper escaping. Example: `mode: \\"count\\"` instead of `mode: \"count\"`."
+created_at: "2026-06-21T19:37:32.058622Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_json_strings_with_code_snippets_need_esc_9C70933A
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: analysts/safety_connect/.opencode
+status: proposed
+summary:
+tags:
+  - json
+  - escaping
+  - opencode-config
+title: JSON strings with code snippets need escaped quotes
+triggers: []
+updated_at: "2026-06-21T19:37:32.058634Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

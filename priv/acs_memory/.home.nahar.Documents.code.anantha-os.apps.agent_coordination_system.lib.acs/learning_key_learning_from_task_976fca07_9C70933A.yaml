@@ -1,0 +1,27 @@
+content: crm_get_sync_state UndefinedFunctionError was likely transient from server instability during ToolRegistry crash. When investigating CRM tool failures, first verify the server is healthy (get_present_status works). The SyncState module, controller action, and route all exist correctly - transient errors can occur during server startup or GenServer crashes.
+created_at: "2026-06-21T10:07:39.306336Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_976fca07_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs
+status: proposed
+summary: crm_get_sync_state UndefinedFunctionError was likely transient from server instability during ToolRegistry crash. When investigating CRM tool failures, first verify the server is healthy (get_present_
+tags:
+  - feedback
+  - learning
+title: Key learning from task 976fca07
+triggers: []
+updated_at: "2026-06-21T10:07:39.306349Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

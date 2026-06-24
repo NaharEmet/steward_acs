@@ -1,0 +1,29 @@
+content: "Port-based command execution needs recursive collect_output instead of nested receive. Root cause: exit_status can arrive before data (or without data). Pattern: recursive receive matching BOTH {:data, data} and {:exit_status, status}, accumulating data in acc across calls. Add safe_close/1 wrapping Port.close in try/rescue ArgumentError for port-already-closed case. Always guard cwd with File.dir?/1 and coerce args to list with is_list guard."
+created_at: "2026-06-20T19:14:21.710660Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_port_based_exec_with_recursive_collector_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/tools/cluster_handlers
+status: proposed
+summary:
+tags:
+  - port
+  - exec
+  - receive
+  - crash
+title: Port-based exec with recursive collector pattern
+triggers: []
+updated_at: "2026-06-20T19:14:21.710676Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

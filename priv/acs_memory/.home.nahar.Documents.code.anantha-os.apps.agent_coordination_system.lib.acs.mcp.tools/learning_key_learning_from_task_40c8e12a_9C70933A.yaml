@@ -1,0 +1,27 @@
+content: "Three safety guards for Port.open in ClusterHandlers: (1) Validate cwd exists with File.dir? before opening port — non-existent dir kills linked process. (2) Coerce args to list — non-list crashes Port.open. (3) Wrap Port.open in try/rescue for ArgumentError/ErlangError — linked port isolation prevents handler process death. These complement the earlier collect_output/safe_close fix for the nested receive pattern bug."
+created_at: "2026-06-20T16:38:16.971645Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_40c8e12a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs.mcp.tools
+status: proposed
+summary: "Three safety guards for Port.open in ClusterHandlers: (1) Validate cwd exists with File.dir? before opening port — non-existent dir kills linked process. (2) Coerce args to list — non-list crashes Por"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 40c8e12a
+triggers: []
+updated_at: "2026-06-20T16:38:16.971661Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

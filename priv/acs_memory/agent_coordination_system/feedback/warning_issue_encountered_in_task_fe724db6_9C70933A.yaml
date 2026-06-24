@@ -1,0 +1,27 @@
+content: "1. Cross-BEAM module access: ACS and Anantha are separate Mix apps in different BEAMs. Handler-based tools can't call Anantha modules directly. 2. Chicken-egg auth: ANANTHA_API_KEY belonged to deleted org. Needed bootstrap script to create system org + key. 3. Ecto :map strips nil - Map.merge with nil values doesn't persist. 4. Batch processing pipeline has hidden exceptions - rescue catches but root cause unclear."
+created_at: "2026-06-20T11:26:44.313785Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_fe724db6_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "1. Cross-BEAM module access: ACS and Anantha are separate Mix apps in different BEAMs. Handler-based tools can't call Anantha modules directly. 2. Chicken-egg auth: ANANTHA_API_KEY belonged to deleted"
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task fe724db6
+triggers: []
+updated_at: "2026-06-20T11:26:44.313792Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

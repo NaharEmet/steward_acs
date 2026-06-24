@@ -1,0 +1,28 @@
+content: "When adding informational notes to empty query results, always check the **already-parsed/normalized values** rather than raw input. In `get_logs`, we initially checked `opts[:level]` (raw string) instead of `level_filter` (parsed atom), which caused incorrect branch matching for atom inputs like `:error`. Similarly, the hint text incorrectly claimed recognized levels \"default to :info\" when only truly unknown strings would trigger that default. Always verify what each branch of a conditional actually means against the actual parsing logic."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_check_parsed_values_not_raw_input_when_adding_resu
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/log_store
+status: approved
+summary: Check parsed values not raw input in result messages
+tags:
+  - mcp
+  - get_logs
+  - ux
+  - parsing
+title: Check parsed values not raw input when adding result notes
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.099111Z"
+  approved_by: human
+  status: approved

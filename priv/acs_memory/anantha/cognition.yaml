@@ -1,0 +1,28 @@
+content: "Created 287 cognition spec YAML files for the anantha app across all module categories: ANT core (17), Engine (38), LLM (18), top-level (14), Meta Harness (14), Memory (27), Core contexts (31), Connectors (9), Ingestion (8), AWDS (6), Agent Simulation (20), Web (40+5), Runner (5), cron_lang (4+1), MCP (4), memory_testing (11), encrypted (2), scheduler (1), log_ship (1), observability (1), workflow templates (2), and misc (6). All specs have 'status: proposed' and 'verification_status: proposed'. They are stored at acs/specs/anantha/. The cognition_list MCP tool does not currently index them because the cognition system scans the ACS app's own lib directory, not the anantha app's acs/specs/ directory."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_cognition_specs_287_specs_created_for_anantha_app
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/cognition
+status: approved
+summary:
+tags:
+  - cognition
+  - specs
+  - anantha
+  - 287 specs
+title: "Cognition specs: 287 specs created for anantha app"
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.423866Z"
+  approved_by: human
+  status: approved

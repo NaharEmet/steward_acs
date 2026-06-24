@@ -1,0 +1,59 @@
+content: |
+  ## Per-Org Aggregation Pattern
+  
+  When building per-org summary stats from audit log tables, use LEFT JOIN from the audit table to the orgs table (not the reverse) when you only want orgs with activity. This avoids displaying empty orgs with zero data.
+  
+  ### Query Pattern
+  ```elixir
+  from(l in IngestionAuditLog)
+  |> join(:left, [l], o in Org, on: l.org_id == o.id)
+  |> group_by([l, o], [l.org_id, o.name])
+  |> select([l, o], %{
+    org_id: l.org_id,
+    org_name: o.name,
+    total_ingested: sum(fragment("CASE WHEN ? = 'payload_processed' THEN 1 ELSE 0 END", l.event_type)),
+    total_failed: sum(fragment("CASE WHEN ? = 'payload_failed' THEN 1 ELSE 0 END", l.event_type)),
+    total_duplicates: sum(fragment("CASE WHEN ? = 'webhook_duplicate' THEN 1 ELSE 0 END", l.event_type))
+  })
+  ```
+  
+  ### Nil Safety
+  - Always handle `org_name: nil` from LEFT JOIN with `||` fallback: `stat.org_name || stat.org_id`
+  - Always use `|| 0` on nullable aggregate sums
+  - Guard division by zero in error_rate calculation: `if total_events > 0, do: ..., else: 0.0`
+  
+  ### Test Data Detection
+  Query JSONB metadata column for specific provider:
+  ```elixir
+  where([l], fragment("?->>'provider' = 'test_suite'", l.metadata))
+  ```
+  This identifies test/demo ingestion data for visibility in dashboards.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_per_org_aggregation_via_ecto_left_joins_from_audit
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/ingestion
+status: approved
+summary:
+tags:
+  - ecto
+  - queries
+  - aggregation
+  - dashboard
+  - jsonb
+title: Per-org aggregation via Ecto left joins from audit tables
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.631680Z"
+  approved_by: human
+  status: approved

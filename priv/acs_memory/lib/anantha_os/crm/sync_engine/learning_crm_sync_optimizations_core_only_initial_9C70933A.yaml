@@ -1,0 +1,37 @@
+content: |
+  Three CRM sync optimizations implemented:
+  
+  1. **Core-only initial sync** — Provider behaviour now has optional `core_object_types/0` callback. SyncEngine detects initial sync (no sync state) and only syncs core types (contacts, companies, deals) unless `include_engagement` config flag set. Engagement objects sync on subsequent incremental runs.
+  
+  2. **Parallel object type sync** — `SyncEngine.sync/3` uses `Task.async_stream` with configurable `max_concurrency` (default 3) instead of sequential `Enum.reduce_while`. Each object type syncs in parallel, significantly reducing total sync time for initial onboarding.
+  
+  3. **Rate limiting** — HubSpot provider uses `Anantha.Ingestion.RateLimiter` for both preventive (token bucket check before request) and reactive (429 retry-after) rate limiting. GET requests via `make_request/4` and POST search API via `rate_limited_post/4` both auto-retry on rate limit. SyncState gets `source_has_any_state?/2` helper for initial sync detection.
+created_at: "2026-06-20T10:48:24.621065Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_sync_optimizations_core_only_initial_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/crm/sync_engine
+status: proposed
+summary:
+tags:
+  - crm
+  - sync
+  - optimization
+  - rate-limiting
+  - parallel-sync
+title: "CRM sync optimizations: core-only initial sync, parallel object types, rate limiting"
+triggers: []
+updated_at: "2026-06-20T10:48:24.621087Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: Hex.pm publish requires hex.user auth first via device code flow. Can't fully automate - needs user browser interaction at hex.pm/oauth/device.
+created_at: "2026-06-24T04:29:34.791361Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_b36f09e7_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system
+status: proposed
+summary: Hex.pm publish requires hex.user auth first via device code flow. Can't fully automate - needs user browser interaction at hex.pm/oauth/device.
+tags:
+  - feedback
+  - learning
+title: Key learning from task b36f09e7
+triggers: []
+updated_at: "2026-06-24T04:29:34.791385Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

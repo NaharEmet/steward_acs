@@ -1,0 +1,35 @@
+content: |
+  `DatasetRegistry` at `lib/anantha_os/query/dataset_registry.ex` maps dataset names to schemas for: syntheses, claims, entities, source_excerpts. There is NO "observations" entry.
+  
+  However, `QueryEngine.build_default_columns/1` at line 668 has a clause for "observations". And the router at line 188 has an observation endpoint. But calling `execute_query(dataset: "observations")` would fail at `validate_dataset` because `DatasetRegistry.get("observations")` returns nil.
+  
+  This is a missing registration — the dataset name is recognized by some code paths but not by the registry, causing hard-to-diagnose "Unknown dataset" errors.
+created_at: "2026-06-21T19:24:55.192797Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_datasetregistry_missing_observations_but_9C70933A
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query/query_engine
+status: proposed
+summary:
+tags:
+  - query
+  - dataset
+  - registry
+  - observations
+  - bug
+title: DatasetRegistry missing 'observations' but QueryEngine references it
+triggers: []
+updated_at: "2026-06-21T19:24:55.192807Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,33 @@
+content: "`escape_newlines_in_strings/1` must handle ALL control chars (0x00-0x1F) inside JSON strings, not just `\n` (0x0a). MiMo/NIM models embed `\r`, `\t`, `\b` etc. in reasoning strings within JSON. A dedicated clause with guard `when c < 0x20 and c != 0x0a` before the catch-all escapes them as `\uXXXX`. The `in_string` param must be `true` literal pattern to only escape inside strings. This clause MUST precede the generic catch-all in pattern matching order."
+created_at: "2026-06-21T10:19:35.009235Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_escape_newlines_in_strings_must_escape_a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm/edge_cases
+status: proposed
+summary:
+tags:
+  - json
+  - control-chars
+  - escape_newlines
+  - llm
+  - mimo
+  - nim
+  - jason
+  - parse
+title: escape_newlines_in_strings must escape all control chars not just newline
+triggers: []
+updated_at: "2026-06-21T10:19:35.009246Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

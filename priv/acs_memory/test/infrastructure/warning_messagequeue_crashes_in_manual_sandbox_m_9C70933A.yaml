@@ -1,0 +1,55 @@
+content: |
+  ## Root Cause: MessageQueue OwnershipError in :manual sandbox mode
+  
+  When running tests via `mix test` (which goes through the alias `ecto.create --quiet && ecto.migrate --quiet && test`), background GenServers like `Anantha.Memory.MessageQueue` crash with `DBConnection.OwnershipError` because the Ecto pool is in `:manual` sandbox mode (set by test_helper.exs line 19).
+  
+  ### Crash chain:
+  1. `Anantha.Memory.MessageQueue` starts (part of app supervision tree)
+  2. Its `handle_continue(:rebuild_queue)` calls `do_rebuild()` which queries `Anantha.Repo`
+  3. In `:manual` sandbox mode, non-owner processes cannot query the Repo → `OwnershipError`
+  4. The `try/rescue` in `do_rebuild` catches the error BUT other callbacks like `handle_call(:enqueue)` also query the Repo and crash without rescue
+  5. MessageQueue crashes 3 times in <1 second, exceeding `max_restarts: 3` in `max_seconds: 5`
+  6. `Anantha.Supervisor` (the main app supervisor) crashes when restart threshold exceeded
+  7. ALL children terminate (including `Anantha.Repo`)
+  8. Repo unregistered from `Ecto.Repo.Registry` → all subsequent tests fail with "could not lookup Ecto repo"
+  
+  ### Trigger:
+  `Anantha.CRM.SyncEngineTest` spawns linked Tasks via `Task.async_stream` that crash with "HubSpot API key not configured". The EXIT signal kills the test process. The `assert_raise` does NOT catch linked Task EXITs.
+  
+  ### Affected: 678+ tests fail with "could not lookup Ecto repo" when using the test alias.
+  
+  ### Fix recommendations:
+  1. **MessageQueue**: Wrap ALL Repo calls in `handle_call`/`handle_cast` with `try/rescue` for `OwnershipError`, or skip `do_rebuild` in test env
+  2. **SyncEngineTest**: Use `Task.async_stream` with `on_timeout: :kill_task` or monitor pattern to avoid linked Task EXITs
+  3. **Supervision tree**: Set higher `max_restarts` or wrap background GenServers in test-only child specs
+  4. **Test alias**: Don't start DB-querying GenServers during tests, or run them in `:auto` pool mode
+created_at: "2026-06-20T13:26:53.209466Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_messagequeue_crashes_in_manual_sandbox_m_9C70933A
+importance: 5
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test/infrastructure
+status: proposed
+summary:
+tags:
+  - test
+  - ecto
+  - sandbox
+  - message_queue
+  - supervisor
+  - ownership_error
+title: "MessageQueue crashes in :manual sandbox mode causes supervisor collapse"
+triggers: []
+updated_at: "2026-06-20T13:26:53.209477Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

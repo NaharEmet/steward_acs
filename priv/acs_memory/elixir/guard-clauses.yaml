@@ -1,0 +1,48 @@
+content: |
+  Elixir guard clauses only accept a restricted set of built-in expressions (comparison, arithmetic, boolean, type-check functions). Calling a private function like `now()` inside a `when` guard clause causes a compilation error. Always pre-compute function results into a variable before using them in guards.
+  
+  Example fix pattern:
+  ```elixir
+  # BAD: function call in guard
+  defp do_check(state) do
+    case val do
+      {x, cached} when cached > now() - @ttl -> :ok
+    end
+  end
+  
+  # GOOD: pre-compute threshold
+  defp do_check(state) do
+    threshold = now() - @ttl
+    case val do
+      {x, cached} when cached > threshold -> :ok
+    end
+  end
+  ```
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_guard_clauses_cannot_call_private_functions_in_eli
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/guard-clauses
+status: approved
+summary:
+tags:
+  - elixir
+  - guard-clauses
+  - compilation
+  - best-practice
+title: Guard clauses cannot call private functions in Elixir
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.864531Z"
+  approved_by: human
+  status: approved

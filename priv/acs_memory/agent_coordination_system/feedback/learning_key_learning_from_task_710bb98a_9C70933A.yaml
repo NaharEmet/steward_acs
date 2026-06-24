@@ -1,0 +1,27 @@
+content: "NavInit.on_mount runs before LiveView mount/3, making it the ideal place to set shared assigns for layout consumption. The OrgSwitcherComponent uses fallback logic: if available_orgs is nil, it calls Core.list_orgs() itself. Setting current_org_id/current_org_name from session in on_mount provides org context to the global layout without touching individual global LiveViews."
+created_at: "2026-06-20T14:41:51.304316Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_710bb98a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "NavInit.on_mount runs before LiveView mount/3, making it the ideal place to set shared assigns for layout consumption. The OrgSwitcherComponent uses fallback logic: if available_orgs is nil, it calls "
+tags:
+  - feedback
+  - learning
+title: Key learning from task 710bb98a
+triggers: []
+updated_at: "2026-06-20T14:41:51.304369Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

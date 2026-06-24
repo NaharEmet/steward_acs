@@ -1,0 +1,27 @@
+content: ToolRegistry BadMapError crash logs rotated out, couldn't get full stacktrace. Crash happened hours ago and hasn't recurred. Likely state corruption in GenServer during refresh or concurrent call handling.
+created_at: "2026-06-23T18:02:31.247772Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_bda2ef50_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.mcp
+status: proposed
+summary: ToolRegistry BadMapError crash logs rotated out, couldn't get full stacktrace. Crash happened hours ago and hasn't recurred. Likely state corruption in GenServer during refresh or concurrent call hand
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task bda2ef50
+triggers: []
+updated_at: "2026-06-23T18:02:31.247791Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

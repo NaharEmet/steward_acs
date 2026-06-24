@@ -1,0 +1,27 @@
+content: "CRM SyncEngine cond blocks must use string keys for state access since JSONB deserializes with string keys. state[:cursor] always returns nil. State synced_at field is an ISO8601 string when read from DB, not a DateTime struct. The HubSpot fetch_page checks config[:since] to decide between Search API and List API -- always setting since means always using Search API, which means cursor resets each cycle."
+created_at: "2026-06-20T13:13:24.441751Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_c05849e5_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: "CRM SyncEngine cond blocks must use string keys for state access since JSONB deserializes with string keys. state[:cursor] always returns nil. State synced_at field is an ISO8601 string when read from"
+tags:
+  - feedback
+  - learning
+title: Key learning from task c05849e5
+triggers: []
+updated_at: "2026-06-20T13:13:24.441766Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

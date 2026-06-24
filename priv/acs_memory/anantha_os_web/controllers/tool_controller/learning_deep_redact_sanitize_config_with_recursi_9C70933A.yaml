@@ -1,0 +1,28 @@
+content: "`sanitize_config/1` must recursively traverse nested maps and handle both string and atom keys to fully redact sensitive fields (api_key, secrets, token, password). Using `Map.drop` only handles top-level string keys, missing nested secrets and atom-keyed configs."
+created_at: "2026-06-21T12:00:23.656044Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_deep_redact_sanitize_config_with_recursi_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/controllers/tool_controller
+status: proposed
+summary:
+tags:
+  - tool_controller
+  - security
+  - config-redaction
+title: Deep-redact sanitize_config with recursion + atom keys
+triggers: []
+updated_at: "2026-06-21T12:00:23.656051Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,40 @@
+content: |
+  HubSpot engagement object types (notes, calls, emails, meetings, tasks, quotes) cause Search API 400 errors. resolve_core_types/3 now ALWAYS restricts to core types (contacts, companies, deals) unless config[:include_engagement] is truthy.
+  
+  Key changes:
+  - Removed source_has_any_state? detection — no longer syncs engagement types on subsequent runs
+  - include_engagement flag now required to sync engagement types
+  - Two bugs fixed: (1) empty allowed_contact_ids list still added to config causing 0 contacts, (2) resolve_core_types had stale source_has_any_state? branch that enabled engagement sync after first run
+  
+  File: lib/anantha_os/crm/sync_engine.ex
+  - resolve_core_types/3: only checks config[:include_engagement]
+  - sync/3: only adds allowed_contact_ids to config when list non-empty
+created_at: "2026-06-21T17:50:48.147300Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_sync_engagement_types_always_exclude_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync
+status: proposed
+summary:
+tags:
+  - crm
+  - sync
+  - hubspot
+  - engagement-types
+  - bug-fix
+title: CRM sync engagement types always excluded unless include_engagement
+triggers: []
+updated_at: "2026-06-21T17:50:48.147312Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

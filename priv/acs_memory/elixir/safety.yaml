@@ -1,0 +1,35 @@
+content: |
+  When converting string keys to atoms in a module that only has the strings defined as module attributes (but not the corresponding atoms referenced elsewhere in the code), use `String.to_atom/1` rather than `String.to_existing_atom/1`. The atoms won't exist in the atom table until they're first created. `String.to_existing_atom/1` crashes with an ArgumentError in this case.
+  
+  This is safe when the input strings are controlled by your own system (e.g., from a system prompt or a fixed set of known keys), not from arbitrary untrusted user input. If the keys are from untrusted input, use a different approach like a map lookup or `String.to_existing_atom/1` with a fallback, since atoms are never garbage collected.
+  
+  See lib/anantha_os/meta_harness/evaluator.ex:277 as an example where `String.to_atom/1` is used safely with `@allowed_score_keys_strings` as the guard.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_string_to_existing_atom_vs_string_to_atom_for_cont
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/safety
+status: approved
+summary:
+tags:
+  - elixir
+  - atoms
+  - to_existing_atom
+  - to_atom
+  - pattern
+title: String.to_existing_atom vs String.to_atom for controlled input
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.998752Z"
+  approved_by: human
+  status: approved

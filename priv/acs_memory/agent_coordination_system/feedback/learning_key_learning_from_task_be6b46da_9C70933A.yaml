@@ -1,0 +1,27 @@
+content: "CRM sync optimization: parallelize object types via Task.async_stream (max_concurrency 3, configurable), wire rate limiter preventively before requests AND reactively on 429, skip engagement objects on initial sync. Rate limiter key must be global per (org_id, source_type), not per object type — HubSpot API limit is per API key. Optional core_object_types/0 callback in Provider behaviour for initial sync filtering."
+created_at: "2026-06-20T10:51:27.741831Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_be6b46da_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "CRM sync optimization: parallelize object types via Task.async_stream (max_concurrency 3, configurable), wire rate limiter preventively before requests AND reactively on 429, skip engagement objects o"
+tags:
+  - feedback
+  - learning
+title: Key learning from task be6b46da
+triggers: []
+updated_at: "2026-06-20T10:51:27.741841Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

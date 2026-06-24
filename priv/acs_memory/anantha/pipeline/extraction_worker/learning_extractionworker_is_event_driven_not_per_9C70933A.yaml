@@ -1,0 +1,35 @@
+content: |
+  The ExtractionWorker (lib/anantha/pipeline/extraction_worker.ex) runs ONLY on new message arrival — the old periodic timer was removed around lines 300-303. It does NOT poll or run on a schedule. Therefore a "Stale" status on the dashboard (last run > 10 min ago) is expected when no new data sources produce messages. This is NOT an error condition. To check if the worker is healthy, verify queue depth (0 means idle, not stuck).
+  
+  ---
+  Improvements: None required. The entry is exemplary for a technical learning record.
+  
+created_at: "2026-06-21T14:46:54Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_extractionworker_is_event_driven_not_per_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  marked_at: "2026-06-21T14:46:18.169372Z"
+  reason: Periodic timer restored in task 0251e5d2. Worker now runs both on-demand (message arrival) AND on a periodic timer (default 5 min).
+scope_path: anantha/pipeline/extraction_worker
+status: rejected
+summary:
+tags:
+  - extraction
+  - worker
+  - stale
+  - event-driven
+  - dashboard
+title: ExtractionWorker is event-driven, not periodic
+triggers: []
+updated_at: "2026-06-21T15:06:01Z"
+verification:
+  rejected_at: "2026-06-21T15:06:01.204433Z"
+  rejected_by: Outdated — revalidation note says 'Periodic timer restored' in task 0251e5d2. Worker now has periodic timer too. Rejected from stale.
+  status: rejected

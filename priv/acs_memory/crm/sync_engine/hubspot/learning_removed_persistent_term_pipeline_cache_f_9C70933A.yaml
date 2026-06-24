@@ -1,0 +1,40 @@
+content: |
+  The HubSpot sync engine (`hub_spot.ex`) previously had a legacy `:persistent_term`-based pipeline cache (`get_pipeline_stages/2`, `fetch_pipeline_stages/2`, `build_stage_mapping/1`) that acted as a fallback when `config[:pipeline_cache]` was nil. This was pre-pipeline-awareness code that has been replaced with a DB-backed fallback (`fallback_pipeline_cache/1`).
+  
+  The new function reads pipelines from `Anantha.CRM.Pipelines.list_pipelines/2`, transforms them into standardized format, and calls `Anantha.CRM.Pipelines.build_pipeline_cache/1` — the same provider-agnostic function used by the primary pipeline discovery path in `SyncEngine.discover_pipelines/3`.
+  
+  Key details:
+  - `fetch_pipeline_stages/2` only fetched DEALS pipelines (not tickets) — the DB path resolves all pipelines
+  - `build_stage_mapping/1` was a duplicate of `Pipelines.build_pipeline_cache/1` — now unified
+  - The `@pipeline_cache_key` module attribute is removed
+  - `enrich_deal_records/4` now ignores `api_key`/`api_base` args (they were only needed for the API call)
+  - Fallback gracefully handles missing `org_id` and empty DB results with warning logs
+created_at: "2026-06-21T15:42:35.001911Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_removed_persistent_term_pipeline_cache_f_9C70933A
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync_engine/hubspot
+status: proposed
+summary:
+tags:
+  - crm
+  - hubspot
+  - pipeline-cache
+  - persistent-term
+  - refactor
+title: Removed persistent_term pipeline cache from HubSpot sync engine
+triggers: []
+updated_at: "2026-06-21T15:42:35.001938Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

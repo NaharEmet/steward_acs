@@ -1,0 +1,39 @@
+content: |
+  ACS (`apps/agent_coordination_system/`) is a full standalone OTP Application with `mod: {Acs.Application, []}` in its mix.exs. It has its own Phoenix endpoint (port 4001), own SQLite database (`Acs.Repo`), own supervision tree (`Acs.Supervisor`), and own lifecycle. Mix starts it automatically when running `mix phx.server` because the root `mix.exs` declares it as a path dependency.
+  
+  **CRITICAL**: Never add ACS children (`Acs.Repo`, `Acs.Memory.Auditor`, `Acs.Acs.Cache`, etc.) to `Anantha.Application`'s children list. The two apps share the same BEAM VM but maintain completely separate supervision trees. Adding ACS children to Anantha's tree causes config mismatches, duplicate processes, and startup failures.
+  
+  See `.opencode/guides/acs-architecture.md` for full documentation.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: invariant_acs_is_a_standalone_otp_application_do_not_merge_s
+importance: 5
+kind: invariant
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/architecture
+status: approved
+summary:
+tags:
+  - acs
+  - architecture
+  - supervision-tree
+  - integration
+  - critical
+title: ACS is a standalone OTP Application — do not merge supervision trees
+triggers:
+  - editing Anantha.Application.start/2
+  - adding Acs.* children to Anantha.Application
+  - wondering how ACS starts
+  - Process.whereis returning nil for Acs.Repo
+updated_at: "2026-06-19T13:59:57Z"
+verification:
+  approved_at: "2026-06-19T13:59:57.907776Z"
+  approved_by: human
+  status: approved

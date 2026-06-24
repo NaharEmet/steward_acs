@@ -1,0 +1,43 @@
+content: |
+  `JsonAdapter.decode/1` has a consistent return contract:
+  
+  - `{:ok, decoded}` — valid JSON decoded (possibly repaired by JsonRemedy)
+  - `{:error, reason}` — invalid JSON (both repair and Jason.decode failed)
+  - `{:error, :invalid_input}` — non-binary input (nil, int, map, etc.)
+  
+  Three-layer exposure in ACS `llm.ex`'s `try_extract_json/1`:
+  1. `JsonExtractor.extract/1` — extracts JSON string from LLM response (markdown blocks, brace matching, etc.)
+  2. `escape_newlines_in_strings/1` — ACS-specific sanitization
+  3. `JsonAdapter.decode/1` — tries JsonRemedy repair, falls back to Jason.decode
+  
+  `decode!/1` raises `RuntimeError` with `"JsonAdapter failed: #{inspect(reason)}"` on failure.
+  
+  The guard `when is_binary(json_string)` with a catch-all `def decode(_)` means ALL input types are handled — never a `FunctionClauseError`.
+created_at: "2026-06-21T12:37:47.432391Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_jsonadapter_decode_1_always_returns_ok_e_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_json
+status: proposed
+summary: "JsonAdapter.decode/1 guards all inputs: binary guard for strings, catch-all returns {:error, :invalid_input} for non-binary"
+tags:
+  - json_adapter
+  - decode
+  - contract
+  - anantha_json
+title: "JsonAdapter.decode/1 always returns {:ok, _} | {:error, _}"
+triggers: []
+updated_at: "2026-06-21T12:37:47.432400Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

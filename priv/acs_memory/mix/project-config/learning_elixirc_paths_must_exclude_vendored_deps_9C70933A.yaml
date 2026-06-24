@@ -1,0 +1,43 @@
+content: |
+  When using path dependencies (`{:foo, path: "lib/foo"}`) placed under `lib/`, the main project's `elixirc_paths: ["lib"]` will recursively compile ALL `.ex` files in those subdirectories, including:
+  
+  1. **Vendored build artifacts** (`lib/foo/deps/**/*.ex`) — these are gitignored artifacts from `mix deps.get` inside the submodule that should never be compiled by the main project
+  2. **Path dependency source** (`lib/foo/lib/**/*.ex`) — these get compiled TWICE (once as a path dep, once via main project), causing "redefining module" warnings
+  
+  Fix: Replace `"lib"` catch-all with explicit per-directory paths:
+  
+  ```elixir
+  defp elixirc_paths(:test), do:
+    ~w(lib/anantha_os.ex lib/anantha_os lib/anantha_os_web.ex lib/anantha_os_web lib/mix test/support)
+  defp elixirc_paths(_), do:
+    ~w(lib/anantha_os.ex lib/anantha_os lib/anantha_os_web.ex lib/anantha_os_web lib/mix)
+  ```
+  
+  Key principle: path dependencies compiled via their own `mix.exs` should NOT also be included in the host project's `elixirc_paths`. Only include directories owned by the project itself.
+  
+  Note: `Mix.Utils.extract_files/2` accepts both file paths and directory paths, so root-level `.ex` files can be passed directly.
+  
+created_at: "2026-06-24T11:50:20.557687Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_elixirc_paths_must_exclude_vendored_deps_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: mix/project-config
+status: proposed
+summary:
+tags: []
+title: elixirc_paths must exclude vendored deps from submodules/path-deps under lib/
+triggers: []
+updated_at: "2026-06-24T11:50:20.557708Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

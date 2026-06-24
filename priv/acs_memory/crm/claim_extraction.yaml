@@ -1,0 +1,28 @@
+content: "The N:1 record-to-claim fix exists in Anantha.CRM.ClaimExtractor (groups by {subject, source_event_id}), but existing org data was created via Anantha.Memory.ClaimExtractor which still uses 1:1 behavior. CRM records have source_type \"crm_field_classification\", but existing data has source_types \"transcript\" (201 records) and \"crm_note\" (10 records) - both from Memory pipeline."
+created_at: "2026-06-07T18:58:50Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_crm_claimextractor_n_1_fix_exists_but_unused
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/claim_extraction
+status: rejected
+summary: CRM ClaimExtractor fix correct but not yet exercised
+tags:
+  - crm
+  - claim-extraction
+  - n-to-1
+  - legacy-data
+title: "CRM ClaimExtractor N:1 fix exists but unused"
+triggers: []
+updated_at: "2026-06-08T03:39:28Z"
+verification:
+  rejected_at: "2026-06-08T03:39:28.859638Z"
+  rejected_by: human
+  status: rejected

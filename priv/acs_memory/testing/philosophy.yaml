@@ -1,0 +1,28 @@
+content: "When testing that an optional behaviour callback raises UndefinedFunctionError on a module that doesn't implement it, use `apply(Module, :function, [args])` instead of `Module.function(args)` to avoid compile-time warnings about the function being undefined. Direct calls to optional callbacks that aren't implemented trigger Elixir compiler warnings, even though the test expects the error."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_test_optional_callbacks_with_apply_3_to_avoid_comp
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: testing/philosophy
+status: approved
+summary:
+tags:
+  - testing
+  - behaviour
+  - optional_callbacks
+  - compiler_warnings
+title: Test optional callbacks with apply/3 to avoid compiler warnings
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.063496Z"
+  approved_by: human
+  status: approved

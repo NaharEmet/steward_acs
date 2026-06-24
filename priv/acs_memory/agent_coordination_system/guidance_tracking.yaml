@@ -1,0 +1,27 @@
+content: "When adding guidance rating fields to feedback prompts in acs_release_work, the params section must include all 4 guidance fields: guidance_useful (boolean), guidance_items_helpful (array placeholder), guidance_items_confusing (array placeholder), and guidance_missing (string). The message should also be updated to explicitly ask agents to rate the guidance."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_guidance_rating_fields_added_to_release_work_feedb
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/guidance_tracking
+status: approved
+summary: Added guidance rating fields to release_work feedback params
+tags:
+  - guidance
+  - feedback
+  - acs
+title: Guidance rating fields added to release_work feedback prompt
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.033692Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,29 @@
+content: "The `~x` format character in Erlang's `:io_lib.format` can cause `argument error` in some Erlang versions when used with the full `~w.pPadc` syntax (width + precision + pad + control). The `~b` format character is safe and uses the precision (the number after the dot) as the output BASE. So `~8.16.0b` means width=8, base=16 (hex), zero-padded. This is confirmed working in `deps/ranch/src/ranch_crc32c.erl` which uses `~.16b` for hex output."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_use_b_format_with_precision_16_for_hex_output_in_i
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/io_lib_format
+status: approved
+summary:
+tags:
+  - io_lib
+  - format
+  - hex
+  - uuid
+  - erlang
+title: "Use ~b format with precision=16 for hex output in :io_lib.format"
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.873374Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,26 @@
+content: The counter in the for comprehension showed 0 because Elixir's for creates a new scope, so results variable rebinding didn't propagate outward. The saves themselves succeeded (confirmed by log lines).
+created_at: "2026-06-20T09:29:32Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_issue_encountered_in_task_c249aa23
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: acs/specs/anantha
+status: rejected
+summary: The counter in the for comprehension showed 0 because Elixir's for creates a new scope, so results variable rebinding didn't propagate outward. The saves themselves succeeded (confirmed by log lines).
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task c249aa23
+triggers: []
+updated_at: "2026-06-20T09:29:34Z"
+verification:
+  rejected_at: "2026-06-20T09:29:34.953714Z"
+  rejected_by: Auto-generated task feedback template, no signal — title starts with "Issue encountered in task"
+  status: rejected

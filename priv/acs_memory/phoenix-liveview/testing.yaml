@@ -1,0 +1,24 @@
+content: "When testing LiveView chart data via `data-chart-data` attributes, use `Floki.find(html, \"#selector\") |> Floki.attribute(\"data-chart-data\") |> List.first()` to extract attribute values. Floki returns `{tag, attrs, children}` tuples - NOT structs with `.attributes` accessor. Calling `.attributes` on a tuple causes a runtime error."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_floki_attribute_access_returns_list_not_tuple_attr
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix-liveview/testing
+status: approved
+summary: Floki tuple vs struct for attribute access
+tags: []
+title: Floki attribute access returns list, not tuple attributes
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.614586Z"
+  approved_by: human
+  status: approved

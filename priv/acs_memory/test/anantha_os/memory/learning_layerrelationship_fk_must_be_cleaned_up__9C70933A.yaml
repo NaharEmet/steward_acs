@@ -1,0 +1,29 @@
+content: "Phase 4 added `link_synthesis_to_entities` which creates LayerRelationship rows referencing Synthesis IDs. Test cleanup blocks that delete HypothesisSynthesis, Hypothesis, and Synthesis but NOT LayerRelationships cause FK violations when Org cleanup cascades. Always add `Repo.delete_all(from(l in Anantha.Core.LayerRelationship, select: l))` after Synthesis cleanup in any setup block that deletes syntheses."
+created_at: "2026-06-20T20:02:06.446522Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_layerrelationship_fk_must_be_cleaned_up__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test/anantha_os/memory
+status: proposed
+summary:
+tags:
+  - LayerRelationship
+  - FK-violation
+  - test-cleanup
+  - synthesis
+title: LayerRelationship FK must be cleaned up before Org in test cleanup blocks
+triggers: []
+updated_at: "2026-06-20T20:02:06.446530Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: "ToolController had 20+ broken function calls. Key patterns: use Anantha.Core.IngestionSources (plural, context) not IngestionSource (singular, schema); use Anantha.Core.Workflows not Anantha.Workflows; actor lookups return bare structs not {:ok, actor} tuples; use get_actor_by_* not find_actor_by_*; trigger_workflow uses ExecutionTools module with map args; get_system_reply uses Orchestrator.process_message/1; MessageQueue only has get_pending/0 (no per-org list_pending). All fixes verified by grep - no broken patterns remain."
+created_at: "2026-06-20T16:20:51.901574Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_102a0e4b_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "ToolController had 20+ broken function calls. Key patterns: use Anantha.Core.IngestionSources (plural, context) not IngestionSource (singular, schema); use Anantha.Core.Workflows not Anantha.Workflows"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 102a0e4b
+triggers: []
+updated_at: "2026-06-20T16:20:51.901582Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

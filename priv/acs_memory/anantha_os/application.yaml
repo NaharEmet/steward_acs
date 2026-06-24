@@ -1,0 +1,28 @@
+content: "`Anantha.MCP.LogStore` (in `lib/anantha_os/mcp/log_store_stub.ex`) is a functional module that lazily creates its ETS table on every function call via `ensure_table_exists/0`. Its `start_link/1` returns `{:ok, self()}` (the caller's PID), which is incorrect for a supervised child since the Supervisor expects the PID of a newly spawned process. The module does not need to be in the supervision tree — it creates its ETS table on first use automatically. Remove it from the children list in `application.ex`."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_anantha_mcp_logstore_is_a_functional_stub_not_a_ge
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/application
+status: approved
+summary:
+tags:
+  - log_store
+  - supervision_tree
+  - application
+  - ets
+title: Anantha.MCP.LogStore is a functional stub — not a GenServer — should not be supervised
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.463008Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,29 @@
+content: "ReqLLM v1.11.0 (latest, May 01 2026) is an Elixir LLM library built on Req & Finch. Package name is `req_llm` on hex.pm. Supports 19 providers including Anthropic, OpenAI, Google, Groq, OpenRouter, xAI, Ollama/vLLM, etc. Has structured output via `generate_object/4` with NimbleOptions schemas. OpenAI-compatible providers are configured by using `provider: :openai` with a custom `base_url`. Requires Elixir ~> 1.15. Very actively maintained — 11 releases since Nov 2025, 520 stars, 151 forks."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_reqllm_library_research_findings
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: research/external/req_llm
+status: approved
+summary:
+tags:
+  - elixir
+  - llm
+  - req_llm
+  - hex
+  - library
+title: ReqLLM library research findings
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.997288Z"
+  approved_by: human
+  status: approved

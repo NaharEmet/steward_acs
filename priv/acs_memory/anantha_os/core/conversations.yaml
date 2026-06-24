@@ -1,0 +1,39 @@
+content: |
+  The Conversation schema now supports both WhatsApp (via JID hashing) and other platforms (via platform + platform_conversation_id). 
+  
+  Key design decisions:
+  - `conversation_jid_hash` was made nullable to support non-WhatsApp conversations
+  - The old unique index was replaced with a partial unique index `WHERE conversation_jid_hash IS NOT NULL`
+  - A new unique index `idx_conversations_org_platform` covers `(org_id, platform, platform_conversation_id)` with `WHERE platform IS NOT NULL AND platform_conversation_id IS NOT NULL`
+  - `validate_inclusion(:platform, @platforms)` enforces the controlled vocabulary at the changeset level
+  - New context functions: `upsert_by_platform/2`, `list_conversations/2` (with platform filter), `get_conversation_by_platform/3`
+  
+  This means messages from different platforms can map to the same conversation structure without JID hashing, enabling a unified pipeline for WhatsApp, Google Chat, Slack, Telegram, Gmail, CRM, audio transcripts, and web.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_conversation_schema_platform_agnostic_platform_pla
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/conversations
+status: approved
+summary:
+tags:
+  - conversation
+  - platform-agnostic
+  - schema
+  - migration
+title: "Conversation schema platform-agnostic: platform + platform_conversation_id pattern"
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.585713Z"
+  approved_by: human
+  status: approved

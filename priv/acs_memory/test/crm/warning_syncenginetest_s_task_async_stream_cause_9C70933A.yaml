@@ -1,0 +1,37 @@
+content: |
+  ## SyncEngineTest uses Task.async_stream which creates linked tasks
+  
+  `Anantha.CRM.SyncEngine.sync/3` uses `Task.async_stream` which creates linked Tasks (monitored). When a Task crashes (e.g., "HubSpot API key not configured"), the EXIT signal propagates to the calling process.
+  
+  `test "hubspot sync raises when no API key in config"` uses `assert_raise RuntimeError, fn -> SyncEngine.sync(org.id, "hubspot", %{}) end` but this does NOT catch linked Task EXITs - EXIT signals kill the process regardless of try/rescue.
+  
+  Fix: Use `Task.Supervisor.async_stream_nolink` or handle exits with `Process.flag(:trap_exit, true)` in the test, or return errors from the sync function without using linked tasks.
+created_at: "2026-06-20T13:27:02.337767Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_syncenginetest_s_task_async_stream_cause_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test/crm
+status: proposed
+summary:
+tags:
+  - test
+  - sync_engine
+  - task
+  - exit_signal
+  - crm
+title: SyncEngineTest's Task.async_stream causes linked EXIT crashes
+triggers: []
+updated_at: "2026-06-20T13:27:02.337777Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

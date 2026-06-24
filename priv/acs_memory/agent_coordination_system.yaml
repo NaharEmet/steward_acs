@@ -1,0 +1,29 @@
+content: "Modules that pattern-match on %Exqlite.Error{} or %Exqlite.Result{} structs need the ecto_sqlite3 package compiled regardless of runtime environment. Using `only: [:dev, :test]` on ecto_sqlite3 causes compile errors in prod because the struct definitions don't exist. The dep must be unconditional so struct modules are available at compile time, even if unused at runtime."
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_exqlite_struct_pattern_matches_need_full_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system
+status: approved
+summary:
+tags:
+  - exqlite
+  - compile
+  - structs
+  - deps
+  - prod
+title: Exqlite struct pattern matches need full dep even in prod
+triggers: []
+updated_at: "2026-06-19T14:00:09Z"
+verification:
+  approved_at: "2026-06-19T14:00:09.134214Z"
+  approved_by: human
+  status: approved

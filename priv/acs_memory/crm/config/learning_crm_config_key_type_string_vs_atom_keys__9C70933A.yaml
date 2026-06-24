@@ -1,0 +1,30 @@
+content: "The CRM config system (`lib/anantha_os/crm.ex`, `merge_crm_config/1`) has inconsistent key type handling that causes caller-provided config overrides to be silently ignored. The problem: `merge_crm_config` uses `Map.put_new` with atom keys from `Application.get_env(:anantha_os, :crm, [])`, but config from web API params (tool_controller.ex) has string keys from JSON deserialization. Since `\"page_size\" != :page_size`, both keys exist in the merged map. Downstream providers (HubSpot, SyncEngine) read config with atom keys (`config[:page_size]`), so the atom-keyed app defaults always win over the caller's string-keyed overrides. Only `api_key` and `api_base` have dual-key checking. This affects the web API endpoint (`/tools/crm/sync`) where users pass config overrides via `params[\"config\"]`. Same issue affects `CRM.sync_object_type` path which skips `merge_crm_config` entirely."
+created_at: "2026-06-21T18:22:26.078438Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_config_key_type_string_vs_atom_keys__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/config
+status: proposed
+summary: Config maps from web API have string keys but all config reads use atom keys — caller overrides silently ignored
+tags:
+  - crm
+  - config
+  - web_api
+  - string_keys
+  - atom_keys
+title: "CRM config key type: string vs atom keys cause silent override failures"
+triggers: []
+updated_at: "2026-06-21T18:22:26.078459Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

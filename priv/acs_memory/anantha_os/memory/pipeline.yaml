@@ -1,0 +1,41 @@
+content: |
+  During the C3 schema merge, Observations were merged into Claims. The ObservationExtractor now produces signal claim maps (with `claim_type: "signal"`) instead of observation maps. Key invariants:
+  
+  1. The ObservationExtractor module keeps its name for backward compat but outputs claim-type maps
+  2. `link_observations_to_entities` renamed to `link_signal_claims_to_entities`
+  3. Signal claims are persisted via `Core.create_claim` instead of `Core.create_observation`
+  4. The `source_observation_id` field was removed from the Claim schema
+  5. `create_claim_observation_relationship` and `ClaimObservation` join table references were removed
+  6. The `observations` and `claim_observations` tables are being dropped (migration exists but not yet run)
+  7. The EvidenceCluster no longer has `has_many :observations`
+  8. ClaimRelationFinder's `get_source_message_content` now returns `{:error, :no_source_observation}` since observations no longer exist as separate entities
+  9. The `find_claim_by_message_id` function now queries claims directly by `source_event_id` instead of joining through observations
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_observations_merged_into_claims_as_signal_claims
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/pipeline
+status: approved
+summary:
+tags:
+  - observation
+  - claim
+  - signal_claim
+  - schema_merge
+  - c3
+title: Observations merged into Claims as Signal Claims
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.308700Z"
+  approved_by: human
+  status: approved

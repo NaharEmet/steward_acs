@@ -1,0 +1,35 @@
+content: |
+  MiMo v2.5 (Xiaomi model) supports `response_format: {"type": "json_object"}` via the OpenAI-compatible API. The Acs.LLM module must set `supports_json_mode: true` for the mimo provider, otherwise the API won't send the json_object constraint, and the model returns free-form text that can't be parsed as JSON, causing `:invalid_json_response` errors.
+  
+  The main app (`Anantha.LLM.Providers.Mimo`) already has `supports_json_mode: true` correctly. The ACS copy had `false` — this was a bug.
+  
+  Also: the NIM API key env var in ACS .env must be `NIM_API_KEY` (not `NVIDIA_NIM_API_KEY`) to match what the code checks via `System.get_env("NIM_API_KEY")`.
+created_at: "2026-06-20T12:34:02.378661Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_llm_mimo_provider_supports_json_mode_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - acs
+  - llm
+  - mimo
+  - json_mode
+  - memory_auditor
+title: Acs.LLM mimo provider supports_json_mode must be true
+triggers: []
+updated_at: "2026-06-20T12:34:02.378679Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

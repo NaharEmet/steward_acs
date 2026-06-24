@@ -1,0 +1,43 @@
+content: |
+  Agents now auto-register in ETS agent status on any tool call containing `agent_id`. This ensures agents doing lightweight work (reading files, searching) appear in `get_present_status` without needing to create ACS tasks. 
+  
+  The Cache GenServer runs a periodic sweeper every 30s that removes agents with `updated_at` older than 60s — both from ETS and DB. This cleans up stale/disconnected agents automatically.
+  
+  **Key functions added:**
+  - `Acs.Acs.Cache.touch_agent_status/1` — Lightweight ETS-only `updated_at` bump (no DB write). Returns `:ok` if found, `{:ok, nil}` if not found.
+  - `Acs.Acs.Cache.put_agent_status/2` now auto-adds `updated_at` timestamp.
+  - `Acs.Acs.Cache` now has `alias Acs.Repo` and `import Ecto.Query, only: [from: 2]`.
+  - `Acs.MCP.Tools.call_tool/2` auto-registers agents via `Cache.get_agent_status` → new agent: `Cache.put_agent_status`, existing: `Cache.touch_agent_status`.
+  
+  **Sweeper behavior:**
+  - Agents without `updated_at` are treated as stale (swept immediately).
+  - Sweep runs in a `Repo.transaction` for safe DB deletion.
+  - Reschedules itself every 30s via `Process.send_after`.
+created_at: "2026-06-20T19:01:39.922627Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_auto_register_agents_on_any_tool_call_st_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cache
+status: proposed
+summary:
+tags:
+  - agent_coordination
+  - auto-register
+  - stale-agent-sweeper
+  - ets-cache
+title: Auto-register agents on any tool call + stale agent sweeper
+triggers: []
+updated_at: "2026-06-20T19:01:39.922637Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

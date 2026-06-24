@@ -1,0 +1,29 @@
+content: "`Claims.create_claim/2` adds `\"org_id\"` as a string key via `Map.put(attrs, \"org_id\", org_id)`. If you pass atom-keyed attrs, the resulting map has mixed keys (atoms + string), which causes `Ecto.CastError` because Ecto changesets require consistent key types. Always pass string-keyed attrs to `Claims.create_claim/2`."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_claims_create_claim_expects_string_keyed_attrs
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/claims
+status: approved
+summary:
+tags:
+  - claims
+  - create_claim
+  - ecto
+  - cast
+  - string keys
+title: Claims.create_claim expects string-keyed attrs
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.569800Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,28 @@
+content: "Parallel SyncState writes to same IngestionSource config column can race. Each type writes different keys but Ecto update replaces entire column. Low risk in practice since types finish at different times and write different keys. For production hardening: atomic JSON merge or GenServer for serialized writes."
+created_at: "2026-06-20T10:51:07.670877Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_syncstate_race_condition_with_parallel_w_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync
+status: proposed
+summary:
+tags:
+  - crm
+  - sync
+  - concurrency
+title: SyncState race condition with parallel writes
+triggers: []
+updated_at: "2026-06-20T10:51:07.670888Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

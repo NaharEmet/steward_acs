@@ -1,0 +1,28 @@
+content: "The agent_coordination_system app's mix.exs should use `compilers: Mix.compilers()` without appending `:phoenix_live_view`. The ACS app doesn't use Phoenix LiveView components, so the extra compiler is unnecessary and adds a redundant compile step."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_mix_exs_should_not_include_phoenix_live_view_c
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/build
+status: approved
+summary:
+tags:
+  - mix.exs
+  - compilers
+  - phoenix_live_view
+  - build
+title: ACS mix.exs should not include phoenix_live_view compiler
+triggers: []
+updated_at: "2026-06-19T13:59:57Z"
+verification:
+  approved_at: "2026-06-19T13:59:57.936269Z"
+  approved_by: human
+  status: approved

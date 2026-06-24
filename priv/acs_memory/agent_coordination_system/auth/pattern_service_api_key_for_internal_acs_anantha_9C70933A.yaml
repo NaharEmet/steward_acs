@@ -1,0 +1,39 @@
+content: |
+  ACS tools authenticate to Anantha OS using a static `:service_api_key` config (`"dev-service-key"` in dev) instead of DB-backed API keys. This avoids the chicken-and-egg problem where ACS needs an API key to call Anantha, but only Anantha can generate one.
+  
+  Both apps share the same config key:
+  - Anantha OS: `config :anantha_os, :service_api_key, "dev-service-key"` in `config/dev.exs`
+  - ACS: `Application.get_env(:steward_acs, :service_api_key, "dev-service-key")`
+  
+  The `EnsureApiKey` plug checks the service key first (no DB lookup, full admin permissions), then falls back to DB-backed key validation. This means:
+  - Service key → `key_id: "service"`, `org_id: system_org_id()`, permissions: `["admin"]`
+  - DB key → normal lookup with `Anantha.ApiKeys.validate_key/1`
+created_at: "2026-06-21T14:20:03.461287Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_service_api_key_for_internal_acs_anantha_9C70933A
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/auth
+status: proposed
+summary:
+tags:
+  - auth
+  - service-api-key
+  - acs
+  - anantha
+  - internal-communication
+title: Service API key for internal ACS ↔ Anantha auth
+triggers: []
+updated_at: "2026-06-21T14:20:03.461297Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

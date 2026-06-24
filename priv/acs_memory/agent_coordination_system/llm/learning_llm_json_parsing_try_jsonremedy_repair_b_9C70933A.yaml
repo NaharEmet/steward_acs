@@ -1,0 +1,34 @@
+content: |
+  When parsing LLM responses in the ACS Memory Auditor, always attempt `JsonRemedy.repair/1` BEFORE `Jason.decode/1`. LLM providers frequently return near-valid JSON with trailing junk (extra `}` chars, unescaped newlines in strings, unquoted keys, etc.). `JsonRemedy` is designed to handle these common LLM output issues. This aligns with how `Anantha.LLM.JsonAdapter` and `Anantha.LLM.ResponseParser` work — repair first, parse second.
+  
+  The `Acs.LLM.try_extract_json/1` function was previously using `Jason.decode` first, then trying `escape_newlines_in_strings`, and only using `JsonRemedy` as a last resort (attempt 3). By the time JsonRemedy ran, the manual extraction pipeline (`extract_balanced_json` or `extract_any_json`) may have already mangled the content.
+  
+  Also: `extract_any_json/1` should use non-greedy `.*?` regex to match the first complete JSON object, avoiding capturing trailing garbage like extra `}` characters. Greedy `.*` `/\{.*"recommendation".*\}/s` would capture from first `{` to LAST `}` including any trailing `}}`.
+created_at: "2026-06-21T12:08:54.625109Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_llm_json_parsing_try_jsonremedy_repair_b_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - json-parsing
+  - llm
+  - memory-auditor
+  - json-remedy
+title: "LLM JSON parsing: try JsonRemedy.repair before Jason.decode"
+triggers: []
+updated_at: "2026-06-21T12:08:54.625120Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

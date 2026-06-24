@@ -1,0 +1,28 @@
+content: "Anantha.CRM.Scheduler.status() returns the state map directly (e.g. %{errors: [], last_run_at: nil, ...}), NOT wrapped in an {:ok, status} tuple. Any code pattern matching on {:ok, status} will crash with a CaseClauseError. Use direct assignment instead."
+created_at: "2026-06-21T11:11:49.125311Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_crm_scheduler_status_0_returns_map_direc_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/scheduler
+status: proposed
+summary:
+tags:
+  - scheduler
+  - status
+  - return-type
+title: "CRM Scheduler.status/0 returns map directly, not {:ok, map}"
+triggers: []
+updated_at: "2026-06-21T11:11:49.125321Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

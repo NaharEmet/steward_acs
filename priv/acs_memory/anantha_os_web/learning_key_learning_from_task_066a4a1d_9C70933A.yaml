@@ -1,0 +1,27 @@
+content: "Added discover_pipelines handler spanning router, controller, and CRM context. The Gradual Type Checker can't narrow nil from `case resolve_provider` pattern matching — need to isolate provider.fetch_pipelines calls in a separate private function (`do_fetch_pipelines/3`) or use explicit `if provider == nil` guard. `IngestionSources.get_source/2` scopes to org_id internally, no need for separate org_id check. `Pipelines.sync_pipelines/3` always returns `{:ok, {upserted, archived}}`, never `{:error, reason}`."
+created_at: "2026-06-21T15:22:12.788170Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_066a4a1d_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web
+status: proposed
+summary: Added discover_pipelines handler spanning router, controller, and CRM context. The Gradual Type Checker can't narrow nil from `case resolve_provider` pattern matching — need to isolate provider.fetch_
+tags:
+  - feedback
+  - learning
+title: Key learning from task 066a4a1d
+triggers: []
+updated_at: "2026-06-21T15:22:12.788191Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

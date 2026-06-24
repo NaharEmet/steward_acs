@@ -1,0 +1,28 @@
+content: "When code review finds minor issues (no critical/major), create a small follow-up task with all fixes batched. Common minor fixes: (1) add Logger.warning on fallback paths, (2) extract try/rescue into named helper for clarity, (3) simplify nested case with Keyword.fetch!, (4) cache get_env as compile_env attributes. Each fix is 1-4 lines, low risk."
+created_at: "2026-06-21T14:20:51.968743Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_code_review_minor_fixes_pattern_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/code_review
+status: proposed
+summary:
+tags:
+  - code_review
+  - minor_fixes
+  - patterns
+title: Code review minor fixes pattern
+triggers: []
+updated_at: "2026-06-21T14:20:51.968757Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

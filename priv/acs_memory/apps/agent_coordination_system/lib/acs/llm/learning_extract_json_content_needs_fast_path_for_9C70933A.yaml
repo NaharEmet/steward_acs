@@ -1,0 +1,35 @@
+content: |
+  The `extract_json_content/1` function in Acs.LLM had a complex multi-layer fallback that re-processed content through `extract_balanced_json()` and `extract_any_json()` even when the input was already valid JSON. This caused double-closing-braces corruption (`}}` at end) because `find_balanced/4` returned `""` on end-of-input instead of accumulated content.
+  
+  **Fix:**
+  1. Added fast-path: try `Jason.decode(cleaned)` first — returns cleaned content immediately if valid JSON
+  2. Simplified fallback chain: markdown blocks → balanced extraction → regex (no redundant passes)
+  3. Fixed `find_balanced/4` base case to return `acc` instead of `""` — preserves accumulated content even on unbalanced input
+  4. Added raw content debug logging in `try_extract_json/1` failure path for future debugging
+created_at: "2026-06-21T11:28:33.359801Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_extract_json_content_needs_fast_path_for_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: apps/agent_coordination_system/lib/acs/llm
+status: proposed
+summary:
+tags:
+  - json-extraction
+  - llm
+  - bug-fix
+title: extract_json_content needs fast-path for valid JSON to avoid brace corruption
+triggers: []
+updated_at: "2026-06-21T11:28:33.359810Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

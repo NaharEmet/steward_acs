@@ -1,0 +1,28 @@
+content: "To override a LiveView's layout (set via `use Phoenix.LiveView, layout: {Mod, :default}`), the layout must be set in the mount return tuple as `{:ok, socket, layout: {Mod, :atom}}`. Using `assign(socket, layout: ...)` does NOT work because LiveView's renderer reads `socket.private.live_layout`, not `socket.assigns.layout`. The mount return tuple is processed by the framework which correctly stores the layout in `socket.private.live_layout`."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_liveview_layout_override_must_use_mount_return_tup
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/live
+status: approved
+summary:
+tags:
+  - phoenix
+  - liveview
+  - layout
+  - phoenix_live_view
+title: LiveView layout override must use mount return tuple
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.344286Z"
+  approved_by: human
+  status: approved

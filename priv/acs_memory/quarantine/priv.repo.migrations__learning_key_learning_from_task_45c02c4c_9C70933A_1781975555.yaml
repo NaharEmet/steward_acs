@@ -1,0 +1,27 @@
+content: "Phase 2 of adaptive synthesis grouping is implemented: (1) supporting_claim_count column added to syntheses migration, (2) DedupCache GenServer for two-tier content dedup caching, (3) SynthesisDedup module with pgvector cosine search + LLM fallback, (4) CognitionProcessor integration hooks embedding dedup into generate_and_persist_syntheses before creation, (5) DedupCache added to application supervision tree. Key gotchas: raw SQL with Postgrex requires binary UUID (16-byte) not string; Ecto from(s in \\"table_name\\") doesn't auto-apply binary_id type - use the Ecto schema instead; put_in/3 fails on nil intermediate keys in nested maps."
+created_at: "2026-06-20T17:12:33.256163Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_45c02c4c_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: priv.repo.migrations
+status: proposed
+summary: "Phase 2 of adaptive synthesis grouping is implemented: (1) supporting_claim_count column added to syntheses migration, (2) DedupCache GenServer for two-tier content dedup caching, (3) SynthesisDedup m"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 45c02c4c
+triggers: []
+updated_at: "2026-06-20T17:12:33.256169Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,37 @@
+content: |
+  The `CrmEntitySnapshot` schema defines `belongs_to :previous_snapshot, __MODULE__, foreign_key: :previous_snapshot_id, define_field: false`. Because `define_field: false`, the `previous_snapshot_id` field is NOT part of the virtual Ecto schema fields. It cannot be used in `Ecto.Changeset.cast/3`. Attempting to cast it raises `ArgumentError: unknown field`.
+  
+  The `:previous_snapshot_id` was removed from the `cast/3` call in the `changeset/2` function. The `foreign_key_constraint` for it can stay since that's a DB-level check that doesn't depend on the schema field existing.
+  
+  If you need to set `previous_snapshot_id`, you must either:
+  - Remove `define_field: false` from the schema association
+  - Or set it directly via `Repo.insert` or `put_change` on the changeset
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_crmentitysnapshot_changeset_must_not_cast_previous
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/crm_entity_snapshot
+status: approved
+summary:
+tags:
+  - ecto
+  - schema
+  - cast
+  - define_field
+  - bugfix
+title: CrmEntitySnapshot changeset must not cast previous_snapshot_id
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.754616Z"
+  approved_by: human
+  status: approved

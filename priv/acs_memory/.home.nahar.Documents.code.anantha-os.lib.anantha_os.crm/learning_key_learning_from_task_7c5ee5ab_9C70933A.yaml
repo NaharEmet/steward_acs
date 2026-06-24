@@ -1,0 +1,27 @@
+content: "Use Repo.transaction with lock(\"FOR UPDATE\") on IngestionSource reads when performing concurrent writes to sync state. Plain find_source/2 is fine for reads. lock_source!/2 rolls back the transaction if no source is found, preserving the {:error, :source_not_found} return contract."
+created_at: "2026-06-20T12:55:10.529950Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_7c5ee5ab_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.lib.anantha_os.crm
+status: proposed
+summary: "Use Repo.transaction with lock(\"FOR UPDATE\") on IngestionSource reads when performing concurrent writes to sync state. Plain find_source/2 is fine for reads. lock_source!/2 rolls back the transaction "
+tags:
+  - feedback
+  - learning
+title: Key learning from task 7c5ee5ab
+triggers: []
+updated_at: "2026-06-20T12:55:10.529969Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

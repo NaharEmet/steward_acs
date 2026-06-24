@@ -1,0 +1,45 @@
+content: |
+  All LLM calls across the entire application go through a single global `Anantha.Llm.Gateway` module. This replaces ad-hoc per-module LLM calls.
+  
+  Design:
+  - Single GenServer with `:pool_size` semaphore (concurrency cap)
+  - Global `:calls_per_second` rate limiter (ExRated or similar)
+  - Retry with exponential backoff (configurable max_retries)
+  - Shared DLQ for failed calls (with context for replay)
+  - Telemetry emissions: `[:anantha, :llm, :gateway, :start | :stop | :error]`
+  - Per-org usage tracking for future quota system (aggregated counters, not per-org rate limiting)
+  
+  All existing callers (ClaimExtractor, SynthesisExtractor, ObservationExtractor, ClaimRelationFinder) are refactored to call through LlmGateway. New processors in Phase 4 also use it.
+  
+  Rationale: Prevents the "locally correct but globally overloaded" problem. Without a single chokepoint, independent modules can collectively overwhelm the LLM provider.
+  
+  See: plans/memory_pipeline_rearchitecture_plan.md Phase 2.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: decision_llmgateway_as_global_llm_chokepoint
+importance: 5
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory_pipeline/llm_gateway
+status: approved
+summary:
+tags:
+  - memory-pipeline
+  - llm
+  - gateway
+  - rate-limiting
+  - chokepoint
+title: LlmGateway as global LLM chokepoint
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.304013Z"
+  approved_by: human
+  status: approved

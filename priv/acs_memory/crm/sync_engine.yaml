@@ -1,0 +1,54 @@
+content: |
+  ## State Transition Tracking Pattern
+  
+  When implementing state transition detection in a sync engine:
+  
+  1. **Define tracked fields in the provider module** as internal string constants (e.g., `state_fields("contacts") -> ["hs_lead_status", "hs_lifecyclestage"]`). Never derive state field names from external input.
+  
+  2. **Store entity snapshots in SyncState** using `get_entity_states/3` and `update_entity_states/4`. Store a map of entity_id => state_values for comparison on next sync.
+  
+  3. **Compare current vs previous state** in `detect_transformations/5` after fetching records. Generate transformation records when tracked field values differ.
+  
+  4. **Transformation record format**:
+     ```elixir
+     %{
+       type: "transformation",
+       entity_type: "contacts",
+       entity_id: "hubspot_contact_id",
+       source: "hubspot",
+       from_state: "lead",
+       to_state: "customer",
+       field: "hs_lifecyclestage",
+       timestamp: DateTime.utc_now()
+     }
+     ```
+  
+  5. **Graceful degradation**: If database queries fail (e.g., invalid org_id format), return empty results rather than propagating errors. Use try/rescue only for truly exceptional cases.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_crm_syncengine_state_transition_tracking_pattern
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync_engine
+status: approved
+summary: State transition tracking pattern for CRM sync engines
+tags:
+  - crm
+  - sync
+  - state-transitions
+  - hubspot
+title: CRM SyncEngine State Transition Tracking Pattern
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.523110Z"
+  approved_by: human
+  status: approved

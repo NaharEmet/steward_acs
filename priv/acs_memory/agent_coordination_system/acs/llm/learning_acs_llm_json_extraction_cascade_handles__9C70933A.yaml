@@ -1,0 +1,40 @@
+content: |
+  `Acs.LLM.extract_json_content/1` uses a 4-stage extraction cascade to handle MiMo v2.5 reasoning model output:
+  1. **Strip thinking tags** — removes `<thinking>...</thinking>` blocks
+  2. **Extract from markdown blocks** — finds ```json ... ``` blocks
+  3. **Extract balanced JSON** — finds first `{...}` with balanced braces
+  4. **Extract any JSON** (last resort) — regex for `{"recommendation"...}` or `{"quality_score"...}`
+  
+  This prevents `:invalid_json_response` errors when reasoning models return JSON embedded in free-form text.
+  
+  Nil guard clauses were added to `try_reasoning_content/1`, `try_extract_json/1`, and `extract_json_content/1` to prevent crashes when `reasoning_content` is nil in the API response.
+  
+  After making code changes, run `mix compile --warnings-as-errors` from `apps/agent_coordination_system/` to ensure the BEAM bytecode is up to date.
+created_at: "2026-06-20T12:55:53.510986Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_llm_json_extraction_cascade_handles__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acs/llm
+status: proposed
+summary:
+tags:
+  - json-extraction
+  - llm
+  - reasoning-models
+  - mimo
+title: Acs.LLM JSON extraction cascade handles reasoning model output
+triggers: []
+updated_at: "2026-06-20T12:55:53.510996Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

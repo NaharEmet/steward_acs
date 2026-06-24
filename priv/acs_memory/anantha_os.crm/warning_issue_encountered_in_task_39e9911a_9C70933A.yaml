@@ -1,0 +1,27 @@
+content: Pre-existing @default_search_page_size attribute in hub_spot.ex was defined but never used, causing a compile warning that would fail --warnings-as-errors. Had to remove it as a defensive cleanup.
+created_at: "2026-06-21T18:55:22.464389Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_39e9911a_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: Pre-existing @default_search_page_size attribute in hub_spot.ex was defined but never used, causing a compile warning that would fail --warnings-as-errors. Had to remove it as a defensive cleanup.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 39e9911a
+triggers: []
+updated_at: "2026-06-21T18:55:22.464395Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

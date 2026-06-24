@@ -1,0 +1,28 @@
+content: "In `IngestionSources.create_source/2`, the `attrs` parameter may use string keys. Using `Map.put(attrs, :org_id, org_id)` creates a map with mixed atom and string keys, which causes `Ecto.CastError` because Ecto's `cast/6` expects all keys to be the same type. Always use `Map.put(attrs, \"org_id\", org_id)` to maintain key type consistency."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_use_string_keys_when_merging_org_id_into_attrs_in_
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/ingestion_sources
+status: approved
+summary:
+tags:
+  - ecto
+  - changeset
+  - ingestion_sources
+  - key-consistency
+title: Use string keys when merging org_id into attrs in create_source/2
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.641235Z"
+  approved_by: human
+  status: approved

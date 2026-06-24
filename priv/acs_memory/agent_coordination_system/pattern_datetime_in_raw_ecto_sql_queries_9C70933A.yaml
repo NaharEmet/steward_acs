@@ -1,0 +1,29 @@
+content: When using Ecto.Adapters.SQL.query/4 (not changesets), DateTime structs passed as query parameters may fail to encode in Exqlite. Always convert DateTime structs to ISO 8601 strings (DateTime.to_iso8601/1) before passing as raw SQL parameters. When using datetime('now') inside SQL directly, no conversion needed.
+created_at: "2026-06-20T17:11:48.961876Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_datetime_in_raw_ecto_sql_queries_9C70933A
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system
+status: proposed
+summary:
+tags:
+  - exqlite
+  - ecto
+  - datetime
+  - sql
+title: DateTime in raw Ecto SQL queries
+triggers: []
+updated_at: "2026-06-20T17:11:48.961885Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,38 @@
+content: |
+  The MCP ToolRegistry reads YAML tool definitions from the path returned by `Acs.MCP.ToolLoader.tools_path()`. At runtime, this defaults to `_build/acs/acstools/` (resolved via `Application.app_dir(:steward_acs)`), NOT the source directory `acs/acstools/`. 
+  
+  The Application config `config :steward_acs, Acs.MCP.ToolLoader, tools_path: ...` may not be loaded when running the MCP server standalone. To ensure YAML files are found, either:
+  
+  1. Copy YAML files to `_build/acs/acstools/`, OR
+  2. Set `MCP_TOOLS_PATH` env var to the source path, OR
+  3. Ensure the app config is properly loaded
+  
+  When adding new .yaml files to `acs/acstools/`, they must also be copied to `_build/acs/acstools/` for the MCP server to pick them up.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_mcp_tool_yaml_files_must_be_in_build_path
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/tool_loader
+status: approved
+summary:
+tags:
+  - mcp
+  - tool_loader
+  - yaml
+  - build_path
+title: MCP Tool YAML files must be in _build path
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.122974Z"
+  approved_by: human
+  status: approved

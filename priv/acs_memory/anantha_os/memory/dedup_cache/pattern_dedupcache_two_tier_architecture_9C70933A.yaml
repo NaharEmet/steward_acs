@@ -1,0 +1,48 @@
+content: |
+  Two-tier in-memory cache for synthesis dedup LLM results. 
+  
+  ### Architecture:
+  - Tier 1 (positive): content pairs confirmed semantically equivalent — permanent (no TTL)
+  - Tier 2 (negative): content pairs confirmed NOT equivalent — 24h TTL, cleaned every 6h
+  - Key: SHA-256(content_a ++ content_b) — order-dependent so (a,b) ≠ (b,a)
+  - Per-org isolation: top-level map keyed by org_id
+  
+  ### Invariants:
+  - Positive cache takes priority (if same key added as positive after negative, positive wins)
+  - Negative entries auto-expire after 24h to prevent stale decisions blocking matches
+  - `clear()` resets all caches — used in test setup for isolation
+  - Uses `get_in/2` for safe nested access in `check_match` (returns nil for missing keys)
+  - Uses `Map.get/3` + `Map.put/3` pattern in cache calls (not `put_in/3`) to safely handle missing intermediate org keys
+  
+  ### Weaknesses:
+  - Key is order-dependent: matching "A vs B" does NOT find "B vs A"
+  - No max-size eviction — unlimited growth if many content pairs compared
+  - Process crashes lose all cached data (GenServer restarts with empty state)
+created_at: "2026-06-20T17:14:00.769785Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_dedupcache_two_tier_architecture_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/dedup_cache
+status: proposed
+summary: "DedupCache: per-org two-tier in-memory GenServer for content dedup results"
+tags:
+  - dedup
+  - cache
+  - gen-server
+  - llm-fallback
+title: DedupCache two-tier architecture
+triggers: []
+updated_at: "2026-06-20T17:14:00.769796Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

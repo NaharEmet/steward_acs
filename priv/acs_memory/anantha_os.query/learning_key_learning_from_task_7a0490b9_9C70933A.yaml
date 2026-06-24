@@ -1,0 +1,27 @@
+content: Observations dataset gone - removed from DatasetRegistry @datasets map, dataset_description, and QueryEngine build_default_columns. apply_field_conditions had infinite recursion when to_atom returns string for unknown field - add is_binary check after conversion. Count mode in QueryController was missing query_id. describe/1 leaked schema_module and preload_paths - strip from response map.
+created_at: "2026-06-21T19:50:42.154240Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_7a0490b9_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.query
+status: proposed
+summary: Observations dataset gone - removed from DatasetRegistry @datasets map, dataset_description, and QueryEngine build_default_columns. apply_field_conditions had infinite recursion when to_atom returns s
+tags:
+  - feedback
+  - learning
+title: Key learning from task 7a0490b9
+triggers: []
+updated_at: "2026-06-21T19:50:42.154254Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

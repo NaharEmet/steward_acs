@@ -1,0 +1,38 @@
+content: |
+  Updated `.opencode/agents/org-setup.md` with three improvements for HubSpot CRM sync:
+  
+  1. **Scope probing (Phase 3)**: Before syncing, make lightweight `GET /crm/v3/objects/{type}?limit=1` for each of 11 object types. Classify as accessible or forbidden (403). Store result in sync state metadata as `scope_probe` so future scheduler runs can skip them.
+  
+  2. **Server-side ingestion (Phase 4)**: Never use `mix run` for CRM sync — script timeouts (3-10min) are too short for large HubSpot datasets (1000s+ records, 15+ min). Always use ACS tools (`acs_crm_sync`, `acs_crm_sync_object_type`) or trigger scheduler GenServer (`Anantha.CRM.Scheduler.trigger_now/0`). These run on the BEAM VM with no timeout.
+  
+  3. **Efficiency**: Sync accessible types in parallel batches of 3. Skip forbidden types immediately. Poll sync state every 30s to track progress (don't hang on mix run). Added deferral note: scheduler still iterates all 11 types — needs `coder` to filter based on scope_probe metadata.
+  
+  Files: `.opencode/agents/org-setup.md` (was 208 lines, now 326 lines)
+created_at: "2026-06-20T08:44:17.467249Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_org_setup_prompt_updated_with_scope_prob_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/onboarding
+status: proposed
+summary:
+tags:
+  - org-setup
+  - hubspot
+  - scope-probe
+  - server-side-sync
+  - efficiency
+title: Org setup prompt updated with scope probe and server-side sync
+triggers: []
+updated_at: "2026-06-20T08:44:17.467268Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

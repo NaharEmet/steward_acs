@@ -1,0 +1,32 @@
+content: |
+  Audited all scope-chaining patterns across the CRM sync engine (sync_engine.ex, hub_spot.ex). Only `fetch_pipelines/2` has the with-block chaining bug where one scope's 403 propagates as total failure. All other API calls handle 403s gracefully per-type — each object type syncs independently with its own error handling in `sync_object_type/4` and `fetch_page_search_api/7`.
+  
+  Pattern is: each object type has its own sync state tracking, so one type failing doesn't block others. Pipeline discovery was the exception because it used `with` to chain multiple pipeline types into a single function.
+created_at: "2026-06-21T18:15:17.712456Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_scope_chaining_audit_no_other_with_block_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync_engine
+status: proposed
+summary:
+tags:
+  - crm
+  - audit
+  - scope-chaining
+  - error-handling
+title: "Scope-chaining audit: no other with-block chaining issues in CRM sync"
+triggers: []
+updated_at: "2026-06-21T18:15:17.712465Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

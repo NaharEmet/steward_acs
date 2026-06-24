@@ -1,0 +1,56 @@
+content: |
+  ## LLM Metrics Recording Architecture
+  
+  The `Anantha.LLM.Client.chat_completion/2` is the central adapter through which all 27+ LLM call sites flow. Originally it had TWO recording paths:
+  
+  ### Deleted Path A (store_metrics/4 in MetricsRecorder)
+  - Called directly in `chat_completion` after `do_chat_completion` returned
+  - Extracted tokens from the already-parsed response map (`response["usage"]["prompt_tokens"]`)
+  - This always returned 0 because the response object format doesn't have usage data at that level
+  - Also gated behind `if execution_id`, so only meta-harness calls recorded anything
+  - **Bug**: Recorded 0 tokens for every call
+  
+  ### Active Path B (store_metrics/8 in MetricsRecorder)
+  - Called inside `execute_llm_request` from raw HTTP response metrics
+  - Extracts correct tokens from `extract_metrics_from_response` which reads the raw Req response
+  - Was gated behind `if org_id` — calls without org_id were silently skipped
+  - Now the **single canonical recording point** — no guard, records for all calls
+  
+  ### Key Architectural Decision
+  `chat_completion` is the single adapter entry point. All metrics tracking should be consolidated inside `execute_llm_request` (the innermost request path), not at the `chat_completion` level. This ensures:
+  1. Access to raw HTTP response metrics (correct tokens)
+  2. Single recording point per call (no duplicates)
+  3. Works regardless of org_id presence
+  
+  ### Schema Note
+  `org_id` is now nullable in `llm_call_metrics` table. Postgres FK constraints don't enforce for NULL values, so the foreign key constraint can remain in the changeset even with nil org_id.
+  
+  ---
+  Improvements: Consider adding: 1) A timeline or date context for when this consolidation occurred, 2) More context on why the original two-path approach was problematic beyond just the bug (e.g., maintenance overhead), 3) The schema note about org_id nullability could be linked more explicitly to the guard condition change (from 'if org_id' to no guard).
+created_at: "2026-06-05T19:58:18Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_llm_metrics_architecture_path_a_b_consolidation
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/llm/metrics
+status: approved
+summary:
+tags:
+  - llm
+  - metrics
+  - architecture
+  - tracking
+title: "LLM Metrics Architecture: Path A/B consolidation"
+triggers: []
+updated_at: "2026-06-06T04:09:07Z"
+verification:
+  approved_at: "2026-06-06T04:09:07.499350Z"
+  approved_by: "Key architectural learning: chat_completion is the central adapter; all LLM metrics recording should be consolidated at the request level, not the adapter level."
+  status: approved

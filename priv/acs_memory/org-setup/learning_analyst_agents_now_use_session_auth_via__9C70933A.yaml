@@ -1,0 +1,46 @@
+content: |
+  The analyst template at `analysts/safety_connect/.opencode/opencode.json` was updated to use session-based auth instead of embedding the raw API key in the prompt. The new flow:
+  
+  1. Agent calls `ant_authenticate(org: "<org_name>", api_key: "<key>")` at startup
+  2. Gets back `session_id` (e.g., `sess_xxxx`)
+  3. Passes `_session_id` in all subsequent `ant_*` tool calls — no raw api_key in prompt history
+  4. Session lasts 5 minutes (Bridge ETS table `:anantha_sessions`), re-auth is lightweight
+  
+  The `mix analyst_agent.setup` task now:
+  - Uses `PLACEHOLDER_API_KEY`, `PLACEHOLDER_ORG_NAME`, `01f63922-397a-463f-9c24-1daf1e159e0e` as template placeholders
+  - Replaces all three placeholders with actual values (fixes mismatch with old template)
+  - Accepts `<org_id> <api_key> <org_name>` (org_name is now required)
+  
+  The org-setup agent was updated to:
+  - Recommend passphrase keys for analyst agents
+  - Show session auth flow in setup instructions
+  - Mention `--passphrase` option in API key generation phase
+  - Include `ant_authenticate` knowledge in domain knowledge section
+created_at: "2026-06-22T04:33:59.420209Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_analyst_agents_now_use_session_auth_via__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: proposed
+summary:
+tags:
+  - analyst-agent
+  - session-auth
+  - ant_authenticate
+  - template
+title: Analyst agents now use session auth via ant_authenticate
+triggers: []
+updated_at: "2026-06-22T04:33:59.420215Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

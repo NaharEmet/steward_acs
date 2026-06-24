@@ -1,0 +1,30 @@
+content: "When LLM responses fail extraction, values like reasoning_content can be nil. Always add nil guard clauses to extraction functions: `defp extract_json_content(nil), do: \"\"`, `defp try_extract_json(nil), do: :error`, `defp try_reasoning_content(nil), do: {:error, :empty_response}`. Without these, FunctionClauseError crashes occur because the existing clauses match only on binaries via `when is_binary(content)`."
+created_at: "2026-06-20T12:46:18.473178Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_nil_guard_pattern_for_extract_json_conte_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - nil_guard
+  - extraction
+  - llm
+  - crash
+  - pattern
+title: Nil guard pattern for extract_json_content/try_extract_json/try_reasoning_content
+triggers: []
+updated_at: "2026-06-20T12:46:18.473191Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

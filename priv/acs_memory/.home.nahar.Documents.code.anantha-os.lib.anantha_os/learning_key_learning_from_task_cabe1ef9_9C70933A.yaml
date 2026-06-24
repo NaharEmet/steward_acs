@@ -1,0 +1,27 @@
+content: process_crm_records_batch now accepts config map with skip_llm option. SyncEngine sets skip_llm=true by default. Existing 2-arg callers still work via default param.
+created_at: "2026-06-20T12:53:58.404073Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_cabe1ef9_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.lib.anantha_os
+status: proposed
+summary: process_crm_records_batch now accepts config map with skip_llm option. SyncEngine sets skip_llm=true by default. Existing 2-arg callers still work via default param.
+tags:
+  - feedback
+  - learning
+title: Key learning from task cabe1ef9
+triggers: []
+updated_at: "2026-06-20T12:53:58.404090Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

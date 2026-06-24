@@ -1,0 +1,27 @@
+content: "The entity_extractor_test.exs suite has 18 tests total (17 mock + 1 `@tag :real_llm` integration). All 18 pass when run with `--trace`. The `:real_llm` tagged test runs by default (no `--exclude` needed), calls the real NIM API, and completes in ~10.8s. The mock test suite is 17 tests - the `:real_llm` test adds 1 more when included."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_entity_extractor_test_suite_passes_18_18_including
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/entity_extractor
+status: approved
+summary:
+tags:
+  - entity_extractor
+  - tests
+  - llm_integration
+title: Entity extractor test suite passes 18/18 including real LLM
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.182057Z"
+  approved_by: human
+  status: approved

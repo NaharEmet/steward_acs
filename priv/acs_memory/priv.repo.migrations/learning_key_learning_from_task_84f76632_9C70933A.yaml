@@ -1,0 +1,27 @@
+content: "Phase 3 of adaptive synthesis grouping is complete: (1) HypothesisDedup module uses content_hash exact matching for dedup, simpler than SynthesisDedup's embedding approach; (2) apply_linear_decay() in CognitionProcessor uses SQL batch UPDATE with effective_score formula - requires 7-day grace period to avoid killing fresh syntheses; (3) contradiction detection now has 3 signals: LLM pressure (>0.5), LLM contradictions_detected flag, and polarity divergence (sentiment in metadata); (4) hypothesis dedup integrated so generated hyps reinforce existing ones instead of duplicating; (5) linear decay marks stale at effective_score < 0.1 and count is returned from transition_synthesis_states. Key caveat: :crypto.hash takes (alg, data) arg order - pipe breaks it."
+created_at: "2026-06-20T19:08:37.206962Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_84f76632_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: priv.repo.migrations
+status: proposed
+summary: "Phase 3 of adaptive synthesis grouping is complete: (1) HypothesisDedup module uses content_hash exact matching for dedup, simpler than SynthesisDedup's embedding approach; (2) apply_linear_decay() in"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 84f76632
+triggers: []
+updated_at: "2026-06-20T19:08:37.206977Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

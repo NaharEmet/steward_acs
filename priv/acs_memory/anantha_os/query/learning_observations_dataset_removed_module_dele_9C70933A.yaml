@@ -1,0 +1,29 @@
+content: Anantha.Core.Observation module was deleted (table dropped in migration). The DatasetRegistry entry for "observations" referenced this non-existent module, causing UndefinedFunctionError crashes on any query to observations dataset. Fixed by removing the entry entirely - queries now return clean "Unknown dataset" error instead of crashing.
+created_at: "2026-06-21T19:53:01.691413Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_observations_dataset_removed_module_dele_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query
+status: proposed
+summary:
+tags:
+  - dataset_registry
+  - observations
+  - bug-fix
+  - crash-prevention
+title: Observations dataset removed - module deleted
+triggers: []
+updated_at: "2026-06-21T19:53:01.691426Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

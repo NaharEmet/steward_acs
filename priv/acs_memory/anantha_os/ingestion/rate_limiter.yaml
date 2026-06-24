@@ -1,0 +1,27 @@
+content: "RateLimiter.check/3 and record_failure/4 now require org_id as a second argument. The rate limit key is built as \"#{org_id}:#{source_type}\", preventing one org's rate limit from affecting another org. The rate_limiter_test was updated to pass nil org_id for backward compatibility in tests."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ratelimiter_now_org_scoped_to_prevent_tenant_cross
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/rate_limiter
+status: approved
+summary:
+tags:
+  - rate-limiter
+  - multi-tenant
+  - org-scoped
+title: RateLimiter now org-scoped to prevent tenant cross-contamination
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.505773Z"
+  approved_by: human
+  status: approved

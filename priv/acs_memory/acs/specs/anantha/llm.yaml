@@ -1,0 +1,26 @@
+content: "When writing cognition specs in YAML format, avoid Elixir tuple syntax like {:error, ...} or %{map, ...} in YAML values. The YAML parser interprets curly braces as flow mapping syntax and colons as key-value separators, causing parse errors. Always use plain English descriptions instead. This affects the failure_modes, workflows, and invariants sections of spec files."
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_key_learning_from_task_52fa031f
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: acs/specs/anantha/llm
+status: approved
+summary: "When writing cognition specs in YAML format, avoid Elixir tuple syntax like {:error, ...} or %{map, ...} in YAML values. The YAML parser interprets curly braces as flow mapping syntax and colons as ke"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 52fa031f
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.829187Z"
+  approved_by: human
+  status: approved

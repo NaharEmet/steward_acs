@@ -1,0 +1,28 @@
+content: "LLMJudge default provider was 'sarvam' but Sarvam API key not configured. Changed default to 'nim' (app standard). Added providers_available?/0 guard that checks Provider.get_api_key/1 before attempting judge LLM call, returning {:error, :no_provider_configured} early instead of letting the error propagate from deep in the Client."
+created_at: "2026-06-20T17:11:47.189407Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_llmjudge_missing_api_key_fix_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/meta_harness
+status: proposed
+summary:
+tags:
+  - llm_judge
+  - api_key
+  - meta_harness
+title: LLMJudge missing_api_key fix
+triggers: []
+updated_at: "2026-06-20T17:11:47.189418Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

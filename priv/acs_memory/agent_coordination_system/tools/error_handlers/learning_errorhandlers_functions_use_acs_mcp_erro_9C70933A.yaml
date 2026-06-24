@@ -1,0 +1,36 @@
+content: |
+  The ErrorHandlers module in apps/agent_coordination_system/lib/acs/mcp/tools/error_handlers.ex uses Acs.MCP.ErrorTrace as the underlying API for error trace operations. The mapping is:
+  - list_error_traces/1 → Acs.MCP.ErrorTrace.list_traces/1 (keyword opts)
+  - ack_error_trace/1 → Acs.MCP.ErrorTrace.acknowledge_trace/1 (binary trace_id)
+  - resolve_error_trace/1 → Acs.MCP.ErrorTrace.resolve_trace/1 (binary trace_id)
+  - create_task_from_error_trace/1 → Acs.MCP.ErrorTrace.get_trace/1 + Acs.create_task/2 + Acs.MCP.ErrorTrace.mark_tasked/2
+  
+  The public handlers take string-keyed maps (from JSON tool args), convert to keywords via maybe_put_option/3 helper, and return {:ok, result} or {:error, reason} tuples following the same pattern as other handlers in the tools directory.
+created_at: "2026-06-20T09:45:46.744806Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_errorhandlers_functions_use_acs_mcp_erro_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/tools/error_handlers
+status: proposed
+summary:
+tags:
+  - error_handlers
+  - error_trace
+  - tools
+  - pattern
+title: ErrorHandlers functions use Acs.MCP.ErrorTrace client API
+triggers: []
+updated_at: "2026-06-20T09:45:46.744833Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

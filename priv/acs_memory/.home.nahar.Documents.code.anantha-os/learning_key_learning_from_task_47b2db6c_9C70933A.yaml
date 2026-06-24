@@ -1,0 +1,27 @@
+content: "Ollama docker-compose service uses `sh -c \"ollama serve & sleep 2 && ollama pull nomic-embed-text && wait\"` pattern to pre-load model on startup. Healthcheck uses `ollama list`. acs depends_on ollama with condition: service_healthy for startup ordering. OLLAMA_URL env in acs should point to http://ollama:11434 (docker DNS, not localhost)."
+created_at: "2026-06-20T16:05:35.702641Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_47b2db6c_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os
+status: proposed
+summary: "Ollama docker-compose service uses `sh -c \"ollama serve & sleep 2 && ollama pull nomic-embed-text && wait\"` pattern to pre-load model on startup. Healthcheck uses `ollama list`. acs depends_on ollama "
+tags:
+  - feedback
+  - learning
+title: Key learning from task 47b2db6c
+triggers: []
+updated_at: "2026-06-20T16:05:35.702652Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

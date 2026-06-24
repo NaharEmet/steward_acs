@@ -1,0 +1,30 @@
+content: "To avoid syncing noise contacts from HubSpot, the SyncEngine can be configured to only sync contacts that are associated with deals. The approach is two-phase: (1) sync non-contact types (deals, companies) first, (2) collect `associated_contact_ids` from deal records, (3) use HubSpot's batch read API (`POST /crm/v3/objects/contacts/batch/read` with 100-ID chunks) to fetch only those contacts. Implemented in SyncEngine.sync/3 with `extract_associated_contact_ids/1` and HubSpot adapter's `fetch_contacts_by_ids/4`. When no associated contacts exist (no deals or no associations), falls back to full contact sync."
+created_at: "2026-06-21T12:24:14.462191Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_filter_contacts_by_deal_association_in_c_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync_engine
+status: proposed
+summary:
+tags:
+  - crm
+  - hubspot
+  - contacts
+  - filtering
+  - batch-read
+title: Filter contacts by deal association in CRM sync
+triggers: []
+updated_at: "2026-06-21T12:24:14.462202Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

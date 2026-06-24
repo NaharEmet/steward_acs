@@ -1,0 +1,42 @@
+content: |
+  ClaimExtractor.store_claims_batch crashes with `Postgrex.Error ERROR 22001 (string_data_right_truncation) value too long for type character varying(255)` when processing email records.
+  
+  Root cause: The `object` and `content` columns in the `claims` table are `varchar(255)`. Email body text (`hs_email_text`) can be thousands of characters long. When `build_claim_specs` creates a claim_spec with `object: to_string(value)` for `hs_email_text`, and then `create_claims_batch` builds `content: "#{spec.subject} #{spec.predicate} #{spec.object}"`, both fields overflow 255 chars.
+  
+  The crash happens at `create_claims_batch/4` in claim_extractor.ex:515 via `Repo.insert_all(Claim, new_claim_attrs, returning: true)`.
+  
+  Affected columns: `object` (varchar(255)), `content` (varchar(255)). The `subject` (varchar(255)) and `predicate` (varchar(255)) are not affected since they're short.
+  
+  Fix options:
+  1. Truncate `object` to 255 chars in `build_claim_specs` (loses data)
+  2. Change DB columns to `text` type (schema migration)
+  3. Skip or hash long body text for `has_email_body` claims
+created_at: "2026-06-22T05:45:58.681280Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_email_claim_extraction_crashes_on_hs_ema_9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/claim_extractor
+status: proposed
+summary:
+tags:
+  - email
+  - claim_extractor
+  - varchar_overflow
+  - string_data_right_truncation
+  - "22001"
+title: Email claim extraction crashes on hs_email_text varchar(255) overflow
+triggers: []
+updated_at: "2026-06-22T05:45:58.681287Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

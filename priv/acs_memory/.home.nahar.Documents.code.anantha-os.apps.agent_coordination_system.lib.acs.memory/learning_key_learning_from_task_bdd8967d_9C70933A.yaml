@@ -1,0 +1,27 @@
+content: "Removed try_start_ollama/0 from Acs.Memory.Embedding. The function used System.cmd/pgrep/Task.start to auto-start Ollama — replaced with simple health check. Assumption: Ollama runs via Docker (always-on), no auto-start needed."
+created_at: "2026-06-21T10:48:21.414667Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_bdd8967d_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs.memory
+status: proposed
+summary: "Removed try_start_ollama/0 from Acs.Memory.Embedding. The function used System.cmd/pgrep/Task.start to auto-start Ollama — replaced with simple health check. Assumption: Ollama runs via Docker (always"
+tags:
+  - feedback
+  - learning
+title: Key learning from task bdd8967d
+triggers: []
+updated_at: "2026-06-21T10:48:21.414678Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

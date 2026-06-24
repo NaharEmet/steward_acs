@@ -1,0 +1,29 @@
+content: "`crm_get_sync_state` was reported with 0% success (7/7 failures) and `UndefinedFunctionError`. Investigation showed: route exists (router.ex:221), controller action exists (tool_controller.ex:757), SyncState module exists and compiles (sync_state.ex:217 lines), and the tool works when called after server restart. The `UndefinedFunctionError` was likely caused by server instability during the ToolRegistry `get_present_status` crash, or by calls made during server startup before modules were fully loaded. The tool now works correctly: confirmed via `acs_crm_get_sync_state` returning proper sync state data."
+created_at: "2026-06-21T10:07:29.509961Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_get_sync_state_undefinedfunctionerro_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync_state
+status: proposed
+summary:
+tags:
+  - crm
+  - sync_state
+  - bug
+  - transient
+title: crm_get_sync_state UndefinedFunctionError likely transient
+triggers: []
+updated_at: "2026-06-21T10:07:29.509972Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

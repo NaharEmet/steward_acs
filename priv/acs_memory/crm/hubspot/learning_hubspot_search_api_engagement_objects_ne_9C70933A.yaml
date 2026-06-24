@@ -1,0 +1,29 @@
+content: HubSpot's Search API (`/crm/v3/objects/{object_type}/search`) returns 400 errors when filtering by `hs_lastmodifieddate` for engagement objects (emails, tasks, notes, calls, meetings). The `hs_lastmodifieddate` property exists on these objects (and can be fetched in list API responses), but is not supported as a search filter property in the Search API. Use `createdate` instead for date-based search filtering on engagement objects, or skip the Search API entirely and use the List API with cursor pagination.
+created_at: "2026-06-20T12:55:45.726845Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_hubspot_search_api_engagement_objects_ne_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/hubspot
+status: proposed
+summary:
+tags:
+  - hubspot
+  - search-api
+  - engagement-objects
+  - 400-error
+title: HubSpot search API engagement objects need createdate not hs_lastmodifieddate
+triggers: []
+updated_at: "2026-06-20T12:55:45.726856Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

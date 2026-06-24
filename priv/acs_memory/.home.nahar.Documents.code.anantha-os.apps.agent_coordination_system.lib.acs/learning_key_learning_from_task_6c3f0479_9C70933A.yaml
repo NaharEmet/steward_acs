@@ -1,0 +1,27 @@
+content: Logger.error should be reserved for actual code bugs, not expected operational conditions like rate limiting or retry exhaustion. Changed two Logger.error calls to Logger.warning in Acs.LLM and Acs.Memory.Auditor to reduce error tracking noise.
+created_at: "2026-06-20T10:28:24.976544Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_6c3f0479_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs
+status: proposed
+summary: Logger.error should be reserved for actual code bugs, not expected operational conditions like rate limiting or retry exhaustion. Changed two Logger.error calls to Logger.warning in Acs.LLM and Acs.Me
+tags:
+  - feedback
+  - learning
+title: Key learning from task 6c3f0479
+triggers: []
+updated_at: "2026-06-20T10:28:24.976558Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

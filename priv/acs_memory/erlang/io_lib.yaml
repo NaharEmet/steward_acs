@@ -1,0 +1,30 @@
+content: "In Erlang's `:io_lib.format`, the `~b` format character uses the precision value as the number base (radix), NOT as hex. For example, `~8.8.0b` means \"base 8 (octal), minimum 8 digits, pad with zeros.\" To print hex (base 16), use `~x` instead: `~8.8.0x` prints an 8-digit hex string with zero-padding. Using `~b` when intending hex will silently produce octal output like \"12625400732-66502-45045-127556-645721200762631\" instead of proper hex UUIDs like \"565601da-6d42-4a25-af6e-1a69040fc519\"."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_erlang_io_lib_format_b_uses_precision_as_base_numb
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: erlang/io_lib
+status: approved
+summary:
+tags:
+  - erlang
+  - io_lib
+  - format
+  - hex
+  - octal
+  - uuid
+title: "Erlang :io_lib.format ~b uses precision as base number, not hex"
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.017838Z"
+  approved_by: human
+  status: approved

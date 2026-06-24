@@ -1,0 +1,35 @@
+content: |
+  `org_create` in `ToolController` now fires `Task.start(fn -> CognitionProcessor.generate_for_org(org.id) end)` after org creation. This ensures new orgs automatically get syntheses generated from any existing claims. Safe no-op if no claims/clusters exist yet.
+  
+  Pattern: `Task.start(fn -> ... end)` is appropriate here because:
+  - We don't need the result in the HTTP response
+  - The processing can happen asynchronously
+  - No need for `Task.Supervisor` since org creation is admin-initiated
+created_at: "2026-06-20T14:58:02.415428Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_wire_synthesis_generation_into_org_creat_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/controllers/tool_controller
+status: proposed
+summary:
+tags:
+  - org-setup
+  - synthesis
+  - async
+  - fire-and-forget
+title: Wire synthesis generation into org_create flow
+triggers: []
+updated_at: "2026-06-20T14:58:02.415437Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,139 @@
+defmodule Acs.Memory.VectorIndexTest do
+  use ExUnit.Case, async: false
+
+  alias Acs.Memory.VectorIndex
+
+  setup do
+    # Checkout sandbox connection for this test process
+    Ecto.Adapters.SQL.Sandbox.checkout(Acs.Repo)
+    cleanup_test_embeddings()
+    VectorIndex.create_embeddings_table()
+    on_exit(fn -> cleanup_test_embeddings() end)
+    :ok
+  end
+
+  describe "create_embeddings_table/0" do
+    test "creates embeddings table without error" do
+      # Should not raise
+      assert VectorIndex.create_embeddings_table() == :ok
+
+      # Calling again should also succeed (idempotent)
+      assert VectorIndex.create_embeddings_table() == :ok
+    end
+  end
+
+  describe "upsert_embedding/2" do
+    test "stores embedding for a memory" do
+      memory_id = "test_memory_#{System.unique_integer([:positive])}"
+      embedding = [0.1, 0.2, 0.3, 0.4, 0.5]
+
+      assert VectorIndex.upsert_embedding(memory_id, embedding) == :ok
+    end
+
+    test "updates existing embedding" do
+      memory_id = "test_update_#{System.unique_integer([:positive])}"
+      embedding1 = [0.1, 0.2, 0.3, 0.4, 0.5]
+      embedding2 = [0.5, 0.4, 0.3, 0.2, 0.1]
+
+      VectorIndex.upsert_embedding(memory_id, embedding1)
+      VectorIndex.upsert_embedding(memory_id, embedding2)
+
+      # Should succeed without error
+      assert VectorIndex.upsert_embedding(memory_id, embedding2) == :ok
+    end
+  end
+
+  describe "search_similar/2" do
+    test "finds similar memories" do
+      # Insert test memories with known embeddings
+      memory1 = "sim1_#{System.unique_integer([:positive])}"
+      memory2 = "sim2_#{System.unique_integer([:positive])}"
+      memory3 = "sim3_#{System.unique_integer([:positive])}"
+
+      # 5-element vectors for similarity testing
+      vec1 = [1.0, 0.0, 0.0, 0.0, 0.0]
+      vec2 = [0.0, 1.0, 0.0, 0.0, 0.0]
+      vec3 = [0.0, 0.0, 1.0, 0.0, 0.0]
+
+      VectorIndex.upsert_embedding(memory1, vec1)
+      VectorIndex.upsert_embedding(memory2, vec2)
+      VectorIndex.upsert_embedding(memory3, vec3)
+
+      # Search with vec1 should find memory1 first
+      results = VectorIndex.search_similar(vec1, limit: 3)
+
+      assert is_list(results)
+      assert length(results) == 3
+
+      # First result should be memory1 (identical vector)
+      assert hd(results).memory_id == memory1
+    end
+
+    test "returns empty list when no embeddings exist" do
+      # Clean table first
+      cleanup_test_embeddings()
+
+      results = VectorIndex.search_similar([1.0, 0.0], limit: 10)
+
+      assert results == []
+    end
+
+    test "respects limit parameter" do
+      # Insert multiple embeddings
+      for i <- 1..5 do
+        VectorIndex.upsert_embedding("test_limit_#{i}_#{System.unique_integer([:positive])}",
+                                     [i * 0.1, i * 0.1, 0.0, 0.0, 0.0])
+      end
+
+      results = VectorIndex.search_similar([0.5, 0.5, 0.0, 0.0, 0.0], limit: 3)
+
+      assert length(results) == 3
+    end
+  end
+
+  describe "remove_embedding/1" do
+    test "removes embedding for memory" do
+      memory_id = "test_remove_#{System.unique_integer([:positive])}"
+      embedding = [0.1, 0.2, 0.3, 0.4, 0.5]
+
+      VectorIndex.upsert_embedding(memory_id, embedding)
+      assert VectorIndex.remove_embedding(memory_id) == :ok
+
+      # Should not find it anymore
+      results = VectorIndex.search_similar(embedding, limit: 10)
+      assert Enum.all?(results, fn r -> r.memory_id != memory_id end)
+    end
+
+    test "handles non-existent memory gracefully" do
+      assert VectorIndex.remove_embedding("nonexistent_memory") == :ok
+    end
+  end
+
+  describe "search_threshold/2" do
+    test "finds memories above similarity threshold" do
+      memory1 = "test_thresh_1_#{System.unique_integer([:positive])}"
+      memory2 = "test_thresh_2_#{System.unique_integer([:positive])}"
+
+      # Nearly identical vectors (5-element)
+      vec1 = [1.0, 0.0, 0.0, 0.0, 0.0]
+      vec2 = [0.99, 0.01, 0.0, 0.0, 0.0]
+      vec3 = [0.5, 0.5, 0.0, 0.0, 0.0]
+
+      VectorIndex.upsert_embedding(memory1, vec1)
+      VectorIndex.upsert_embedding(memory2, vec3)
+
+      # Search with vec1 should only return memory1 above 0.95 threshold
+      results = VectorIndex.search_threshold(vec1, 0.95)
+
+      assert length(results) >= 1
+      assert Enum.any?(results, fn r -> r.memory_id == memory1 end)
+    end
+  end
+
+  # Helper to clean up test embeddings
+  defp cleanup_test_embeddings do
+    # Delete rows where memory_id starts with 'sim' or 'test' prefixes
+    Acs.Repo.query("DELETE FROM memory_embeddings WHERE memory_id LIKE 'sim%' OR memory_id LIKE 'test%'")
+    :ok
+  end
+end

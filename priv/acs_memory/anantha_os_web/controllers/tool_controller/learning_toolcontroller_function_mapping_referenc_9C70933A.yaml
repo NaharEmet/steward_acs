@@ -1,0 +1,45 @@
+content: |
+  The `AnanthaWeb.ToolController` (lib/anantha_os_web/controllers/tool_controller.ex) delegates to many backend modules. Key function mappings:
+  
+  - Actor resolution: `Anantha.Core.get_actor/2`, `get_actor_by_phone/2`, `get_actor_by_name/2` (return `%Actor{} | nil`)
+  - System reply: `Anantha.Engine.Orchestrator.process_message/1` (takes map, returns `{:ok, reply}` or `{:error, reason}`)
+  - Workflows: `Anantha.Core.Workflows.list_workflows/1`, `list_workflows_by_status/2`, `get_workflow/2` (returns `%Workflow{} | nil`)
+  - Workflow trigger: `Anantha.Engine.Tools.ExecutionTools.trigger_workflow/1` (takes map)
+  - Workflow activate/deactivate: `Anantha.Core.Workflows.activate_workflow/2`, `deactivate_workflow/2`
+  - Contacts: `Anantha.Core.list_actors/1`, `search_actors/2`
+  - Messages: `Anantha.Core.list_messages_for_actor/3`, `get_message/2` (returns `%{} | nil`)
+  - Memory records: `Anantha.Core.Claims.list_claims/1`, `Records.list_records/2`, `Syntheses.list_syntheses/1`, `Hypotheses.list_hypotheses/1`
+  - Memory stats: `Anantha.Memory.Stats.claim_counts_by_epistemic_state/1`, `count_syntheses/1`, `count_hypotheses/1`
+  - Message queue: `Anantha.Memory.MessageQueue.get_pending/0` returns `%{org_id => [id, ...]}`
+  - Ingestion sources: `Anantha.Core.IngestionSources.create_source/2`, `get_source/2`, `delete_source/1`, `list_sources/1`
+  - API keys: `Anantha.ApiKeys.generate_key/3`
+  - CRM sync state: `Anantha.CRM.SyncState.get_state/3` (returns `%{} | nil`)
+  - CRM field config: `Anantha.CRM.load_field_config/1`
+  - Org deletion: `Anantha.Core.IngestionSources.list_sources/1` (not `IngestionSource.list_sources/1`)
+created_at: "2026-06-20T16:18:51.411604Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_toolcontroller_function_mapping_referenc_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/controllers/tool_controller
+status: proposed
+summary:
+tags:
+  - tool_controller
+  - function_mapping
+  - backend_delegation
+title: ToolController function mapping reference
+triggers: []
+updated_at: "2026-06-20T16:18:51.411614Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

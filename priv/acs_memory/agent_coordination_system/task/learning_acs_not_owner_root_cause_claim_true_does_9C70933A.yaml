@@ -1,0 +1,44 @@
+content: |
+  The `:not_owner` error in ACS task release is caused by a 4-layer chain:
+  
+  1. **`create_work(claim: true)`** sets status="claimed" but does NOT set `locked_by_agent`. The agent must make a separate `claim_work` call to set ownership. If the LLM workflow skips this step, the task stays in "claimed" limbo with nil owner.
+  
+  2. **`release_task`** silently returns `{:ok, nil}` when `locked_by_agent` is nil — the agent thinks release succeeded but the task stays claimed with nil owner.
+  
+  3. Another agent claims the task (setting `locked_by_agent = "Bob"`), then when the original agent calls `release_work` again, they get `:not_owner`.
+  
+  4. **`set_task_status`** lacks `FOR UPDATE` inside the transaction, allowing stale reads.
+  
+  **Fixes applied:**
+  - `create_task` now sets `locked_by_agent = agent_id` when status is "claimed"
+  - `release_task` now returns `{:error, :task_not_claimed}` instead of `{:ok, nil}`
+  - `set_task_status` now uses `lock: "FOR UPDATE"` on the task read inside the transaction
+  - Sweeper broadcast moved outside transaction to prevent stale broadcasts on rollback
+created_at: "2026-06-23T07:35:51.735973Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_not_owner_root_cause_claim_true_does_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/task
+status: proposed
+summary:
+tags:
+  - acs
+  - task-ownership
+  - not-owner
+  - bug-fix
+title: "ACS :not_owner root cause: claim:true doesn't set locked_by_agent"
+triggers: []
+updated_at: "2026-06-23T07:35:51.735983Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

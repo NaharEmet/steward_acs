@@ -1,0 +1,32 @@
+content: |
+  Anantha.LLM.Client and Anantha.LLM.ResponseParser previously referenced dead stub modules (Anantha.LLM.JsonExtractor, Anantha.LLM.JsonAdapter). These have been migrated to delegate to the standalone `:llm_utils` package (AnanthaJson.*). Order matters: fix aliases before deleting stub files to avoid compile errors.
+  
+  Key pattern: `Anantha.LLM.ResponseParser` now delegates all parsing functions to `AnanthaJson.ResponseParser` via `defdelegate`, keeping only the project-specific `ant_ir?/1` function. `Anantha.LLM.Client` aliases `AnanthaJson.JsonExtractor` instead of `Anantha.LLM.JsonExtractor`.
+created_at: "2026-06-24T11:45:51.784669Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_anantha_llm_stubs_migrated_to_ananthajso_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/llm
+status: proposed
+summary:
+tags:
+  - llm
+  - anantha_json
+  - refactoring
+  - delegation
+title: Anantha.LLM stubs migrated to AnanthaJson delegation
+triggers: []
+updated_at: "2026-06-24T11:45:51.784683Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

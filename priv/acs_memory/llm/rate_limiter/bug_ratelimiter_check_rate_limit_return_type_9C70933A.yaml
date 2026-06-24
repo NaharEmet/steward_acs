@@ -1,0 +1,33 @@
+content: |
+  `Anantha.LLM.RateLimiter.check_rate_limit/1` returned `{:rate_limited, count}` tuple from `Agent.get_and_update` callbacks (lines 54, 74, 94) but the `@spec` declared `:ok | :rate_limited`. All callers in `Anantha.LLM.Client` pattern-matched on bare `:rate_limited` atom. When rate limited, this caused `CaseClauseError` propagating up to `Anantha.CRM.do_extract_from_event/2`.
+  
+  Fix: Changed 3 Agent callback return values from `{{:rate_limited, count}, valid_timestamps}` to `{:rate_limited, valid_timestamps}` — Agent.get_and_update returns the first element of the callback tuple, so the caller now gets bare `:rate_limited` atom as expected.
+created_at: "2026-06-20T10:20:30.548360Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_ratelimiter_check_rate_limit_return_type_9C70933A
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: llm/rate_limiter
+status: proposed
+summary:
+tags:
+  - rate_limiter
+  - llm
+  - agent
+  - case_clause_error
+  - type_mismatch
+title: RateLimiter check_rate_limit return type mismatch with callers
+triggers: []
+updated_at: "2026-06-20T10:20:30.548385Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

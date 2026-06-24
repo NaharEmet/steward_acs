@@ -1,0 +1,27 @@
+content: "Fixed 7 code review issues in ToolController and core modules: deep-redacted sanitize_config (recursive + atom keys), safe Jason.decode in source_register, added limit options to list_actors/list_syntheses/list_hypotheses with opts default pattern, added safe_error_message/1 helper to replace inspect(reason) across 12+ API endpoints, added format_records for syntheses and hypotheses, fixed N+1 in list_pending_messages with batch_get_messages/2. When adding optional params to functions, remember to update delegations in core.ex too."
+created_at: "2026-06-21T12:00:33.106354Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_6ec46c33_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.lib.anantha_os_web.controllers
+status: proposed
+summary: "Fixed 7 code review issues in ToolController and core modules: deep-redacted sanitize_config (recursive + atom keys), safe Jason.decode in source_register, added limit options to list_actors/list_synt"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 6ec46c33
+triggers: []
+updated_at: "2026-06-21T12:00:33.106360Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: "When adding optional dependency function calls, use `apply(Module, :function, [args])` to avoid compile-time warnings about undefined modules. Also, always place private functions AFTER all clauses of the same function/arity to avoid Elixir's \"clauses with same name and arity must be grouped together\" warning."
+created_at: "2026-06-21T11:23:20.266270Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_6254479a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "When adding optional dependency function calls, use `apply(Module, :function, [args])` to avoid compile-time warnings about undefined modules. Also, always place private functions AFTER all clauses of"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 6254479a
+triggers: []
+updated_at: "2026-06-21T11:23:20.266294Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

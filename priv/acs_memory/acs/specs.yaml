@@ -1,0 +1,66 @@
+content: |
+  ## Bulk Cognition Spec Generator
+  
+  Created `mix cognition.bulk_propose` at `lib/mix/tasks/cognition.bulk_propose.ex`.
+  
+  ### Usage
+  ```
+  mix cognition.bulk_propose                           # Scan lib/anantha_os/ (default app)
+  mix cognition.bulk_propose --app anantha_os --dir lib/anantha_os/awds
+  mix cognition.bulk_propose --dry-run                  # Preview only, no writes
+  mix cognition.bulk_propose --verbose                  # Detailed per-module output
+  mix cognition.bulk_propose --force                    # Overwrite existing specs
+  mix cognition.bulk_propose --app anantha_os --dir lib/anantha_os/awds --force 2>&1
+  ```
+  
+  ### How it works
+  1. Scans `.ex` files in `--dir` (recursive wildcard, excludes `_build/`, `deps/`, `test/`)
+  2. For each file: extracts module name, `@moduledoc`, public function names, rescue/catch patterns
+  3. Sets `COGNITION_SPECS_PATH` env var to `abs/path/to/acs/specs` for correct storage
+  4. Calls `Acs.Cognition.Tools.call_tool("cognition_propose", attrs)` for each
+  5. Checks for existing specs via `Loader.load/2` before proposing (skip unless `--force`)
+  
+  ### Key details
+  - Spec path computed from `lib/` boundary (not relative to `--dir`)
+  - `@moduledoc ""` and `@moduledoc """..."""` supported (but not `@moduledoc "..."` with escaped quotes)
+  - Must set `COGNITION_SPECS_PATH` env var to write to the project's `acs/specs/` dir (otherwise writes to build artifact dir)
+  - Generated specs are `proposed` status with `verification_status: inferred`
+  - Must start BOTH `:anantha_os` and `:steward_acs` apps at runtime
+  - Auto-generated fields are basic scaffolds — manually refine for production quality
+  
+  ### Generated fields
+  - `title`: First sentence of `@moduledoc` or module name
+  - `purpose`: Full `@moduledoc` or fallback description
+  - `invariants`: From `@type t :: %__MODULE__{...}` struct fields, or defaults
+  - `workflows`: From public `def` function names (first 5)
+  - `failure_modes`: From `rescue`/`catch` pattern counts, or "no error handling" default
+  - `tags`: From spec path segments (e.g., `["awds", "task"]`)
+  
+created_at: "2026-06-19T14:29:40Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_bulk_cognition_spec_generator_tool_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: acs/specs
+status: rejected
+summary: mix cognition.bulk_propose scans .ex files, extracts @moduledoc, and batch-proposes cognition specs via the internal Acs.Cognition.Tools API. Supports --app, --dir, --dry-run, --verbose, --force flags.
+tags:
+  - mix-task
+  - cognition
+  - specs
+  - bulk-propose
+  - awds
+title: Bulk cognition spec generator tool
+triggers: []
+updated_at: "2026-06-19T14:29:55Z"
+verification:
+  rejected_at: "2026-06-19T14:29:55.004909Z"
+  rejected_by: Tool was removed by user request — specs should only be proposed by agents, not automated
+  status: rejected

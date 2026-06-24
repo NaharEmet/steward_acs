@@ -1,0 +1,35 @@
+content: |
+  In Phoenix HEEx templates (~H"""..."""), the @ prefix only accesses socket assigns, not module attributes. If you define a module attribute like @provider_info and want to use it in a HEEx template, you must either:
+  1. Pass the data as a socket assign (socket |> assign(:provider_info, @provider_info))
+  2. Use a helper function that the template calls (which can access module attributes)
+  
+  Module attributes referenced in HEEx with @ will silently resolve to nil (since they look for an assign that doesn't exist), and the compiler will warn about the unused module attribute.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_heex_templates_cannot_reference_module_attributes_
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix/liveview/templates
+status: approved
+summary:
+tags:
+  - phoenix
+  - liveview
+  - heex
+  - module-attributes
+  - templates
+title: HEEx templates cannot reference module attributes directly
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.649653Z"
+  approved_by: human
+  status: approved

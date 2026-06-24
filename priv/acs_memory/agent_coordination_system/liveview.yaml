@@ -1,0 +1,41 @@
+content: |
+  Three ACS dashboard LiveViews (Tools, ToolRequests, MemoryLive) were missing catch-all handle_info(_msg, socket) clauses. Since they subscribe to AcsWeb.PubSub topic "acs", any unhandled broadcast message caused FunctionClauseError GenServer crashes.
+  
+  Files fixed:
+  1. tools.ex (AcsWeb.AcsLive.Tools) - added catch-all
+  2. tool_requests.ex (AcsWeb.AcsLive.ToolRequests) - added catch-all
+  3. memory_live.ex (AcsWeb.AcsLive.MemoryLive) - added catch-all
+  
+  Commit: 2ca61f58
+  
+created_by:
+  id: unknown
+  type: agent
+failure_modes:
+  - Any new PubSub message type broadcast on 'acs' topic could crash these LiveViews again if not handled
+id: bug_fixed_genserver_crashes_in_3_acs_liveviews_missing
+importance: 5
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/liveview
+status: rejected
+summary: Fixed FunctionClauseError GenServer crashes in Tools, ToolRequests, and MemoryLive LiveViews by adding missing catch-all handle_info clauses for unhandled PubSub messages
+tags:
+  - liveview
+  - bugfix
+  - GenServer
+  - FunctionClauseError
+  - handle_info
+  - PubSub
+timestamps:
+  created_at: 2026-05-14T10:15:36Z
+  updated_at: 2026-05-14T10:15:38Z
+title: Fixed GenServer crashes in 3 ACS LiveViews - missing catch-all handle_info
+triggers: []
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,30 @@
+content: LLM agents connect to remote ACS instances via MCP over HTTPS. Each remote ACS has a developer API key and a configured cluster name. OpenCode config connects to the remote ACS endpoint instead of localhost. The remote ACS provides all standard MCP tools plus cluster-specific tools (exec_command, read_file, write_file, read_dir, write_tool). Agents authenticate using the developer key assigned to the cluster. Reverse proxy (nginx/caddy) handles TLS termination and rate limiting. Multiple clusters (dev, staging, prod) can be configured in OpenCode's MCP servers list, each with its own endpoint URL and API key. Cluster label isolation ensures tasks, locks, and logs from different clusters never interfere.
+created_at: "2026-06-19T20:20:36Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_remote_acs_connection_pattern_for_llm_ag_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cluster
+status: approved
+summary:
+tags:
+  - acs
+  - remote
+  - connection
+  - agent
+  - mcp
+  - cluster
+title: Remote ACS connection pattern for LLM agents
+triggers: []
+updated_at: "2026-06-19T20:20:40Z"
+verification:
+  approved_at: "2026-06-19T20:20:40.047571Z"
+  approved_by: human
+  status: approved

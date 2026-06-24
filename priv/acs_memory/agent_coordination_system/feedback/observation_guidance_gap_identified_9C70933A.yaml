@@ -1,0 +1,27 @@
+content: No relevant guidance for this mix.exs / compilation issue.
+created_at: "2026-06-24T11:50:38.374522Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_guidance_gap_identified_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: No relevant guidance for this mix.exs / compilation issue.
+tags:
+  - feedback
+  - observation
+title: Guidance gap identified
+triggers: []
+updated_at: "2026-06-24T11:50:38.374536Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

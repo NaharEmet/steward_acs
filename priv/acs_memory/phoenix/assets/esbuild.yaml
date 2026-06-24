@@ -1,0 +1,55 @@
+content: |
+  ## Problem
+  In Phoenix's default esbuild IIFE mode, `import Chart from "chart.js"` (default import) wraps the default export into a module namespace object. When `new Chart(...)` is called, it calls `new module_namespace_object(...)` instead of `new Chart_constructor(...)`, causing `chart_1.default is not a constructor` errors silently.
+  
+  ## Solution
+  Use named import with explicit component registration:
+  
+  ```javascript
+  // ❌ Wrong (esbuild IIFE mode)
+  import Chart from "chart.js"
+  
+  // ✅ Correct (esbuild IIFE mode)
+  import {Chart, registerables} from 'chart.js'
+  Chart.register(...registerables)
+  ```
+  
+  The named import `{Chart}` resolves directly to `chart_exports.Chart` — the actual constructor function — bypassing the esbuild IIFE module namespace wrapping.
+  
+  ## Key Points
+  - This only applies to esbuild IIFE output format (Phoenix's default asset pipeline)
+  - With Vite or other ESM-based bundlers, the default import works fine
+  - `Chart.register(...registerables)` registers all chart components (controllers, elements, plugins, scales) in one call
+  - No `animation: false` override conflicts with registration
+  
+  ## Files
+  - assets/js/app.js (top-level imports)
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_chart_js_esbuild_iife_import_fix_for_phoenix
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix/assets/esbuild
+status: approved
+summary:
+tags:
+  - phoenix
+  - esbuild
+  - chartjs
+  - import
+  - javascript
+title: Chart.js esbuild IIFE Import Fix for Phoenix
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.641704Z"
+  approved_by: human
+  status: approved

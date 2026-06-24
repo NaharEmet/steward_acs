@@ -1,0 +1,30 @@
+content: |
+  When integrating with ACS from another OTP app (like AWDS):
+  1. Start ACS dynamically: `Application.ensure_all_started(:steward_acs)`
+  2. Use `Code.ensure_loaded?(Acs)` to check if ACS module is available at runtime
+  3. Call `Acs.create_task(attrs, agent_id)` to create tasks - this is the underlying function the MCP tool wrappers use
+  4. No need to add ACS as compile-time dependency - call it dynamically at runtime
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_acs_integration_pattern_for_external_otp_apps
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/awds
+status: approved
+summary: ACS integration pattern for external apps
+tags: []
+title: ACS integration pattern for external OTP apps
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.482759Z"
+  approved_by: human
+  status: approved

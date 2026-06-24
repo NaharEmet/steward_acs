@@ -1,0 +1,27 @@
+content: No guidance packet exists for the ACS meta_harness scope yet - this is a new area.
+created_at: "2026-06-20T17:11:14.703312Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_guidance_gap_identified_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.meta_harness
+status: proposed
+summary: No guidance packet exists for the ACS meta_harness scope yet - this is a new area.
+tags:
+  - feedback
+  - observation
+title: Guidance gap identified
+triggers: []
+updated_at: "2026-06-20T17:11:14.703321Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

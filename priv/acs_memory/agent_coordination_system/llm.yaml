@@ -1,0 +1,27 @@
+content: "Application.get_env/3 expects an atom as the key parameter, not a string. When using dynamic key lookup for config values, always use atom keys. Pattern: store both `api_key_env` (string for System.get_env) and `config_key` (atom for Application.get_env) in config maps."
+created_at: "2026-06-19T20:06:32.946036Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_application_get_env_3_needs_atom_key_not_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - application.get_env
+  - config
+  - atom-vs-string
+title: Application.get_env/3 needs atom key not string
+triggers: []
+updated_at: "2026-06-19T20:06:32.946047Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

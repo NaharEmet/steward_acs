@@ -1,0 +1,35 @@
+content: |
+  The MIMO rate limit configuration is spread across 3 files:
+  1. `config/config.exs` — base defaults (should be single source of truth)
+  2. `config/runtime.exs` — env var overrides (should be conditional-only, no fallback defaults)
+  3. `lib/anantha_os/llm/rate_limiter.ex` — code fallback values in private functions
+  
+  **Best practice:** Keep default values only in `config/config.exs`. Make `runtime.exs` conditional (only apply if env var is set). Have the code (`rate_limiter.ex`) read purely from `Application.get_env` without hardcoded fallback values — the config should always have a default.
+created_at: "2026-06-20T14:35:38Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_mimo_rate_limit_config_lives_in_3_places_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/llm/rate_limiter
+status: approved
+summary:
+tags:
+  - config
+  - rate-limiter
+  - mimo
+  - consolidation
+title: MIMO rate limit config lives in 3 places — consolidate to config.exs
+triggers: []
+updated_at: "2026-06-20T14:35:51Z"
+verification:
+  approved_at: "2026-06-20T14:35:51.776266Z"
+  approved_by: Approved from agent feedback — config sprawl fix guidance
+  status: approved

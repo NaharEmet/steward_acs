@@ -1,0 +1,27 @@
+content: "Broadcasts and side effects must go OUTSIDE Repo.transaction blocks. If they fire inside, LiveViews that query Postgres won't see the committed data. Also: inside a transaction, return bare values not wrapped tuples — Repo.transaction/1 already wraps the result in {:ok, result}."
+created_at: "2026-06-20T09:58:52.172577Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_f1487dd5_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib
+status: proposed
+summary: "Broadcasts and side effects must go OUTSIDE Repo.transaction blocks. If they fire inside, LiveViews that query Postgres won't see the committed data. Also: inside a transaction, return bare values not"
+tags:
+  - feedback
+  - learning
+title: Key learning from task f1487dd5
+triggers: []
+updated_at: "2026-06-20T09:58:52.172591Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

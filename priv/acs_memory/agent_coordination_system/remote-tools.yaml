@@ -1,0 +1,30 @@
+content: "The `write_tool` MCP tool enables agents to create new tool definitions on a running ACS server without rebuilding or restarting. It writes a YAML file to the `acstools/` directory on the cluster filesystem, validates the YAML, and calls `ToolRegistry.refresh()` to hot-reload all tools into memory. Supports two handler types: (1) `endpoint` URL — tool calls proxied via `Acs.MCP.Bridge` to an HTTP service (no BEAM compile needed, recommended for Docker deployments). (2) `handler` Elixir module — requires the module to be compiled into the release. The endpoint pattern is preferred for Dockerized deployments: write a tool pointing to a microservice, deploy the microservice as a Docker compose service, and ACS proxies tool calls via HTTP. To use: `write_tool(name: \"my-tool\", description: \"...\", inputSchema: %{...}, endpoint: \"http://my-svc:8080/handle\")`. Tools are immediately available after write."
+created_at: "2026-06-19T20:20:18Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_write_tool_mcp_tool_for_dynamic_tool_cre_9C70933A
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/remote-tools
+status: approved
+summary:
+tags:
+  - acs
+  - write_tool
+  - dynamic
+  - deployment
+  - mcp
+  - tools
+title: write_tool MCP tool for dynamic tool creation on running servers
+triggers: []
+updated_at: "2026-06-19T20:20:34Z"
+verification:
+  approved_at: "2026-06-19T20:20:34.507886Z"
+  approved_by: human
+  status: approved

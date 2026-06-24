@@ -1,0 +1,35 @@
+content: |
+  `ToolRegistry.call_tool/2` uses `GenServer.call(__MODULE__, {:call_tool, name, args}, :infinity)` instead of the default 5000ms timeout.
+  
+  **Rationale**: The GenServer blocks synchronously during tool execution anyway — callers naturally queue. Each tool manages its own timeout internally (e.g., `exec_command` reads timeout from args). Using `:infinity` prevents false timeouts for long-running MCP tools while letting the tool implementation handle its own timeout/cleanup.
+  
+  **Pattern**: Other GenServer calls in ToolRegistry with custom timeouts: `refresh/0` uses 30_000ms. This extends the same principle to `call_tool/2`.
+created_at: "2026-06-20T19:37:40.919906Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: decision_genserver_call_timeout_for_mcp_tools_set_9C70933A
+importance: 3
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/tool_registry
+status: proposed
+summary:
+tags:
+  - tool_registry
+  - gen_server
+  - timeout
+  - mcp
+  - call_tool
+title: "GenServer.call timeout for MCP tools set to :infinity"
+triggers: []
+updated_at: "2026-06-20T19:37:40.919915Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

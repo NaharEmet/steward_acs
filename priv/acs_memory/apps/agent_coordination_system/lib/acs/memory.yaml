@@ -1,0 +1,27 @@
+content: "Elixir `System.cmd/3` signature is `System.cmd(command, args_list, opts)`. The second argument must be a list of strings, not separate string arguments. Writing `System.cmd(\"pgrep\", \"-f\", \"ollama serve\", opts)` creates a call to the nonexistent `/4` arity. Correct: `System.cmd(\"pgrep\", [\"-f\", \"ollama serve\"], opts)`."
+created_at: "2026-06-19T15:39:21.525369Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_system_cmd_takes_args_as_list_not_separa_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: apps/agent_coordination_system/lib/acs/memory
+status: proposed
+summary:
+tags:
+  - elixir
+  - system_cmd
+  - gotcha
+title: System.cmd takes args as list, not separate strings
+triggers: []
+updated_at: "2026-06-19T15:39:21.525378Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

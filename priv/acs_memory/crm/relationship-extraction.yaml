@@ -1,0 +1,31 @@
+content: |
+  The hardcoded relationship extraction logic in build_relationship_maps/1 (crm.ex) and extract_relationships/3 (relationship_extractor.ex) has been replaced with generic calls to JoinConfig.get_joins/2 + JoinResolver.resolve/2. This means adding new relationship types for any CRM object type only requires updating the join config (YAML or @default_joins) — no code changes needed.
+  
+  The `"company"` name-string fallback in tests was removed — it was storing a company NAME as object_id (a bug). Tests now use `associated_company_id` which is a proper CRM ID field that maps to the existing join definition.
+created_at: "2026-06-19T19:59:11.405482Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_crm_relationship_extraction_now_uses_joi_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/relationship-extraction
+status: proposed
+summary:
+tags:
+  - crm
+  - relationships
+  - join-config
+  - join-resolver
+title: CRM relationship extraction now uses JoinConfig + JoinResolver
+triggers: []
+updated_at: "2026-06-19T19:59:11.405494Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

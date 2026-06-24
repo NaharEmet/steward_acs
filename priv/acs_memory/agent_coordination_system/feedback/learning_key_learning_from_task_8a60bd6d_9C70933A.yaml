@@ -1,0 +1,27 @@
+content: "CRM deal stage history now tracked in dedicated deal_stage_histories table with append-only linked-list pattern. record_transition/2 wraps close+create in transaction for atomicity. Integration points: batch_handle_updates (stage change detection via snapshot diff), create_initial_snapshots (first entry for new deals). 7 tests covering all operations. 187 CRM tests pass."
+created_at: "2026-06-23T15:13:16.155285Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_8a60bd6d_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: CRM deal stage history now tracked in dedicated deal_stage_histories table with append-only linked-list pattern. record_transition/2 wraps close+create in transaction for atomicity. Integration points
+tags:
+  - feedback
+  - learning
+title: Key learning from task 8a60bd6d
+triggers: []
+updated_at: "2026-06-23T15:13:16.155313Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

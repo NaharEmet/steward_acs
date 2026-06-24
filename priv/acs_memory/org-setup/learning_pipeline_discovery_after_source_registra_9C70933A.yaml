@@ -1,0 +1,32 @@
+content: |
+  After registering a HubSpot CRM source with `org_setup_source_register`, call `org_setup_discover_pipelines(org_id, source_id)` to fetch pipeline schemas for deals and tickets. This stores pipeline definitions in the CRM pipeline database and returns structured pipeline info. Pipeline discovery validates the HubSpot API key and should be done before scope probing — if it fails with an auth error, the key is invalid. Pipeline discovery is NOT blocking; if it fails, log the error, check config, and proceed with setup.
+  
+  The ACS tool name is `org_setup_discover_pipelines` (namespace: org_setup). Params: org_id (string, required), source_id (string, required). The source_id comes from the `org_setup_source_register` response.
+  
+created_at: "2026-06-21T15:36:42Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_pipeline_discovery_after_source_registra_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: approved
+summary:
+tags:
+  - org-setup
+  - pipeline-discovery
+  - crm-onboarding
+title: Pipeline Discovery After Source Registration
+triggers: []
+updated_at: "2026-06-21T15:36:45Z"
+verification:
+  approved_at: "2026-06-21T15:36:45.831742Z"
+  approved_by: Approved — org-setup agents need to know how/when to call discover_pipelines
+  status: approved

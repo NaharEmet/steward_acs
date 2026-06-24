@@ -1,0 +1,30 @@
+content: "In `Acs.Acs.Sweeper.release_task_lock/1`, the `Acs.broadcast(:agent_removed, ...)` call was inside the `Repo.transaction` block. If the transaction rolls back, a stale broadcast would fire with incorrect state. Moved the broadcast to after the `case result do` block in the `{:ok, {:ok, _updated}}` branch."
+created_at: "2026-06-23T07:29:44.281351Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_sweeper_broadcast_must_be_outside_transa_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/sweeper
+status: proposed
+summary:
+tags:
+  - acs
+  - sweeper
+  - transaction
+  - broadcast
+  - race-condition
+title: Sweeper broadcast must be outside transaction
+triggers: []
+updated_at: "2026-06-23T07:29:44.281365Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: Memory YAML files are stored at `priv/acs_memory/{scope_path}/{id}.yaml` instead of the old `priv/acs_memory/{scope_path}.yaml`. This prevents multiple memories with the same scope_path from overwriting each other. Each memory gets its own file based on its unique ID.
+created_at: "2026-06-19T20:20:50Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_memory_yaml_per_file_path_includes_memor_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/memory/loader
+status: approved
+summary:
+tags:
+  - memory
+  - yaml
+  - file-path
+title: Memory YAML per-file path includes memory ID
+triggers: []
+updated_at: "2026-06-19T20:21:02Z"
+verification:
+  approved_at: "2026-06-19T20:21:02.352173Z"
+  approved_by: human
+  status: approved

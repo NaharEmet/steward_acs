@@ -1,0 +1,127 @@
+content: |
+  ## Pattern: Adding per-org filtering to a LiveView dashboard
+  
+  When adding per-org filtering to a global LiveView dashboard (similar to Memory Dashboard and LLM Metrics Dashboard):
+  
+  ### 1. Router change
+  - Move route from admin scope (admin_with_org pipeline) to global scope (admin_authenticated pipeline)
+  - URL pattern: `/global/{dash-name}` with optional `?org_id=xxx` query param
+  
+  ### 2. LiveView mount changes
+  ```elixir
+  def mount(params, _session, socket) do
+    org_id = params["org_id"]
+    
+    socket = socket
+      |> assign(org_id: org_id, org_names: fetch_org_names())
+      |> load_all_metrics()
+    
+    {:ok, socket, layout: {AnanthaWeb.Layouts, :global}}
+  end
+  ```
+  
+  ### 3. load_all_metrics conditional per-org vs all_orgs
+  ```elixir
+  defp load_all_metrics(socket) do
+    {start_time, end_time} = get_time_range(socket.assigns.time_range)
+    org_id = socket.assigns.org_id
+  
+    case org_id do
+      nil ->
+        # All orgs - use *_all_orgs functions
+        {stats, hourly_metrics, ...} = {
+          LLMMetrics.get_usage_stats_all_orgs(start_time, end_time),
+          ...
+        }
+      org_id ->
+        # Per-org - use per-org functions
+        {stats, hourly_metrics, ...} = {
+          LLMMetrics.get_usage_stats(org_id, start_time, end_time),
+          ...
+        }
+    end
+    ...
+  end
+  ```
+  
+  ### 4. Event handlers for filtering
+  ```elixir
+  def handle_event("clear_filter", _params, socket) do
+    socket
+      |> assign(org_id: nil)
+      |> load_all_metrics()
+      |> push_patch(to: ~p"/global/llm-metrics")
+    {:noreply, socket}
+  end
+  
+  def handle_event("set_org_filter", %{"org_id" => org_id}, socket) do
+    socket
+      |> assign(org_id: org_id)
+      |> load_all_metrics()
+      |> push_patch(to: ~p"/global/llm-metrics?org_id=#{org_id}")
+    {:noreply, socket}
+  end
+  ```
+  
+  ### 5. Template additions
+  - Org selector dropdown in header controls area
+  - Org filter banner when org_id is set (with "Clear filter" button)
+  
+  ### 6. Helper functions
+  ```elixir
+  defp fetch_org_names do
+    case Orgs.list_orgs() do
+      nil -> %{}
+      orgs -> Map.new(orgs, fn org -> {org.id, org.name} end)
+    end
+  end
+  
+  defp org_name(org_names, org_id) when is_binary(org_id) do
+    Map.get(org_names, org_id, String.slice(org_id, 0, 8) <> "...")
+  end
+  ```
+  
+  ### 7. Context changes
+  If per-org function doesn't exist for a metric, add it to the context:
+  ```elixir
+  @doc """
+  Gets metrics grouped by prompt template for a specific org.
+  """
+  @spec get_metrics_by_template(binary(), DateTime.t(), DateTime.t(), keyword()) :: list(map())
+  def get_metrics_by_template(org_id, start_time, end_time, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 10)
+    
+    LlmCallMetric
+    |> where([m], m.org_id == ^org_id and ...)
+    ...
+  end
+  ```
+  
+  ### 8. Update navigation links
+  - Update any hardcoded links in admin.html.heex, root_live, etc. to point to new URL
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes:
+  - Forgetting to add per-org function to context when calling it in LiveView
+  - Missing org_id in trigger expansion calls that need filtering
+id: pattern_per_org_filtering_pattern_for_global_liveview_dash
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: llm_metrics_dashboard/implementation
+status: approved
+summary:
+tags: []
+title: Per-org filtering pattern for global LiveView dashboards
+triggers: []
+updated_at: "2026-06-19T14:00:05Z"
+verification:
+  approved_at: "2026-06-19T14:00:05.888729Z"
+  approved_by: human
+  status: approved

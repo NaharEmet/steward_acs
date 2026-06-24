@@ -1,0 +1,48 @@
+content: |
+  The v2 memory pipeline rollout uses per-org feature flags with a global kill switch:
+  
+  1. **Table**: `org_feature_flags` — org_id (FK), flag_name, enabled (boolean), emergency_disable (boolean)
+  2. **Unique constraint**: `(org_id, flag_name)` — one row per org per flag
+  3. **Seeding**: All existing orgs seeded with `"memory_pipeline_v2" = false` on deploy
+  4. **Module**: `Anantha.FeatureFlag` — simple GenServer (or Ecto-based) reader with caching
+  5. **Global kill switch**: `emergency_disable = true` on any row disables v2 system-wide (checked before per-org flag)
+  6. **Verification**: Phase 9.6 explicit test: `emergency_disable: true` → verify zero v2 calls
+  
+  Rollout sequence:
+  - All orgs start with v2 disabled (Phase 0 deploy)
+  - Canary orgs enabled first (Phase 9)
+  - Gradual rollout to all orgs
+  - Emergency kill switch available at all times
+  
+  The v1 pipeline continues running alongside v2. Old modules are deprecated with `@deprecated` and wrapped in `LegacyPipelineAdapter`, not deleted (deletion deferred to Phase 10, one release later).
+  
+  See: plans/memory_pipeline_rearchitecture_plan.md Phase 0.7 (table), Phase 0.8 (module), Phase 8 (deprecation), Phase 10 (cleanup).
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: decision_feature_flag_rollout_for_v2_memory_pipeline
+importance: 4
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory_pipeline/rollout
+status: approved
+summary:
+tags:
+  - memory-pipeline
+  - rollout
+  - feature-flag
+  - deprecation
+  - kill-switch
+title: Feature flag rollout for v2 memory pipeline
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.311144Z"
+  approved_by: human
+  status: approved

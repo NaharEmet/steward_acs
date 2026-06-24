@@ -1,0 +1,27 @@
+content: The claim_extractor uses close_active_claim returning a boolean to distinguish between first-time claims (use created_at) and updates (use now). The source_timestamp is extracted from raw_payload["created_at"] in build_claim_specs and parsed via DateTime.from_iso8601/1 with nil fallback.
+created_at: "2026-06-20T19:05:46.879583Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_3bccebb7_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: The claim_extractor uses close_active_claim returning a boolean to distinguish between first-time claims (use created_at) and updates (use now). The source_timestamp is extracted from raw_payload["cre
+tags:
+  - feedback
+  - learning
+title: Key learning from task 3bccebb7
+triggers: []
+updated_at: "2026-06-20T19:05:46.879598Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

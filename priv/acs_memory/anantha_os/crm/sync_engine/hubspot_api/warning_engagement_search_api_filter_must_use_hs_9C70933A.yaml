@@ -1,0 +1,37 @@
+content: |
+  Verified via direct API calls: HubSpot search API engagement objects (notes, calls, emails, meetings, tasks) reject `createdate` as a search filter property with HTTP 400. Must use `hs_lastmodifieddate` instead.
+  
+  Working filters:
+  - `hs_lastmodifieddate` works on ALL engagement types
+  - `lastmodifieddate` works on contacts
+  - `hs_lastmodifieddate` works on companies, deals, quotes, notes, calls, emails, meetings, tasks
+  
+  Breaking filter:
+  - `createdate` returns 400 for ALL engagement types (notes, calls, emails, meetings, tasks)
+created_at: "2026-06-20T15:21:50.473333Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_engagement_search_api_filter_must_use_hs_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/sync_engine/hubspot_api
+status: proposed
+summary:
+tags:
+  - hubspot
+  - search-api
+  - engagement-objects
+title: Engagement search API filter must use hs_lastmodifieddate
+triggers: []
+updated_at: "2026-06-20T15:21:50.473343Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

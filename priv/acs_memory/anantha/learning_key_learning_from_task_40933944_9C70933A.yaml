@@ -1,0 +1,27 @@
+content: "HubSpot search API rejects createdate for engagement objects. Use hs_lastmodifieddate instead. Also, SyncState.update_metadata atom keys don't overwrite string keys - record_count always shows 0 in state. Batch processing timeout must be :infinity for large syncs to complete."
+created_at: "2026-06-20T16:01:18.116676Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_40933944_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha
+status: proposed
+summary: HubSpot search API rejects createdate for engagement objects. Use hs_lastmodifieddate instead. Also, SyncState.update_metadata atom keys don't overwrite string keys - record_count always shows 0 in st
+tags:
+  - feedback
+  - learning
+title: Key learning from task 40933944
+triggers: []
+updated_at: "2026-06-20T16:01:18.116692Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

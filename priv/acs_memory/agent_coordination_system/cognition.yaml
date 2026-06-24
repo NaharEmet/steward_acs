@@ -1,0 +1,27 @@
+content: The loader_test.exs fixtures (create_test_entry helper) use strings like `"Primary workflow"` (16 chars) for workflows, but validation requires ≥20 chars. These tests were broken before any recent changes — they fail identically on the unmodified code. Entry_test.exs passes clean (23/23). Eight loader tests fail pre-existing.
+created_at: "2026-06-19T14:41:18.997965Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_loader_test_fixtures_don_t_meet_validati_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cognition
+status: proposed
+summary:
+tags:
+  - tests
+  - pre-existing
+  - fixtures
+title: Loader test fixtures don't meet validation minimums (pre-existing)
+triggers: []
+updated_at: "2026-06-19T14:41:18.997971Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,43 @@
+content: |
+  ## ContentBuilder Pattern
+  
+  `Anantha.CRM.ContentBuilder.build/1` replaces `inspect(crm_record.raw_payload)` with human-readable summaries for LLM consumption.
+  
+  ### Design:
+  1. `build/1` dispatches by entity_type: contacts, companies, deals, or fallback
+  2. `extract_identifiers/1` pulls email, phone, name from payload
+  3. `normalize_payload/1` handles dual naming conventions (`firstname`/`lastname` vs `first_name`/`last_name`) using `Map.put_new/3` to avoid overwrites
+  4. Type-specific builders use `append_name` and `append_if_present` helpers
+  5. **Performance**: Use `[item | lines]` (cons) with final `Enum.reverse()` instead of `lines ++ [item]` for O(n) list building
+  
+  ### Why:
+  - `inspect/1` produced raw Elixir map syntax that LLMs couldn't parse well
+  - Structured summaries give LLMs clear semantic context without additional queries
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_contentbuilder_human_readable_summaries_for_llm_co
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/content_builder
+status: approved
+summary: Replaced inspect/1 with ContentBuilder that produces structured human-readable summaries
+tags:
+  - crm
+  - content-builder
+  - llm
+  - ux
+title: "ContentBuilder: human-readable summaries for LLM consumption"
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.708537Z"
+  approved_by: human
+  status: approved

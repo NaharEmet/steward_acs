@@ -1,0 +1,32 @@
+content: |
+  The CRM Scheduler (Anantha.CRM.Scheduler) only passes `source.config` to `CRM.sync()`, but the HubSpot provider's `get_api_key/1` checks `config.secrets.api_key` first, then `config.api_key`. When API keys are stored via `IngestionSources.update_source_secrets/2` (which stores in the encrypted `secrets` field), the scheduler fails to find them.
+  
+  Fix: In `sync_crm_source/2` in `lib/anantha_os/crm/scheduler.ex`, merge `source.secrets` into config as `%{"secrets" => source.secrets}` before passing to `CRM.sync`.
+created_at: "2026-06-19T21:14:57.691050Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_crm_sync_scheduler_must_pass_source_secr_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/onboarding
+status: proposed
+summary:
+tags:
+  - crm
+  - scheduler
+  - hubspot
+  - secrets
+  - bug-fix
+title: "CRM Sync: scheduler must pass source.secrets to provider"
+triggers: []
+updated_at: "2026-06-19T21:14:57.691066Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,52 @@
+content: |
+  Phase 3 added hypothesis-level reinforcement and linear temporal decay to the synthesis pipeline:
+  
+  ## Hypothesis Dedup (HypothesisDedup)
+  - Uses content_hash exact match (SHA-256), not embeddings
+  - Simpler than synthesis dedup because hypothesis generation is trigger-based
+  - Atomic strengthen: single SQL UPDATE with increment counters
+  - Cross-org isolation enforced by WHERE clause
+  
+  ## Three Contradiction Signals
+  `generate_hypotheses_from_syntheses/1` now uses:
+  1. LLM contradiction_pressure > 0.5 (existing)
+  2. LLM contradictions_detected boolean flag (newly integrated)
+  3. Polarity divergence: detectable_contradictions checks sentiment within clusters (newly integrated)
+  
+  ## Linear Decay in transition_synthesis_states
+  - Batch SQL UPDATE applies `temporal_relevance = GREATEST(0, 1 - age_days/90.0)` 
+  - Effective score = reinforcement_count * temporal_relevance + ln(1 + supporting_claim_count)
+  - Syntheses with effective_score < 0.1 are marked stale (with 7-day grace period via inserted_at comparison)
+  - Decay runs BEFORE existing state transition logic, so stale syntheses are excluded from further transitions
+  
+  ## Pattern
+  Phase 3 confirms the "have I seen this before?" architecture: content_hash exact dedup + reinforcement counters + linear decay. This pattern scales to any entity type (claims, syntheses, hypotheses).
+created_at: "2026-06-20T19:10:25.992206Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_hypothesis_reinforcement_linear_decay_ar_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/synthesis
+status: proposed
+summary:
+tags:
+  - phase3
+  - hypothesis
+  - dedup
+  - linear-decay
+  - contradiction
+title: Hypothesis reinforcement & linear decay architecture
+triggers: []
+updated_at: "2026-06-20T19:10:25.992214Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

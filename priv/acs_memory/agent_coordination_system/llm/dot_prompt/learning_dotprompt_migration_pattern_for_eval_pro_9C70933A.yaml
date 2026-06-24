@@ -1,0 +1,29 @@
+content: "Memory evaluation prompt migrated from inline string in llm.ex to dedicated DotPrompt .prompt file. Pattern: create `prompts/*.prompt` with `init do...end` block declaring params (@memory_entry: str, @existing_memories: str), `mode: json`, `response do...end` block for JSON contract, `{response_contract}` placeholder in body. Call with DotPrompt.render/3 in Elixir code. Fallback preserves old inline string for resilience."
+created_at: "2026-06-20T19:14:19.253799Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_dotprompt_migration_pattern_for_eval_pro_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm/dot_prompt
+status: proposed
+summary:
+tags:
+  - dot_prompt
+  - memory_auditor
+  - llm
+  - migration
+title: DotPrompt migration pattern for eval prompts
+triggers: []
+updated_at: "2026-06-20T19:14:19.253808Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

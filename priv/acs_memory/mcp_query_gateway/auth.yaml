@@ -1,0 +1,35 @@
+content: |
+  API keys for the MCP Query Gateway follow a hash-at-rest pattern:
+  1. Raw key format: `sk_live_<48 URL-safe random chars>` (256 bits entropy)
+  2. Only SHA-256 hex digest is stored in the `api_keys` table
+  3. Last 8 chars stored as `key_prefix` for display/identification
+  4. Context module: `Anantha.ApiKeys` with `validate_key/1` for auth
+  5. Python MCP server will hash incoming tokens and match against the stored hash
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_api_key_hash_at_rest_pattern
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: mcp_query_gateway/auth
+status: approved
+summary:
+tags:
+  - api_keys
+  - auth
+  - security
+  - mcp_query_gateway
+title: API Key Hash-at-Rest Pattern
+triggers: []
+updated_at: "2026-06-19T14:00:05Z"
+verification:
+  approved_at: "2026-06-19T14:00:05.983302Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,29 @@
+content: "The client.ex fallback chain (nim → minimax → groq → sarvam) only triggers on :service_unavailable and :timeout errors from request_with_module/3. A 429 rate limit is caught earlier in do_chat_completion(\"nim\", ...) and returns {:error, :rate_limited} directly without going through the fallback. This means during the memory test pipeline, when NIM returns 429, the scenario fails immediately rather than falling back to minimax."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_nim_rate_limit_429_does_not_trigger_minimax_fallba
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/llm/client
+status: approved
+summary:
+tags:
+  - nim
+  - minimax
+  - fallback
+  - rate-limit
+  - memory-test
+title: NIM rate limit (429) does not trigger minimax fallback
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.056853Z"
+  approved_by: human
+  status: approved

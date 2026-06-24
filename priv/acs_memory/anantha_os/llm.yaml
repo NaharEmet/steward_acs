@@ -1,0 +1,29 @@
+content: "Mimo (Xiaomi MiMo) is now the default primary LLM provider instead of minimax (MiniMax AI). The fallback chain is configurable via Application config :anantha_os/:llm/fallback_providers. Default chain: sarvam→nim→mimo, minimax→mimo, mimo→groq. Rate limiting supports mimo at 40 RPM. Evaluator defaults to \"mimo\" provider. The fallback_router reads from config instead of hardcoded module attribute."
+created_at: "2026-06-19T16:16:11.768996Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: decision_mimo_promoted_to_primary_llm_provider_ov_9C70933A
+importance: 3
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/llm
+status: proposed
+summary:
+tags:
+  - mimo
+  - minimax
+  - llm
+  - fallback
+  - provider
+title: Mimo promoted to primary LLM provider over minimax
+triggers: []
+updated_at: "2026-06-19T16:16:11.769010Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

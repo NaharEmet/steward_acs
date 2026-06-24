@@ -1,0 +1,27 @@
+content: "Three CRM sync optimizations implemented: (1) core-only initial sync via optional core_object_types callback, (2) parallel object type sync via Task.async_stream, (3) rate limiting via RateLimiter with auto-retry on 429. SyncState gained source_has_any_state?/2 helper. Pre-existing syntax error in config/runtime.exs line 189 blocks test execution (use case/match instead of if/3 with comma condition)."
+created_at: "2026-06-20T10:48:36.423995Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_ae7ac305_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm.sync_engine
+status: proposed
+summary: "Three CRM sync optimizations implemented: (1) core-only initial sync via optional core_object_types callback, (2) parallel object type sync via Task.async_stream, (3) rate limiting via RateLimiter wit"
+tags:
+  - feedback
+  - learning
+title: Key learning from task ae7ac305
+triggers: []
+updated_at: "2026-06-20T10:48:36.424009Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

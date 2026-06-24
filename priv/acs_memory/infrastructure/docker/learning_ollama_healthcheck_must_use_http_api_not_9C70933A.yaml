@@ -1,0 +1,30 @@
+content: "Ollama v0.16.1 changed `ollama list` to use a TUI launcher, which crashes in containers with \"Error: run launcher menu: error running TUI: could not open a new TTY\". The official ollama image has perl but NOT curl/wget/nc/socat. Healthchecks must use perl's IO::Socket::INET to hit the HTTP API endpoint (`/api/tags`) instead of the CLI."
+created_at: "2026-06-21T10:52:06.117460Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_ollama_healthcheck_must_use_http_api_not_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: infrastructure/docker
+status: proposed
+summary:
+tags:
+  - ollama
+  - docker
+  - healthcheck
+  - perl
+  - containers
+title: Ollama healthcheck must use HTTP API not CLI in containers
+triggers: []
+updated_at: "2026-06-21T10:52:06.117468Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,57 @@
+content: |
+  # Truthforge Operational Verification
+  
+  ## Verified Working (post-fix)
+  - Full pipeline: Generate → Filter → Compile → Fuzz → Dedup → Rank → Extract → Evaluate → Score → Coverage → Regression → History
+  - Seed file support (YAML)
+  - History persistence (ETS + JSON)
+  - Jason.Encoder for TypeMetrics struct
+  - Coverage analysis (1.7% coverage, 22 gaps detected)
+  
+  ## Known Issues
+  1. **AgentGenerator.generate_batch has 100% validation failure** — pre-existing bug in MemoryTesting pipeline. LLM-generated scenarios all fail QualityFilter validation. Root cause unclear.
+  2. **LLM generation too slow** — 30-60s per scenario via NIM provider. Sequential generation makes `--scenarios N` impractical.
+  3. **100% pass rate / 1.0 F1** — Suspect because extraction uses simulation (not real LLM calls). Real extraction would produce more meaningful scores.
+  4. **Coverage 1.7%** — Only cash_flow and promise types tested from seed file. 22 of 24 claim types untested.
+  
+  ## Reliable Workflow
+  Use seed files for pipeline runs:
+  ```bash
+  mix truthforge.run --seed test_data/truthforge_seed.yaml --label "my-run"
+  ```
+  
+  ## Seed File Requirements
+  Must pass QualityFilter: include noise keywords (`lol`, `cricket`, `weather`, `movie`, `haha`, `omg`) in message content for off-topic detection. Format: YAML with messages array (actor_name, direction, content, timestamp) and expected field per claim type.
+  
+  ## Next Steps
+  - Wire real LLM extraction (simulated currently)
+  - Expand seed scenarios for broader coverage
+  - Fix AgentGenerator validation
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_truthforge_operational_verification_results
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/truthforge
+status: approved
+summary: Pipeline runs clean after Jason.Encoder + coverage access fixes. Seed file approach reliable. 100% pass rate but 1.0 F1 suggests simulated extraction too perfect. Coverage at 1.7% with 22 gaps.
+tags:
+  - truthforge
+  - verification
+  - pipeline
+  - coverage
+title: Truthforge operational verification results
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.950057Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,29 @@
+content: YAML memory files use IDs without `_9C70933A` hash suffix. SQLite database memories use IDs WITH `_9C70933A` suffix. This means the same slug in both stores creates DIFFERENT memory entries. Template noise in YAML files (test_data.yaml, placeholder.yaml, etc.) does NOT automatically propagate to SQLite on reimport — the pipeline creates new SQLite entries with hashed IDs.
+created_at: "2026-06-21T15:08:34.715352Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_memory_yaml_ids_vs_sqlite_ids_use_di_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/memory
+status: proposed
+summary:
+tags:
+  - yaml
+  - sqlite
+  - id-hashing
+  - architecture
+title: "ACS Memory: YAML IDs vs SQLite IDs use different hashing"
+triggers: []
+updated_at: "2026-06-21T15:08:34.715357Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

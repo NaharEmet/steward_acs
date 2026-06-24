@@ -1,0 +1,42 @@
+content: |
+  When the mimo-v2.5 series models (mimo-v2.5-pro, mimo-v2.5, mimo-v2-pro, mimo-v2-omni) have thinking mode enabled (which is the default), the `temperature` and `top_p` parameters are IGNORED. The API forces them to 1.0 and 0.95 respectively.
+  
+  Thinking is enabled by default for: mimo-v2.5-pro, mimo-v2.5, mimo-v2-pro, mimo-v2-omni
+  Thinking is disabled by default for: mimo-v2-flash
+  
+  To disable thinking: pass `thinking: {"type": "disabled"}` in the request body
+  (For OpenAI Python SDK, must use `extra_body={"thinking": {"type": "disabled"}}`)
+  (For curl or raw JSON, pass as a top-level field alongside model/messages/etc.)
+  
+  When thinking is enabled and the response contains tool_calls, the `reasoning_content` field MUST be passed back in subsequent turns, or the API returns a 400 error.
+  
+  **Source:** `mimo.mi.com/docs/en-US/quick-start/usage-guide/other/deep-thinking`
+created_at: "2026-06-20T11:46:39.157443Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_mimo_thinking_mode_forces_temperature_1__9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: llm/providers/mimo
+status: proposed
+summary:
+tags:
+  - mimo
+  - xiaomi
+  - thinking_mode
+  - temperature
+  - reasoning
+title: MiMo thinking mode forces temperature=1.0 and top_p=0.95
+triggers: []
+updated_at: "2026-06-20T11:46:39.157454Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

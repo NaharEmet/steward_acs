@@ -1,0 +1,29 @@
+content: When configuring esbuild for the ACS nested umbrella app (apps/agent_coordination_system), the NODE_PATH in config/config.exs must account for the extra nesting depth. From apps/agent_coordination_system/config/config.exs, the project root deps directory is at ../../../deps (config → agent_coordination_system → apps → root → deps), NOT ../../deps. The main app's config at the root level uses ../deps because its __DIR__ is config/ at the project root level.
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_nested_app_esbuild_node_path_must_use_deps
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/web/assets
+status: approved
+summary:
+tags:
+  - esbuild
+  - asset-pipeline
+  - NODE_PATH
+  - umbrella-app
+timestamps:
+  created_at: "2026-05-19T00:36:04Z"
+  updated_at: "2026-05-19T00:39:39Z"
+title: ACS nested app esbuild NODE_PATH must use ../../../deps
+triggers: []
+verification:
+  approved_at: "2026-05-19T00:39:39.770159Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,28 @@
+content: "`Anantha.Memory.ClaimClusterer.cluster_claims/2` uses `@default_min_cluster_size 3` as default. Tests that call `cluster_claims(org.id)` without explicit `min_cluster_size` must create at least 3 claims sharing the same normalized subject+predicate to get any clusters back. The test `groups claims by normalized subject+predicate` was missing the `min_cluster_size: 2` option, causing a failure since only 2 matching claims existed."
+created_at: "2026-06-21T12:03:31Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_claimclusterer_default_min_cluster_size__9C70933A
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/claim_clusterer
+status: approved
+summary:
+tags:
+  - claim_clusterer
+  - testing
+  - min_cluster_size
+title: ClaimClusterer default min_cluster_size is 3
+triggers: []
+updated_at: "2026-06-21T12:08:09Z"
+verification:
+  approved_at: "2026-06-21T12:08:09.506545Z"
+  approved_by: human
+  status: approved

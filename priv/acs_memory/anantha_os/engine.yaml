@@ -1,0 +1,29 @@
+content: The events table cannot have a unique index on (org_id, entity_type, entity_id) because multiple events can be created for the same entity (e.g., workflow execution progress generates node_started, node_completed, etc. for the same node). When adding indexes for efficient event lookups, always use non-unique indexes. Unique enforcement of event deduplication (if needed) must be handled at the application layer, not the database layer.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_event_system_index_must_be_non_unique_for_org_id_e
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/engine
+status: approved
+summary:
+tags:
+  - events
+  - indexes
+  - unique-constraint
+  - database
+  - migrations
+title: Event system index must be non-unique for (org_id, entity_type, entity_id)
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.012370Z"
+  approved_by: human
+  status: approved

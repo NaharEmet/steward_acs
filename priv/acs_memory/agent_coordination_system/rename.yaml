@@ -1,0 +1,28 @@
+content: Renamed MCP server prefix from "anantha" to "acs" across 6 files. Changed opencode.json server key, acs.yaml tool names (stripped acs_ prefix), anantha.yaml tool names (added anantha_ prefix), and all hardcoded string references in tools.ex, tool_registry.ex, and operation_logger.ex. Backward compat aliases in tools.ex preserved (acs_unlock_files_for_task, acs_list_sleeping_agents, acs_get_time_info, acs_set_time_offset).
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_mcp_server_rename_anantha_acs_across_6_files
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/rename
+status: approved
+summary:
+tags:
+  - mcp
+  - rename
+  - tools
+  - acs
+title: "MCP server rename: anantha → acs across 6 files"
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.316351Z"
+  approved_by: human
+  status: approved

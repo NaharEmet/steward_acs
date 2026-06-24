@@ -1,0 +1,39 @@
+content: |
+  ## Bug: CaseClauseError in ErrorTrace.do_store_or_update/5
+  
+  The `do_store_or_update/5` function in `Acs.MCP.ErrorTrace` used `case match_result do` with only two patterns: `[{trace_id, entry}]` and `[]`. However, `:ets.select/2` can return multiple matches when multiple ETS entries share the same `(service, component, message_pattern)` combination, since the ETS key is a UUID (not those fields).
+  
+  **Fix**: Replace the two-pattern case with:
+  - `[]` → create new trace (unchanged)
+  - `matches when is_list(matches)` → handle any non-empty list by picking the most recent entry via `Enum.max_by(fn {_id, e} -> e.last_seen_at end)` and cleaning up stale duplicates with `List.keydelete/3` and `:ets.delete/2`.
+  
+  **File**: `apps/agent_coordination_system/lib/acs/mcp/error_trace.ex`
+  **Commits**: `8be875f4d`
+  
+created_at: "2026-06-02T10:34:12Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_errortrace_do_store_or_update_5_must_handle_multip
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  marked_at: "2026-06-02T16:50:17.165163Z"
+  reason: No reason provided
+scope_path: agent_coordination_system/error_trace
+status: deprecated
+summary:
+tags:
+  - bug
+  - error_trace
+  - ets
+  - case_clause
+title: "ErrorTrace.do_store_or_update/5 must handle multiple :ets.select matches"
+triggers: []
+updated_at: "2026-06-02T16:50:17Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

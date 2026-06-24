@@ -1,0 +1,27 @@
+content: Created Anantha.MetaHarness.Score Ecto schema for existing meta_harness_scores table (migration existed, schema was missing). 22 fields mapped from migration including score floats, integer counts, boolean, maps, and binary_id primary key.
+created_at: "2026-06-20T17:12:02.172993Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_73c50f18_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.meta_harness
+status: proposed
+summary: Created Anantha.MetaHarness.Score Ecto schema for existing meta_harness_scores table (migration existed, schema was missing). 22 fields mapped from migration including score floats, integer counts, bo
+tags:
+  - feedback
+  - learning
+title: Key learning from task 73c50f18
+triggers: []
+updated_at: "2026-06-20T17:12:02.173002Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

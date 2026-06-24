@@ -1,0 +1,32 @@
+content: |
+  Fireflies.ai V2 webhooks are notification-only payloads. They include `meeting_id`, `event`, timestamps, and optional `client_reference_id`, but NEVER the transcript text. The transcript must be fetched separately via their GraphQL API using the `meeting_id`. The adapter normalizes these by setting content to a descriptive string and preserving all fields in `raw_metadata`.
+  
+  To distinguish V2 from V1 payloads, check for the presence of `"meeting_id"` at the top level. V1 payloads use `"id"` nested inside `"data"`. The V2 `"timestamp"` is a Unix millisecond integer (not ISO8601 like V1).
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_fireflies_v2_webhooks_are_notification_only
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/sources/fireflies
+status: approved
+summary:
+tags:
+  - fireflies
+  - webhook
+  - v2
+  - ingestion
+title: Fireflies V2 webhooks are notification-only
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.679696Z"
+  approved_by: human
+  status: approved

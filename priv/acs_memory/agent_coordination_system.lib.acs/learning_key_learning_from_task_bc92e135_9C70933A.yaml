@@ -1,0 +1,27 @@
+content: "MiMo v2.5 supports json_object response format via `supports_json_mode: true` in the API call. The ACS copy had this incorrectly set to `false`, causing `:invalid_json_response` errors. Always check that `supports_json_mode` matches the actual model's capability — verify by checking the main app's provider config for the same model. Also ensure env var names match what the code checks: `NIM_API_KEY` not `NVIDIA_NIM_API_KEY`."
+created_at: "2026-06-20T12:34:23.485452Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_bc92e135_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "MiMo v2.5 supports json_object response format via `supports_json_mode: true` in the API call. The ACS copy had this incorrectly set to `false`, causing `:invalid_json_response` errors. Always check t"
+tags:
+  - feedback
+  - learning
+title: Key learning from task bc92e135
+triggers: []
+updated_at: "2026-06-20T12:34:23.485469Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

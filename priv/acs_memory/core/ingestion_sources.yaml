@@ -1,0 +1,41 @@
+content: |
+  ## Bug Fix: Mixed-Key Map in IngestionSources.create_source/2
+  
+  `IngestionSources.create_source/2` used `Map.put(attrs, :org_id, org_id)` with an **atom** key `:org_id`, but callers pass attrs maps with **string** keys like `"source_type"`. Ecto's `cast/6` rejects mixed-key maps with `Ecto.CastError`: "expected params to be a map with atoms or string keys, got a map with mixed keys".
+  
+  ### Fix
+  Changed `:org_id` to `"org_id"` (string key) to match the convention used by callers:
+  ```elixir
+  # lib/anantha_os/core/ingestion_sources.ex
+  |> IngestionSource.changeset(Map.put(attrs, "org_id", org_id))
+  ```
+  
+  Always use consistent key types (string or atom) in maps passed to Ecto changesets. Do not mix.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ingestionsources_create_source_mixed_key_map_fix
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: core/ingestion_sources
+status: approved
+summary:
+tags:
+  - bug
+  - ecto
+  - mixed-keys
+  - ingestion_sources
+title: IngestionSources.create_source mixed-key map fix
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.471555Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,37 @@
+content: |
+  MIMO rate limit consolidated to single source of truth in `config/config.exs` with env var override. No more value duplication across 3 files.
+  
+  Architecture:
+  - `config/config.exs`: `mimo_rate_limit: 100` — single source of truth
+  - `config/runtime.exs`: conditional override via `ANANTHA_MIMO_RATE_LIMIT` env var — only sets if env var present, no hardcoded default
+  - `lib/anantha_os/llm/rate_limiter.ex`: reads from Application config with fallback matching config.exs (100)
+  
+  NIM stays at 40 RPM.
+created_at: "2026-06-20T10:36:10.748695Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_mimo_rate_limit_consolidated_to_config_e_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/llm/rate_limiter
+status: proposed
+summary:
+tags:
+  - mimo
+  - rate_limit
+  - llm
+  - configuration
+title: MIMO rate limit consolidated to config.exs = 100 RPM
+triggers: []
+updated_at: "2026-06-20T10:36:10.748705Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

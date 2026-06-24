@@ -1,0 +1,33 @@
+content: |
+  MessageQueue GenServer calls Repo.get/2 in handle_call handlers for enqueue and requeue. When running in test with :manual sandbox mode, calls from a non-sandbox-owner process raise DBConnection.OwnershipError. Unhandled, this crashes the GenServer 3x → supervisor collapse → Repo lost → hundreds of test failures.
+  
+  Fix: Wrap all Repo calls in MessageQueue handle_call handlers with try/rescue for DBConnection.OwnershipError. Return {:reply, {:error, :ownership_error}, state} on catch. This prevents the crash cascade even when the GenServer is called from outside the sandbox owner process.
+created_at: "2026-06-20T13:42:32.613447Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_messagequeue_genserver_must_rescue_dbcon_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix/memory/message_queue
+status: proposed
+summary:
+tags:
+  - message_queue
+  - ownership_error
+  - sandbox
+  - test
+  - gen_server
+title: MessageQueue GenServer must rescue DBConnection.OwnershipError in sandbox mode
+triggers: []
+updated_at: "2026-06-20T13:42:32.613464Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

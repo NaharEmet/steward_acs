@@ -1,0 +1,36 @@
+content: |
+  In Elixir, `cond` blocks cannot be used directly inside map literals because the `->` operator is ambiguous in that context. To use conditional logic in map literals, either:
+  1. Use `if`/`unless` expressions wrapped in parentheses: `embed: (if cond, do: :warning, else: :ok)`
+  2. Extract the conditional logic to a helper function that returns the value
+  3. Use `case` with pattern matching instead
+  
+  Attempting to use `cond do ... end` directly inside `%{...}` causes a syntax error: "unexpected operator ->"
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes:
+  - Attempting to inline cond inside map literal causes syntax error
+id: learning_cond_blocks_cannot_be_used_directly_inside_map_lit
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir-syntax
+status: approved
+summary:
+tags:
+  - elixir
+  - syntax
+  - map
+  - cond
+title: Cond blocks cannot be used directly inside map literals in Elixir
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.801737Z"
+  approved_by: human
+  status: approved

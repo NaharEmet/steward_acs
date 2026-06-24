@@ -1,0 +1,27 @@
+content: string_keys_to_atoms in query_controller.ex needs to recursively handle nested maps for filter conditions to work. The apply_field_conditions function pattern-matches on atom keys for operators (like, eq, gt, etc.), but nested maps from JSON params have string keys. Without recursion, nested operators are silently dropped by the catch-all clause.
+created_at: "2026-06-20T19:52:08.599829Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_a8d35600_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web.controllers
+status: proposed
+summary: string_keys_to_atoms in query_controller.ex needs to recursively handle nested maps for filter conditions to work. The apply_field_conditions function pattern-matches on atom keys for operators (like,
+tags:
+  - feedback
+  - learning
+title: Key learning from task a8d35600
+triggers: []
+updated_at: "2026-06-20T19:52:08.599840Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

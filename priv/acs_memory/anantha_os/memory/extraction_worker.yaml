@@ -1,0 +1,54 @@
+content: |
+  # ExtractionWorker Dual-Path Architecture
+  
+  `Anantha.Memory.ExtractionWorker` has two processing paths with fundamentally different semantics:
+  
+  ## Path 1: Scheduled (`handle_info(:run_extraction)` → `run_extraction_cycle/2`)
+  - Runs every 5 minutes
+  - Uses `MessageQueue` GenServer for dequeue/retry tracking
+  - Calls `process_message/7` which supports retry via `MessageQueue.get_retry_count` and `MessageQueue.requeue`
+  - Processes messages globally across orgs with rate limiting
+  
+  ## Path 2: Async Trigger (`handle_cast({:trigger_org_async})`)
+  - Triggered manually via Settings page or API calls
+  - Queries DB directly (`from(m in Message, where: is_nil(m.processed_at))`) — bypasses in-memory MessageQueue entirely
+  - Calls `process_message_direct/7` which immediately marks failures as failed (no retry)
+  - Records per-org pipeline cycles AND PipelineStates
+  - Protected by `processing_orgs` MapSet in GenServer state to prevent concurrent processing of the same org
+  
+  ## Critical Gotchas
+  1. **Never mix MessageQueue calls across paths**: `process_message/7` calls `MessageQueue.get_retry_count` and `MessageQueue.requeue` — these are no-ops for the async path since it reads from DB, not MessageQueue
+  2. **Race condition guard**: `handle_info(:run_extraction)` now passes `processing_orgs` to `run_extraction_cycle/2`, which filters out orgs currently processing async — ensuring they don't process duplicate messages
+  3. **Pipeline state consistency**: Both paths must update `PipelineStates.upsert_pipeline_state/2` and `PipelineCycles.record_cycle/1` — forgetting either causes stale dashboard data
+  
+  ## Why Not Just Use MessageQueue for Both?
+  The in-memory MessageQueue can become out-of-sync with the database (e.g., after GenServer restart, `org_processing_enabled?` filtering can exclude messages). The async path queries DB directly for reliability.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_extractionworker_dual_path_architecture_and_gotcha
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/extraction_worker
+status: approved
+summary:
+tags:
+  - extraction_worker
+  - dual-path
+  - pipeline
+  - retry
+  - race-condition
+title: ExtractionWorker dual-path architecture and gotchas
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.291531Z"
+  approved_by: human
+  status: approved

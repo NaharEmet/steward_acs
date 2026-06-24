@@ -1,0 +1,24 @@
+content: Mark as rejected - bug was already fixed in prior session, no action needed
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_rejected_placeholder_bug_get_all_agent_statuses_la
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: placeholder
+status: approved
+summary:
+tags: []
+title: REJECTED_PLACEHOLDER_bug_get_all_agent_statuses_lacks_ets_table_guard_check
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.879522Z"
+  approved_by: human
+  status: approved

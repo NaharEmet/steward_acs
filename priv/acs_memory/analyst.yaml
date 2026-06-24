@@ -1,0 +1,62 @@
+content: |
+  The `ant_execute_query` tool supports 4 datasets. Each maps to a database table:
+  
+  | Dataset | Table | Schema | Key Columns |
+  |---------|-------|--------|-------------|
+  | `syntheses` | syntheses | Anantha.Core.Synthesis | id, title, content, epistemic_state, claim_family, confidence, inserted_at |
+  | `claims` | claims | Anantha.Core.Claim | id, subject, predicate, object, content, claim_type, claim_family, epistemic_state, confidence, speaker, inserted_at |
+  | `observations` | observations | Anantha.Core.Observation | id, content, semantic_types, speaker, extraction_confidence, inserted_at |
+  | `ontology_nodes` | ontology_nodes | Anantha.Core.OntologyNode | id, name, entity_type, status, metadata, inserted_at |
+  
+  **Query options**:
+  - `filters`: JSON object of field=value pairs (exact match, AND-combined)
+  - `sort`: JSON object `{"field": "inserted_at", "order": "desc"}` (default)
+  - `limit`: Max rows (default 100, max 1000)
+  - `group_by`: Not yet supported (pass nil)
+  - `aggregates`: Not yet supported (pass nil)
+  
+  **Usage**:
+  ```json
+  {
+    "org_id": "org-uuid",
+    "dataset": "claims",
+    "filters": {"claim_type": "concern", "speaker": "customer"},
+    "sort": {"field": "confidence", "order": "desc"},
+    "limit": 20
+  }
+  ```
+  
+  **Export**: Use `ant_export_dataset` with same params to get results wrapped in export metadata (exported_at, total_count).
+  
+  **Note**: The `drilldown` tool is a placeholder. Use `execute_query` with specific filters instead.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_available_datasets_for_ant_execute_query_syntheses
+importance: 5
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: analyst
+status: approved
+summary:
+tags:
+  - analyst
+  - execute_query
+  - datasets
+  - claims
+  - syntheses
+  - observations
+  - ontology_nodes
+title: Available datasets for ant_execute_query — syntheses, claims, observations, ontology_nodes
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.380844Z"
+  approved_by: human
+  status: approved

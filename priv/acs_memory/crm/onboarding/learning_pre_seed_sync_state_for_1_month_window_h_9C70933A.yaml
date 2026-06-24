@@ -1,0 +1,38 @@
+content: |
+  To sync only the past N days of HubSpot data on the first sync (instead of all historical data), pre-seed the sync state's `synced_at` to N days ago BEFORE triggering the sync. This makes the SyncEngine's search API use a date range filter of [synced_at, now].
+  
+  For example, to sync only the past 1 month of deals:
+  1. Create the sync state record: `Anantha.CRM.SyncState.update_metadata(org_id, "hubspot", "deals", %{})` 
+  2. Set synced_at to 30 days ago: use `Repo.update_all` with a raw Ecto query to set `synced_at = DateTime.add(DateTime.utc_now(), -30, :day)`
+  3. Then trigger sync: `acs_crm_sync_object_type(org_id, "hubspot", "deals")` — the SyncEngine will search for deals modified after that date
+  
+  The search date property differs by type: contacts use `lastmodifieddate`, all other types use `hs_lastmodifieddate`.
+created_at: "2026-06-21T12:55:00.100179Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_pre_seed_sync_state_for_1_month_window_h_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/onboarding
+status: proposed
+summary:
+tags:
+  - hubspot
+  - sync
+  - date-filter
+  - first-sync
+  - sync-state
+title: Pre-seed sync state for 1-month window HubSpot sync
+triggers: []
+updated_at: "2026-06-21T12:55:00.100187Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

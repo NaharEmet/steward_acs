@@ -1,0 +1,61 @@
+content: |
+  ## Dispatch Map Pattern
+  
+  When a function has 10+ clause `case name do` dispatch, replace with a module attribute map for O(1) lookup:
+  
+  ```elixir
+  # Before
+  def call_tool(name, args) do
+    case name do
+      "tool_a" -> Handler.a(args)
+      "tool_b" -> Handler.b(args)
+      ...
+      _ -> {:error, "Unknown tool: #{name}"}
+    end
+  end
+  
+  # After
+  @dispatch %{
+    "tool_a" => &Handler.a/1,
+    "tool_b" => &Handler.b/1,
+    ...
+  }
+  
+  def call_tool(name, args) do
+    case Map.fetch(@dispatch, name) do
+      {:ok, handler} -> handler.(args)
+      :error -> {:error, "Unknown tool: #{name}"}
+    end
+  end
+  ```
+  
+  Benefits: O(1) vs O(n), cleaner, separate data from control flow.
+  Gated tools (conditional enable) should use a separate map + cond fallback so the main dispatch stays pure.
+created_at: "2026-06-21T13:20:53.823849Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_dispatch_map_pattern_for_large_case_stat_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/patterns
+status: proposed
+summary:
+tags:
+  - elixir
+  - pattern
+  - dispatch
+  - refactoring
+title: Dispatch Map Pattern for Large Case Statements
+triggers: []
+updated_at: "2026-06-21T13:20:53.823857Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

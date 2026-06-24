@@ -1,0 +1,27 @@
+content: CRM Scheduler on main server interfered during first run, syncing core types before script reached them. A previously-applied fix (createdate for engagement objects) was actually wrong and caused 400 errors, which blocked engagement type syncs.
+created_at: "2026-06-20T16:01:18.123838Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_40933944_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha
+status: proposed
+summary: "CRM Scheduler on main server interfered during first run, syncing core types before script reached them. A previously-applied fix (createdate for engagement objects) was actually wrong and caused 400 "
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 40933944
+triggers: []
+updated_at: "2026-06-20T16:01:18.123853Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

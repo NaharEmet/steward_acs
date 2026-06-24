@@ -1,0 +1,33 @@
+content: |
+  When using `from(row in "table_name")` in Ecto queries, all schema type information is lost. This means `:binary_id` columns like `org_id` won't be automatically cast from string UUID format to binary UUID format. Always use a proper Ecto schema (`from(row in SchemaName)`) when filtering by UUID columns to avoid type mismatch errors with PostgreSQL.
+  
+  The fix is to alias the schema with an explicit name to avoid conflicts with Elixir's built-in modules (e.g., `alias Anantha.Core.Record, as: StructuredRecord`) and use `count_with_org(StructuredRecord, org_id)` instead of `count_with_org_for_table("records", org_id)`.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ecto_raw_table_queries_lose_schema_type_info
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: ecto/schema-type-casting
+status: approved
+summary:
+tags:
+  - ecto
+  - schema
+  - uuid
+  - type-casting
+  - binary-id
+title: Ecto raw table queries lose schema type info
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.771703Z"
+  approved_by: human
+  status: approved

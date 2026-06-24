@@ -1,0 +1,28 @@
+content: "The AgentGenerator.generate_batch/2 function consistently fails to produce valid scenarios. All 20+ LLM-generated scenarios fail validation. The LLM returns valid JSON meeting all hard constraints, but the `validate/1` function rejects every scenario. Root cause unclear from logs — needs investigation of `parse_llm_response` output structure vs `validate` expectations. Possible mismatch between how `normalize_scenario` structures atom-keyed maps and how validation's `get_in` accesses them. This blocks the Truthforge pipeline when using LLM-based generation (--scenarios flag). Workaround: use --seed with a pre-validated JSON seed file."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_agentgenerator_generate_batch_100_validation_failu
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory_testing/agent_generator
+status: approved
+summary:
+tags:
+  - truthforge
+  - agent_generator
+  - validation
+  - bug
+title: "AgentGenerator.generate_batch: 100% validation failure for LLM-generated scenarios"
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.639726Z"
+  approved_by: human
+  status: approved

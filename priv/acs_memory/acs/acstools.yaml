@@ -1,0 +1,29 @@
+content: "MCP YAML tools that go through `/api/query/*/batch` endpoints should NOT have a `handler` field — they route through the Bridge which POSTs to the endpoint with `api_key` as Bearer token (`Authorization: Bearer`). Only tools that need `agent_id` for session lookup via `Acs.MCP.Tools.call_tool/2` should have `handler: Acs.MCP.Tools`. Adding `handler` when no `agent_id` param exists causes a \"Missing agent_id\" error."
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_mcp_yaml_tools_routing_through_bridge_must_omit_ha
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: acs/acstools
+status: approved
+summary:
+tags:
+  - yaml
+  - handler
+  - bridge
+  - agent_id
+  - tools
+title: MCP YAML tools routing through Bridge must omit `handler`
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.752740Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,49 @@
+content: |
+  ## Architectural Pattern: Single Metrics Recording Point
+  
+  When instrumenting LLM calls for metrics tracking, do NOT record at the `chat_completion` adapter level (after the parsed result returns). The parsed response doesn't contain token usage data — it returns 0 for all token counts.
+  
+  Instead, record metrics INSIDE the request execution function (`execute_llm_request`), where you have access to the raw HTTP response and can extract correct token counts via `extract_metrics_from_response`.
+  
+  ### Why this pattern matters
+  - The adapter (`chat_completion`) is the public API that all 27+ call sites use
+  - But the adapter returns a parsed map where `response["usage"]` is already stripped/transformed
+  - The raw HTTP response at the request layer has the real `usage` data with `prompt_tokens`, `completion_tokens`, `total_tokens`
+  - Recording at the adapter level ALSO creates a duplicate record because the request layer records separately
+  
+  ### The rule
+  Metrics recording should happen at the deepest practical layer that has access to raw response data. The adapter should be a pass-through that delegates to `do_chat_completion`.
+  
+  ### Affected files
+  - `lib/anantha_os/llm/client.ex` — `execute_llm_request` (the correct recording point)
+  - `lib/anantha_os/llm/metrics_recorder.ex` — `store_metrics/8` (the single function)
+  - `lib/anantha_os/core/llm_call_metric.ex` — schema with nullable org_id
+  
+created_at: "2026-06-19T16:15:15Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_llm_metrics_consolidate_at_request_layer_not_adapt
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  marked_at: "2026-06-06T04:26:21.835665Z"
+  reason: Superseded by sentinel org approach. The consolidation pattern is still valid but the nullable org_id detail is replaced by sentinel UUID 0000.
+scope_path: anantha_os/llm
+status: rejected
+summary:
+tags:
+  - llm
+  - metrics
+  - architecture
+  - pattern
+  - adapter
+title: "LLM Metrics: consolidate at request layer, not adapter layer"
+triggers: []
+updated_at: "2026-06-21T15:06:02Z"
+verification:
+  rejected_at: "2026-06-21T15:06:02.096587Z"
+  rejected_by: Cannot verify accuracy. Previous cleanup marked stale. Rejected as precaution.
+  status: rejected

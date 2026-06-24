@@ -1,0 +1,27 @@
+content: Reading 48 source files for @moduledoc is efficient but time-consuming. A bulk spec generator that could batch-propose specs via cognition_propose MCP tool would be more efficient.
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_improvement_suggestion_from_task_feedback
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: acs/specs/anantha/awds
+status: proposed
+summary: Reading 48 source files for @moduledoc is efficient but time-consuming. A bulk spec generator that could batch-propose specs via cognition_propose MCP tool would be more efficient.
+tags:
+  - feedback
+  - learning
+timestamps:
+  created_at: "2026-05-19T10:23:04.412873Z"
+  updated_at: "2026-05-19T10:23:04.412890Z"
+title: Improvement suggestion from task feedback
+triggers: []
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

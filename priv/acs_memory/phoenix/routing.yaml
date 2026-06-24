@@ -1,0 +1,27 @@
+content: "In Phoenix router, you can have both `POST /ingestion/webhook` and `POST /ingestion/webhook/:provider` in the same scope. Phoenix differentiates them by the number of path segments. The first matches exactly `/ingestion/webhook` with no trailing segment, while the second matches `/ingestion/webhook/{anything}`. There is no conflict because the path patterns have different segment counts."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_phoenix_route_ordering_post_ingestion_webhook_vs_i
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix/routing
+status: approved
+summary:
+tags:
+  - phoenix
+  - routing
+  - webhooks
+title: "Phoenix route ordering: POST /ingestion/webhook vs /ingestion/webhook/:provider"
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.656869Z"
+  approved_by: human
+  status: approved

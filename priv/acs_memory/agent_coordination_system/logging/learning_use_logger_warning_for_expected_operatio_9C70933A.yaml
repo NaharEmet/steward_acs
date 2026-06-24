@@ -1,0 +1,28 @@
+content: Expected operational conditions like "all LLM providers failed" (rate limiting/unavailability) and "max retries exceeded" should use Logger.warning instead of Logger.error. Logger.error should be reserved for actual code bugs and unexpected failures. This prevents noise in error tracking systems.
+created_at: "2026-06-20T10:28:18.169429Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_use_logger_warning_for_expected_operatio_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/logging
+status: proposed
+summary:
+tags:
+  - logging
+  - error-level
+  - operational-conditions
+title: Use Logger.warning for expected operational conditions
+triggers: []
+updated_at: "2026-06-20T10:28:18.169437Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,28 @@
+content: "`mix test` often shows ~700 failures like \"could not lookup Ecto repo Anantha.Repo because it was not started\". These are intermittent Ecto sandbox connection pool exhaustion issues from running all ~900 tests concurrently. They are NOT real failures. Rerunning often shows a different count. Always check targeted test groups (mix test:*) rather than full suite when investigating actual regressions."
+created_at: "2026-06-19T16:01:07.430432Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_mix_precommit_test_count_variance_due_to_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/testing
+status: proposed
+summary:
+tags:
+  - testing
+  - database
+  - sandbox
+  - flaky
+title: Mix precommit test count variance due to DB sandbox timeout
+triggers: []
+updated_at: "2026-06-19T16:01:07.430440Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

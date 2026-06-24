@@ -1,0 +1,27 @@
+content: "extract_balanced_json/find_balanced now tracks string context (in_string boolean) to prevent braces inside JSON string values from breaking brace counting. Pattern matching order is critical: escape sequence clause (backslash) must come BEFORE quote toggle clause. Braces inside strings are pass-through characters and don't affect the counter."
+created_at: "2026-06-20T19:51:46.068167Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_748c0652_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs
+status: proposed
+summary: "extract_balanced_json/find_balanced now tracks string context (in_string boolean) to prevent braces inside JSON string values from breaking brace counting. Pattern matching order is critical: escape s"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 748c0652
+triggers: []
+updated_at: "2026-06-20T19:51:46.068182Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

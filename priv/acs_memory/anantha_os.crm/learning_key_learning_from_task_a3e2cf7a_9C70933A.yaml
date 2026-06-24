@@ -1,0 +1,27 @@
+content: The claim_extractor.ex batch path (store_claims_batch → create_claims_batch) now queries active (subject, predicate) pairs before inserting. First-time claims use source_timestamp without truncation for their valid_from, while updates use now_iso. The file at HEAD was truncated to 15 lines; the full implementation (566 lines) was restored from commit 03adafab with the fix that source_timestamp should NOT be truncated (DateTime.to_iso8601/1 preserves full precision).
+created_at: "2026-06-20T19:30:30.538269Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_a3e2cf7a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: The claim_extractor.ex batch path (store_claims_batch → create_claims_batch) now queries active (subject, predicate) pairs before inserting. First-time claims use source_timestamp without truncation f
+tags:
+  - feedback
+  - learning
+title: Key learning from task a3e2cf7a
+triggers: []
+updated_at: "2026-06-20T19:30:30.538284Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

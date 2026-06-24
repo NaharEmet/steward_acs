@@ -1,0 +1,39 @@
+content: |
+  The API Key management UI follows the same pattern as other settings LiveViews in Anantha:
+  
+  1. LiveView at `lib/anantha_os_web/live/settings_live/api_keys_live.ex`
+  2. Mount checks session auth, loads org via `Core.get_org_from_session/1`
+  3. Uses `{AnanthaWeb.Layouts, :admin}` layout
+  4. Events: generate, list, revoke — all go through `Anantha.ApiKeys` context
+  5. Generated key is displayed ONCE in a modal with copy button, then cleared
+  6. Role is set after key creation via changeset + Repo.update (generate_key/2 doesn't set role)
+  7. Route added inside the existing admin `live_session` block
+  8. Nav link follows the exact pattern with `@current_scope` conditional styling
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_api_key_management_ui_pattern
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/settings/api_keys
+status: approved
+summary:
+tags:
+  - pattern
+  - settings
+  - api-keys
+  - liveview
+title: API Key Management UI Pattern
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.788517Z"
+  approved_by: human
+  status: approved

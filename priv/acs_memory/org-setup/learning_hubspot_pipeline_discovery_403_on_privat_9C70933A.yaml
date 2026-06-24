@@ -1,0 +1,43 @@
+content: |
+  HubSpot private app tokens (pat-* keys) cannot access the `crm/v3/pipelines` API. This API requires OAuth scopes including `settings.users.teams.read`, which is NOT available for private app tokens. When `fetch_pipelines/2` is called with a private app token, HubSpot returns HTTP 403 with message: "The scope needed for this API call isn't available for public use."
+  
+  Impact on pipeline-aware CRM:
+  1. Pipeline discovery fails — no pipeline names/stages stored in DB
+  2. Pipeline cache empty → `enrich_deal_records/4` falls back to DB-based lookup which returns empty
+  3. Entity IDs stay in OLD format (`hubspot:deals:{deal_id}`) — no pipeline qualifier
+  4. `pipeline_label` and `dealstage_label` unable to resolve to display names
+  5. Claim metadata still includes raw `pipeline_pipeline` and `pipeline_dealstage` IDs from the raw payload (via `extract_pipeline_context/1`)
+  
+  Workarounds:
+  - Use OAuth with `settings.users.teams.read` scope for full pipeline discovery
+  - Or accept partial pipeline context (raw IDs in metadata without resolved names)
+  
+created_at: "2026-06-21T15:56:04Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_hubspot_pipeline_discovery_403_on_privat_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: approved
+summary:
+tags:
+  - hubspot
+  - pipeline
+  - pipeline-discovery
+  - "403"
+  - api-scopes
+title: HubSpot Pipeline Discovery — 403 on Private App Tokens
+triggers: []
+updated_at: "2026-06-21T15:56:06Z"
+verification:
+  approved_at: "2026-06-21T15:56:06.937161Z"
+  approved_by: Important operational finding — HubSpot private app tokens can't access pipelines API. Applied during live test.
+  status: approved

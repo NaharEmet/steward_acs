@@ -1,0 +1,54 @@
+content: |
+  # Mimo as Primary LLM Provider
+  
+  ## Changes Made
+  - **rate_limiter.ex**: Added `mimo_rate_limit/0`, `mimo_rate_window_ms/0`, `check_rate_limit("mimo")` clause. Mimo rate limits read from app config, default 40 RPM / 60s window.
+  - **client.ex**: Added `"mimo"` to `get_model/2` alongside `"minimax"` special-case, added `default_model_for_provider("mimo")` returning `"mimo-v2.5"`, added `do_chat_completion("mimo", ...)` with rate limiting, provider lookup, and fallback logic matching minimax pattern.
+  - **fallback_router.ex**: Replaced hardcoded `@fallback_providers` map with configurable `fallback_providers/0` function reading from `Application.get_env(:anantha_os, :lln, []) |> Keyword.get(:fallback_providers, @default_fallback_providers)`. Default chain changed to `minimax→mimo, mimo→groq`.
+  - **evaluator.ex**: Changed `@default_provider "minimax"` to `"mimo"`.
+  - **config/config.exs**: Added `mimo_rate_limit: 40`, `mimo_rate_window_ms: 60_000`, and `fallback_providers` map.
+  - **config/runtime.exs**: Added `ANANTHA_MIMO_RATE_LIMIT` and `ANANTHA_MIMO_RATE_WINDOW_MS` env var overrides.
+  
+  ## Key Architecture Decisions
+  - Fallback chain is now configurable via `config.exs` under `:lln, :fallback_providers` instead of hardcoded module attribute.
+  - Mimo joins minimax as a special-cased provider in `get_model/2` — both bypass org settings to use their default model directly. This is needed because minimax/mimo are temporary/fallback providers not configured in org LLM tiers.
+  - The `do_chat_completion("mimo", ...)` clause mirrors the minimax pattern exactly: rate limit check → provider module lookup → request_with_module with fallback on service_unavailable/timeout.
+  - STT ingestion (`Anantha.Ingestion.Source.Adapters.Minimax`) is a separate concern — MiniMax remains as STT provider via ingestion adapter.
+  
+  ## Files Modified
+  - `lib/anantha_os/llm/rate_limiter.ex`
+  - `lib/anantha_os/llm/client.ex`
+  - `lib/anantha_os/llm/fallback_router.ex`
+  - `lib/anantha_os/meta_harness/evaluator.ex`
+  - `config/config.exs`
+  - `config/runtime.exs`
+created_at: "2026-06-19T16:18:56.884653Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_mimo_made_primary_llm_provider_configura_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/llm
+status: proposed
+summary:
+tags:
+  - llm
+  - mimo
+  - minimax
+  - provider
+  - fallback
+  - rate-limiter
+  - config
+title: Mimo made primary LLM provider - configurable fallback chain
+triggers: []
+updated_at: "2026-06-19T16:18:56.884673Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

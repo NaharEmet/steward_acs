@@ -1,0 +1,27 @@
+content: CRM sync must be async. Bandit default HTTP timeout is 15s. HubSpot sync takes 5+ min for 11 object types. Use Task.Supervisor.start_child to run in background, return 202 immediately. The enrich_config_with_secrets fix was already applied but didn't solve the root cause (sync is synchronous, not API key missing).
+created_at: "2026-06-20T10:25:37.456319Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_6363e8a7_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web.controllers
+status: proposed
+summary: CRM sync must be async. Bandit default HTTP timeout is 15s. HubSpot sync takes 5+ min for 11 object types. Use Task.Supervisor.start_child to run in background, return 202 immediately. The enrich_conf
+tags:
+  - feedback
+  - learning
+title: Key learning from task 6363e8a7
+triggers: []
+updated_at: "2026-06-20T10:25:37.456332Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,49 @@
+content: |
+  ## Org Setup for '3' with HubSpot CRM
+  
+  ### What worked
+  - Org created (id=`5ec0f2f7-b864-41d3-b6b3-e576e8d88473`)
+  - HubSpot source registered and configured (`32794d8d-c6de-4e21-895e-0869b0a71754`)
+  - Scope probe: 9 accessible types (contacts, companies, deals, notes, calls, emails, meetings, tasks, quotes), 2 forbidden (tickets, line_items)
+  - HubSpot Search API with 5-month date filter works — retrieved 4994 contacts in ~15s
+  - API key generated: `sk_live_kTj2bdgpjCO6b4Wkmm4uLcgjBBYE8bQN_szhc8DbhmM2TO5I`
+  
+  ### Critical lessons
+  1. **SyncState synced_at blocks first-sync detection**: Storing scope probe data via `update_metadata/4` sets `"synced_at"` which blocks the first-sync search API path. The check is `is_nil(cursor) AND is_nil(state["synced_at"])`. Even setting synced_at to nil doesn't work because `Map.drop` must be used to fully remove the key.
+  2. **Batch processing pipeline fails silently**: `Anantha.CRM.process_crm_records_batch/2` raises errors caught by `rescue` inside `Task.async_stream`. The pipeline involves: IngestionCRMRecord.new → CrmEntitySnapshots → events → clusters → claims. Needs investigation of which sub-step fails.
+  3. **Background tasks via Task.Supervisor.start_child crash silently**: No error monitoring. Need better error handling in `do_crm_sync_object_type`.
+  4. **Mix run timeouts**: For large syncs (4994 records), processing pipeline takes >2min. `timeout 120` kills process before state updates. Use longer timeout or server-side mechanisms.
+  5. **Ecto :map field strips nil values**: When using `Map.put(config, "synced_at", nil)`, Ecto either stores nil as JSON null or strips it depending on how the map is constructed. Using `Map.drop` to remove keys entirely is more reliable.
+  
+  ### What still needs fixing
+  - `process_crm_records_batch` raises errors for all batches — root cause unknown
+  - Need to sync remaining 8 types (companies, deals, notes, calls, emails, meetings, tasks, quotes)
+  - Scheduler should check `scope_probe_status` = "forbidden" and skip those types automatically
+created_at: "2026-06-20T11:26:32.578985Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_org_setup_workflow_for_org_3_with_hubspo_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/onboarding
+status: proposed
+summary: Setup org '3' with HubSpot CRM. Search API works. Batch pipeline errors on process_crm_records_batch.
+tags:
+  - org-setup
+  - hubspot
+  - crm-sync
+  - batch-processing
+title: Org setup workflow for org '3' with HubSpot
+triggers: []
+updated_at: "2026-06-20T11:26:32.578996Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

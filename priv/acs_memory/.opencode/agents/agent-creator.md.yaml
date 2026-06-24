@@ -1,0 +1,49 @@
+content: |
+  # webfetch Is Denied Globally in This Project
+  
+  In this project's `opencode.json`, `webfetch` is set to `deny` globally and no per-agent override is in place. Agents that need to fetch external URLs (e.g., `https://opencode.ai/config.json` to verify a field shape) **must delegate to the `researcher` sub-agent via the `task` tool** — researcher has `webfetch: allow` in its frontmatter.
+  
+  ## Implication for Authoring Agents
+  
+  When writing an Authority / Capabilities table for any new agent in this project:
+  
+  - ❌ Never claim `✅ webfetch` directly — that capability is not available.
+  - ✅ Use the form: `✅ via \`task\` delegation to \`researcher\` (which has \`webfetch: allow\`)`
+  - Add a Process note: "To fetch external URLs, delegate to `researcher` via the `task` tool. Do not call `webfetch` directly — it is denied in this project's `opencode.json`."
+  
+  ## Why This Matters
+  
+  Agents that claim `webfetch: allow` in their own authority row will silently fail when they try to use it. Documenting the correct delegation path up front prevents confusion and failed fetches mid-task.
+  
+  ## Verification
+  
+  Confirmed by reading `.opencode/opencode.json` permission block: no `webfetch` allow for any project agent. Researcher (`.opencode/agents/researcher.md`) has `webfetch: allow` in its frontmatter — the only path.
+  
+created_at: "2026-06-14T10:52:11.998662Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_webfetch_authority_in_this_project_deleg_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .opencode/agents/agent-creator.md
+status: proposed
+summary: webfetch is denied globally — agents must delegate to researcher via task tool for external fetches
+tags:
+  - permissions
+  - webfetch
+  - authority-table
+  - delegation
+  - opencode.json
+title: "webfetch authority in this project: delegate, don't call directly"
+triggers: []
+updated_at: "2026-06-14T10:52:11.998673Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

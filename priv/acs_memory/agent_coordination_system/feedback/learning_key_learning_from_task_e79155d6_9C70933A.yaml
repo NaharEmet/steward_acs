@@ -1,0 +1,27 @@
+content: "nomic-embed-text is 768-dim, 137M params, 274MB on Ollama, runs fast on CPU/no GPU needed (~300MB RAM). v1.5 supports Matryoshka variable dimensions (64-768). Max tokens: 8192 (v1.5), 2048 (Ollama default). Apache 2.0 license. Multiple sources confirm it's the de facto default for local CPU RAG."
+created_at: "2026-06-20T16:02:14.426023Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e79155d6_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "nomic-embed-text is 768-dim, 137M params, 274MB on Ollama, runs fast on CPU/no GPU needed (~300MB RAM). v1.5 supports Matryoshka variable dimensions (64-768). Max tokens: 8192 (v1.5), 2048 (Ollama def"
+tags:
+  - feedback
+  - learning
+title: Key learning from task e79155d6
+triggers: []
+updated_at: "2026-06-20T16:02:14.426034Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

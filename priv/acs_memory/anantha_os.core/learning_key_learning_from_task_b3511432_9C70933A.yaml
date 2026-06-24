@@ -1,0 +1,27 @@
+content: "When creating relationships from relationship_specs that come from claim extraction, specs are plain maps without :metadata key. Always use Map.get(spec, :metadata, %{}) instead of spec.metadata || %{} to avoid KeyError crashes."
+created_at: "2026-06-22T07:09:58.410132Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_b3511432_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.core
+status: proposed
+summary: "When creating relationships from relationship_specs that come from claim extraction, specs are plain maps without :metadata key. Always use Map.get(spec, :metadata, %{}) instead of spec.metadata || %{"
+tags:
+  - feedback
+  - learning
+title: Key learning from task b3511432
+triggers: []
+updated_at: "2026-06-22T07:09:58.410152Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

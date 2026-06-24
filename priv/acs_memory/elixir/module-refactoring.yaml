@@ -1,0 +1,42 @@
+content: |
+  When refactoring a large module into submodules (e.g., ExtractionWorker → ExtractionWorker.Classification, ExtractionWorker.Sanitization), you MUST add `defdelegate` directives in the main module to re-export public functions. Otherwise, external callers referencing `MainModule.function()` will get `UndefinedFunctionError`.
+  
+  Always check ALL external callers (including tests) for function references that depend on the refactored module's public API. A good practice is to grep `MainModule.` across the codebase to find every reference.
+  
+  Example pattern:
+  ```elixir
+  alias Anantha.Memory.ExtractionWorker.{Extraction, Classification, Sanitization}
+  
+  defdelegate claim_family_for_type(claim_type), to: Classification
+  defdelegate build_classification_and_extraction(extraction_result, message), to: Classification
+  defdelegate sanitize_direction(entities, memory_type, content, message_direction), to: Sanitization
+  defdelegate direction_type(memory_type), to: Sanitization
+  ```
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_defdelegate_needed_when_refactoring_into_submodule
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/module-refactoring
+status: approved
+summary:
+tags:
+  - elixir
+  - refactoring
+  - defdelegate
+  - submodules
+title: defdelegate needed when refactoring into submodules
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.895387Z"
+  approved_by: human
+  status: approved

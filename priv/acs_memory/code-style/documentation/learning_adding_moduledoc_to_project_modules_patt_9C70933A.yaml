@@ -1,0 +1,33 @@
+content: |
+  When adding @moduledoc to modules that previously had @moduledoc false:
+  - Public API modules (compilers, handlers, core logic) should get real `@moduledoc` with ## Purpose and ## Key Functions sections
+  - Standard OTP Application modules should keep `@moduledoc false` with a brief inline comment explaining the module's role
+  - Internal utilities with significant logic should get real docs even if called only internally
+  - Each doc should follow the project's existing documentation style: one-line summary, ## Purpose section, ## Key Functions list
+created_at: "2026-06-21T14:01:08.513343Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_adding_moduledoc_to_project_modules_patt_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: code-style/documentation
+status: proposed
+summary:
+tags:
+  - documentation
+  - exdoc
+  - moduledoc
+title: Adding @moduledoc to project modules pattern
+triggers: []
+updated_at: "2026-06-21T14:01:08.513354Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

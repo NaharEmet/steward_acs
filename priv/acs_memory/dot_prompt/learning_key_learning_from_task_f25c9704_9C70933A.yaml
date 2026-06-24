@@ -1,0 +1,27 @@
+content: "String.to_atom should NEVER be used with external input. Safe pattern: add safe_to_atom/1 helper using String.to_existing_atom/1 with ArgumentError rescue returning string/nil. For known-safe config/DSL keys, use explicit mapping maps instead."
+created_at: "2026-06-21T13:18:19.003673Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_f25c9704_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: dot_prompt
+status: proposed
+summary: "String.to_atom should NEVER be used with external input. Safe pattern: add safe_to_atom/1 helper using String.to_existing_atom/1 with ArgumentError rescue returning string/nil. For known-safe config/D"
+tags:
+  - feedback
+  - learning
+title: Key learning from task f25c9704
+triggers: []
+updated_at: "2026-06-21T13:18:19.003689Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

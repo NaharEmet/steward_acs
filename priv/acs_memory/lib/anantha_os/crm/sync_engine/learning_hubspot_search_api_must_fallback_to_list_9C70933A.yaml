@@ -1,0 +1,38 @@
+content: |
+  `fetch_page_search_api` in `hub_spot.ex` can fail with 400/5xx errors (known for emails/tasks due to missing searchable property). Two fixes needed:
+  
+  1. **Retry non-429 errors**: `rate_limited_post` now retries on ALL status >= 400 (not just 429), with exponential backoff and max 3 retries. 429 rate-limit retry path continues using existing backoff logic.
+  
+  2. **Fallback to list API**: When search API returns non-404 errors after retries exhausted, fall back to `fetch_page_list_api` (GET /crm/v3/objects/{type}). 404 still returns error (legitimate "not found").
+  
+  Key detail: `retries` param is required (no default) — all callers pass it explicitly. The function head is `rate_limited_post(org_id, url, body, headers, request_timeout, retries)`.
+created_at: "2026-06-23T07:30:44.337350Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_hubspot_search_api_must_fallback_to_list_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/crm/sync_engine
+status: proposed
+summary:
+tags:
+  - hubspot
+  - crm
+  - sync_engine
+  - retry
+  - fallback
+  - resilience
+title: HubSpot search API must fallback to list API on non-404 errors
+triggers: []
+updated_at: "2026-06-23T07:30:44.337358Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

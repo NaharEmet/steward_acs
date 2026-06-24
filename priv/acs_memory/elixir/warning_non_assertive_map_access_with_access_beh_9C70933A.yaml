@@ -1,0 +1,36 @@
+content: |
+  Using `map[:key]` (Access behaviour) for required keys silently returns `nil` instead of failing fast. This masks missing key bugs. Rules:
+  
+  1. For **required** keys: use `map.key` (static access) or `%{key: value} = map` (pattern match). These raise KeyError/FunctionClauseError immediately on missing keys.
+  2. For **optional** keys: use `Map.get(map, :key, default)` with an explicit default value.
+  3. Never use `map[:key]` for keys that must be present - the silent `nil` return turns required-key bugs into confusing downstream failures.
+  
+  Same pattern applies to `Application.get_env/2` - it returns `nil` for missing config. Use `Application.fetch_env/2` with case matching or `Application.compile_env/3` instead, which fail fast with descriptive errors.
+created_at: "2026-06-21T13:12:51.516412Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_non_assertive_map_access_with_access_beh_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir
+status: proposed
+summary:
+tags:
+  - elixir
+  - map-access
+  - fail-fast
+  - anti-pattern
+title: Non-assertive map access with Access behaviour
+triggers: []
+updated_at: "2026-06-21T13:12:51.516426Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

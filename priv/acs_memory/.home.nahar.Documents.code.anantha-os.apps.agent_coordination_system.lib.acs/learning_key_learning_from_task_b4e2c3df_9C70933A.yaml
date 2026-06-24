@@ -1,0 +1,27 @@
+content: "Root cause of :invalid_json_response in Memory Auditor was extract_balanced_json double closing brace. find_balanced/4 already returns content including final }, but extract_balanced_json wrapped it in extra {} producing double }}. Jason.decode fails on }} every time. All previous fixes (in_string tracking, control char escaping, thinking suppression) were correct but couldn't work because extracted string was always corrupted. Fix: change \"{#{find_balanced(...)}}\" to \"{\" <> find_balanced(...)\"."
+created_at: "2026-06-21T10:34:31.008806Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_b4e2c3df_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs
+status: proposed
+summary: "Root cause of :invalid_json_response in Memory Auditor was extract_balanced_json double closing brace. find_balanced/4 already returns content including final }, but extract_balanced_json wrapped it i"
+tags:
+  - feedback
+  - learning
+title: Key learning from task b4e2c3df
+triggers: []
+updated_at: "2026-06-21T10:34:31.008820Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

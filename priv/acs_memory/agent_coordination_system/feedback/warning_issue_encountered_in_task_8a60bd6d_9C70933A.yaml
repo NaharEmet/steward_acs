@@ -1,0 +1,27 @@
+content: Transaction safety gap between snapshot close/create and history insert is pre-existing (snapshot system is not wrapped in a single transaction per batch). Object-type coupling via if env.object_type == \"deals\" follows existing pattern.
+created_at: "2026-06-23T15:13:16.160245Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_8a60bd6d_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "Transaction safety gap between snapshot close/create and history insert is pre-existing (snapshot system is not wrapped in a single transaction per batch). Object-type coupling via if env.object_type "
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 8a60bd6d
+triggers: []
+updated_at: "2026-06-23T15:13:16.160258Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

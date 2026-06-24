@@ -1,0 +1,37 @@
+content: |
+  CognitionProcessor.generate_for_org/1 runs the claim clustering → LLM synthesis pipeline for a single organization. Clusters claims via ClaimClusterer.cluster_claims(org_id, min_cluster_size: 2), generates syntheses via SynthesisExtractor, and persists them with provenance tracking (synthesis_claims + layer relationships). Returns {:ok, count, superseded}. Safe no-op if org has no claims or no clusters.
+  
+  Used by:
+  1. `generate_syntheses_from_clusters/1` (the full nightly cycle iterates all orgs via this)
+  2. `org_create` in ToolController (fire-and-forget Task.start after org creation)
+  3. `trigger_synthesis` tool endpoint (manual per-org or full cycle trigger)
+  
+  The `trigger_synthesis` ACS tool (level 2, category dev) calls POST /api/tools/trigger_synthesis with optional org_id. If org_id provided, runs generate_for_org. If omitted, triggers full nightly cycle (trigger_now).
+created_at: "2026-06-20T14:57:11.068208Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_generate_for_org_1_enables_per_org_synth_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/cognition_processor
+status: proposed
+summary:
+tags:
+  - cognition_processor
+  - synthesis
+  - trigger_synthesis
+  - generate_for_org
+title: generate_for_org/1 enables per-org synthesis targeting
+triggers: []
+updated_at: "2026-06-20T14:57:11.068216Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

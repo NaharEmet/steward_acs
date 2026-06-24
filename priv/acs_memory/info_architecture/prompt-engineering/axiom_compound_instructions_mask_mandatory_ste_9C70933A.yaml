@@ -1,0 +1,43 @@
+content: |
+  ## Principle
+  Every mandatory completion step must be a standalone critical rule. Never embed a mandatory step inside a compound ordering instruction ("do X before Y").
+  
+  ## Why
+  When an instruction says "ALWAYS do X before calling Y", agents process "the important thing is the order — do X first." If Y is also mandatory, the agent may do X and stop, treating X as the terminal action. This is especially bad in context-constrained environments where compression drops the second half.
+  
+  ## Fix Pattern
+  WRONG: `ALWAYS save learnings BEFORE calling acs_release_work` — ordering constraint, release is implied
+  RIGHT: Two separate rules:
+    1. `ALWAYS release your task when done` — standalone mandate
+    2. `ALWAYS save learnings BEFORE releasing` — ordering constraint on the mandate
+  
+  ## When to Apply
+  Any instruction where a mandatory action appears only as a subordinate clause in a compound instruction. Audit critical rules for compound patterns like "do X before Y" or "do X when Y" — if Y is also mandatory, split them.
+created_at: "2026-06-23T19:58:37.999703Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: axiom_compound_instructions_mask_mandatory_ste_9C70933A
+importance: 5
+kind: axiom
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: info_architecture/prompt-engineering
+status: proposed
+summary:
+tags:
+  - prompt-engineering
+  - critical-rules
+  - info-architecture
+  - axiom
+title: Compound instructions mask mandatory steps — split mandates from ordering
+triggers: []
+updated_at: "2026-06-23T19:58:37.999715Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: No guidance packet was generated for this task since the scope was broad across the entire ACS app.
+created_at: "2026-06-21T13:26:15.670892Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_guidance_gap_identified_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib
+status: proposed
+summary: No guidance packet was generated for this task since the scope was broad across the entire ACS app.
+tags:
+  - feedback
+  - observation
+title: Guidance gap identified
+triggers: []
+updated_at: "2026-06-21T13:26:15.670905Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

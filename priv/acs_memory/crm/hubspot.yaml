@@ -1,0 +1,32 @@
+content: |
+  HubSpot CRM sync uses either a legacy API key (hapikey) or OAuth token. The provided key was an OAuth token that expired 20623 days ago. SyncEngine handles 401 errors gracefully - logs error, skips the object type, continues to next. SyncState records error status for each object type. Fix: generate fresh HubSpot OAuth token or API key.
+  
+  HubSpot tokens expire after a default of 30 days (unless extended). The token format was `CiRuYTIt...` (base64-encoded). The search API (crm/v3/objects/{type}/search) uses the same auth as the list API (crm/v3/objects/{type}). Both returned 401.
+created_at: "2026-06-19T16:15:07.551861Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_hubspot_api_key_via_oauth_token_expired__9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/hubspot
+status: proposed
+summary:
+tags:
+  - hubspot
+  - auth
+  - api-key
+  - expired
+  - "401"
+title: HubSpot API key via OAuth token expired causes 401 on all CRM object types
+triggers: []
+updated_at: "2026-06-19T16:15:07.551876Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

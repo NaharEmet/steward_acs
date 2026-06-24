@@ -1,0 +1,61 @@
+content: |
+  ## Passphrase API Keys
+  - New `Anantha.Passphrase` module generates BIP-39 wordlist passphrases
+  - `generate_passphrase/0` returns 4 hyphenated random words
+  - `generate_key/0` returns `pass_live_word1-word2-word3-word4`
+  - `generate_key/1` returns with custom prefix
+  
+  ## Org Name Resolution
+  - `Anantha.Core.Orgs.get_org_by_name/1` — `Repo.get_by(Org, name: name)`
+  - `Anantha.ApiKeys.generate_key_org_name/4` accepts org name, resolves to org_id
+  - Mix task `mix api_keys.generate <org_name> <name> [--passphrase]` uses org name
+  
+  ## Auth Endpoint
+  - `POST /api/auth/authenticate` — outside `api_authenticated` pipeline (no API key required)
+  - Accepts `{org: "name", api_key: "..."}`, validates key belongs to org
+  - Returns `{status: "ok", org_id, org_name, role, permissions, key_prefix}`
+  - Bridge stores ETS session on successful auth response
+  
+  ## Bridge Session System
+  - `@session_table :anantha_sessions` — ETS table, 5min TTL
+  - `resolve_session/1` — looks up `_session_id` in args, injects stored api_key
+  - `maybe_store_session/3` — for `ant_authenticate` responses, creates ETS session with `sess_` ID
+  - Fail-fast: invalid/expired sessions return `{:error, reason}` instead of falling through to service key
+  
+  ## Protocol Injection
+  - `protocol.ex` line 88: `_agent_org_id` → `agent_org_id` (no underscore prefix)
+  - Injects `_auth_role` and `_auth_org_id` into every `tools/call` arguments map
+  
+  ## YAML Tool
+  - `ant_authenticate` tool in `ant_analyst.yaml` — takes `org` (name) + `api_key`, no session required
+created_at: "2026-06-21T19:52:06.211037Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_analyst_auth_passphrase_keys_org_name_lo_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/auth
+status: proposed
+summary: Added passphrase API keys, org name resolution, and session auth for analyst tools. Bridge supports ETS sessions with 5min TTL. Protocol injects _auth_role and _auth_org_id into tool call args.
+tags:
+  - anantha_os
+  - auth
+  - passphrase
+  - sessions
+  - ets
+  - bridge
+  - protocol
+title: "Analyst auth: passphrase keys, org name lookup, Bridge session support"
+triggers: []
+updated_at: "2026-06-21T19:52:06.211060Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

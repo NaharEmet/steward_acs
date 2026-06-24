@@ -1,0 +1,49 @@
+content: |
+  ## LLM Call Site Metadata Audit
+  
+  A comprehensive audit of all 27 `Client.chat_completion` call sites was conducted to ensure every call passes `call_type`, `agent_name`, and `org_id` metadata for token tracking transparency.
+  
+  ### What was done
+  - Identified 14 call sites missing `call_type` (defaulted to "unknown" in client.ex)
+  - Identified 5 call sites missing `org_id` (would fall back to sentinel system org UUID)
+  - Added `call_type` (descriptive snake_case function name), `agent_name` (module name), and `org_id` to all 14 sites
+  - For evaluator.ex and llm_judge.ex: threaded `org_id` through from opts/execution context
+  - For execution_tools.ex and ant/registry.ex: org_id not available in call path — uses sentinel default
+  
+  ### Call types added
+  entity_extraction, meta_evaluator, claim_relation_classification, memory_extraction, observation_extraction, claim_extraction, agent_generator, synthesis_extraction, prompt_generation, node_execution, llm_judge, workflow_preparation, message_generation, user_simulation
+  
+  ### Key design decisions
+  1. `call_type` naming: snake_case matching the calling function's purpose (e.g., "entity_extraction")
+  2. `agent_name` naming: snake_case matching the module name (e.g., "entity_extractor")
+  3. `org_id` threading: Use `opts[:org_id]` pattern with `Enum.reject` to handle optional presence
+  4. `Enum.reject(fn {_k, v} -> is_nil(v) end)` pattern for optional values in evaluator.ex and llm_judge.ex
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_llm_call_site_metadata_audit_enrichment
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: llm/metrics
+status: approved
+summary:
+tags:
+  - llm
+  - metrics
+  - call_type
+  - audit
+  - observability
+title: LLM Call Site Metadata Audit & Enrichment
+triggers: []
+updated_at: "2026-06-19T14:00:05Z"
+verification:
+  approved_at: "2026-06-19T14:00:05.875694Z"
+  approved_by: human
+  status: approved

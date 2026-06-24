@@ -1,0 +1,28 @@
+content: "execute_query now supports compact: true param. When set, returns only {\"rows\": [...]} without columns, query_id, next_cursor, or metadata. Useful for agents that only need row data without schema overhead. Passed through from ACS tool via anantha_query.ex add_if_present/3 helper."
+created_at: "2026-06-21T19:41:42.676984Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_compact_results_mode_for_query_execution_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_query
+status: proposed
+summary:
+tags:
+  - compact
+  - results
+  - execute_query
+title: Compact results mode for query execution
+triggers: []
+updated_at: "2026-06-21T19:41:42.676998Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

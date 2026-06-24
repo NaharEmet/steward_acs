@@ -1,0 +1,27 @@
+content: This is the full content of the test memory. It contains enough text to verify that search indexing and content display work correctly.
+created_at: "2026-06-20T08:46:50.778992Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: lifecycle_invalid_1158
+importance: 3
+kind: axiom
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test_app/test_component
+status: parse_error
+summary: A test memory for verification purposes
+tags:
+  - test
+  - verification
+  - memory_system
+title:
+triggers: []
+updated_at: "2026-06-20T08:46:50.779010Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

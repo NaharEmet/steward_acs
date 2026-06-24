@@ -1,0 +1,27 @@
+content: "Application.get_env in hot paths should be cached at init/compile time. Decision tree: use Application.compile_env for truly static config, store in GenServer state for per-process config, pass as opts for caller-dependent config. Also removed 2 try/rescue blocks in storage.ex that were swallowing ExAws error tuples."
+created_at: "2026-06-21T14:13:36.535803Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_5ef8eac3_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.ingestion
+status: proposed
+summary: "Application.get_env in hot paths should be cached at init/compile time. Decision tree: use Application.compile_env for truly static config, store in GenServer state for per-process config, pass as opt"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 5ef8eac3
+triggers: []
+updated_at: "2026-06-21T14:13:36.535819Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

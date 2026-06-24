@@ -1,0 +1,27 @@
+content: "Guidance.generate/2 returns a :maintenance_instructions key in both :claim and :full tier packets. This instructs agents on how to flag outdated memories (set_memory_status) and cognition specs (cognition_propose) while working. The value is a constant module attribute string. Any new guidance packet additions should follow the same pattern: add a @module_attribute constant and include it in both tier maps."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_guidance_packet_includes_maintenance_instructions
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/guidance
+status: approved
+summary:
+tags:
+  - guidance
+  - maintenance
+  - pattern
+title: Guidance packet includes maintenance_instructions
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.025285Z"
+  approved_by: human
+  status: approved

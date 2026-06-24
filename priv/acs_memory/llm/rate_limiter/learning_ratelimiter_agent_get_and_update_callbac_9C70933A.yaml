@@ -1,0 +1,38 @@
+content: |
+  ## RateLimiter `Agent.get_and_update/3` Return Shape
+  
+  `Agent.get_and_update/3` takes a callback `fn state -> {return_value, new_state} end`. The **first element** of the callback's return tuple is what callers of `get_and_update` receive. The **second element** becomes the agent's new state.
+  
+  In `Anantha.LLM.RateLimiter.check_rate_limit/1`, the previous code returned `{{:rate_limited, count}, valid_timestamps}` — meaning callers got `{:rate_limited, count}` tuple. But the `@spec` declared `:ok | :rate_limited`, and all callers in `Anantha.LLM.Client` pattern-matched on bare `:rate_limited` atom. This caused `CaseClauseError` cascading through CRM extraction.
+  
+  **Fix**: Return bare `:rate_limited` (first element) so Agent.get_and_update returns `:rate_limited` to caller: `{:rate_limited, valid_timestamps}`. The `count` variable was never used by callers.
+  
+  Files: `lib/anantha_os/llm/rate_limiter.ex` (lines 54, 74, 94)
+created_at: "2026-06-20T10:31:54.423837Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_ratelimiter_agent_get_and_update_callbac_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: llm/rate_limiter
+status: proposed
+summary:
+tags:
+  - rate_limiter
+  - agent
+  - return-type
+  - CaseClauseError
+title: RateLimiter Agent.get_and_update callback return shape
+triggers: []
+updated_at: "2026-06-20T10:31:54.423845Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

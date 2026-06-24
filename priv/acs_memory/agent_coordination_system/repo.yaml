@@ -1,0 +1,32 @@
+content: |
+  Acs.Repo uses `Application.compile_env(:steward_acs, :repo_adapter, Ecto.Adapters.SQLite3)` which evaluates at compile time. Setting `DATABASE_URL` in runtime.exs does NOT override this because the module already compiled with SQLite3. To switch adapters, either:
+  1. Set the config at compile time via MIX_ENV=prod (which uses prod.exs with Postgres)
+  2. Change `compile_env` to `get_env` in the Repo module
+  
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_acs_repo_uses_compile_env_which_locks_ad_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/repo
+status: approved
+summary:
+tags:
+  - adapter
+  - compile_env
+  - postgres
+  - sqlite3
+title: Acs.Repo uses compile_env which locks adapter at compile time
+triggers: []
+updated_at: "2026-06-19T14:00:09Z"
+verification:
+  approved_at: "2026-06-19T14:00:09.077854Z"
+  approved_by: human
+  status: approved

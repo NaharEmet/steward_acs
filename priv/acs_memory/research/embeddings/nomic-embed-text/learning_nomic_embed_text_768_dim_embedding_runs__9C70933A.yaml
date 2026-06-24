@@ -1,0 +1,37 @@
+content: |
+  Ollama's nomic-embed-text model:
+  - Embedding dimension: 768 (native). v1.5 supports Matryoshka variable dimensions (64, 128, 256, 512, 768).
+  - Model size: 137M parameters, 274MB download on Ollama (F16), ~262-300MB RAM when loaded.
+  - CPU inference: Fully viable. Embedding models are tiny — nomic-embed-text is the de facto default for local CPU RAG. ~2,000 chunks/sec on CPU. Single query embedding is <1ms. Bulk indexing 10K chunks takes ~100 seconds on CPU.
+  - Max tokens: 8,192 (v1.5), 2K via Ollama default (can extend with rope scaling).
+  - MTEB score: 62.3 (v1.5). Apache 2.0 license.
+  - No GPU needed at all. Ollama loads it separately from chat models — ~300MB alongside a 7B chat model fits in 8GB RAM easily.
+created_at: "2026-06-20T16:02:04.734599Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_nomic_embed_text_768_dim_embedding_runs__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: research/embeddings/nomic-embed-text
+status: proposed
+summary:
+tags:
+  - nomic-embed-text
+  - ollama
+  - embeddings
+  - cpu-inference
+  - vector-dimensions
+title: "nomic-embed-text: 768-dim embedding, runs on CPU, 274MB Ollama download"
+triggers: []
+updated_at: "2026-06-20T16:02:04.734609Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

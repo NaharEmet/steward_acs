@@ -1,0 +1,42 @@
+content: |
+  SafetyConnect CSV exports include two deal stage columns:
+  - `dealstage` — HubSpot internal numeric ID (e.g., "26684857")
+  - `dealstage_label` — Human-readable stage name (e.g., "Closed won")
+  
+  The YAML field configs (`safety_connect_fields.yaml`, `hubspot_fields.yaml`) should map `dealstage_label` to predicate `has_deal_stage` (high importance) for human-readable names, while `dealstage` maps to `has_deal_stage_id` (low importance) as a fallback numeric identifier.
+  
+  HubSpot API responses typically only include `dealstage` (numeric). For API-synced data, only the `has_deal_stage_id` claim is created (no human-readable label available).
+  
+  Similarly, `pipeline_label` should be extracted with predicate `has_pipeline_name` to capture the human-readable pipeline name alongside the numeric `pipeline` ID.
+  
+  In ContentBuilder, always prefer `dealstage_label` over `dealstage` when displaying stage information, falling back to "Stage ID: {numeric}" when only the numeric ID is available.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_crm_deal_stage_extraction_prefers_dealst_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/field_classification
+status: approved
+summary:
+tags:
+  - crm
+  - deal
+  - dealstage
+  - field_classification
+  - safety_connect
+  - hubspot
+title: CRM deal stage extraction prefers dealstage_label over dealstage numeric ID
+triggers: []
+updated_at: "2026-06-19T14:00:07Z"
+verification:
+  approved_at: "2026-06-19T14:00:07.185133Z"
+  approved_by: human
+  status: approved

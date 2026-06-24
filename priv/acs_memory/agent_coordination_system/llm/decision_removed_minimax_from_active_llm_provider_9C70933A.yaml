@@ -1,0 +1,36 @@
+content: |
+  Minimax removed from active LLM providers due to expired credits (429 Token Plan limit). 
+  
+  Changes made:
+  1. `apps/agent_coordination_system/.env`: `ENABLED_LLM_PROVIDERS` changed from `mimo,minimax,nim` to `mimo,nim`. Removed `MINIMAX_API_KEY` line.
+  2. Root `.env`: Removed `MINIMAX_API_KEY` line.
+  
+  Active providers now: mimo (primary), nim (NVIDIA NIM, fallback). MIMO handles memory evaluation; NIM handles fallback.
+created_at: "2026-06-20T09:38:16.245237Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: decision_removed_minimax_from_active_llm_provider_9C70933A
+importance: 3
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - minimax
+  - llm-providers
+  - config
+  - cleanup
+title: Removed minimax from active LLM providers
+triggers: []
+updated_at: "2026-06-20T09:38:16.245251Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,38 @@
+content: |
+  Created `Anantha.Memory.RuleExtractor` — a pure module with deterministic heuristic parsers for extracting structured Records from message content. Key design points:
+  
+  1. Two memory_type paths: cash_flow (amount, currency, direction, actor) and inventory_movement (item_name, quantity, direction, actor).
+  2. Returns `{:ok, [record_attrs]}` or `{:ok, []}` — empty list means "no structured data found, use LLM fallback".
+  3. All heuristic parsers are private functions (extract_amount, extract_item_and_quantity, extract_direction, extract_actor_name, extract_currency).
+  4. Heuristics use regex patterns adapted from extraction_worker/sanitization.ex.
+  5. Pure functions — no side effects, no DB calls.
+  
+  Usage in Pipeline.handle_claim: rules first, LLM fallback.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ruleextractor_module_for_deterministic_record_extr
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/pipeline
+status: approved
+summary:
+tags:
+  - rule-extractor
+  - heuristics
+  - records
+  - extraction
+title: RuleExtractor module for deterministic Record extraction
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.122405Z"
+  approved_by: human
+  status: approved

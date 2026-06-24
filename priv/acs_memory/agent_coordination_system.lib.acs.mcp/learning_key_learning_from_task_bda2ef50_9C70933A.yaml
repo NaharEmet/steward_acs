@@ -1,0 +1,27 @@
+content: "Fixed nil params crash in Bridge.health_check/1. Root cause: request_with_opts called Req.get with params: nil when no :params key in opts. Fix: extract params upfront and guard with if params do. Also cleaned up 14 stale ACS error traces — 8 from same crash (already resolved), 6 newly acknowledged (ToolRegistry crashes from hours ago, non-recurring). Key pattern: distinguish ACS-side bugs (fixable in bridge/tool_registry) from Anantha-side bugs (CRM auth, query engine) that ACS merely relays."
+created_at: "2026-06-23T18:02:31.241904Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_bda2ef50_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.mcp
+status: proposed
+summary: "Fixed nil params crash in Bridge.health_check/1. Root cause: request_with_opts called Req.get with params: nil when no :params key in opts. Fix: extract params upfront and guard with if params do. Als"
+tags:
+  - feedback
+  - learning
+title: Key learning from task bda2ef50
+triggers: []
+updated_at: "2026-06-23T18:02:31.241923Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,57 @@
+content: |
+  ## Pattern: try/rescue → case/with for expected errors
+  
+  ### Files changed:
+  - `lib/anantha_os/engine/graph_executor.ex`: 12→8 try blocks (remaining 8 are GenServer callbacks)
+  - `lib/anantha_os/engine/graph_executor/node_execution.ex`: 4→0 try blocks
+  - `lib/anantha_os/engine/graph_executor/state_manager.ex`: 3→0 try blocks
+  - `lib/anantha_os/crm.ex`: 6→0 try blocks
+  - `lib/anantha_os/memory/cognition_processor.ex`: 4→0 try blocks
+  
+  ### Key technique: function-level rescue for GenServer safety
+  
+  When a GenServer callback (handle_call/handle_info) calls internal functions that might raise, wrap the internal call in a private function with rescue, not the callback itself:
+  
+  ```elixir
+  # Good — function-level rescue, callback stays clean
+  def handle_call(:work, _from, state) do
+    {:reply, safe_do_work(), state}
+  end
+  
+  defp safe_do_work do
+    do_work()
+  rescue
+    e -> {:error, e}
+  end
+  ```
+  
+  ### Verification: 64 tests pass, 0 failures
+created_at: "2026-06-21T14:13:00.848680Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_try_rescue_control_flow_refactor_graph_e_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir-anti-patterns/try-rescue
+status: proposed
+summary: Refactored 29 try/rescue blocks to case/with in 5 files. Keep try/rescue only for GenServer callbacks and Task bodies. For expected errors (Ecto, HTTP, JSON), use case/witch pattern matching.
+tags:
+  - try-rescue
+  - control-flow
+  - graph-executor
+  - crm
+  - nightly-processor
+title: "try/rescue control flow refactor: graph_executor, crm, cognition_processor"
+triggers: []
+updated_at: "2026-06-21T14:13:00.848695Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

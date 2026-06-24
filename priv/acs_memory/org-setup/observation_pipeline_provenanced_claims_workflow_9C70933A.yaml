@@ -1,0 +1,35 @@
+content: |
+  After pipeline discovery stores pipeline schemas in the DB, all subsequent CRM syncs automatically:
+  1. Fetch deals and tickets with their pipeline context (pipeline_id, pipeline_label, stage labels)
+  2. Generate pipeline-qualified entity IDs (e.g., hubspot:deals:sales_pipeline:12345 instead of hubspot:deals:12345)
+  3. Attach pipeline provenance metadata to every claim (pipeline_id, pipeline_label, dealstage in metadata)
+  4. Track pipeline as a state field so pipeline moves generate transformation events
+  
+  This enables pipeline-filtered analytics queries. No additional configuration is needed — pipeline awareness is built into the CRM ingestion pipeline end-to-end after `discover_pipelines` is called during setup.
+created_at: "2026-06-21T15:36:40Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_pipeline_provenanced_claims_workflow_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: approved
+summary:
+tags:
+  - org-setup
+  - pipeline-awareness
+  - claims
+title: Pipeline-Provenanced Claims Workflow
+triggers: []
+updated_at: "2026-06-21T15:36:47Z"
+verification:
+  approved_at: "2026-06-21T15:36:47.170433Z"
+  approved_by: Approved — helps org-setup agents understand the full pipeline data flow
+  status: approved

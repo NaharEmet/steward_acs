@@ -1,0 +1,27 @@
+content: "The memory_pipeline_rearchitecture_plan.md uses frontmatter `phase:` field and heading markers like `[PENDING]`, `[COMPLETE]`, `[IN PROGRESS]` to track execution progress. Phase checkboxes use `[ ]`/`[x]` markdown style. Current task is marked with bold text and `← CURRENT` suffix."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_plan_status_tracking_uses_frontmatter_and_heading_
+importance: 2
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: plans
+status: approved
+summary:
+tags:
+  - plans
+  - plan-status
+  - convention
+title: Plan status tracking uses frontmatter and heading tags
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.887510Z"
+  approved_by: human
+  status: approved

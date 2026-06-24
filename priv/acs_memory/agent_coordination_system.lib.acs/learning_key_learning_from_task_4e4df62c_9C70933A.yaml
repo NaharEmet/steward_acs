@@ -1,0 +1,27 @@
+content: "ResponseParser.parse/1 handles all the edge cases that the manual 3-attempt cascade in try_extract_json handled: markdown code fences, unescaped newlines, malformed JSON, text-before-JSON. The JsonRemedy library (used internally by ResponseParser) has a MultipleJsonDetector preprocessing step that skips non-JSON characters to find JSON objects in prose text. The escape_newlines_in_strings function and JsonAdapter are no longer needed by Acs.LLM — they're fully replaced."
+created_at: "2026-06-24T11:43:22.203018Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_4e4df62c_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "ResponseParser.parse/1 handles all the edge cases that the manual 3-attempt cascade in try_extract_json handled: markdown code fences, unescaped newlines, malformed JSON, text-before-JSON. The JsonRem"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 4e4df62c
+triggers: []
+updated_at: "2026-06-24T11:43:22.203027Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

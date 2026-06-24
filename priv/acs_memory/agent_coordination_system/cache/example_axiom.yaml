@@ -1,0 +1,33 @@
+id: axiom_cache_release_ordering
+kind: axiom
+status: proposed
+title: Cache release ordering
+scope_path: agent_coordination_system/cache/release
+summary: Agent state must be cleared before task cache deletion.
+content: |
+  When releasing tasks, clear agent ownership before
+  deleting task cache entries to avoid stale assignment races.
+importance: 5
+tags:
+  - cache
+  - concurrency
+triggers:
+  - task release
+  - cache invalidation
+failure_modes:
+  - stale ownership
+  - duplicate assignment
+related_memories: []
+verification:
+  status: proposed
+  approved_by: null
+  approved_at: null
+revalidation:
+  interval_days: 30
+  last_checked_at: null
+created_by:
+  type: agent
+  id: Noah
+timestamps:
+  created_at: 2026-05-07T12:00:00Z
+  updated_at: 2026-05-07T12:00:00Z

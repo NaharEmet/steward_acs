@@ -1,0 +1,42 @@
+content: |
+  When renaming a source_type string from "audio_transcriber" to "call_transcripts", backward-compatible checks must be added so existing DB records with the old source_type still work. This is done by checking both old and new values in the guard clause:
+  
+  ```elixir
+  if (source.source_type == "call_transcripts" or source.source_type == "audio_transcriber") and ...
+  ```
+  
+  Also, any pipeline normalization functions that map source_type strings need the old value preserved as a fallback:
+  
+  ```elixir
+  defp normalize_source_type("audio_transcriber"), do: "sales_call"
+  ```
+  
+  And ACS cognition spec files should be renamed from the old name to the new name to match the module/file renaming.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_rename_audio_transcriber_call_transcripts_requires
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion
+status: approved
+summary:
+tags:
+  - rename
+  - backward-compatibility
+  - source_type
+  - ingestion
+title: Rename audio_transcriber → call_transcripts requires backward-compatible checks
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.360337Z"
+  approved_by: human
+  status: approved

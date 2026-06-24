@@ -1,0 +1,29 @@
+content: "Ecto's `cast/3` raises `Ecto.CastError` when params have mixed atom and string keys. All keys must be consistently strings or atoms. In `create_source/2`, the `org_id` is always added as a string key: `Map.put(attrs, \"org_id\", org_id)`. Therefore, callers must pass all attrs with string keys to avoid the \"expected params to be a map with atoms or string keys\" error."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ecto_cast_requires_consistent_key_types_avoid_mixi
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: ecto/changeset
+status: approved
+summary:
+tags:
+  - ecto
+  - changeset
+  - cast
+  - mixed keys
+  - string keys
+title: Ecto cast requires consistent key types — avoid mixing atom and string keys
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.698546Z"
+  approved_by: human
+  status: approved

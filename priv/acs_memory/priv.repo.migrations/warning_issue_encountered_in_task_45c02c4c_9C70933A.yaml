@@ -1,0 +1,27 @@
+content: Postgrex UUID encoding required decode_uuid helper for raw SQL queries. DedupCache put_in crash needed switch to explicit Map operations. These are now documented in knowledge memories.
+created_at: "2026-06-20T17:12:33.258180Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_45c02c4c_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: priv.repo.migrations
+status: proposed
+summary: Postgrex UUID encoding required decode_uuid helper for raw SQL queries. DedupCache put_in crash needed switch to explicit Map operations. These are now documented in knowledge memories.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 45c02c4c
+triggers: []
+updated_at: "2026-06-20T17:12:33.258190Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

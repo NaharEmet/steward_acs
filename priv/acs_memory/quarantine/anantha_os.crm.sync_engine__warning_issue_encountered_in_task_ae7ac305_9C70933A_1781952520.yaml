@@ -1,0 +1,27 @@
+content: "Pre-existing syntax error in config/runtime.exs line 189: if mimo_rl = System.get_env(...), mimo_rl != \\"\\" do — uses if/3 which doesn't exist in Elixir. Blocks ALL test execution. Not caused by our changes."
+created_at: "2026-06-20T10:48:36.444582Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_ae7ac305_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm.sync_engine
+status: proposed
+summary: "Pre-existing syntax error in config/runtime.exs line 189: if mimo_rl = System.get_env(...), mimo_rl != \\"\\" do — uses if/3 which doesn't exist in Elixir. Blocks ALL test execution. Not caused by our c"
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task ae7ac305
+triggers: []
+updated_at: "2026-06-20T10:48:36.444607Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

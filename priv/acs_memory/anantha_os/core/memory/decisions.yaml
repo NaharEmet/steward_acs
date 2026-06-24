@@ -1,0 +1,28 @@
+content: "`Anantha.Core.Memory.Decisions.create_decision/3` now validates that the creating actor is internal before proceeding. An actor is considered internal if `external_actor_id` is nil (not set). Actors with an `external_actor_id` come from CRM/ingestion and cannot create decisions. Returns `{:error, :actor_not_found}` for nonexistent actors and `{:error, :external_actor}` for external ones. After successful decision creation, a Claim record is also created in the Claims system with claim_type \"decision\" and the decision_id stored in metadata. This integrates decisions into the claims-first memory architecture."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_decision_creation_requires_internal_actors_externa
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/memory/decisions
+status: approved
+summary: Decisions can only be created by internal actors (no external_actor_id). Creates a Claim record on decision creation.
+tags:
+  - decisions
+  - internal-actors
+  - claims-integration
+  - authorization
+title: Decision creation requires internal actors (external_actor_id == nil)
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.652412Z"
+  approved_by: human
+  status: approved

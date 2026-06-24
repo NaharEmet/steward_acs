@@ -1,0 +1,52 @@
+content: |
+  ## opencode Agent Authoring — Core Invariants
+  
+  When creating or modifying `.opencode/agents/<name>.md`:
+  
+  1. **Description frontmatter field is the #1 driver of agent invocation.** Front-load trigger keywords in the FIRST sentence. Use third person. Gate narrow agents with "Use ONLY when...". A vague description = the agent never gets invoked.
+  
+  2. **Permission `bash` MUST use per-pattern object form.** Never `bash: allow` at the top level. Always: `bash: { "*": "deny", "<narrow>": "allow", ... }`. LAST match wins — broad rules first, narrow last.
+  
+  3. **File-based discovery handles pure additions.** Writing `.opencode/agents/<name>.md` is enough. Only add to `opencode.json` `agent: { ... }` block when you need to override built-in fields, set custom permissions, hide from picker, or disable a built-in.
+  
+  4. **`$schema` field in `opencode.json` is effectively required.** `"$schema": "https://opencode.ai/config.json"`. Missing it = no editor validation.
+  
+  5. **Config is hot-reload DISABLED.** Loaded once at startup. User MUST quit and restart opencode for new agents/skills/MCP entries to be picked up. Always include this reminder in the hand-off.
+  
+  6. **Skill frontmatter MUST have `name` (matches folder, ≤64 chars, lowercase-hyphen) and `description` (third person, "Use when...").** Missing description = skill is filtered out, never loaded.
+  
+  7. **Mode values**: `primary` (user-facing, appears in picker), `subagent` (only invoked via `task` tool), `all` (both).
+  
+  8. **MCP `command` MUST be an array**, never a single string. `"command": ["npx", "-y", "pkg"]` works; `"command": "npx -y pkg"` fails.
+  
+  9. **Permission keys are**: `read, edit, glob, grep, list, bash, task, external_directory, todowrite, question, webfetch, websearch, lsp, doom_loop, skill`.
+  
+  10. **Unknown frontmatter fields are silently routed into `options` for the model.** Don't rely on this for schema enforcement. Check the schema URL.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: invariant_opencode_agent_authoring_core_invariants_9C70933A
+importance: 5
+kind: invariant
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: opencode/agent-authoring
+status: approved
+summary: Core invariants for authoring opencode agents — frontmatter, permissions, schema, file discovery
+tags:
+  - opencode
+  - agents
+  - configuration
+  - schema
+title: opencode Agent Authoring — Core Invariants
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.514448Z"
+  approved_by: human
+  status: approved

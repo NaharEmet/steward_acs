@@ -1,0 +1,32 @@
+content: |
+  CRM ResourceGovernor must use configured max_memory_mb from config/env vars, not `:erlang.memory(:system_limit)`. The BEAM's `:system_limit` returns virtual address space (256 TB on x86_64) not physical RAM, making ratios meaningless. All three threshold checks (check_memory, suggested_batch_size, memory_metrics) use `resolve_max_memory/1` which reads from opts or Application config, falling back to 2048 MB.
+  
+  Similarly, page_size must be fixed config (not per-sync overrideable) to avoid config key-type mismatches where web API callers pass string keys but downstream reads atom keys.
+created_at: "2026-06-21T18:56:09.031838Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_resource_governor_configured_limits__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/resource_governance
+status: proposed
+summary:
+tags:
+  - crm
+  - resource_governor
+  - memory
+  - config
+title: "CRM Resource Governor: configured limits over BEAM auto-detection"
+triggers: []
+updated_at: "2026-06-21T18:56:09.031849Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

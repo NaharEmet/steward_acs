@@ -1,0 +1,37 @@
+content: |
+  Acs.Memory.Auditor has two configurable constants:
+  
+  1. `@default_audit_interval` (default: 300_000ms = 5 min, changed to 30_000ms = 30s) — controls how often the auditor polls for proposed memories to evaluate
+  2. `@cooling_off_seconds` (default: 300s = 5 min, changed to 30s) — minimum age before a proposed memory is eligible for audit
+  
+  The interval can also be overridden via application config: `Application.get_env(:steward_acs, :auditor_interval)`. Not currently set in any config file.
+  
+  The auditor is started as a child in the ACS supervision tree at `Acs.Application.start/2`. It uses `Process.send_after(self(), :audit, interval)` for periodic scheduling.
+created_at: "2026-06-20T09:16:06.517512Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_memory_auditor_interval_configuratio_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/memory/auditor
+status: proposed
+summary:
+tags:
+  - acs
+  - memory
+  - auditor
+  - interval
+  - configuration
+title: ACS Memory Auditor interval configuration
+triggers: []
+updated_at: "2026-06-20T09:16:06.517523Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

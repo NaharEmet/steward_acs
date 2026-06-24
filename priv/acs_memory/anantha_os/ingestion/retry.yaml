@@ -1,0 +1,28 @@
+content: Ingestion retries are now DB-backed via the ingestion_retries table. On pipeline failure, the payload is saved with retry_count, error, and status. Retries use progressive backoff (5s, 30s, 2min). After max_retries (3), status moves to 'dead' (dead letter). The Retry.retry_due/0 function processes pending/failed entries that are due. This replaces fire-and-forget with no recovery.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_db_backed_retry_table_for_ingestion_failures_with_
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/retry
+status: approved
+summary:
+tags:
+  - retry
+  - dead-letter-queue
+  - resilience
+  - ingestion
+title: DB-backed retry table for ingestion failures with dead letter queue
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.563764Z"
+  approved_by: human
+  status: approved

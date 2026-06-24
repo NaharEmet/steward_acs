@@ -1,0 +1,27 @@
+content: The `Anantha.Memory.PipelineCycle` schema uses short field names (`processed`, `failed`, `skipped`, `last_error`) rather than the prefixed forms (`messages_processed_count`, etc.) used by `Anantha.Core.Memory.PipelineState`. When rendering cycle data, always use `cycle.processed`, `cycle.failed`, `cycle.skipped`, `cycle.last_error`. The `Stats.recent_cycles/2` returns `%PipelineCycle{}` structs, not maps from pipeline_state.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_pipelinecycle_schema_field_names_processed_failed_
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory_dashboard/field_names
+status: approved
+summary:
+tags:
+  - pipeline_cycle
+  - schema
+  - field_names
+title: "PipelineCycle schema field names: processed/failed/skipped/last_error"
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.195824Z"
+  approved_by: human
+  status: approved

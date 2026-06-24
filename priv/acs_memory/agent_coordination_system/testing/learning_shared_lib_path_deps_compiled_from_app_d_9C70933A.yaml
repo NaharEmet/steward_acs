@@ -1,0 +1,32 @@
+content: |
+  When running tests for an umbrella app that depends on a shared path dep (`:anantha_json`), run `mix test test/path` from within the app directory (e.g. `apps/agent_coordination_system/`), not from the root. Running from root causes the root app to also compile the shared lib's local deps (jason, json_remedy) causing dozens of \"redefining module\" warnings. Running from within the app directory uses the umbrella's shared dependency tree cleanly.
+  
+  Path: `cd apps/agent_coordination_system && mix test test/acs/llm_test.exs`
+created_at: "2026-06-21T12:17:11.710334Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_shared_lib_path_deps_compiled_from_app_d_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/testing
+status: proposed
+summary: Run umbrella app tests from app dir, not root
+tags:
+  - testing
+  - mix
+  - umbrella
+  - path-deps
+title: Shared lib path deps compiled from app dir for tests
+triggers: []
+updated_at: "2026-06-21T12:17:11.710347Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

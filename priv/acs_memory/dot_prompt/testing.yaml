@@ -1,0 +1,38 @@
+content: |
+  When creating local DotPrompt fixture files for tests, all `@var` references in the body text must be declared in the `params:` section of the `init` block. Even runtime-only variables (passed to `render/4`'s third argument) must be declared — use `@var_name: str` format which defaults to `:runtime` lifecycle, allowing the compiler to pass validation while leaving the variable untouched for the injector step.
+  
+  Key points:
+  - `str` params default to `:runtime` lifecycle — they don't require a value at compile time
+  - Runtime params are left as `@var_name` in the compiled output and replaced by `Injector.inject/2` later
+  - The Lexer's `{{...}}` syntax creates dynamic fragment tokens that require compile-time resolution — use `@var` syntax instead for runtime values
+  - Fragment references use single braces `{name}` where `name` matches `[\w\-\.\/]+` (no wildcards, dots, slashes, and word chars only)
+  - The `_index.prompt` `fragments:` block keys and body references must use names that pass the Lexer's fragment_static regex: `~r/^\{[\w\-\.\/]+\}$/`
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_dotprompt_test_fixtures_must_declare_all_var_in_pa
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: dot_prompt/testing
+status: approved
+summary:
+tags:
+  - dot_prompt
+  - testing
+  - fixtures
+  - params
+  - fragments
+title: DotPrompt test fixtures must declare all @var in params section
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.661638Z"
+  approved_by: human
+  status: approved

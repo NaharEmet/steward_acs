@@ -1,0 +1,28 @@
+content: "AUDIT_REPORT.md (May 16) listed 11 critical + 22 major issues. When re-verifying against HEAD (June 19), ~70% were already fixed: all CRIT items except CRIT-3 (hardcoded email) and CRIT-4 (PII session IDs). 7 MAJ items also pre-fixed. Many fixes came from ongoing refactoring before the audit was reviewed. Always re-verify audit reports against actual HEAD before creating fix plans — code changes faster than docs."
+created_at: "2026-06-19T14:29:07.498840Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_audit_report_md_findings_may_be_stale_re_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: project-management
+status: proposed
+summary:
+tags:
+  - audit
+  - code-review
+  - verification
+  - stale-docs
+title: AUDIT_REPORT.md findings may be stale — re-verify code
+triggers: []
+updated_at: "2026-06-19T14:29:07.498874Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

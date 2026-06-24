@@ -1,0 +1,38 @@
+content: |
+  When refactoring try/rescue to case/with pattern matching in Elixir:
+  
+  1. Internal helpers called from GenServer callbacks (which already wrap in try/rescue) don't need their own try/rescue — let errors propagate to the callback wrapper.
+  2. Task.async function bodies need rescue for external system errors (Postgrex.Error, DBConnection) since the Task process crashes on unhandled exceptions.
+  3. Functions that return {:ok, _}/{:error, _} tuples MUST use case/with instead of try/rescue — rescue is for exceptions, not tagged tuples.
+  4. Function-level rescue (bare rescue without try) is cleaner than try/rescue for fire-and-forget operations.
+  5. extract the retry logic from try/rescue by having a `call_handler` function that converts exceptions to tagged tuples ({:retry, reason}, {:error, reason}), then use case for the retry decision chain.
+  6. `__STACKTRACE__` is only available inside rescue/catch clauses of `try` expressions, not in `case` clauses or function-level rescue.
+created_at: "2026-06-21T14:07:06.260209Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_try_rescue_anti_pattern_refactoring_for__9C70933A
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/error-handling
+status: proposed
+summary:
+tags:
+  - elixir
+  - refactoring
+  - error-handling
+  - try-rescue
+  - pattern-matching
+title: try/rescue anti-pattern refactoring for control flow
+triggers: []
+updated_at: "2026-06-21T14:07:06.260218Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

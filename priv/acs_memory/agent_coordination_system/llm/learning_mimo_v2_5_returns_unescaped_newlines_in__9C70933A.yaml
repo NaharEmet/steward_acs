@@ -1,0 +1,37 @@
+content: |
+  MiMo v2.5 (mimo-v2.5) returns valid-looking JSON but with unescaped newlines in string values (especially the `reasoning` field). This causes `Jason.decode/1` to fail.
+  
+  Two fixes applied:
+  1. **Prompt tweak** — Instruct MiMo to use single-line values only (no multi-line strings)
+  2. **Code sanitization** — Added `escape_newlines_in_strings/1` as fallback in `try_extract_json/1`. This walks JSON char-by-char tracking string context via quote toggling, replacing literal newlines inside strings with `\\n`.
+  
+  The sanitization is a fallback — the prompt fix is the primary defense, but the code fallback catches any cases where the model ignores instructions.
+created_at: "2026-06-20T19:38:06.740137Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_mimo_v2_5_returns_unescaped_newlines_in__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - mimo
+  - json
+  - newlines
+  - parsing
+  - llm
+title: MiMo v2.5 returns unescaped newlines in JSON strings
+triggers: []
+updated_at: "2026-06-20T19:38:06.740147Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

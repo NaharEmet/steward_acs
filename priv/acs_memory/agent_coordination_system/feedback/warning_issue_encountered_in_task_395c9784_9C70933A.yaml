@@ -1,0 +1,27 @@
+content: Pipeline discovery 403 and Search API 400 for engagement objects are non-fatal but should be investigated. Engagement object search_date_property might need different value.
+created_at: "2026-06-21T16:10:22.404217Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_395c9784_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: Pipeline discovery 403 and Search API 400 for engagement objects are non-fatal but should be investigated. Engagement object search_date_property might need different value.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 395c9784
+triggers: []
+updated_at: "2026-06-21T16:10:22.404224Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,33 @@
+content: |
+  The `ant_analyst.yaml` tool definition file in `acs/acstools/` had `base_url: http://host.docker.internal:4000` which only resolves inside Docker containers. Outside Docker, this causes `Req.TransportError{reason: :nxdomain}`. The fix is to use `http://localhost:4000` which works in both Docker (with host networking) and bare-metal development environments.
+  
+  Additionally, the Bridge module (`Acs.MCP.Bridge`) did not forward authentication headers when making HTTP requests to external APIs. The fix adds a `build_headers/1` function that extracts `api_key` from MCP tool arguments and forwards it as `Authorization: Bearer <key>`. The `ant_analyst.yaml` tools now include an `api_key` parameter so agents can pass their Anantha API key.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ant_analyst_yaml_base_url_must_match_non_docker_en
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/bridge
+status: approved
+summary:
+tags:
+  - mcp
+  - bridge
+  - auth
+  - anantha
+  - configuration
+title: ant_analyst.yaml base_url must match non-Docker environment
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.076108Z"
+  approved_by: human
+  status: approved

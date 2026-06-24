@@ -1,0 +1,29 @@
+content: The query layer's DatasetRegistry must register every dataset that has a build_default_columns/1 clause in QueryEngine. If a dataset like "observations" exists in query_engine.ex's build_default_columns/1 but is missing from DatasetRegistry's @datasets map, queries for that dataset fail with "Unknown dataset". Always add both the @datasets entry AND the dataset_description/1 clause together.
+created_at: "2026-06-21T19:29:20.715054Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_datasetregistry_must_include_observation_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query
+status: proposed
+summary:
+tags:
+  - dataset_registry
+  - query_engine
+  - observations
+  - dataset
+title: DatasetRegistry must include "observations" for query layer consistency
+triggers: []
+updated_at: "2026-06-21T19:29:20.715065Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

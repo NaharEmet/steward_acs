@@ -1,0 +1,24 @@
+content: When removing a function that is actively used in a template (like `state_color_text/1`), you must also remove all usages of that function in the template. Removing only the function definition while leaving usages causes compilation errors. Always check for usages before removing dead code.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_remove_function_usages_when_removing_dead_code_fun
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/phoenix
+status: approved
+summary:
+tags: []
+title: Remove function usages when removing dead code functions
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.990243Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,53 @@
+content: |
+  Phase 1 of adaptive synthesis grouping is complete. Key implementation details:
+  
+  1. **CognitionProcessor scheduling**: Replaced CalendarInterval daily scheduling with `Process.send_after(self(), :hourly_run, interval_ms)`. Configurable `interval_ms` defaulting to `:timer.hours(1)`. No CalendarInterval dependency.
+  
+  2. **Skip-if-running guard**: GenServer state has `running` boolean. Set true before cycle, false after. `handle_info(:hourly_run, %{running: true} = state)` logs warning and skips. Same for `handle_cast(:trigger_now)`.
+  
+  3. **Since filter with sliding window**: `generate_syntheses_from_clusters/1` tracks `last_synthesis_run_at` per org as `%{org_id => DateTime}` in state. `since = max(last_run, now - 30_days)` passed to `ClaimClusterer.cluster_claims/2`.
+  
+  4. **Per-org time budget**: 60s default, configurable via `per_org_timeout_ms` init opt. Total cycle budget at 80% of interval — skips remaining orgs if exceeded.
+  
+  5. **min_cluster_size**: Default changed from 2 to 3 in both `ClaimClusterer` and `CognitionProcessor`.
+  
+  6. **Content-hash exact dedup**: New `content_hash` field on Synthesis schema (SHA-256 of normalized content). Unique index on `(org_id, content_hash)`. `generate_and_persist_syntheses` checks `Repo.exists?` before persisting — skips entire creation if duplicate.
+  
+  7. **fetch_claims now checks `inserted_at OR updated_at`**: Captures re-extracted claims, not just new inserts.
+  
+  8. **Backward compatibility**: `generate_for_org/2` accepts opts with `since` and `min_cluster_size`. Old callers with single arg still work.
+  
+  9. **CalendarInterval deprecated**: Retained for backward compat but no longer imported by CognitionProcessor.
+  
+  10. **Test fix**: `scheduler_test.exs` asserted `is_map(stats)` but `trigger_now` returns `:ok` (cast). Fixed assertion, added Ecto sandbox `allow` in setup.
+  
+  **Files changed**: cognition_processor.ex, synthesis.ex, calendar_interval.ex, claim_clusterer.ex, scheduler_test.exs, claim_clusterer_test.exs. **New**: migration for content_hash column. **Results**: mix compile clean, 31 tests pass (22 nightly + 9 clusterer), precommit 2269 tests with 0 new failures.
+created_at: "2026-06-20T16:48:45.183717Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_phase_1_implementation_1h_scheduling_con_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/synthesis
+status: proposed
+summary:
+tags:
+  - synthesis
+  - phase-1
+  - scheduling
+  - dedup
+  - nightly-processor
+title: "Phase 1 implementation: 1h scheduling + content-hash dedup"
+triggers: []
+updated_at: "2026-06-20T16:48:45.183733Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

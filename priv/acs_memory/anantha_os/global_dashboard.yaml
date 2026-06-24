@@ -1,0 +1,42 @@
+content: |
+  The global dashboard at `/global/dashboard` now shows three new sections:
+  
+  1. **Per-Org Summary** — Table of orgs with ingestion stats (ingested, failed, duplicates, error rate, source count). Only orgs with audit log entries appear.
+  2. **Test / Demo Data** — Table of audit logs where `metadata->>'provider' = 'test_suite'`. Shows org name, source type, event type, status, and timestamp.
+  3. **Sources column** — Source counts merged into the per-org summary from the ingestion_sources table.
+  
+  ### Implementation Details
+  - `IngestionAudits.org_summary_stats/0` — Ecto query with LEFT JOIN to orgs, CASE-based aggregation
+  - `IngestionAudits.org_source_counts/0` — Count of sources per org via LEFT JOIN
+  - `IngestionAudits.test_data_logs/2` — JSONB filter on metadata->>'provider', supports org_id filter and limit
+  - `AdminLive.Dashboard.mount/3` — Merges source counts into org summary via `Map.new` + `Map.get(..., 0)` fallback
+  - Orgs loaded once via `Anantha.Core.Orgs.list_orgs()` for org name resolution in test data table
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_global_dashboard_now_shows_per_org_data_sources_an
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/global_dashboard
+status: approved
+summary:
+tags:
+  - dashboard
+  - ingestion
+  - per-org
+  - test-data
+  - global-ui
+title: Global dashboard now shows per-org data, sources, and test data
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.254453Z"
+  approved_by: human
+  status: approved

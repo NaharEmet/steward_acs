@@ -1,0 +1,36 @@
+content: |
+  ## System Org Isolation
+  
+  The system org uses UUID `00000000-0000-0000-0000-000000000000` (not the string "anantha" from Constants.system_org_id()). It is created by migration `20260605190000_make_llm_metrics_org_id_nullable.exs` and stored as an Org record with name "System (0000)".
+  
+  **Two different system org identifiers exist:**
+  1. `Anantha.Constants.system_org_id()` = `"anantha"` (string) — used for pipeline cycles in Memory.PipelineCycles
+  2. `Anantha.LLM.Client @system_org_id` = `"00000000-0000-0000-0000-000000000000"` (UUID) — used for LLM metrics, stored as Org record
+  
+  **Memory Dashboard filtering:** Modified `fetch_org_names/0` in `AdminDashboardLive.Memory` to filter out the system org UUID from the org dropdown.
+  
+  **ACS Memory vs Anantha Memory:** The ACS memory system (Acs.Memory) uses `scope_path` for organization (e.g., "agent_coordination_system/cache"), NOT org_id. The `save_memory` MCP tool does not take an org_id parameter. The Anantha memory system (Anantha.Memory) is org-scoped and used for CRM data (messages, claims, observations).
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_system_org_uses_uuid_00000000_0000_0000_0000_00000
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/system_org
+status: approved
+summary:
+tags: []
+title: System org uses UUID 00000000-0000-0000-0000-000000000000 not "anantha"
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.835270Z"
+  approved_by: human
+  status: approved

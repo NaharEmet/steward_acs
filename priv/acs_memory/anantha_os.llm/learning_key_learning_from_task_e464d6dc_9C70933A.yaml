@@ -1,0 +1,27 @@
+content: "In Anantha.LLM.RateLimiter, Application.get_env was called on every start_rate_limiter/0 invocation (which runs on every check_rate_limit/1 call). Since the Agent is only started once, this was wasted work. Fix: use `Application.compile_env/3` in module attributes (`@llm_config` at line 20) to cache config at compile time. This also eliminates the Elixir compiler warning about using get_env in module body."
+created_at: "2026-06-21T13:51:26.751307Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e464d6dc_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.llm
+status: proposed
+summary: In Anantha.LLM.RateLimiter, Application.get_env was called on every start_rate_limiter/0 invocation (which runs on every check_rate_limit/1 call). Since the Agent is only started once, this was wasted
+tags:
+  - feedback
+  - learning
+title: Key learning from task e464d6dc
+triggers: []
+updated_at: "2026-06-21T13:51:26.751322Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

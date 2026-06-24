@@ -1,0 +1,46 @@
+content: |
+  Idempotency in the memory pipeline is guaranteed by a `pipeline_links` database table with unique constraints. Every processing step transition (record → claim, claim → observation, observation → synthesis) inserts a row with type-specific unique indexes:
+  
+  - Partial unique index on `(source_record_id, target_claim_id)` for record→claim transitions
+  - Partial unique index on `(source_claim_id, target_observation_id)` for claim→observation transitions
+  - Partial unique index on `(source_observation_id, target_synthesis_id)` for observation→synthesis transitions
+  
+  If a retry causes a duplicate insert, the DB constraint violation is caught and treated as a no-op (already processed). This avoids the need for distributed locks, external queues, or two-phase commits.
+  
+  Telemetry on constraint violations provides a leading indicator of upstream replay issues.
+  
+  Schema also includes:
+  - `source_attempted ::integer` counter (how many times this transition was attempted)
+  - `idempotency_key ::uuid` for external inbound dedup (e.g., webhook replays)
+  - Standard timestamps
+  
+  See: plans/memory_pipeline_rearchitecture_plan.md Phase 0.2 (schema) and Phase 4.5 (processor wiring).
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: decision_pipeline_links_for_transition_idempotency
+importance: 5
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory_pipeline/idempotency
+status: approved
+summary:
+tags:
+  - memory-pipeline
+  - idempotency
+  - pipeline_links
+  - database
+  - unique-constraint
+title: pipeline_links for transition idempotency
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.293844Z"
+  approved_by: human
+  status: approved

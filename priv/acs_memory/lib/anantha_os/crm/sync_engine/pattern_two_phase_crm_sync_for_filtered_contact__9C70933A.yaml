@@ -1,0 +1,43 @@
+content: |
+  When syncing CRM contacts that should only include associated records (e.g., contacts linked to deals/companies), use a two-phase sync pattern in the SyncEngine:
+  
+  1. **Phase 1**: Sync non-contact object types (deals, companies) in parallel to collect associated contact IDs
+  2. **Phase 2**: Sync contacts using only the collected IDs via batch read API
+  
+  The SyncEngine separates contacts from other types using `Enum.split_with`, and each provider's `fetch_page` checks for `config[:allowed_contact_ids]` to use batch read instead of full list/search API.
+  
+  Key implementation details:
+  - HubSpot batch read endpoint: POST /crm/v3/objects/{object_type}/batch/read with 100 ID chunks
+  - `extract_associated_contact_ids/1` in SyncEngine collects unique contact IDs from deal records' `associated_contact_ids` field
+  - `merge_sync_results/1` merges the two-phase results into a single response map
+  - When using batch read, `next_cursor` is nil (no pagination needed)
+created_at: "2026-06-21T12:21:51.246242Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_two_phase_crm_sync_for_filtered_contact__9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/crm/sync_engine
+status: proposed
+summary:
+tags:
+  - crm
+  - sync
+  - contacts
+  - association
+  - hubspot
+  - batch-read
+title: Two-phase CRM sync for filtered contact association
+triggers: []
+updated_at: "2026-06-21T12:21:51.246250Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

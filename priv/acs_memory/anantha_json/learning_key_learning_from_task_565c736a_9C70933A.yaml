@@ -1,0 +1,27 @@
+content: "Created two agent-facing docs for llm_utils package: AGENTS.md (landing page with key rules and quick start) and agents/SKILL.md (full development skill with module descriptions, golden rules, and common pitfalls). Both files emphasize the standalone constraint — zero deps on Anantha.* or Acs.*. Tests pass (26/26)."
+created_at: "2026-06-24T11:04:34.183415Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_565c736a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_json
+status: proposed
+summary: "Created two agent-facing docs for llm_utils package: AGENTS.md (landing page with key rules and quick start) and agents/SKILL.md (full development skill with module descriptions, golden rules, and com"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 565c736a
+triggers: []
+updated_at: "2026-06-24T11:04:34.183432Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

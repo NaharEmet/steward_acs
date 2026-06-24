@@ -1,0 +1,31 @@
+content: |
+  `Acs.MCP.Bridge.request_with_opts/1` passes `opts[:params]` to `Req.get/3` and `Req.delete/3`. When no `:params` key is in opts (e.g. when called from `health_check/1`), this evaluates to `nil`, causing Req's `put_params/2` to crash with `Protocol.UndefinedError: protocol Enumerable not implemented for Atom`.
+  
+  Fix: guard `params` before passing to Req — conditionally include `params:` only when non-nil.
+created_at: "2026-06-23T17:49:28.537624Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_bridge_health_check_nil_params_crash_in__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/bridge
+status: proposed
+summary:
+tags:
+  - req
+  - nil-params
+  - crash-fix
+title: Bridge.health_check nil params crash in Req.put_params
+triggers: []
+updated_at: "2026-06-23T17:49:28.537639Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

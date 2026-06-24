@@ -1,0 +1,27 @@
+content: "Safety Connect org setup: HubSpot API key pat-na2-... had scope for 9/11 CRM object types. Tickets and line_items returned 403. Pipeline discovery (GET /crm/v3/pipelines/{type}) returned 403 — Pipelines API has different scope requirements than CRM objects (needs crm.objects.goals.read or similar). Search API for engagement objects (notes/calls/emails/meetings/tasks) with createdate filter returned 400 — these object types may not support `createdate` as a search filter property. Probe with GET /crm/v3/objects/{type}?limit=1 is the fastest scope check."
+created_at: "2026-06-21T16:10:22.401573Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_395c9784_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "Safety Connect org setup: HubSpot API key pat-na2-... had scope for 9/11 CRM object types. Tickets and line_items returned 403. Pipeline discovery (GET /crm/v3/pipelines/{type}) returned 403 — Pipelin"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 395c9784
+triggers: []
+updated_at: "2026-06-21T16:10:22.401580Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

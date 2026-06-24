@@ -1,0 +1,24 @@
+content: "The `message_counts_by_source/1` function in `Anantha.Memory.Stats` has a bug: it uses `raw_metadata->>'source_type'` which fails because `raw_metadata` is stored as `bytea` not `jsonb`. Need to cast to text first or use a different approach to query the source."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_message_counts_by_source_fails_with_bytea_casting_
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/stats
+status: approved
+summary:
+tags: []
+title: message_counts_by_source fails with bytea casting error
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.368212Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,27 @@
+content: "When building LiveViews that depend on GenServer-bound contexts (Stats, ExtractionWorker, DLQ, MessageQueue), wrap every data call in a `safe_fetch/3` helper that catches all exceptions and returns nil. This prevents a single failing data source from crashing the entire dashboard. Pattern: `defp safe_fetch(module, function, args), do: apply(module, function, args); rescue _ -> nil end`. Use `|| %{}` / `|| []` defaults for all assigns."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_liveview_error_resilience_pattern_safe_fetch_wrapp
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory_dashboard/error_resilience
+status: approved
+summary:
+tags:
+  - live_view
+  - error_handling
+  - pattern
+title: "LiveView error resilience pattern: safe_fetch wrapper"
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.186795Z"
+  approved_by: human
+  status: approved

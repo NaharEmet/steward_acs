@@ -1,0 +1,27 @@
+content: Created mix acs.meta_harness.prune_reports task - prunes report_*.md and plan_*.md files older than 90 days from metaanalysis/. Supports --days, --dry-run, --path flags. Uses mtime for age comparison.
+created_at: "2026-06-20T19:04:48.767822Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_bd54586f_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: Created mix acs.meta_harness.prune_reports task - prunes report_*.md and plan_*.md files older than 90 days from metaanalysis/. Supports --days, --dry-run, --path flags. Uses mtime for age comparison.
+tags:
+  - feedback
+  - learning
+title: Key learning from task bd54586f
+triggers: []
+updated_at: "2026-06-20T19:04:48.767838Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

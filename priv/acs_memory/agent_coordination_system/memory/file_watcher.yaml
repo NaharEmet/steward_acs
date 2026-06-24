@@ -1,0 +1,24 @@
+content: DEPRECATED - all bugs were already fixed in the codebase. Deprecated marker memory to indicate the bug memories for this scope have been reviewed and are no longer relevant.
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_deprecated_marker_filewatcher_bugs_reviewed
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/memory/file_watcher
+status: approved
+summary:
+tags: []
+title: DEPRECATED_MARKER_filewatcher_bugs_reviewed
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.261215Z"
+  approved_by: human
+  status: approved

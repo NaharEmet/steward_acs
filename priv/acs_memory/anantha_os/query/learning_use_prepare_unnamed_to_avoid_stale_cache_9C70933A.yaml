@@ -1,0 +1,38 @@
+content: |
+  PostgreSQL cached prepared statements throw "cached plan must not change result type" when schema changes between plan creation and execution. Ecto/Postgrex uses named prepared statements by default. Pass `prepare: :unnamed` to `Repo.all/2`, `Repo.one/2`, etc. to force fresh planning per-operation. This is available in Postgrex v0.21+.
+  
+  Affected functions: Repo.all/2, Repo.one/2, Repo.get/3, etc. — any Ecto query operation that accepts options.
+  
+  Usage:
+  ```elixir
+  Repo.all(query, prepare: :unnamed)
+  ```
+created_at: "2026-06-23T07:28:05.042800Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_use_prepare_unnamed_to_avoid_stale_cache_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query
+status: proposed
+summary:
+tags:
+  - postgres
+  - ecto
+  - postgrex
+  - cached-plan
+  - schema-migration
+title: "Use `prepare: :unnamed` to avoid stale cached plans after schema migrations"
+triggers: []
+updated_at: "2026-06-23T07:28:05.042811Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

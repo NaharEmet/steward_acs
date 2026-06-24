@@ -1,0 +1,27 @@
+content: "When adding new Query API features, always update 3 layers: 1) QueryEngine for execution logic, 2) QueryController for HTTP handling, 3) ant_analyst.yaml + anantha_query.ex for ACS tool definitions. The controller handles mode-specific response formatting (compact, count) while QueryEngine handles the data. The router needs a new route for completely new endpoints like /api/query/describe."
+created_at: "2026-06-21T19:40:37.948040Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_89df784f_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web.controllers
+status: proposed
+summary: "When adding new Query API features, always update 3 layers: 1) QueryEngine for execution logic, 2) QueryController for HTTP handling, 3) ant_analyst.yaml + anantha_query.ex for ACS tool definitions. T"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 89df784f
+triggers: []
+updated_at: "2026-06-21T19:40:37.948054Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

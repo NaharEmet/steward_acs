@@ -1,0 +1,36 @@
+content: |
+  Ecto's `:map` type silently strips keys with nil values when persisting. `Map.merge(changeset, %{field: nil})` won't persist nil into the database — the key is dropped entirely. This causes subtle bugs with first-sync detection (setting `synced_at: nil` on a map doesn't work) and field clearing.
+  
+  **Fix patterns:**
+  - To clear a key from a `:map` field: use `Map.drop(state, [:key])` instead of `Map.put(state, :key, nil)`
+  - To set a nil value on a schema field: use `Ecto.Changeset.put_change/3` if the field isn't in `cast`
+  - For SyncState `synced_at` first-sync detection: `Map.drop(state, [:synced_at])` removes the key entirely, which can be checked with `Map.has_key?`
+  
+created_at: "2026-06-20T14:35:44Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_ecto_map_type_strips_nil_use_map_drop_or_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ecto
+status: approved
+summary:
+tags:
+  - ecto
+  - gotcha
+  - schema
+  - nil-handling
+title: "Ecto :map type strips nil — use Map.drop or put_change"
+triggers: []
+updated_at: "2026-06-20T14:35:50Z"
+verification:
+  approved_at: "2026-06-20T14:35:50.164704Z"
+  approved_by: "Approved from agent feedback analysis — Ecto :map nil gotcha saved agents significant debugging time"
+  status: approved

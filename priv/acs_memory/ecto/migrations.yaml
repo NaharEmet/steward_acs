@@ -1,0 +1,24 @@
+content: "When `mix ecto.migrate` fails with `duplicate_column: parent_node_id already exists`, check for duplicate migrations. Two migrations with the same timestamp can both try to add the same column. The fix is to delete the duplicate migration file — the first migration already added the column, so the second fails. Always verify migration uniqueness when adding columns."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_duplicate_migrations_cause_duplicate_column_errors
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: ecto/migrations
+status: approved
+summary: Duplicate migration causes duplicate_column error
+tags: []
+title: Duplicate migrations cause duplicate_column errors
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.705294Z"
+  approved_by: human
+  status: approved

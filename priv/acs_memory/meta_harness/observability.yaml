@@ -1,0 +1,32 @@
+content: |
+  The `mix observability.run` task crashes at lib/mix/tasks/observability.ex:68 with a `KeyError: key :collected not found` because the ObservabilityRunner returns a map with keys `:summary` and `:report_path` but the Mix task expects a `:collected` key. The task should use `Map.get(result, :collected, 0)` or the runner should return the `:collected` count.
+  
+  ---
+  Improvements: None
+created_at: "2026-06-02T10:34:12Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_observability_run_mix_task_crashes_with_keyerror_f
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  marked_at: "2026-06-02T16:50:21.725210Z"
+  reason: No reason provided
+scope_path: meta_harness/observability
+status: deprecated
+summary:
+tags:
+  - KeyError
+  - observability
+  - Mix task
+  - bug
+title: "observability.run Mix task crashes with KeyError for :collected key"
+triggers: []
+updated_at: "2026-06-02T16:50:21Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

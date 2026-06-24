@@ -1,0 +1,27 @@
+content: Removed dead provider_enabled? check in try_providers/4. The check was redundant because get_enabled_providers/0 already filters to only enabled providers with valid API keys. When removing dead code that wraps a function body, ensure the guard function itself is kept if used elsewhere — provider_enabled?/1 is still used by get_enabled_providers/0.
+created_at: "2026-06-21T13:00:00.126785Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e0d2aa2b_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "Removed dead provider_enabled? check in try_providers/4. The check was redundant because get_enabled_providers/0 already filters to only enabled providers with valid API keys. When removing dead code "
+tags:
+  - feedback
+  - learning
+title: Key learning from task e0d2aa2b
+triggers: []
+updated_at: "2026-06-21T13:00:00.126802Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

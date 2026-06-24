@@ -1,0 +1,30 @@
+content: "In `set_task_status/3`, the task read inside the transaction used `Repo.get(AcsTask, task_id)` without `lock: \"FOR UPDATE\"`. This allowed two concurrent transactions to read the same stale `locked_by_agent` value, causing sporadic `:not_owner` errors when release_task (which does use FOR UPDATE) modified the row concurrently. Changed to `Repo.get(AcsTask, task_id, lock: \"FOR UPDATE\")`."
+created_at: "2026-06-23T07:29:45.661575Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_set_task_status_must_use_for_update_to_p_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/task-lifecycle
+status: proposed
+summary:
+tags:
+  - acs
+  - set_task_status
+  - FOR UPDATE
+  - race-condition
+  - concurrency
+title: set_task_status must use FOR UPDATE to prevent race with release
+triggers: []
+updated_at: "2026-06-23T07:29:45.661585Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

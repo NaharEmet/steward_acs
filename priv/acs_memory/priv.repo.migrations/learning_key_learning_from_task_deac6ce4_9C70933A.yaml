@@ -1,0 +1,27 @@
+content: "claims.object column was varchar(255) but needs to be :text for email body content. Migration 20260622000001_change_claims_object_to_text fixes this."
+created_at: "2026-06-22T05:48:10.765178Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_deac6ce4_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: priv.repo.migrations
+status: proposed
+summary: "claims.object column was varchar(255) but needs to be :text for email body content. Migration 20260622000001_change_claims_object_to_text fixes this."
+tags:
+  - feedback
+  - learning
+title: Key learning from task deac6ce4
+triggers: []
+updated_at: "2026-06-22T05:48:10.765189Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

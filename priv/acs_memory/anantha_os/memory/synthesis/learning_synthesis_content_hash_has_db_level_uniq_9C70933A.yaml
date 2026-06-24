@@ -1,0 +1,37 @@
+content: |
+  The `syntheses` table has a UNIQUE index `syntheses_org_id_content_hash_index` on `(org_id, content_hash)`. This means content_hash dedup is enforced at the database level — `Repo.insert()` raises `Ecto.ConstraintError` when a duplicate is attempted, and the changeset doesn't define `unique_constraint(:content_hash)`.
+  
+  The nightly processor's `existing_synthesis_with_hash?/2` guard (`CognitionProcessor.process_single_cluster`) provides a redundant application-level check before the DB constraint is hit.
+  
+  When writing tests for content_hash dedup behavior, use `assert_raise Ecto.ConstraintError` rather than expecting `{:error, changeset}`, since the constraint is not defined on the changeset.
+  
+  Hypotheses table has a similar pattern — `HypothesisDedup.dedup/2` checks by `(org_id, content_hash)` using `Repo.one`, performing application-level dedup before creation.
+created_at: "2026-06-20T19:36:07.091710Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_synthesis_content_hash_has_db_level_uniq_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/synthesis
+status: proposed
+summary:
+tags:
+  - synthesis
+  - dedup
+  - content_hash
+  - unique_constraint
+  - cognition_processor
+title: Synthesis content_hash has DB-level unique constraint
+triggers: []
+updated_at: "2026-06-20T19:36:07.091738Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

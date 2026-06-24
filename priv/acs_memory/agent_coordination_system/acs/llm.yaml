@@ -1,0 +1,32 @@
+content: |
+  The ACS error traces dashboard showed 42 `acs/Acs::LLM` traces all with the message "[Acs.LLM] Both MiniMax and NIM failed for memory <name>". These are not a code bug — the LLM wrapper is working correctly by falling back from MiniMax to NIM when both fail. The root cause is an environment/configuration issue: either missing API keys, invalid endpoints, provider downtime, or the NIM rate limiter (40 RPM) being exceeded by the Auditor's 3 concurrent workers.
+  
+  The earlier fixes (MiniMax JSON extraction, NIM rate limiting, auditor error message clarification) prevent crashes and provide better diagnostics, but the underlying provider availability needs human investigation.
+  
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_42_llm_error_traces_are_configuration_issues_not_c
+importance: 2
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acs/llm
+status: approved
+summary:
+tags:
+  - error-trace
+  - llm
+  - configuration
+  - observation
+title: 42 LLM error traces are configuration issues, not code bugs
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.945289Z"
+  approved_by: human
+  status: approved

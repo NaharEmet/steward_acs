@@ -1,0 +1,59 @@
+content: |
+  ## Summary of ACS trace error fixes
+  
+  ### Problem: 9 compile warnings prevented `--warnings-as-errors` from passing
+  The project had 9 warnings-as-errors in 2 files:
+  - **lib/anantha_os/query/query_engine.ex**: 5 warnings (2 unused module attrs `@max_rows_scanned`, `@max_joins`; 3 unused variables `spec`, `dataset`, `columns`)
+  - **lib/anantha_os_web/controllers/query_controller.ex**: 4 warnings (unused private functions `validate_select/1`, `validate_dataset/1`, `parse_aggregation/1`, `build_columns_from_result/1`)
+  
+  ### Fix: Removed dead code, prefixed unused variables with underscore
+  1. Removed `@max_rows_scanned` and `@max_joins` module attributes
+  2. Prefixed `spec` → `_spec`, `dataset` → `_dataset`, `columns` → `_columns`
+  3. Removed 4 unused private functions from QueryController
+  4. Removed orphaned `alias Anantha.Query.DatasetRegistry` in QueryController
+  
+  ### Problem: Memory.Loader picked up YAML files from `_build/` directory
+  The `list_files/1` function used `Path.wildcard(memory_dir() <> "/**/*.yaml")` which could match files in `_build/dev/lib/` when `Application.app_dir(:steward_acs)` resolves to the build directory. This triggered the "Cannot quarantine malformed YAML: /_build/dev/l..." error trace.
+  
+  ### Fix: Added `relevant_file?/1` filter to `list_files/1`
+  Mirrors the same pattern in `Acs.Cognition.Loader.relevant_module?/1` — excludes files with `_build/` or `deps/` in their path before they reach the load/quarantine pipeline.
+  
+  ### Already-fixed errors (verified)
+  - **LLM provider errors** ("Both NIM and MiniMax failed"): Already fixed with `providers_configured?/0` guard in `Acs.LLM` (commit `bfaef721`)
+  - **Memory.Auditor max retries exceeded**: Already fixed with `providers_unavailable?/1` check that skips retries and marks for human review (commit `bfaef721`)
+  - **Memory.Loader quarantine logic**: Already improved with proper error handling for unreadable files, already-quarantined files, and malformed YAML move-to-quarantine (commit `57a1de2c`)
+  
+  ### Verification
+  - `mix compile --warnings-as-errors`: ✅ 0 warnings
+  - `mix format --check-formatted`: ✅ clean
+  - ACS cognition tests: 23/23 passed
+  - ACS memory tests: 13/13 passed
+  - Full precommit: 1509 tests, 0 failures related to changes (1 flaky timeout pre-existing)
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_trace_error_fixes_compile_warnings_memory_load
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/traces
+status: approved
+summary: Fixed 9 compile warnings and added _build path guard to Memory.Loader
+tags:
+  - acs
+  - error_traces
+  - compile_warnings
+  - memory_loader
+title: "ACS trace error fixes: compile warnings, Memory.Loader _build guard"
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.347571Z"
+  approved_by: human
+  status: approved

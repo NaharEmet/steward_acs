@@ -1,0 +1,32 @@
+content: |
+  In Phoenix LiveView, the `phx-change` binding must be placed on a `<form>` element, not directly on an `<input>` or `<select>` element. Placing `phx-change` directly on an input element causes a browser console error: "Uncaught Error: form events require the input to be inside a form".
+  
+  Always wrap inputs/selects using `phx-change` in a `<form phx-change="...">` tag, even if there's no submit button. The `<select>` or `<input>` just needs a `name` attribute so the form data is correctly serialized.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_phx_change_requires_form_element_in_liveview
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix_liveview/forms
+status: approved
+summary:
+tags:
+  - phoenix
+  - liveview
+  - phx-change
+  - form
+title: phx-change requires form element in LiveView
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.773477Z"
+  approved_by: human
+  status: approved

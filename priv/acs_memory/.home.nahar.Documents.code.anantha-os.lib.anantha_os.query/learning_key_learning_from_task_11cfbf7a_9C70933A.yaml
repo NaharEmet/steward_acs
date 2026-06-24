@@ -1,0 +1,27 @@
+content: "Fixed 3 bugs in query layer: (1) filter catch-all clause now logs warning instead of silently dropping non-map conditions, (2) aggregation detection uses `or` instead of `and` so group_by-only OR aggregates-only queries work, (3) DatasetRegistry missing \"observations\" entry added with proper description."
+created_at: "2026-06-21T19:29:45.653748Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_11cfbf7a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.lib.anantha_os.query
+status: proposed
+summary: "Fixed 3 bugs in query layer: (1) filter catch-all clause now logs warning instead of silently dropping non-map conditions, (2) aggregation detection uses `or` instead of `and` so group_by-only OR aggr"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 11cfbf7a
+triggers: []
+updated_at: "2026-06-21T19:29:45.653763Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

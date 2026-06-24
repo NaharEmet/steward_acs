@@ -1,0 +1,27 @@
+content: CRM JoinConfig has YAML at config/crm/joins/default.yaml that overrides module attribute defaults. Both must be kept in sync. MemoryExtractor persist_signal_claims! must include subject/predicate/object fields (all NOT NULL in DB) for signal claims.
+created_at: "2026-06-21T10:25:02.258861Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_7cca8492_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: CRM JoinConfig has YAML at config/crm/joins/default.yaml that overrides module attribute defaults. Both must be kept in sync. MemoryExtractor persist_signal_claims! must include subject/predicate/obje
+tags:
+  - feedback
+  - learning
+title: Key learning from task 7cca8492
+triggers: []
+updated_at: "2026-06-21T10:25:02.258876Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

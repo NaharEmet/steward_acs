@@ -1,0 +1,27 @@
+content: "The syntheses table has a UNIQUE index on (org_id, content_hash) that raises Ecto.ConstraintError, not {:error, changeset}, when duplicates are attempted. Also, test for hypothesis dedup requires cleaning up syntheses/hypotheses from other tests because CognitionProcessor.generate_hypotheses_from_syntheses/1 queries ALL syntheses without org filter."
+created_at: "2026-06-20T19:36:14.165819Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_846b9442_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test.anantha_os.memory
+status: proposed
+summary: "The syntheses table has a UNIQUE index on (org_id, content_hash) that raises Ecto.ConstraintError, not {:error, changeset}, when duplicates are attempted. Also, test for hypothesis dedup requires clea"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 846b9442
+triggers: []
+updated_at: "2026-06-20T19:36:14.165837Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

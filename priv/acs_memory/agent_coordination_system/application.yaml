@@ -1,0 +1,61 @@
+content: |
+  ## The ACS is a standalone Phoenix app, not a library
+  
+  The `apps/agent_coordination_system/` project is a **standalone Phoenix application** with its own `AcsWeb.Endpoint` (port 4001), supervision tree (`Acs.Application`), and OTP Application module (`mod: {Acs.Application, []}` in its mix.exs).
+  
+  **DO NOT** add ACS children (`Acs.Repo`, `Acs.Memory.Auditor`, etc.) to `Anantha.Application`'s supervision tree. The ACS app starts its own supervision tree via Mix's dependency application loading.
+  
+  ## How it works
+  
+  1. Root `mix.exs` lists `{:steward_acs, path: "apps/agent_coordination_system"}` as a dependency
+  2. ACS `mix.exs` defines `application/0` with `mod: {Acs.Application, []}`
+  3. When `mix phx.server` runs from root, Mix starts BOTH applications:
+     - `:anantha_os` → `Anantha.Application.start/2` (port 4000)
+     - `:steward_acs` → `Acs.Application.start/2` (port 4001)
+  4. They run in the same BEAM VM but as separate supervision trees
+  
+  ## Why `Process.whereis` returned nil
+  
+  Using `mix eval` or `mix run -e` from the root project does NOT start dependency applications. Only `mix phx.server` (or `mix run --no-halt`) starts the full OTP application tree, including path dependencies with their own Application modules.
+  
+  ## Two deployment modes
+  
+  - **Single container**: `mix phx.server` from root starts both apps in one BEAM (current default)
+  - **Two containers**: ACS runs standalone on port 4001, root on port 4000, communicating via HTTP
+  
+  ## Config isolation
+  
+  The ACS has its own `config_path` in its `mix.exs` pointing to `apps/agent_coordination_system/config/config.exs`. Do NOT add ACS-specific config (AcsWeb.Endpoint, Acs.Repo SQLite, etc.) to root config files unless strictly necessary. The shared `_build/` directory can cause compile-time/runtime config mismatches if configs overlap.
+  
+created_at: "2026-06-02T10:34:12Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes:
+  - Adding ACS children to Anantha.Application causes duplicate processes and config conflicts
+  - Root config additions for ACS cause compile-time/runtime config mismatches due to shared _build/
+  - Using mix eval or mix run instead of mix phx.server gives false negatives about process status
+id: warning_never_add_acs_children_to_anantha_application_supe
+importance: 5
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/application
+status: approved
+summary:
+tags:
+  - acs
+  - architecture
+  - supervision-tree
+  - config
+  - deployment
+  - docker
+title: NEVER add ACS children to Anantha.Application supervision tree
+triggers: []
+updated_at: "2026-06-02T17:11:36Z"
+verification:
+  approved_at: "2026-06-02T17:11:36.151518Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,27 @@
+content: "ACS active agents bug was caused by 3 interlocking issues: (1) no ETS warmup on restart, (2) no agent registration on sleep/first connect, (3) two diverging get_present_status implementations (ETS vs DB). Fix: Cache.warmup/0 loads DB into ETS on boot, auto-registration in tools.ex dispatch and core_handlers.ex, stale sweeper removes inactive agents every 30s. Key lesson: any state that survives restart must be warmable from DB, and agent identity should be established on first tool call not first task claim."
+created_at: "2026-06-20T19:10:58.084893Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_a570aba6_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs.acs
+status: proposed
+summary: "ACS active agents bug was caused by 3 interlocking issues: (1) no ETS warmup on restart, (2) no agent registration on sleep/first connect, (3) two diverging get_present_status implementations (ETS vs "
+tags:
+  - feedback
+  - learning
+title: Key learning from task a570aba6
+triggers: []
+updated_at: "2026-06-20T19:10:58.084913Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

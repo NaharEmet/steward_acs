@@ -1,0 +1,40 @@
+content: |
+  After initial CRM sync completes, ALWAYS ask the user before triggering LLM-based extraction on historical data. Do not auto-process.
+  
+  Question to ask: "Historical data synced: [X contacts, Y deals, Z emails, etc]. Process via LLM extraction? This costs ~N LLM calls (~$cost). Or skip and only process new data going forward?"
+  
+  Options:
+  - Yes → trigger `acs_ant_trigger_extraction(org_id: "...")`
+  - No → proceed without LLM processing. New data will be processed incrementally.
+  
+  This applies to ALL non-contact object types (emails, calls, meetings, notes, tasks) that need LLM extraction for semantic content analysis. 
+  
+  Rule-based extraction (FieldClassifier) always runs — no user choice needed for that. It's free and extracts structured fields.
+created_at: "2026-06-21T19:34:55.793699Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: decision_after_first_sync_ask_user_before_process_9C70933A
+importance: 4
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: proposed
+summary:
+tags:
+  - first-sync
+  - llm-extraction
+  - user-approval
+  - historical-data
+title: After first sync, ask user before processing historical data via LLM
+triggers: []
+updated_at: "2026-06-21T19:34:55.793713Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

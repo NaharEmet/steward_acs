@@ -1,0 +1,30 @@
+content: "In Dockerized ACS deployments, the `acs/acstools/` directory containing tool YAML definitions is mounted as a Docker volume (`./acs:/app/acs`). This means tool YAML files can be updated by either: (1) writing files directly via `write_file` MCP tool + `refresh_tools`, (2) using the `write_tool` MCP tool which wraps both operations, or (3) editing files on the Docker host and restarting the container. Handler code (Elixir modules) require a release rebuild. For dynamic tool logic without rebuild, use the `endpoint` pattern where tools proxy to an HTTP microservice via `Acs.MCP.Bridge`. The Dockerfile.acs builds a debian-slim release image, and docker-compose.acs.yml includes ACS + Postgres + nginx with TLS termination and rate limiting (10r/s MCP, 30r/s API)."
+created_at: "2026-06-19T20:20:36Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_remote_acs_deployment_uses_docker_volume_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/deployment
+status: approved
+summary:
+tags:
+  - acs
+  - deployment
+  - docker
+  - docker-compose
+  - nginx
+  - tls
+title: Remote ACS deployment uses Docker volume mounts for tool definitions
+triggers: []
+updated_at: "2026-06-19T20:20:39Z"
+verification:
+  approved_at: "2026-06-19T20:20:39.904621Z"
+  approved_by: human
+  status: approved

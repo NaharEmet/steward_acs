@@ -1,0 +1,50 @@
+content: |
+  During a comprehensive code audit of the ACS (Agent Coordination System) codebase at `apps/agent_coordination_system/`, 13 distinct issues were identified and remediated:
+  
+  **Dead Code Removed:**
+  - `warm_up_tasks/1`, `warm_up_file_locks/1`, `warm_up_agent_statuses/1` in Cache module — never called from anywhere
+  - `write_default_acs_yaml/0` in ToolLoader — duplicated 600-line YAML heredoc that diverged from actual `acs.yaml`
+  - 7 backward compatibility tool aliases in MCP Tools (`approve_memory`, `reject_memory`, `mark_memory_stale`, `acs_unlock_files_for_task`, `acs_list_sleeping_agents`, `acs_get_time_info`, `acs_set_time_offset`)
+  - `ensure_table_safe/1` — identical duplicate of `ensure_table/1`
+  - Unused `_description` parameter in `Similarity.find_similar_tasks/3`
+  
+  **Bugs Fixed:**
+  - Agent name `"Zea"` → `"Tina"` (wrong name in pool, didn't match ACS spec)
+  - Task status list fixed to match spec: `["todo", "in_progress", "in_review", "done", "blocked"]` (was `["todo", "claimed", "in_progress", "done"]`)
+  - DB error swallowing in `put_agent_status/2` — no longer writes to ETS cache on DB failure
+  - `String.to_existing_atom/1` on external input in HTTP server — changed to `String.to_atom/1`
+  
+  **Correctness Improvements:**
+  - Sweeper `release_task_lock/1` now wrapped in `Repo.transaction` with `FOR UPDATE` lock to prevent race conditions with concurrent agent releases
+  - Removed unnecessary `:phoenix_live_view` compiler from mix.exs
+  
+  **Pattern:** When removing dead code in an Elixir umbrella app with MCP tool definitions, ensure both (1) the YAML tool definition file AND (2) the inline handler code are updated. The `write_default_acs_yaml` function was a fallback that had drifted from the actual `acs.yaml` — keeping both was a maintenance hazard.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_audit_findings_and_remediation_patterns
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/audit
+status: approved
+summary:
+tags:
+  - acs
+  - audit
+  - dead-code
+  - code-quality
+  - remediation
+title: ACS audit findings and remediation patterns
+triggers: []
+updated_at: "2026-06-19T13:59:57Z"
+verification:
+  approved_at: "2026-06-19T13:59:57.922578Z"
+  approved_by: human
+  status: approved

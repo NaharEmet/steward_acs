@@ -1,0 +1,36 @@
+content: |
+  When messages have `processed_at` set but `extraction_status = "pending"`, the MessageQueue won't pick them up (it filters by `processed_at IS NULL`). To process such messages:
+  
+  1. Clear `processed_at` and reset `state` to `"received"` via `Messages.update_message(msg, %{processed_at: nil, state: "received"})`
+  2. Each `mix run -e '...'` starts a temporary OTP application with its own GenServers. Use HTTP to the running Phoenix server to reach real GenServers, or process messages directly in the mix run.
+  3. The `Pipeline.persist_memory/3` expects `structured_claim` in BOTH the classification AND extraction maps. The code at `build_claim_content/3` accesses `classification.structured_claim` (line 193 of pipeline.ex).
+  
+  For batch processing many messages with LLM extraction, use `Task.async`/`Task.await_many` for parallel processing (batch size 3-4 to avoid rate limiting).
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_triggering_memory_extraction_for_messages_with_sta
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/extraction
+status: approved
+summary:
+tags:
+  - extraction
+  - message-queue
+  - batch-processing
+  - troubleshooting
+title: Triggering memory extraction for messages with stale processed_at
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.067016Z"
+  approved_by: human
+  status: approved

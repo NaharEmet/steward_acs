@@ -1,0 +1,27 @@
+content: No tool to list/review task feedback in bulk. Had to discover feedback via memory listing + file glob patterns.
+created_at: "2026-06-20T14:36:39.412480Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_information_gap_identified_in_task_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .opencode.guides
+status: proposed
+summary: No tool to list/review task feedback in bulk. Had to discover feedback via memory listing + file glob patterns.
+tags:
+  - feedback
+  - observation
+title: Information gap identified in task
+triggers: []
+updated_at: "2026-06-20T14:36:39.412495Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

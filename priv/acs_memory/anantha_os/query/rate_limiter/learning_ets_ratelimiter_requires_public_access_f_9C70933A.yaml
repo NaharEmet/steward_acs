@@ -1,0 +1,30 @@
+content: "When using ETS tables in a Phoenix web application where multiple processes (request handlers) need to write to the table via a GenServer API, the ETS table must be created with `:public` access. The default `:protected` access only allows the owning process to write. `Anantha.Query.RateLimiter` at `lib/anantha_os/query/rate_limiter.ex:80` was creating the `:rate_limits` table with default access, causing \"insufficient access rights\" errors when Phoenix request handlers called `RateLimiter.check_rate/1`. Fixed by passing `[:set, :public, :named_table]` to `:ets.new/2`."
+created_at: "2026-06-20T17:03:25.381418Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_ets_ratelimiter_requires_public_access_f_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query/rate_limiter
+status: proposed
+summary:
+tags:
+  - ets
+  - rate-limiter
+  - multi-process
+  - phoenix
+  - bug
+title: "ETS RateLimiter requires :public access for multi-process Phoenix env"
+triggers: []
+updated_at: "2026-06-20T17:03:25.381430Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

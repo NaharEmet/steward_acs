@@ -1,0 +1,27 @@
+content: "`NimbleOptions.validate/2` (v1.1.1) has two function clauses: one that accepts `%NimbleOptions{}` struct as second arg (any options), and one that accepts keyword list schema but requires options to also be a keyword list (`is_list(options)` guard). Maps are NOT directly supported for options. When passing a map, convert to keyword list first with `Enum.into(map, [])`. Also strip unknown keys (like `:mode`) to avoid unknown key validation errors."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_nimbleoptions_validate_2_requires_keyword_lists_fo
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query/query_engine
+status: approved
+summary:
+tags:
+  - nimble_options
+  - validation
+  - keyword_list
+title: NimbleOptions.validate/2 requires keyword lists for options with keyword list schema
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.755698Z"
+  approved_by: human
+  status: approved

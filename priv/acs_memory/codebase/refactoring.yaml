@@ -1,0 +1,49 @@
+content: |
+  ## God Module Refactoring Pattern
+  
+  ### Nested Module Extraction
+  When a file violates the AGENTS.md rule "NEVER nest multiple modules in the same file":
+  1. Extract nested `defmodule` into its own file matching module nesting structure (e.g., nested `Entry` in `Anantha.Ant.Registry` → `lib/anantha_os/ant/registry/entry.ex`)
+  2. Add `alias Anantha.Ant.Registry.Entry` to parent file
+  3. For orphaned top-level modules with wrong namespace (e.g., `IRBuilder.DSL` at top-level creating `Elixir.IRBuilder.DSL`), fix namespace to match parent path when extracting
+  
+  ### LiveView Splitting
+  For oversize LiveViews (>700 lines):
+  1. Keep `index.ex` with: mount, handle_event, handle_info, render/~H template
+  2. Extract template subsections as `Phoenix.Component` function components in `components.ex`
+  3. Extract pure data helpers into `helpers.ex`
+  4. Pass socket assigns explicitly to components (no implicit socket dependency)
+  5. Use `attr :field_name, :any` for component attribute specs
+  6. Preserve ALL phx-click/phx-change/phx-submit/phx-value attributes during extraction
+  
+  ### Results
+  - 12 new files created total (6 extracted modules + 6 LiveView components/helpers)
+  - 9 parent files modified
+  - LLMMetricsLive: 1344→211 lines (84% reduction)
+  - SettingsLive: 1342→745 lines (44% reduction)
+  - WhatsAppInboxLive: 753→299 lines (60% reduction)
+  - Compilation: zero warnings/errors after all changes
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_god_module_refactoring_extract_split_approach
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: codebase/refactoring
+status: approved
+summary: Pattern for extracting nested modules and splitting oversized LiveViews
+tags: []
+title: "God module refactoring: extract + split approach"
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.273659Z"
+  approved_by: human
+  status: approved

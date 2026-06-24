@@ -1,0 +1,29 @@
+content: "When adding a new ACS MCP tool for query endpoints, three files need changes: 1) ant_analyst.yaml — define the tool with params, endpoint, method, roles; 2) anantha_query.ex — add a handler function that validates session, permissions, and forwards to the endpoint; 3) query_controller.ex — add the controller action with auth and rate limiting. The params from YAML flow as request body to the controller."
+created_at: "2026-06-21T19:40:27.171290Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_adding_acs_tools_yaml_definition_handler_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/query_api
+status: proposed
+summary:
+tags:
+  - acs
+  - tools
+  - pattern
+  - yaml
+title: "Adding ACS tools: YAML definition + handler + controller endpoint"
+triggers: []
+updated_at: "2026-06-21T19:40:27.171305Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

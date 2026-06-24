@@ -1,0 +1,31 @@
+content: |
+  Many functions in ACS (Req.request, Repo.query, Repo.get, File.write, Ecto.Adapters.SQL.query) already return `{:ok, result}` or `{:error, reason}` tuples. Wrapping them in `try/rescue` is redundant — the case pattern already handles both success and failure paths. Only wrap in try/rescue when the function can genuinely raise (Port.start, cleanup code). Use `Repo.get` instead of `Repo.get!` + rescue `Ecto.NoResultsError` — handle nil with pattern matching. Use `File.write/2` and `File.mkdir_p/1` (which return ok/error tuples) instead of `File.write!/2` and `File.mkdir_p!/1` (which raise on error).
+  
+created_at: "2026-06-21T13:16:21.130629Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_elixir_functions_returning_ok_error_tupl_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp
+status: proposed
+summary:
+tags:
+  - elixir
+  - anti-pattern
+  - try-rescue
+  - error-handling
+title: Elixir functions returning ok/error tuples don't need try/rescue wrapping
+triggers: []
+updated_at: "2026-06-21T13:16:21.130643Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

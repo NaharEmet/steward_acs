@@ -1,0 +1,34 @@
+content: |
+  Google Meet integration requires two registration points:
+  1. Add the OAuth scope `https://www.googleapis.com/auth/meetings.space.readonly` to `Anantha.Connectors.Google.Auth.default_scopes/0`
+  2. Add `"google_meet" => Anantha.Ingestion.Sources.GoogleMeet` to `Anantha.Ingestion.@source_adapters`
+  
+  The scope is `meetings.space.readonly` (not `meeting.*`) — Google's naming uses `meetings` plural, and `space` (singular) for the resource level, matching the Google Meet API v2 conventions.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_google_meet_scope_and_adapter_registration_pattern
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/connectors/google
+status: approved
+summary:
+tags:
+  - google_meet
+  - oauth
+  - ingestion
+  - adapter_registration
+title: Google Meet scope and adapter registration pattern
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.520512Z"
+  approved_by: human
+  status: approved

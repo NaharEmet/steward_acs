@@ -1,0 +1,29 @@
+content: MetaHarness.Scoring.build_scorecard/1 uses a SQL query that JOINs claims with extraction_evaluations on evidence_cluster_id, requiring claims.claim_type IS NOT NULL AND claims.claim_type != ''. If existing evaluations are linked to claims without a claim_type (e.g., unclassified), the scoring query returns no rows, producing a zero-score ScoreCard. The Coverage.analyze/1 shows claim_type_coverage with unclassified count = 1 in such cases, which explains the gap.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_metaharness_scorecard_returns_zeros_when_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: meta_harness/scoring
+status: approved
+summary:
+tags:
+  - meta_harness
+  - scoring
+  - scorecard
+  - coverage
+  - claim_type
+title: MetaHarness ScoreCard returns zeros when claims lack claim_type
+triggers: []
+updated_at: "2026-06-19T14:00:07Z"
+verification:
+  approved_at: "2026-06-19T14:00:07.240887Z"
+  approved_by: human
+  status: approved

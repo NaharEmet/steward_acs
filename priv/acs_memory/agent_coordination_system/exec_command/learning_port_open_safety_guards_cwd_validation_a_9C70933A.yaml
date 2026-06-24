@@ -1,0 +1,38 @@
+content: |
+  Three safety guards added to Acs.MCP.Tools.ClusterHandlers.exec_command/1 after code review:
+  
+  1. **cwd validation** (CRITICAL): Before Port.open, check `File.dir?(cwd)`. Non-existent cwd causes linked port to crash the calling process.
+  
+  2. **args type check** (MAJOR): Before Port.open, coerce non-list args to empty list with `if is_list(args["args"]), do: args["args"], else: []`. Non-list args crash Port.open.
+  
+  3. **Port crash isolation** (MAJOR): Wrap Port.open and collect_output in try/rescue for ArgumentError and ErlangError. Prevents linked port failures (OOM, invalid executable, OS kill) from taking down the handler process.
+  
+  These complement the earlier fix: replacing nested receive with recursive collect_output + safe_close.
+created_at: "2026-06-20T16:37:59.367330Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_port_open_safety_guards_cwd_validation_a_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/exec_command
+status: proposed
+summary:
+tags:
+  - port
+  - safety
+  - code-review
+  - cluster_handlers
+title: Port.open safety guards - cwd validation, args type check, crash isolation
+triggers: []
+updated_at: "2026-06-20T16:37:59.367341Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,62 @@
+content: |
+  ## Problem
+  The `updated()` callback on a Phoenix LiveView hook does NOT fire reliably when only `data-*` attributes on the hook's element are changed by LiveView DOM patching. Only content changes (text nodes, child elements) trigger `updated()`.
+  
+  ## Solution
+  Use `push_event/3` on the server to push data directly to the hook over the WebSocket, paired with `this.handleEvent()` in the hook's `mounted()`:
+  
+  ```elixir
+  # Server (in handle_event/handle_info)
+  {:noreply, push_event(socket, "my_event", %{data: my_data})}
+  ```
+  
+  ```javascript
+  // Client hook
+  mounted() {
+      this.handleEvent("my_event", (payload) => {
+          if (payload && payload.data) {
+              this.processData(payload.data)
+          }
+      })
+  }
+  ```
+  
+  ## Why it works
+  - `push_event/3` sends data as part of the LiveView diff over the Phoenix Channel WebSocket
+  - The hook's `handleEvent` listens on `window` for `phx:event_name` CustomEvents
+  - Events are dispatched AFTER DOM updates (default `dispatch: :after`), so hooks are always current
+  - Listeners are auto-cleaned by LiveView's `destroyHook` → `__cleanup__()` when the hook is destroyed
+  
+  ## Key details
+  - Accept an optional `data` param in `updateCharts(data)` with fallback to DOM dataset for initial mount
+  - Keep `mounted()` calling `updateCharts()` for initial data from the template-rendered attribute
+  - Let `handleEvent` be the exclusive data path for subsequent updates — avoids double `chart.update()` calls
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_liveview_hook_updated_doesn_t_fire_for_data_attrib
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/live/hooks/chart_js
+status: approved
+summary: Phoenix LiveView hook updated() callback does not fire when only data-* attributes change on the element. Use push_event/3 on the server paired with this.handleEvent() in mounted() to push data directly over WebSocket, bypassing DOM patching entirely.
+tags:
+  - phoenix-liveview
+  - hooks
+  - push_event
+  - charts
+  - javascript
+title: LiveView hook updated() doesn't fire for data-attribute-only changes — use push_event/3
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.461619Z"
+  approved_by: human
+  status: approved

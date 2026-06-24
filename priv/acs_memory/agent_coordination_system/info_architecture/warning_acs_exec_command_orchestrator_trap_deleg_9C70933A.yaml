@@ -1,0 +1,55 @@
+content: |
+  ## Problem
+  
+  Build orchestrator agents (with `bash: deny`) see `acs_exec_command` as an available MCP tool and use it to run `mix` commands (compile, test, etc.). This bypasses the delegation system.
+  
+  ## Root Cause
+  
+  - Build orchestrator has `bash: {"*": "deny"}` — no direct shell access
+  - `acs_exec_command` is available as an MCP tool and its description says "Use for running tests, git operations, and build commands"
+  - The orchestrator reaches for it because it's the only command-execution tool it has
+  - But the orchestrator's prompt says: "You CANNOT run commands directly. For ALL implementation and verification, delegate to coder"
+  
+  ## Fix
+  
+  - **NEVER use `acs_exec_command`** — it's available but wrong for orchestrator agents
+  - **ALWAYS delegate** command execution to `coder` via `task`
+  - **Coder** has full `bash: allow` and should run all mix commands directly
+  
+  ## Where Rules Live
+  
+  - `AGENTS.md` → Critical Rules section (visible to all agents at session start)
+  - `.opencode/profiles/ws/opencode.jsonc` → Build orchestrator prompt (explicit section)
+  - `.opencode/guides/agent-workflow.md` → Key Rules Summary (rule #12)
+  
+  ## Violation Pattern
+  
+  Calling `acs_exec_command(command="mix", args=["compile", "--warnings-as-errors"])` or `acs_exec_command(command="mix", args=["test"])` from a build orchestrator.
+created_at: "2026-06-24T12:35:25Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_acs_exec_command_orchestrator_trap_deleg_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/info_architecture
+status: approved
+summary: Build orchestrator agents must NOT use acs_exec_command. Delegate all command execution to coder.
+tags:
+  - acs_exec_command
+  - orchestrator
+  - delegation
+  - build
+title: acs_exec_command — orchestrator trap, delegate to coder
+triggers: []
+updated_at: "2026-06-24T12:35:31Z"
+verification:
+  approved_at: "2026-06-24T12:35:31.238081Z"
+  approved_by: Critical rule about acs_exec_command misuse. Approved for all orchestrator agents.
+  status: approved

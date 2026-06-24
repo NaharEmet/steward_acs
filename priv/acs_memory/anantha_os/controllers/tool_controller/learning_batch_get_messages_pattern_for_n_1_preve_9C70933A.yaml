@@ -1,0 +1,29 @@
+content: "When fetching messages by ID for pending message processing, use batch_get_messages/2 that queries with `where: m.id in ^ids` instead of calling get_message/2 per ID. This reduces N individual queries to 1 batch query per org. Follow this pattern for any other bulk-ID lookups."
+created_at: "2026-06-21T12:03:14.916620Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_batch_get_messages_pattern_for_n_1_preve_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/controllers/tool_controller
+status: proposed
+summary:
+tags:
+  - n+1
+  - batch
+  - messages
+  - performance
+title: batch_get_messages pattern for N+1 prevention
+triggers: []
+updated_at: "2026-06-21T12:03:14.916628Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

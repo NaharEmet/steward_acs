@@ -1,0 +1,55 @@
+content: |
+  ## Fix: Dynamic atom creation (String.to_atom) → safe helpers
+  
+  **Problem:** 9 `String.to_atom/1` calls across codebase create dynamic atoms from external input (DSL, YAML, HTTP params). Atoms aren't GC'd — memory leak / DoS risk.
+  
+  **Pattern used:** Add `safe_to_atom/1` private helper returning string/nil if atom doesn't exist:
+  ```elixir
+  defp safe_to_atom(binary) when is_binary(binary) do
+    try do
+      String.to_existing_atom(binary)
+    rescue
+      ArgumentError -> binary  # or nil
+    end
+  end
+  ```
+  
+  **Files fixed:**
+  - `dot_prompt/helpers.ex` (lines 256, 386)
+  - `dot_prompt/parser/validator.ex` (line 613)
+  - `dot_prompt/compiler/fragment_expander/dynamic.ex` (line 20)
+  - `query/query_engine.ex` (line 817) — removed to_atom fallback, returns string
+  - `crm/join_resolver.ex` (line 64)
+  - `meta_harness/evaluator.ex` (line 302) — removed to_atom fallback, returns string
+  - `memory/rule_loader.ex` (line 70)
+  - `apps/acs/mcp/http_server.ex` (line 335) — removed to_atom fallback, returns string
+  
+  **For 3 modules** (query_engine, evaluator, http_server): the pattern was `to_existing_atom` rescue → `to_atom` fallback. Removed the unsafe fallback — just returns string key.
+created_at: "2026-06-21T13:17:57.504359Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_string_to_atom_fixes_safe_helper_pattern_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/anti_patterns/string_to_atom
+status: proposed
+summary:
+tags:
+  - anti-pattern
+  - dynamic-atom
+  - security
+  - String.to_atom
+title: String.to_atom fixes — safe helper pattern
+triggers: []
+updated_at: "2026-06-21T13:17:57.504367Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

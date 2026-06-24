@@ -1,0 +1,65 @@
+content: |
+  ## HubSpot emails/tasks search_api_error 400
+  
+  ### Symptoms
+  - `Anantha.CRM.SyncEngine.sync_object_type(org_id, "hubspot", "emails", config)` returns `{:error, {:search_api_error, 400, "There was a problem with the request."}}`
+  - Same for "tasks"
+  - Other 4 engagement types (notes, calls, meetings, quotes) work fine
+  - Core types (contacts, companies, deals) work fine
+  - **Direct call to `fetch_page` with `:since` filter WORKS**:
+    - `HubSpot.fetch_page(org_id, "emails", nil, config_with_since)` → `{:ok, %{records: 200, next_cursor: "200"}}`
+    - Pagination also works (page 2 returns OK)
+  
+  ### Debugging Actions Taken
+  - Tested `fetch_page_search_api` directly — works
+  - Tested `rate_limited_post` directly — works
+  - Tested with both `:since` and without — both work when called directly
+  - Tested with atom keys vs string keys in body map — both work
+  - Verified state is nil (fresh) so `:since` IS added by sync_object_type
+  - Verified `config` map has both `"secrets"` and `:since` when passed to `fetch_page`
+  
+  ### Inconsistency
+  The SAME `config` map that works with `fetch_page` fails with `sync_object_type`. The function calls `fetch_all_pages` which calls `provider.fetch_page` — same code path.
+  
+  ### Possible Causes (unconfirmed)
+  1. Some side effect in `SyncState.get_entity_states` before the fetch call
+  2. A phantom DB process that interferes with Ecto Repo access in the mix run context
+  3. The `Req` library maintaining some stale connection state
+  4. The `config` map being modified by some intermediate step
+  5. A race condition between the rate limiter and the search API call
+  
+  ### Next Steps Needed
+  - Add Logger.debug to `fetch_page_search_api` to log the EXACT request body before `rate_limited_post`
+  - Check if `check_rate_limit` is interfering
+  - Test in a Phoenix server context (not mix run) to see if it's an environment issue
+  - Test with different object types to see if it's property/field specific
+created_at: "2026-06-20T12:43:34.715162Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_emails_and_tasks_hubspot_search_api_400__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync-engine
+status: proposed
+summary: sync_object_type for emails/tasks returns 400 but direct fetch_page with same config works
+tags:
+  - crm
+  - hubspot
+  - search-api
+  - emails
+  - tasks
+  - bug
+title: Emails and tasks HubSpot search API 400 error - debugging trace
+triggers: []
+updated_at: "2026-06-20T12:43:34.715169Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

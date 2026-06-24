@@ -1,0 +1,27 @@
+content: Added Logger.warning calls in try_extract_json/1 when both JSON parse attempts fail — logs extracted text, sanitized text (first 300 chars each), and raw parse error for debugging LLM JSON output issues.
+created_at: "2026-06-21T10:26:08.148483Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_79a9bad3_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: Added Logger.warning calls in try_extract_json/1 when both JSON parse attempts fail — logs extracted text, sanitized text (first 300 chars each), and raw parse error for debugging LLM JSON output issu
+tags:
+  - feedback
+  - learning
+title: Key learning from task 79a9bad3
+triggers: []
+updated_at: "2026-06-21T10:26:08.148498Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

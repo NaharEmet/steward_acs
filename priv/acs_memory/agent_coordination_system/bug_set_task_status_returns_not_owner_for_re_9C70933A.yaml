@@ -1,0 +1,28 @@
+content: "acs.ex: set_task_status/3 pattern match `when locked_by != agent_id` matched nil locked_by_agent, causing false :not_owner for already-released tasks. Fix: add `not is_nil(locked_by)` guard to the cross-agent check."
+created_at: "2026-06-20T19:04:35.089980Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_set_task_status_returns_not_owner_for_re_9C70933A
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system
+status: proposed
+summary:
+tags:
+  - acs
+  - set_task_status
+  - not_owner
+title: "set_task_status returns :not_owner for released tasks"
+triggers: []
+updated_at: "2026-06-20T19:04:35.089990Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

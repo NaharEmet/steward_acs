@@ -1,0 +1,28 @@
+content: "Anantha-specific MCP tools (anantha_search_memory, anantha_get_synthesis, etc.) and AnanthaQuery module are gated behind a config flag: config :steward_acs, :anantha_tools_enabled, true. Default is false. The dispatch in tools.ex checks anantha_tools_enabled?/0 before calling AnanthaQuery handlers, returning {:error, \"Anantha tools not enabled\"} when disabled."
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_anantha_tools_gated_behind_anantha_tools_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/tools
+status: approved
+summary:
+tags:
+  - anantha
+  - config-gating
+  - optional-tools
+  - mcp
+title: "Anantha tools gated behind :anantha_tools_enabled config flag"
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.990995Z"
+  approved_by: human
+  status: approved

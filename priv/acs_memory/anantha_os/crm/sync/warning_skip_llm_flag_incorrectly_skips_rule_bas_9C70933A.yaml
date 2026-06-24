@@ -1,0 +1,30 @@
+content: "The `skip_llm: true` flag in CRM sync (set by default in `SyncEngine` at `lib/anantha_os/crm/sync_engine.ex:130`) skips ALL claim extraction including the rule-based `ClaimExtractor.batch_extract_and_store` which does NOT use LLM — it uses field classifiers and semantic rules from YAML config files. This is a bug: the flag's name suggests only LLM-based extraction would be skipped, but the conditional at `lib/anantha_os/crm.ex` in `process_crm_records_batch/3` gates on `config[:skip_llm]` being truthy, which causes zero claims to be created during normal HubSpot API sync runs. To fix: either rename the flag to something like `skip_extraction` or change the conditional to only skip LLM calls and always run `ClaimExtractor.batch_extract_and_store`."
+created_at: "2026-06-20T17:03:22.109247Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_skip_llm_flag_incorrectly_skips_rule_bas_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/sync
+status: proposed
+summary:
+tags:
+  - crm
+  - claim-extraction
+  - skip_llm
+  - bug
+  - sync-engine
+title: skip_llm flag incorrectly skips rule-based claim extraction
+triggers: []
+updated_at: "2026-06-20T17:03:22.109254Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

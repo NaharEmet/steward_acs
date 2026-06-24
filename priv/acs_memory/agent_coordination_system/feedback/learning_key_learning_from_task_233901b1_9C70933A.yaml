@@ -1,0 +1,27 @@
+content: "Two issues found in logs: 1) ToolRegistry.call_tool/2 used default 5s GenServer.call timeout, too short for exec_command (90s). Fix: explicit 180_000ms timeout. 2) LLM Auditor crashes when nim provider config lacks `suppress_thinking` key — config[:suppress_thinking] returns nil which fails `and` (strict boolean). Source already fixed, just needs recompile."
+created_at: "2026-06-20T19:42:44.307619Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_233901b1_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "Two issues found in logs: 1) ToolRegistry.call_tool/2 used default 5s GenServer.call timeout, too short for exec_command (90s). Fix: explicit 180_000ms timeout. 2) LLM Auditor crashes when nim provide"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 233901b1
+triggers: []
+updated_at: "2026-06-20T19:42:44.307635Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

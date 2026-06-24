@@ -1,0 +1,27 @@
+content: The Developer auth strategy (Acs.MCP.Plugs.Strategies.Developer) returns `org_id` set to the cluster name. This is intentional — the AuthStrategy behaviour defines `{role, org_id}` return, and for developer-authenticated requests, `org_id` holds the cluster label. The MCP auth plug sets `conn.assigns.agent_cluster = result.org_id`. This means `agent_cluster` and `agent_org_id` have the same value for developer-authenticated requests (the cluster name).
+created_at: "2026-06-19T20:20:50Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_developer_auth_strategy_repurposes_org_i_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/auth
+status: approved
+summary:
+tags:
+  - developer
+  - auth
+  - cluster
+title: Developer auth strategy repurposes org_id as cluster
+triggers: []
+updated_at: "2026-06-19T20:21:01Z"
+verification:
+  approved_at: "2026-06-19T20:21:01.602349Z"
+  approved_by: human
+  status: approved

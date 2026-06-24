@@ -1,0 +1,27 @@
+content: "CRM sync resource governance uses two layers: configurable limits via Application.get_env and Memory Resource Governor via :erlang.memory checks. When adding patterns from Application.compile_env to module attributes, ensure all code references use the new attribute names (e.g., @default_page_size vs @page_size). Private functions with defaults that are always called explicitly will trigger 'defaults never used' warnings."
+created_at: "2026-06-21T18:16:59.438733Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_80299d74_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: config
+status: proposed
+summary: "CRM sync resource governance uses two layers: configurable limits via Application.get_env and Memory Resource Governor via :erlang.memory checks. When adding patterns from Application.compile_env to m"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 80299d74
+triggers: []
+updated_at: "2026-06-21T18:16:59.438744Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

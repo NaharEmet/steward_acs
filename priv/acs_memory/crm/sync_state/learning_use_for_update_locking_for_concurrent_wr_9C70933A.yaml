@@ -1,0 +1,51 @@
+content: |
+  When multiple parallel syncs (Task.async_stream with max_concurrency) read and write the same IngestionSource config, non-atomic read-modify-write causes lost updates. Always use `Repo.transaction` with `lock("FOR UPDATE")` when reading IngestionSource for writes. The pattern:
+  
+  ```
+  defp lock_source!(org_id, source) do
+    source =
+      IngestionSource
+      |> where([s], s.org_id == ^org_id and s.source_type == ^source)
+      |> lock("FOR UPDATE")
+      |> Repo.one()
+  
+    if is_nil(source) do
+      Repo.rollback(:source_not_found)
+    end
+  
+    source
+  end
+  ```
+  
+  Read-only operations (get_state, get_entity_states, source_has_any_state?) can stay optimistic with a plain Repo.one().
+  
+  This was applied to Anantha.CRM.SyncState: update_cursor/4, update_metadata/4, and update_entity_states/4 now use transaction + FOR UPDATE, preventing concurrent syncs from overwriting each other's changes.
+created_at: "2026-06-20T12:54:58.218473Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_use_for_update_locking_for_concurrent_wr_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync_state
+status: proposed
+summary:
+tags:
+  - crm
+  - sync
+  - locking
+  - race-condition
+  - for-update
+title: Use FOR UPDATE locking for concurrent write operations on IngestionSource config
+triggers: []
+updated_at: "2026-06-20T12:54:58.218488Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

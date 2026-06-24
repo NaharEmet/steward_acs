@@ -1,0 +1,27 @@
+content: "OperationLogger zero-data bug: DateTime.utc_now() struct passed as raw SQL param to Ecto.Adapters.SQL.query/4. Exqlite can't encode DateTime structs in raw queries. Fixed by converting to ISO 8601 string. Also added consecutive failure tracking with ERROR logging at 3+ failures and buffer drop warnings."
+created_at: "2026-06-20T17:12:03.191442Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_3fd06454_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.meta_harness
+status: proposed
+summary: "OperationLogger zero-data bug: DateTime.utc_now() struct passed as raw SQL param to Ecto.Adapters.SQL.query/4. Exqlite can't encode DateTime structs in raw queries. Fixed by converting to ISO 8601 str"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 3fd06454
+triggers: []
+updated_at: "2026-06-20T17:12:03.191456Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

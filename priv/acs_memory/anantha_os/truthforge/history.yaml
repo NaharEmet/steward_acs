@@ -1,0 +1,36 @@
+content: |
+  Truthforge.History stores run evaluations in two layers:
+  1. ETS table `:truthforge_history` for fast in-memory read/write during a session
+  2. JSON files in `truthforge_data/history/{run_id}.json` for durable cross-session persistence
+  
+  On init, it scans the history directory and loads all JSON files into ETS. On save, it writes to ETS AND to disk. This matches the PatternStore pattern used elsewhere in the project.
+  
+  ScoreCard and ScoreTrend structs are currently defined inline within History (as sub-modules) but should be extracted to Anantha.Truthforge.Scoring when that module needs them.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_truthforge_history_module_uses_dual_ets_json_persi
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/truthforge/history
+status: approved
+summary:
+tags:
+  - truthforge
+  - history
+  - persistence
+  - ets
+title: Truthforge History module uses dual ETS+JSON persistence pattern
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.051841Z"
+  approved_by: human
+  status: approved

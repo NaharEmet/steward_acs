@@ -1,0 +1,36 @@
+content: |
+  Several test files in Anantha OS fail in the full `mix precommit` suite because they query database tables without org/scope filtering. Data created by one test file leaks into another test file's queries. The fix pattern is to add `setup` blocks that clean up the affected tables using `Repo.delete_all` before each test. This is safe because `DataCase` wraps each test in a transaction (for `async: false`) which is rolled back after the test, so cleanup only affects the current test.
+  
+  Tables affected: ExtractionEvaluation (queried by ObservabilityReportGenerator.generate/1 and ObservabilityRunner.last_evaluated_at/1 without org filter), Synthesis and Hypothesis (queried by CognitionProcessor.transition_synthesis_states/1 and generate_hypotheses_from_syntheses/1 without org filter), LlmCallMetric and ExecutionStep (queried by ToolStatsAggregator.run/1).
+  
+  Also, when using `trigger_workflow`, always pass `sandbox_owner: self()` to avoid DBConnection.OwnershipError in tests.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_cross_file_test_isolation_for_ecto_queries_without
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: testing/isolation
+status: approved
+summary:
+tags:
+  - test
+  - isolation
+  - data-case
+  - sandbox
+  - ecto
+  - data-leakage
+title: Cross-file test isolation for Ecto queries without org filter
+triggers: []
+updated_at: "2026-06-19T14:00:07Z"
+verification:
+  approved_at: "2026-06-19T14:00:07.965068Z"
+  approved_by: human
+  status: approved

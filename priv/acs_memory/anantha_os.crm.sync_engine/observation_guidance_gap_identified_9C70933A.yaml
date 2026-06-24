@@ -1,0 +1,27 @@
+content: No guidance specific to the HubSpot rate limiting issue was provided. Relevant knowledge about the token bucket rate limiter and sync engine architecture would help.
+created_at: "2026-06-20T13:10:56.786913Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_guidance_gap_identified_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm.sync_engine
+status: proposed
+summary: No guidance specific to the HubSpot rate limiting issue was provided. Relevant knowledge about the token bucket rate limiter and sync engine architecture would help.
+tags:
+  - feedback
+  - observation
+title: Guidance gap identified
+triggers: []
+updated_at: "2026-06-20T13:10:56.786926Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

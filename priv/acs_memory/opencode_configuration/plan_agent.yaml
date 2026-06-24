@@ -1,0 +1,27 @@
+content: The `plan` agent in `.opencode/opencode.json` has been configured with a prompt that instructs it to write implementation plans to the `plans/` directory using `plans/<topic>_plan.md` naming convention. The plan agent cannot write files directly — it delegates file writing to `scribe` via the `task` tool. The plan-protocol and plan-review skills were updated to reference `plans/` instead of `PLAN.md`.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_plan_agent_outputs_to_plans_directory
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: opencode_configuration/plan_agent
+status: approved
+summary:
+tags:
+  - plan-agent
+  - opencode-config
+  - plans-directory
+title: Plan agent outputs to plans/ directory
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.606545Z"
+  approved_by: human
+  status: approved

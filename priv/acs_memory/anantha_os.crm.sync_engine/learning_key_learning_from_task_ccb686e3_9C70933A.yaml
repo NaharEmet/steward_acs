@@ -1,0 +1,27 @@
+content: "HubSpot rate limiting fix: added exponential backoff (500ms base, 10s cap) using process dictionary to track consecutive rate limit hits per org_id. Also added 300ms pacing delay between page fetches to smooth request rate. The 429 handlers now use max(Retry-After, exponential backoff). Counter resets on success."
+created_at: "2026-06-20T13:10:56.646223Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_ccb686e3_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm.sync_engine
+status: proposed
+summary: "HubSpot rate limiting fix: added exponential backoff (500ms base, 10s cap) using process dictionary to track consecutive rate limit hits per org_id. Also added 300ms pacing delay between page fetches "
+tags:
+  - feedback
+  - learning
+title: Key learning from task ccb686e3
+triggers: []
+updated_at: "2026-06-20T13:10:56.646236Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,38 @@
+content: |
+  When ingesting historical CRM data (e.g., deals from HubSpot), claims for new field values should use the record's `created_at` timestamp as `valid_from` instead of `DateTime.utc_now()`. This enables correct temporal queries on historical data. The pattern is:
+  
+  1. Extract ISO 8601 `created_at` from raw_payload in `build_claim_specs/7`
+  2. Parse it with `DateTime.from_iso8601/1`, falling back to `nil`
+  3. In `store_claim_with_temporal/2`, use `close_active_claim/4` returning a boolean:
+     - `true` (an active claim was closed → update) → use `now`
+     - `false` (no active claim → first-time) → use `source_timestamp` from claim_spec
+  4. Access `source_timestamp` via `claim_spec[:source_timestamp]` (keyword access with default nil)
+created_at: "2026-06-20T19:05:34.134570Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_using_source_created_at_for_initial_clai_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/claim_extraction
+status: proposed
+summary:
+tags:
+  - crm
+  - claim_extractor
+  - temporal
+  - historical_data
+  - hubspot
+title: Using source_created_at for initial claim valid_from in CRM ingestion
+triggers: []
+updated_at: "2026-06-20T19:05:34.134591Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,65 @@
+content: |
+  ## CRM Batch Pipeline Fixes
+  
+  ### Fix 1: SyncState Race Condition
+  All write functions (`update_cursor`, `update_metadata`, `update_entity_states`) now use `Repo.transaction` with `FOR UPDATE` lock. This prevents parallel syncs from overwriting each other's state.
+  
+  Affected file: `lib/anantha_os/crm/sync_state.ex`
+  
+  ### Fix 2: Skip LLM Extraction for Bulk CRM Sync
+  Added `skip_llm: true` config option to `sync_object_type`. When set, `process_crm_records_batch` skips `ClaimExtractor.batch_extract_and_store` and `fire_event_extraction`. Bulk CRM syncs don't need LLM-based claim extraction.
+  
+  Affected files: `lib/anantha_os/crm.ex`, `lib/anantha_os/crm/sync_engine.ex`
+  
+  ### Fix 3: Engagement Object Search Date Property
+  Changed `search_date_property` for notes, calls, emails, meetings, tasks from `createdate` → `hs_lastmodifieddate`. The original issue was a Search API schema mismatch — HubSpot Search API needs `hs_lastmodifieddate` for engagement type-specific filtering.
+  
+  Affected file: `lib/anantha_os/crm/sync_engine/hub_spot.ex`
+  
+  ### Fix 4: Batch Task Timeout
+  Changed `timeout: 60_000` → `timeout: :infinity` in `Task.async_stream` for batch processing. With 100+ chunks (4994 records / 50 per chunk), sequential waves of 5 parallel tasks hit the 60s per-chunk timeout.
+  
+  Affected file: `lib/anantha_os/crm/sync_engine.ex:235`
+  
+  ### Sync Results for Org '3'
+  Total: 11,876 records across 9 types in ~6 minutes:
+  - companies: 1,425 ✅
+  - deals: 1,398 ✅
+  - contacts: 4,992 ✅
+  - notes: 157 ✅
+  - calls: 3,904 ✅
+  - emails: 0 (window) ✅
+  - meetings: 0 (window) ✅
+  - tasks: 0 (window) ✅
+  - quotes: 0 (no data) ✅
+  
+  ### Known Issue
+  `SyncState.update_metadata` uses atom keys (e.g., `record_count: 0`) but the sync engine check expects string keys (`state["synced_at"]`). This means `update_metadata` key-value pairs are stored but not readable by string-key accessors. Not blocking — sync worked correctly.
+created_at: "2026-06-20T16:01:46.516085Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_batch_pipeline_and_search_api_fixes__9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync-engine
+status: proposed
+summary: "4 fixes enabled full CRM sync: SyncState race condition (FOR UPDATE lock), skip_llm, hs_lastmodifieddate for engagement objects, timeout:infinity"
+tags:
+  - crm
+  - sync-engine
+  - batch-processing
+  - hubspot
+title: CRM batch pipeline and search API fixes for org setup
+triggers: []
+updated_at: "2026-06-20T16:01:46.516101Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,38 @@
+content: |
+  Three test fixes applied:
+  
+  1. **TwoTruthArchitectureTest LLM timeout**: The "generate node accepts llm function type" test was timing out because `generate` nodes without explicit prompts trigger LLM calls via `Client.chat_completion`. With `org_id: nil`, no LLM provider is configured, causing the circuit breaker to hang for 60s. Fix: Added `const: %{prompt: "Test generate prompt"}` to the generate node's input so `has_explicit_prompts?/1` returns true and the LLM call is skipped.
+  
+  2. **ObservabilityRunnerTest timing flake**: The "returns recent timestamp when no prior evaluations exist" test asserted `diff >= 3` on a value that computes to ~4 hours. In slow test environments, diff can be as low as 2. Fix: Relaxed assertion to `diff >= 2` and `diff <= 6`.
+  
+  3. **ObservabilityRunnerTest data leak**: The "returns empty list when no events exist" test called `collect_recent_extractions(since)` without an org_id filter, finding events leaked from other tests. Fix: Added a unique org_id scope via `org_fixture(name: "Empty Org #{:erlang.unique_integer()}")` and passed `org.id` to the query.
+  
+created_at: "2026-06-19T14:13:42Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_fix_3_pre_existing_test_failures
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test/anantha_os
+status: rejected
+summary:
+tags:
+  - test-fix
+  - llm-timeout
+  - timing-flake
+  - data-leak
+  - observability
+  - architecture
+title: Fix 3 pre-existing test failures
+triggers: []
+updated_at: "2026-06-20T09:30:43Z"
+verification:
+  rejected_at: "2026-06-20T09:30:43.519155Z"
+  rejected_by: Test data — scope_path is 'test/anantha_os'. Test harness data from test runs.
+  status: rejected

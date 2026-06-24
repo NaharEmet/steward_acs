@@ -1,0 +1,30 @@
+content: "The batch path in ClaimExtractor (store_claims_batch → create_claims_batch) now correctly uses source_timestamp for first-time claims, matching the single-record path. Before the fix, the batch path always set valid_from = now_iso for ALL claims (including initial ones), because the bulk pre-emptive close loses per-spec tracking. The fix adds a query BEFORE the bulk close that finds which (subject, predicate) pairs have active claims (stored as a MapSet), then uses that to decide: if the pair had an active claim (update), valid_from = now_iso; if not (initial), valid_from = source_timestamp (the record's created_at from raw_payload), with fallback to now_iso if source_timestamp is nil. Full microsecond precision is preserved via DateTime.to_iso8601/1 without truncation."
+created_at: "2026-06-20T19:42:20.673954Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_batch_path_temporal_date_fix_in_claimext_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/claim_extractor
+status: proposed
+summary:
+tags:
+  - crm
+  - claim-extractor
+  - temporal
+  - valid_from
+  - batch
+title: Batch path temporal date fix in ClaimExtractor
+triggers: []
+updated_at: "2026-06-20T19:42:20.673967Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: "HubSpot engagement types (notes, calls, emails, meetings, tasks) require `hs_createdate` not `createdate` for search API date filtering. The search API returns 400 for `createdate` filters on these types. Fixed in `lib/anantha_os/crm/sync_engine/hub_spot.ex:55`. Also: pipeline discovery failed with 403 because tickets scope is missing from this API key - this is normal for limited-scope keys. The sync engine's `sync_object_type` always sets `since` for first syncs (5-month lookback), forcing search API usage - no way to bypass via config because `update_cursor` and `update_metadata` always set `synced_at` to current UTC time."
+created_at: "2026-06-21T17:54:32.232188Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_d3a9d4a9_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: HubSpot engagement types (notes, calls, emails, meetings, tasks) require `hs_createdate` not `createdate` for search API date filtering. The search API returns 400 for `createdate` filters on these ty
+tags:
+  - feedback
+  - learning
+title: Key learning from task d3a9d4a9
+triggers: []
+updated_at: "2026-06-21T17:54:32.232196Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

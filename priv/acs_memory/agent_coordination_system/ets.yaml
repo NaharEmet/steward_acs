@@ -1,0 +1,47 @@
+content: |
+  Creating a named ETS table using `if :ets.info(table) == :undefined, do: :ets.new(...)` has a TOCTOU race condition. When multiple concurrent processes check `:ets.info` simultaneously, both see `:undefined` and both attempt `:ets.new`. The second call crashes with `ArgumentError`.
+  
+  **Safe pattern:** Use `try/rescue` around `:ets.new`:
+  ```elixir
+  case :ets.info(:my_table, :name) do
+    :undefined ->
+      try do
+        :ets.new(:my_table, [:set, :public, :named_table])
+      rescue
+        ArgumentError -> :ok
+      end
+    _ ->
+      :ok
+  end
+  ```
+  
+  Also, ETS tables used for rate limiting must delete expired entries to prevent unbounded growth. Use `:ets.select_delete/2` before `:ets.select/2` to clean old entries.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_ets_named_table_creation_with_check_then_create_is
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/ets
+status: approved
+summary:
+tags:
+  - ets
+  - concurrency
+  - race-condition
+  - rate-limiter
+  - memory-leak
+title: ETS named table creation with check-then-create is not concurrent-safe
+triggers: []
+updated_at: "2026-06-19T13:59:57Z"
+verification:
+  approved_at: "2026-06-19T13:59:57.989791Z"
+  approved_by: human
+  status: approved

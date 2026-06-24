@@ -1,0 +1,28 @@
+content: "`extract_balanced_json/1` in `Acs.LLM` had a double closing brace bug. `find_balanced/4` already includes closing `}` in its return when count==1. But `extract_balanced_json` wrapped it with another `}`, producing `}}` at end. Fix: use `\"{\" <> find_balanced(...)` instead of `\"{#{find_balanced(...)}}\"`."
+created_at: "2026-06-21T11:11:24.956869Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_double_closing_brace_in_extract_balanced_9C70933A
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - json
+  - extraction
+  - bug
+title: Double closing brace in extract_balanced_json caused malformed JSON
+triggers: []
+updated_at: "2026-06-21T11:11:24.956879Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

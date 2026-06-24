@@ -1,0 +1,27 @@
+content: ACS exec command had internal server error preventing direct git commands, but delegated to coder successfully.
+created_at: "2026-06-20T12:34:23.491629Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_bc92e135_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: ACS exec command had internal server error preventing direct git commands, but delegated to coder successfully.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task bc92e135
+triggers: []
+updated_at: "2026-06-20T12:34:23.491650Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

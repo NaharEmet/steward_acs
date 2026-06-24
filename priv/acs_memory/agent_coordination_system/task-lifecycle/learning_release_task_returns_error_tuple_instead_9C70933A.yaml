@@ -1,0 +1,29 @@
+content: "In `release_task/2`, when the task's `locked_by_agent` is nil, return `{:error, :task_not_claimed}` instead of `{:ok, nil}`. The `{:ok, nil}` was matched as success by `core_handlers.ex` (`{:ok, _task}` pattern), causing agents to believe the task was released when it wasn't."
+created_at: "2026-06-23T07:29:42.743487Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_release_task_returns_error_tuple_instead_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/task-lifecycle
+status: proposed
+summary:
+tags:
+  - acs
+  - release_task
+  - error-handling
+  - fail-fast
+title: release_task returns error tuple instead of silent nil
+triggers: []
+updated_at: "2026-06-23T07:29:42.743498Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

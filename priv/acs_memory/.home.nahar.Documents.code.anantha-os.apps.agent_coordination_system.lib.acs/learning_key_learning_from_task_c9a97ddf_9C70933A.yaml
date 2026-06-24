@@ -1,0 +1,27 @@
+content: "Acs.LLM needs nil guards at 3 levels: extract_json_content(nil), try_extract_json(nil), try_reasoning_content(nil). Reasoning model responses can have nil content even with Map.get default. Added 4-stage JSON extraction cascade: strip thinking tags → markdown blocks → balanced braces → regex for known keys. Server needed recompile after nil guard addition."
+created_at: "2026-06-20T12:56:55.712853Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_c9a97ddf_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs
+status: proposed
+summary: "Acs.LLM needs nil guards at 3 levels: extract_json_content(nil), try_extract_json(nil), try_reasoning_content(nil). Reasoning model responses can have nil content even with Map.get default. Added 4-st"
+tags:
+  - feedback
+  - learning
+title: Key learning from task c9a97ddf
+triggers: []
+updated_at: "2026-06-20T12:56:55.712872Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

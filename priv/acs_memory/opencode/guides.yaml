@@ -1,0 +1,28 @@
+content: AGENTS.md was refactored from 802 lines to 174 lines by distributing Elixir, Phoenix, Ecto, Mix, knowledge memory, cognition specs, and logging content into 5 new guide files under .opencode/guides/. The guides table in both AGENTS.md and READING.md was updated to reference all 7 guides. Test anti-patterns were appended to test-execution.md.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_agents_md_refactoring_completed
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: opencode/guides
+status: approved
+summary:
+tags:
+  - refactoring
+  - documentation
+  - AGENTS.md
+  - guides
+title: AGENTS.md refactoring completed
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.562253Z"
+  approved_by: human
+  status: approved

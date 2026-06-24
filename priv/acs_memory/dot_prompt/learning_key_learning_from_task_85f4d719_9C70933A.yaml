@@ -1,0 +1,27 @@
+content: 13 modules documented with proper @moduledoc. Keep @moduledoc false + inline comment for Application modules with standard OTP patterns. DotPrompt compiler+AST, extraction worker modules, and ACS tool handlers were the main undocumented modules.
+created_at: "2026-06-21T14:13:38.971213Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_85f4d719_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: dot_prompt
+status: proposed
+summary: 13 modules documented with proper @moduledoc. Keep @moduledoc false + inline comment for Application modules with standard OTP patterns. DotPrompt compiler+AST, extraction worker modules, and ACS tool
+tags:
+  - feedback
+  - learning
+title: Key learning from task 85f4d719
+triggers: []
+updated_at: "2026-06-21T14:13:38.971230Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

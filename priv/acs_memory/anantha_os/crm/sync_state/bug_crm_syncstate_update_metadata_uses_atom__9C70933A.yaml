@@ -1,0 +1,32 @@
+content: |
+  `SyncState.update_metadata/4` receives metadata with atom keys (`%{record_count: 4992, status: "success"}`). But `Map.merge(current, merged_metadata)` where current has string keys from DB (`%{"record_count" => 0}`) keeps BOTH key types. The atom-keyed value never overwrites the string-keyed value. After JSON serialization, the string key (0) may persist, making the DB show `record_count: 0` even when records were synced.
+  
+  Fix: convert metadata keys to strings before merging: `Map.new(metadata, fn {k, v} -> {to_string(k), v} end)` then merge with current.
+created_at: "2026-06-20T16:00:33.094911Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_crm_syncstate_update_metadata_uses_atom__9C70933A
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/sync_state
+status: proposed
+summary:
+tags:
+  - crm
+  - sync-state
+  - record-count
+  - metadata
+title: CRM SyncState update_metadata uses atom keys, fails to overwrite string-keyed record_count
+triggers: []
+updated_at: "2026-06-20T16:00:33.094920Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

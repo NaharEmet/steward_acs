@@ -1,0 +1,27 @@
+content: Dispatch maps replace case for tool routing. Rescue blocks removed where functions already return ok/error tuples. File.write/2 and mkdir_p/1 preferred over bang variants. to_existing_atom with validation safer than dynamic atoms. Boolean && converted to and in guard contexts.
+created_at: "2026-06-21T13:16:34.993529Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_3ba2e1cb_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.mcp
+status: proposed
+summary: Dispatch maps replace case for tool routing. Rescue blocks removed where functions already return ok/error tuples. File.write/2 and mkdir_p/1 preferred over bang variants. to_existing_atom with valida
+tags:
+  - feedback
+  - learning
+title: Key learning from task 3ba2e1cb
+triggers: []
+updated_at: "2026-06-21T13:16:34.993545Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

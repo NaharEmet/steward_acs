@@ -1,0 +1,62 @@
+content: |
+  ## LLM-Cited Provenance Chain Verification
+  
+  Verified end-to-end implementation of LLM-cited provenance across memory extraction layers:
+  
+  ### Chain Summary
+  
+  1. **ObservationExtractor** (Layer 1.5): Base layer - observations cite content snippets via `content_citations` and `semantic_signal_citations` (not IDs, since they are the foundation)
+  
+  2. **ClaimExtractor** (Layer 2): Claims cite observation IDs via `cited_observation_ids` in prompt (lines 63-67, 112-116 of claims.prompt) and response parsing (line 235, 292-322 of claim_extractor.ex)
+  
+  3. **MemoryExtractor**: Uses LLM-cited observation IDs with backward-compat fallback to first observation (lines 400-410, 706-716 of memory_extractor.ex). Creates relationships using cited IDs.
+  
+  4. **SynthesisExtractor** (Layer 2.5): Syntheses cite claim IDs via `cited_claim_ids` (system prompt line 49, prompt lines 273-276, response parsing line 182)
+  
+  5. **CognitionProcessor**: Uses `cited_claim_ids` from synthesis with fallback to all cluster claims (lines 400-415). Creates layer relationships with cited IDs (lines 428-448).
+  
+  ### Backward Compatibility
+  
+  All layers have fallbacks when LLM doesn't provide citations:
+  - ClaimExtractor → returns empty `cited_observation_ids` array
+  - MemoryExtractor → falls back to first observation ID (lines 407-410)
+  - SynthesisExtractor → returns empty `cited_claim_ids`
+  - CognitionProcessor → falls back to all cluster claim IDs (lines 408-415)
+  
+  ### Test Coverage Gap
+  
+  Tests don't explicitly verify `cited_claim_ids` or `cited_observation_ids` parsing/usage. The functionality is implemented but not exercised by unit tests.
+  
+  ### Verification Status
+  
+  - Compilation: PASS (no warnings)
+  - Tests: 72 tests, 0 failures
+  - Error logs: Pre-existing ANT compiler errors (unrelated to memory extractors)
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_llm_cited_provenance_chain_implementation_verified
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/provenance_chain
+status: approved
+summary: LLM-cited provenance chain verified complete with backward compatibility
+tags:
+  - memory
+  - provenance
+  - llm-citations
+  - extraction
+title: LLM-cited provenance chain implementation verified
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.313819Z"
+  approved_by: human
+  status: approved

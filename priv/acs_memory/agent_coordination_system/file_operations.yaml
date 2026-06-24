@@ -1,0 +1,28 @@
+content: Elixir's File module does not have a `realpath/1` function. To resolve symlinks in a path, use `System.cmd("readlink", ["-f", "--", path])` with fallback to `Path.expand(path)` if readlink fails. This is the standard approach for Linux systems.
+created_at: "2026-06-19T17:27:53.038701Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_file_realpath_1_not_available_in_elixir__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/file_operations
+status: proposed
+summary:
+tags:
+  - symlink
+  - realpath
+  - path-resolution
+  - elixir
+title: File.realpath/1 not available in Elixir - use readlink -f instead
+triggers: []
+updated_at: "2026-06-19T17:27:53.038708Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

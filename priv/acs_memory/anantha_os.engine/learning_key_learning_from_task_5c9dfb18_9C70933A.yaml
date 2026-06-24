@@ -1,0 +1,27 @@
+content: try/rescue for expected errors (Ecto, HTTP, JSON) should use case/with pattern matching instead. Keep try/rescue only for GenServer callbacks and Task bodies where the callback must not crash. Use function-level rescue wrappers (safe_do_work pattern) to keep callbacks clean.
+created_at: "2026-06-21T14:13:34.947101Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_5c9dfb18_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.engine
+status: proposed
+summary: try/rescue for expected errors (Ecto, HTTP, JSON) should use case/with pattern matching instead. Keep try/rescue only for GenServer callbacks and Task bodies where the callback must not crash. Use fun
+tags:
+  - feedback
+  - learning
+title: Key learning from task 5c9dfb18
+triggers: []
+updated_at: "2026-06-21T14:13:34.947117Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

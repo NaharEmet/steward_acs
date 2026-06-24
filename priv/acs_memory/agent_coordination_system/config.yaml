@@ -1,0 +1,28 @@
+content: "Application.compile_env in Repo modules captures adapter at compile time. runtime.exs configuration of `:repo_adapter` has no effect. The adapter must be set in per-environment config files (dev.exs, test.exs, prod.exs) where compile_env can read it at build time."
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_pg_migration_compile_env_adapter_ove_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/config
+status: approved
+summary:
+tags:
+  - adapter
+  - compile_env
+  - runtime.exs
+  - ecto
+title: "ACS PG migration: compile_env adapter override must be in config/*.exs, not runtime.exs"
+triggers: []
+updated_at: "2026-06-19T14:00:09Z"
+verification:
+  approved_at: "2026-06-19T14:00:09.106383Z"
+  approved_by: human
+  status: approved

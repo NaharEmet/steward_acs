@@ -1,0 +1,27 @@
+content: escape_newlines_in_strings/1 in acs/llm.ex was already correct - all six clauses produce the right escaping. Clause 1 (`"\\n"` → `\n` backslash+n pass-through), Clause 2 (`"\\\\"` → `\\` double-backslash pass-through), Clause 3 (`"\\\""` → `\"` backslash+quote pass-through), Clause 4 (`"\""` → `"` quote toggle), Clause 5 (`"\\n"` → `\n` escape literal newline inside string), Clause 6 (`"\n"` → literal newline outside string). Compiles clean with zero warnings.
+created_at: "2026-06-20T19:44:18.820993Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_220bfee1_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: escape_newlines_in_strings/1 in acs/llm.ex was already correct - all six clauses produce the right escaping. Clause 1 (`"\\n"` → `\n` backslash+n pass-through), Clause 2 (`"\\\\"` → `\\` double-backsl
+tags:
+  - feedback
+  - learning
+title: Key learning from task 220bfee1
+triggers: []
+updated_at: "2026-06-20T19:44:18.821028Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

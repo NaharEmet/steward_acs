@@ -1,0 +1,41 @@
+content: |
+  ## MCP Tool Gateway Split Pattern
+  
+  For files with case-dispatch architecture (tool name → handler), split by category:
+  1. Keep dispatch layer in main file (`call_tool/2`, `list_tools/0`, shared helpers like `tool_def`, `tool_response_summary`, `tool_action_summary`)
+  2. Extract handler implementations into sub-modules by category: `CoreHandlers`, `MemoryHandlers`, `ErrorHandlers`, `DiagnosticHandlers`
+  3. Change handlers from `defp` to `def` (cross-module visibility)
+  4. Each sub-module declares its own aliases/imports
+  5. Update call_tool/2 dispatch to delegate with `Module.handler(args)` syntax
+  
+  Key insight: MCP tool gateways have a natural split boundary at the dispatch level. The dispatch `case` maps directly to category modules via the tool name → handler mapping.
+  
+  ### Results:
+  - Acs.MCP.Tools: 2255 → 734 lines (67% reduction)
+  - 4 new focused handler modules created
+  - 2 external callers updated (http_server.ex, stdio_server.ex)
+  - Zero compilation errors
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_mcp_tool_gateway_split_by_category
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: codebase/refactoring/mcp-tools-split
+status: approved
+summary: Split large MCP handler modules into focused sub-modules by category
+tags: []
+title: MCP tool gateway split by category
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.361683Z"
+  approved_by: human
+  status: approved

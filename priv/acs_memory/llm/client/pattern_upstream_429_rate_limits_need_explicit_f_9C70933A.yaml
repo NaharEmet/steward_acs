@@ -1,0 +1,41 @@
+content: |
+  ## Upstream 429 Rate Limit Fallback Pattern
+  
+  When calling upstream LLM providers, HTTP 429 responses are returned as `{:error, {:rate_limited, msg, retry_after}}` from `handle_response/1`. These must be explicitly pattern-matched in `do_chat_completion` before the catch-all `other -> other` clause to trigger `FallbackRouter.model_fallback`.
+  
+  The three provider-specific `do_chat_completion` functions (nim/minimax/mimo) in `Anantha.LLM.Client` handle `:service_unavailable` and `:timeout` but were missing the rate_limited tuple pattern. Without the explicit clause, 429 errors silently fell through to `other -> other` (which returns the error to the caller) instead of triggering fallback to the next provider.
+  
+  **Pattern**: Always add `{:error, {:rate_limited, _, _}}` alongside `{:error, :service_unavailable}` and `{:error, :timeout}` for upstream rate limits.
+  
+  **Additional**: Use `Logger.warning` (not `Logger.error`) for 429 in `handle_response` — upstream rate limiting is operational, not a bug, and logging at error generates noise in error tracking.
+  
+  Files: `lib/anantha_os/llm/client.ex` (lines 228, 263, 299, 665)
+created_at: "2026-06-20T10:32:00.907534Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_upstream_429_rate_limits_need_explicit_f_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: llm/client
+status: proposed
+summary:
+tags:
+  - rate-limit
+  - "429"
+  - fallback
+  - LLM
+  - provider
+title: Upstream 429 rate limits need explicit fallback clause
+triggers: []
+updated_at: "2026-06-20T10:32:00.907544Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

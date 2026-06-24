@@ -1,0 +1,38 @@
+content: |
+  Transcripts are ingested through the proper `call_transcripts` adapter pipeline via `Anantha.Ingestion.process("call_transcripts", raw_payload)`. The flow is:
+  1. `Ingestion.process/2` retrieves the `CallTranscripts` adapter
+  2. `CallTranscripts.normalize/1` converts the raw payload (with `conversation_id`, `transcript`, `metadata`, optional `segments`) into standardized format
+  3. `Pipeline.ingest/1` parses via `Payload.parse/1` then `Pipeline.process/1`
+  4. Creates an Event (entity_type: "call_transcripts"), EvidenceCluster (source_type: "sales_call")
+  5. Triggers async LLM-based extraction for observations and claims
+  6. The raw payload must include `org_id`, `conversation_id`, `transcript`, and optionally `metadata`, `provider`, `external_actor_id`
+  
+  The same pathway can be triggered via `POST /api/debug/ingest` or `POST /api/ingestion/webhook`.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_call_transcripts_ingestion_through_proper_adapter_
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: ingestion/call_transcripts
+status: approved
+summary:
+tags:
+  - call_transcripts
+  - transcripts
+  - ingestion
+  - pipeline
+title: Call transcripts ingestion through proper adapter pipeline
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.366171Z"
+  approved_by: human
+  status: approved

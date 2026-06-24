@@ -1,0 +1,28 @@
+content: When creating cognition spec YAML files, derive purpose from @moduledoc text, invariants from database scoping guarantees, workflows from principal function flows, and failure_modes from function return clauses. Every spec requires at least 2 invariants, 2 workflows, and 2 failure_modes. Ensure colon-space is avoided in purpose strings or quoted to prevent YAML parsing errors.
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_bulk_yaml_cognition_spec_creation_patterns
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/core
+status: approved
+summary:
+tags:
+  - cognition
+  - specs
+  - yaml
+  - modules
+title: Bulk YAML cognition spec creation patterns
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.439307Z"
+  approved_by: human
+  status: approved

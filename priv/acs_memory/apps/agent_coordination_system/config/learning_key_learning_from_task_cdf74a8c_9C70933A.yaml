@@ -1,0 +1,26 @@
+content: Developer identity for memory creation flows from ACS_DEVELOPER_NAME env var -> config -> Acs.Cluster.developer_name/0 -> memory_handlers created_by map. Cluster attribution added alongside developer name. The created_by field now uses type "developer" instead of "agent" and includes cluster name. list_memories and search_memories expose created_by by decoding created_by_json field from schema. The decode_created_by helper handles nil, binary JSON, and unexpected types safely.
+created_at: "2026-06-20T09:20:18.710196Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_key_learning_from_task_cdf74a8c_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: apps/agent_coordination_system/config
+status: proposed
+summary: "Developer identity for memory creation flows from ACS_DEVELOPER_NAME env var -> config -> Acs.Cluster.developer_name/0 -> memory_handlers created_by map. Cluster attribution added alongside developer "
+tags:
+  - feedback
+  - learning
+title: Key learning from task cdf74a8c
+triggers: []
+updated_at: "2026-06-20T09:20:18.710206Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

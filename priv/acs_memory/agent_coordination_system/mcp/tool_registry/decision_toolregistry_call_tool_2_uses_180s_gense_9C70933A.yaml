@@ -1,0 +1,47 @@
+content: |
+  `Acs.MCP.ToolRegistry.call_tool/2` now uses `180_000ms` timeout for `GenServer.call/3` instead of the default 5000ms.
+  
+  ## Context
+  The default `GenServer.call/2` timeout is 5000ms. Long-running MCP tools like `exec_command` (configured timeout 60-90s) would timeout before executing, causing `** (EXIT) time out` errors.
+  
+  ## Decision
+  Changed from `GenServer.call(__MODULE__, {:call_tool, name, args})` (implicit 5s) to `GenServer.call(__MODULE__, {:call_tool, name, args}, 180_000)`.
+  
+  ## Rationale
+  - 180_000ms (3 minutes) covers all current tools with generous headroom
+  - `exec_command` max configured timeout is 90s
+  - Bridge endpoint tools have 30s default timeout
+  - Provides defense-in-depth vs `:infinity` — if a tool's internal timeout mechanism fails, the GenServer won't hang forever
+  - Matches the existing pattern from `refresh/0` which uses custom `30_000ms` timeout
+  - Tool-specific internal timeouts are the primary timeout mechanism; this is a system-level safety net
+  
+  ## Alternative Considered
+  - `:infinity` — rejected because a bug in tool's internal timeout would hang the single-threaded GenServer, blocking all subsequent MCP tool calls
+created_at: "2026-06-20T19:42:31.835619Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: decision_toolregistry_call_tool_2_uses_180s_gense_9C70933A
+importance: 4
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/tool_registry
+status: proposed
+summary:
+tags:
+  - tool_registry
+  - timeout
+  - genserver
+  - exec_command
+title: ToolRegistry.call_tool/2 uses 180s GenServer.call timeout for long-running tools
+triggers: []
+updated_at: "2026-06-20T19:42:31.835630Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

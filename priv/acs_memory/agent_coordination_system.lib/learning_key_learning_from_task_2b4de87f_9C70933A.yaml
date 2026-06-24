@@ -1,0 +1,27 @@
+content: "Always use `lock: \"FOR UPDATE\"` when doing check-then-act patterns inside Repo.transaction. When using pattern matching with guard clauses against DB fields that can be nil, always add `not is_nil()` guards to prevent nil-equals-non-nil false matches."
+created_at: "2026-06-20T19:03:37.003997Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_2b4de87f_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib
+status: proposed
+summary: "Always use `lock: \"FOR UPDATE\"` when doing check-then-act patterns inside Repo.transaction. When using pattern matching with guard clauses against DB fields that can be nil, always add `not is_nil()` "
+tags:
+  - feedback
+  - learning
+title: Key learning from task 2b4de87f
+triggers: []
+updated_at: "2026-06-20T19:03:37.004010Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

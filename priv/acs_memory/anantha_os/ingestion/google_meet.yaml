@@ -1,0 +1,29 @@
+content: "Google Meet's \"take notes for me\" (powered by Gemini) generates Smart Notes artifacts accessible via the Meet REST API at v2beta endpoint: GET /v2beta/conferenceRecords/{id}/smartNotes. The SmartNote resource includes a DocsDestination with document ID and export URI. Smart notes require a Google Workspace with Gemini add-on and appropriate admin settings. The google.workspace.meet.smartNote.v2.fileGenerated Pub/Sub event fires when ready. Smart notes are saved as Google Docs in the organizer's Drive."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_gemini_ai_summaries_smart_notes_are_accessible_via
+importance: 5
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/google_meet
+status: approved
+summary:
+tags:
+  - google-meet
+  - gemini
+  - smart-notes
+  - ai-summary
+  - take-notes-for-me
+title: Gemini AI summaries (Smart Notes) are accessible via Meet API v2beta endpoint
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.443082Z"
+  approved_by: human
+  status: approved

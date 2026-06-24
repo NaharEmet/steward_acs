@@ -1,0 +1,48 @@
+content: |
+  When using `@module_attr Application.compile_env(:app, :key, default)` in a module, the value is resolved at compile time and frozen into the module attribute. Any subsequent `Application.put_env(:app, :key, value)` in test setup blocks will be **silently ignored** because the attribute was already compiled.
+  
+  To make a module's dependency overridable in tests, you MUST either:
+  1. Use `Application.get_env` inside a function (runtime lookup) instead of `Application.compile_env` in a module attribute.
+  2. Or put the test override in `config/test.exs` so it's set before compilation.
+  
+  Example of the hidden bug:
+  ```elixir
+  # BAD — @acs_client is frozen at compile time
+  @acs_client Application.compile_env(:my_app, :client_module, RealClient)
+  # put_env in test setup does nothing!
+  
+  # GOOD — runtime lookup via function
+  defp acs_client, do: Application.get_env(:my_app, :client_module, RealClient)
+  # put_env in test setup works correctly
+  ```
+  
+  Discovered when ErrorMonitor tests failed because `Application.put_env` in setup was silently ignored — the module attribute had already been resolved to the real `AcsClient` at compile time. Fixed by adding the test config to `config/test.exs`.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_application_compile_env_freezes_value_at_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/testing
+status: approved
+summary:
+tags:
+  - elixir
+  - testing
+  - compile_env
+  - module-attributes
+  - application-config
+title: Application.compile_env freezes value at compile time — put_env in test setup is silently ignored
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.567200Z"
+  approved_by: human
+  status: approved

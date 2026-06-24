@@ -1,0 +1,32 @@
+content: |
+  Elixir's `and` is a strict boolean operator — it requires the left side to be literally `true` or `false`. When you write `args[\"key\"] and is_list(args[\"key\"])`, and `args[\"key\"]` is `nil` (because the key doesn't exist), this raises `BadBooleanError`. Always use `&&` instead, which accepts any truthy/falsy value and short-circuits. This applies to all guard/predicate patterns where you're checking for the presence of an optional value before testing its type.
+  
+  Bad: `if (x = map[\"key\"]) and is_list(x) do` → raises BadBooleanError when `map[\"key\"]` is nil
+  Good: `if (x = map[\"key\"]) && is_list(x) do` → safely short-circuits on nil
+created_at: "2026-06-02T15:29:06Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_use_not_and_for_nil_safe_boolean_checks_in_elixir
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acs/mcp/tools
+status: rejected
+summary:
+tags:
+  - elixir
+  - bug-prevention
+  - boolean
+  - nil-safety
+title: Use `&&` not `and` for nil-safe boolean checks in Elixir
+triggers: []
+updated_at: "2026-06-02T15:43:25Z"
+verification:
+  rejected_at: "2026-06-02T15:43:25.167780Z"
+  rejected_by: human
+  status: rejected

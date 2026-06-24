@@ -1,0 +1,30 @@
+content: "When implementing `decode/1` functions that guard with `when is_binary()`, always add a catch-all clause `def decode(_), do: {:error, :invalid_input}` to prevent FunctionClauseError on nil, integers, maps, or other non-binary inputs. This makes the function safe to call with any input type and ensures the error contract is always satisfied."
+created_at: "2026-06-21T12:37:02.685348Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_defensive_decode_with_catch_all_clause_f_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_json/lib/anantha/llm
+status: proposed
+summary:
+tags:
+  - decode
+  - json
+  - defensive
+  - guard-clause
+  - pattern
+title: Defensive decode with catch-all clause for non-binary input
+triggers: []
+updated_at: "2026-06-21T12:37:02.685355Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

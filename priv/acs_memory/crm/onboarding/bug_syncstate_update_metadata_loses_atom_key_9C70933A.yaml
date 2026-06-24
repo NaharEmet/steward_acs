@@ -1,0 +1,35 @@
+content: |
+  Anantha.CRM.SyncState.update_metadata/4 does a direct Map.merge/2 which replaces the entire metadata map. If the existing metadata has atom keys (e.g. :record_count => 1398 inserted by SyncEngine) and the new metadata has string keys (e.g. "deals_synced_at"), the merge replaces the atom-keyed values, causing record_count to appear as 0 in subsequent reads.
+  
+  This is a cosmetic bug — the actual count IS stored in the sync state (in the `metadata` JSONB column), but after a merge, reading via `get_state` may show `record_count: 0` because the atom key `:record_count` was replaced by `"record_count"` or vice versa, depending on how the merge happens.
+  
+  Fix: update_metadata should do a deep merge or preserve existing keys not being overwritten, rather than full replacement. Currently it uses `Map.merge(state, new_meta) or %{}` which replaces all keys.
+created_at: "2026-06-21T13:14:59.183878Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_syncstate_update_metadata_loses_atom_key_9C70933A
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/onboarding
+status: proposed
+summary:
+tags:
+  - sync-state
+  - bug
+  - metadata
+  - Map.merge
+  - atom-keys
+title: SyncState.update_metadata loses atom keys due to Map.merge
+triggers: []
+updated_at: "2026-06-21T13:14:59.183894Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

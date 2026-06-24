@@ -1,0 +1,43 @@
+content: |
+  Elixir 1.19 raises `ArgumentError: invalid expression in match, && is not allowed in patterns` when `&&` is used in a match position within `if` conditions. Example of broken code:
+  ```elixir
+  if condition && var = expr do  # ERROR in Elixir 1.19
+  ```
+  Fix by using `with`:
+  ```elixir
+  with var when not is_nil(var) <- expr do
+    ...
+  else
+    _ -> fallback
+  end
+  ```
+  Or by nesting cases/conditions without `&&` in the match.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_elixir_1_19_disallows_in_match_pattern_p_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/language
+status: approved
+summary:
+tags:
+  - elixir
+  - "1.19"
+  - compilation
+  - match-position
+  - "&&"
+title: Elixir 1.19 disallows && in match/pattern position
+triggers: []
+updated_at: "2026-06-19T14:00:07Z"
+verification:
+  approved_at: "2026-06-19T14:00:07.354499Z"
+  approved_by: human
+  status: approved

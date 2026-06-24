@@ -1,0 +1,28 @@
+content: "The ObservabilityScheduler.trigger/0 and ObservabilityRunner.run/1 support a `mock_responses` option that bypasses real LLM API calls. When `mock_responses: %{...}` is passed in opts, the Evaluator module returns a pre-built response instead of calling the LLM. Use this to avoid rate-limiting and timeouts in tests."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_mock_responses_option_for_llm_mocking_in_observabi
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/meta_harness/observability
+status: approved
+summary: mock_responses option bypasses LLM calls in Evaluator
+tags:
+  - mock
+  - llm
+  - testing
+  - evaluator
+title: mock_responses option for LLM mocking in ObservabilityRunner
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.671843Z"
+  approved_by: human
+  status: approved

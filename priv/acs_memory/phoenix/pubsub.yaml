@@ -1,0 +1,33 @@
+content: "When replacing PII (phone/email) in session IDs with HMAC hashed actor_id, the PubSub subscribe topic in LiveView mount (chat_live/index.ex:26) and the broadcast topic (line 444) must use the same identifier. If subscribe uses `actor.phone` while broadcast uses `full_message.session_id` (= `actor.actor_id`), LiveView silently never receives outbound messages — errors, clarifications, tool responses all lost with zero errors."
+created_at: "2026-06-19T14:29:05.130733Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_session_id_pii_always_match_pubsub_subsc_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix/pubsub
+status: proposed
+summary:
+tags:
+  - pubsub
+  - pii
+  - session-id
+  - phoenix-liveview
+  - chat
+title: "Session ID PII: always match PubSub subscribe+broadcast topics"
+triggers:
+  - Phoenix.PubSub.subscribe
+  - PubSub.subscribe.*phone
+  - session_id.*phone
+  - "webchat:"
+updated_at: "2026-06-19T14:29:05.130744Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

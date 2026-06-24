@@ -1,0 +1,47 @@
+content: |
+  In Phoenix LiveView v1.1.28, `phx-change` on a `<select>` element requires the select to be INSIDE a `<form>` element. The LiveView JavaScript's `pushInput` function explicitly checks `if (!inputEl.form) { throw new Error(...) }` at line 6877 of the bundled app.js. Without a wrapping `<form>`, the change event handler silently fails.
+  
+  The correct pattern for dropdown filters is to put `phx-change` on the `<form>` wrapping the `<select>`:
+  ```html
+  <form phx-change="set_org_filter">
+    <select name="org_id">
+      <option value="" selected={@org_id == nil}>All</option>
+      <%= for {id, name} <- @org_names do %>
+        <option value={id} selected={@org_id == id}><%= name %></option>
+      <% end %>
+    </select>
+  </form>
+  ```
+  
+  The JS handler at line 8287 resolves the event name: `const phxEvent = inputEvent || formEvent` — it checks if the input (select) has `phx-change`, then falls back to checking the form. If neither has it, the event is ignored.
+  
+  Also: lines 8258-8266 show that the event handler checks `e.target.form === void 0` (element not in a form) for CustomEvents, throwing an error if a custom event is dispatched on a form-less element.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_phoenix_liveview_phx_change_requires_select_inside
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix_liveview/phx-change-form-requirement
+status: approved
+summary:
+tags:
+  - phoenix_liveview
+  - phx-change
+  - form
+  - select
+  - js
+title: Phoenix LiveView phx-change requires select inside form element
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.798574Z"
+  approved_by: human
+  status: approved

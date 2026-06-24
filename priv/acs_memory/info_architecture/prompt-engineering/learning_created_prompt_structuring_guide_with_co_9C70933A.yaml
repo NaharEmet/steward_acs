@@ -1,0 +1,33 @@
+content: |
+  Created `.opencode/guides/prompt-structuring.md` as the canonical reference for critical rule phrasing. Covers: compound instruction trap (mandates vs ordering), rule hierarchy (critical → important → guidance → reference), audit checklist for compound patterns, signal-to-noise in critical rules, and a litmus test for new rules.
+  
+  Added principle to IA agent prompt (agent-information-architect.md) as "Critical Rule Phrasing Principles" section.
+  
+  Updated AGENTS.md documentation table to reference the new guide.
+created_at: "2026-06-23T20:00:59.852031Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_created_prompt_structuring_guide_with_co_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: info_architecture/prompt-engineering
+status: proposed
+summary:
+tags:
+  - guide-creation
+  - prompt-engineering
+  - info-architecture
+title: Created prompt-structuring guide with compound instruction principle
+triggers: []
+updated_at: "2026-06-23T20:00:59.852044Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,26 @@
+content: Agent rated guidance as helpful for this task
+created_at: "2026-06-20T09:28:20Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_guidance_rated_as_useful
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test_data
+status: rejected
+summary: Agent rated guidance as helpful for this task
+tags:
+  - feedback
+  - observation
+title: Guidance rated as useful
+triggers: []
+updated_at: "2026-06-20T09:29:27Z"
+verification:
+  rejected_at: "2026-06-20T09:29:27.565686Z"
+  rejected_by: Test data — scope_path is 'test_data'.
+  status: rejected

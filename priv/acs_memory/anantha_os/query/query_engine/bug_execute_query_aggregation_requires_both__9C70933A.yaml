@@ -1,0 +1,37 @@
+content: |
+  Bug 1: In `QueryEngine.run_query` (line 126), the condition `has_agg = length(group_by) > 0 and map_size(aggregates) > 0` uses AND. Passing only `aggregates: %{predicate: "count"}` without `group_by` falls through to rows query, ignoring aggregates entirely.
+  
+  Bug 2: `execute_aggregate_sql` builds raw SQL but `string_keys_to_atoms` converts aggregate field keys to atoms. The `build_agg_sql_columns` function interpolates atoms into SQL as `:predicate` instead of `predicate`, producing invalid SQL like `SUM(:predicate)`.
+  
+  Bug 3: ACS tool handler defaults `aggregates: []` instead of `%{}`.
+  
+  File: `lib/anantha_os/query/query_engine.ex`, lines 126, 239-308.
+  File: `apps/agent_coordination_system/lib/acs/mcp/tools/anantha_query.ex`, line 109.
+created_at: "2026-06-21T19:24:42.409579Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_execute_query_aggregation_requires_both__9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query/query_engine
+status: proposed
+summary:
+tags:
+  - query
+  - aggregation
+  - group_by
+  - bug
+title: execute_query aggregation requires BOTH group_by and aggregates — AND not OR
+triggers: []
+updated_at: "2026-06-21T19:24:42.409587Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

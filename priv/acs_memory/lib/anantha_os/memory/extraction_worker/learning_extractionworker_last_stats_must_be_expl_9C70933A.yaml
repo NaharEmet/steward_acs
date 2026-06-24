@@ -1,0 +1,29 @@
+content: "`ExtractionWorker` GenServer state's `last_stats` field is only updated by the synchronous `handle_call(:trigger)` path. The async path (`process_org_async`) calls `GenServer.cast` to mark completion but was not passing the processed/failed/skipped counts. The handler must accept and accumulate these stats into `state.last_stats` so that `status()` returns accurate data after async processing."
+created_at: "2026-06-20T14:48:34.277517Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_extractionworker_last_stats_must_be_expl_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/memory/extraction_worker
+status: proposed
+summary:
+tags:
+  - extraction_worker
+  - last_stats
+  - genserver
+  - async
+title: ExtractionWorker last_stats must be explicitly passed in async cast
+triggers: []
+updated_at: "2026-06-20T14:48:34.277528Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

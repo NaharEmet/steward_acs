@@ -1,0 +1,45 @@
+content: |
+  Role-based tool visibility and authorization is implemented through four coordinated changes:
+  
+  1. **ToolLoader** validates optional `roles` field in YAML tool definitions (must be a list of strings). Tools without roles default to `["admin"]`.
+  
+  2. **ToolRegistry** filters tools by role via `filter_by_role/2` in `list_tools_mcp/1` and checks authorization via `authorize_tool/2` before executing tools/call. The `agent_role` is passed through HTTP → Protocol → ToolRegistry chain.
+  
+  3. **Protocol** threads `agent_role` and `agent_org_id` through `handle_message/3` and `handle_request/5`. Default arguments (`agent_role \\ nil`, `agent_org_id \\ nil`) maintain backward compatibility with `stdio_server.ex`.
+  
+  4. **HTTPServer** extracts `agent_role` and `agent_org_id` from `conn.assigns` (set by MCPAuth plug) and passes them to Protocol.
+  
+  Key design decisions:
+  - Default role is `"admin"` when none is specified (backward compatible)
+  - Tools without a `roles` field default to `["admin"]` — only admin role can access them
+  - Role filtering in `list_tools_mcp` uses `filter_by_role` before `filter_by_level`
+  - Authorization check in `tools/call` happens via `authorize_tool/2` before execution
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_role_based_tool_authorization_pattern_for_mcp
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/authorization
+status: approved
+summary:
+tags:
+  - mcp
+  - authorization
+  - roles
+  - tool_registry
+  - protocol
+title: Role-based tool authorization pattern for MCP
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.067475Z"
+  approved_by: human
+  status: approved

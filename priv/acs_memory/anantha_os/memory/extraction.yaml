@@ -1,0 +1,38 @@
+content: |
+  The ExtractionWorker skips orgs that don't have `process_messages` set to `true` in their settings. To enable extraction for an org, set `%{"process_messages" => true}` in the org's settings JSONB column. This can be done via Ecto:
+  
+  ```
+  org = Repo.one!(from o in Org, where: o.id == ^org_id)
+  settings = Map.merge(org.settings || %{}, %{"process_messages" => true})
+  Org.changeset(org, %{settings: settings}) |> Repo.update!()
+  ```
+  
+  The extraction worker runs every 60s and uses a global RPM limit (default 40). The message queue is rebuilt on startup from inbound messages with `processed_at IS NULL`. An org having 0 unprocessed messages means the worker will idle until new messages arrive.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_enabling_process_messages_for_org_extraction_pipel
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/extraction
+status: approved
+summary:
+tags:
+  - extraction
+  - process_messages
+  - org-settings
+  - pipeline
+title: Enabling process_messages for org extraction pipeline
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.202917Z"
+  approved_by: human
+  status: approved

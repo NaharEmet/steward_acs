@@ -1,0 +1,29 @@
+content: "The CRM ResourceGovernor (`lib/anantha_os/crm/resource_governor.ex`) uses `:erlang.memory(:system_limit)` to calculate memory pressure ratios. On Linux (and all OS with MMU), this returns the process address space limit (e.g., 2^48 ≈ 256 TB on x86_64), NOT the physical RAM limit. Result: `total / system_limit` ≈ 0, so the governor never activates. The governor only works correctly when the VM is started with `+MMmcs <max_memory_in_mb>` to set an explicit memory limit. Without `+MMmcs`, the `:ok` path is always returned. Similarly, `suggested_batch_size` always returns `max_batch`. Future fixes should either document the `+MMmcs` requirement or use OS-level memory info (e.g., reading cgroup or /proc/meminfo)."
+created_at: "2026-06-21T18:22:17.512230Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_resourcegovernor_erlang_memory_syste_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/resource_governor
+status: proposed
+summary: ":erlang.memory(:system_limit) returns virtual address space on MMU systems, silently disabling the governor without +MMmcs VM flag"
+tags:
+  - crm
+  - memory
+  - resource_governor
+  - erlang_memory
+title: "CRM ResourceGovernor: :erlang.memory(:system_limit) returns address space, not RAM limit"
+triggers: []
+updated_at: "2026-06-21T18:22:17.512238Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

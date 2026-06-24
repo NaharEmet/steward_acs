@@ -1,0 +1,39 @@
+content: |
+  QuerySearch provides text-based search across syntheses, claims, and observations using ILIKE queries as a pgvector fallback.  
+  
+  Key patterns:
+  - Relevance scoring: exact match (1.0) > prefix match (0.8) > substring match (0.5)
+  - ILIKE patterns must escape `%` and `_` to prevent SQL injection — use `escape_ilike/1` before building the pattern
+  - Content is truncated to 200 chars in results via `truncate_content/1`
+  - Sorting is by relevance desc then inserted_at desc
+  - Guard clauses raise `ArgumentError` for empty/non-binary query strings (Early Exit, Fail Fast)
+  - The `cursor` option is reserved for future pagination — not yet implemented
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_ilike_fallback_search_across_memory_tables
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/query_search
+status: approved
+summary:
+tags:
+  - search
+  - ILIKE
+  - query_search
+  - fallback
+  - memory
+title: ILIKE fallback search across memory tables
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.666119Z"
+  approved_by: human
+  status: approved

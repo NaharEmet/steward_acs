@@ -1,0 +1,37 @@
+content: |
+  The dashboard chart behavior (canvas elements, data-chart-data attribute, chart data update flow) has zero test coverage. When writing chart-related tests, ensure:
+  
+  1. The template renders canvas elements with correct IDs (`#memory-chart`, `#process-chart`, `#run-queue-chart`)
+  2. `data-chart-data` attribute is present and contains valid JSON
+  3. `handle_event("refresh_chart_data", _params, socket)` updates the `@chart_data` assign
+  4. The Canvas re-render guard (`initCharts()` call in `updated()`) can be exercised
+  
+  The blank charts bug existed because `phx-update="ignore"` prevented `data-chart-data` from updating — a code path with no test coverage. Additionally, the server handler was `handle_info/2` (process messages) while the client called `pushEvent('refresh_chart_data')` which dispatches to `handle_event/3`, causing the event to be silently dropped.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_dashboard_chart_tests_use_handle_event_not_handle_
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/dashboard/testing
+status: approved
+summary:
+tags:
+  - testing
+  - dashboard
+  - chart.js
+  - phoenix-liveview
+title: "Dashboard chart tests: use handle_event not handle_info"
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.878477Z"
+  approved_by: human
+  status: approved

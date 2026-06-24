@@ -1,0 +1,29 @@
+content: "FieldClassifier.classify_field/3 returns maps with string keys from YAML config (e.g., %{\"predicate\" => \"has_email\"}) for configured fields, but returns maps with atom keys (e.g., %{predicate: \"has_field\"}) for fallback auto-classification. Tests must use the appropriate key type depending on the code path."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_crm_fieldclassifier_map_key_inconsistency
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/field_classifier
+status: approved
+summary:
+tags:
+  - crm
+  - field_classifier
+  - atom keys
+  - string keys
+  - inconsistency
+title: CRM FieldClassifier map key inconsistency
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.791222Z"
+  approved_by: human
+  status: approved

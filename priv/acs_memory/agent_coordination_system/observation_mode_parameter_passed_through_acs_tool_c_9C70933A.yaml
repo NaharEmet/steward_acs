@@ -1,0 +1,29 @@
+content: The mode and compact params are passed from ACS YAML tool definition through anantha_query.ex handler to the HTTP API. anantha_query.ex uses add_if_present/3 helper to conditionally add nil-able params to the request body. The YAML defines mode as string param and compact as boolean param on the execute_query tool.
+created_at: "2026-06-21T19:41:45.864164Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_mode_parameter_passed_through_acs_tool_c_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system
+status: proposed
+summary:
+tags:
+  - mode
+  - compact
+  - tool_chain
+  - add_if_present
+title: mode parameter passed through ACS tool chain
+triggers: []
+updated_at: "2026-06-21T19:41:45.864175Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

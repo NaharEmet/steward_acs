@@ -1,0 +1,29 @@
+content: "LLM providers in Acs.LLM are controlled via whitelist through the `:enabled_llm_providers` app env config. This takes a list of provider ID strings (e.g., `[\"mimo\"]`). The `provider_enabled?/1` helper checks this list — if the list is empty, all providers with configured API keys are enabled. If non-empty, only listed providers are tried. Both `evaluate_with_providers/2` and `providers_configured?/0` respect the enabled list. The config is set from `ENABLED_LLM_PROVIDERS` env var (comma-separated) in runtime.exs. This is a whitelist approach — new providers aren't tried by surprise; user must explicitly opt in."
+created_at: "2026-06-19T19:53:36.972700Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_enabled_llm_providers_whitelist_approach_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: apps/agent_coordination_system/lib/acs/llm.ex
+status: proposed
+summary:
+tags:
+  - llm
+  - provider
+  - configuration
+  - enabled
+  - whitelist
+title: Enabled LLM providers whitelist approach
+triggers: []
+updated_at: "2026-06-19T19:53:36.972712Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

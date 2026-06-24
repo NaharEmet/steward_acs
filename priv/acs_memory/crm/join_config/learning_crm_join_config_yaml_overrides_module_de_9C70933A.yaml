@@ -1,0 +1,29 @@
+content: "CRM JoinConfig has two layers: a YAML file at config/crm/joins/default.yaml and a module attribute @default_joins. The YAML loads at runtime on first call (cached in Application env). YAML takes precedence over module defaults. source_fields in both locations must be kept in sync. The YAML file is the SOURCE OF TRUTH - edits to @default_joins alone won't take effect if the YAML loads successfully."
+created_at: "2026-06-21T10:24:52.485416Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_join_config_yaml_overrides_module_de_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/join_config
+status: proposed
+summary:
+tags:
+  - crm
+  - join_config
+  - yaml
+  - configuration
+title: CRM join config YAML overrides module defaults
+triggers: []
+updated_at: "2026-06-21T10:24:52.485431Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

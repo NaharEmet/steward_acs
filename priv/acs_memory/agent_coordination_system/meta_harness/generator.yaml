@@ -1,0 +1,28 @@
+content: "In `Acs.MetaHarness.Generator.format_baseline_section/2`, the `baseline[\"error_snapshot\"]` value from JSON baseline file may not be a list — it could be nil, a string, or a map. Using `(snapshot || [])` only guards against nil, not other non-enumerable types. Always use `(if is_list(snapshot), do: snapshot, else: [])` before Enum operations on JSON-decoded data to prevent `Protocol.UndefinedError` at runtime."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_guard_format_baseline_section_against_non_list_err
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/meta_harness/generator
+status: approved
+summary:
+tags:
+  - protocol-undefined-error
+  - enum
+  - json
+  - guard
+title: Guard format_baseline_section against non-list error_snapshot
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.300725Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,26 @@
+content: The `opencode plugin list` command tried to install a package named "list" instead of listing installed plugins. Had to manually clean up the extraneous entry from opencode.json.
+created_at: "2026-06-06T12:36:49.555292Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_issue_encountered_in_task_5bcf48ee
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .opencode
+status: proposed
+summary: The `opencode plugin list` command tried to install a package named "list" instead of listing installed plugins. Had to manually clean up the extraneous entry from opencode.json.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 5bcf48ee
+triggers: []
+updated_at: "2026-06-06T12:36:49.555307Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

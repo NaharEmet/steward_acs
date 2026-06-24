@@ -1,0 +1,27 @@
+content: "SynthesisDedup LLM fallback tests need short timeout (2s) because circuit breaker retries (3x with exponential backoff) can cause 60s+ hangs when LLM is unavailable. Added timeout: 2_000 to opts for synthesis_dedup call type. DedupCache compute_key needs length-prefixed encoding to prevent hash collisions from concatenation ambiguity."
+created_at: "2026-06-20T17:24:31.665169Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_10c94ac5_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.memory
+status: proposed
+summary: "SynthesisDedup LLM fallback tests need short timeout (2s) because circuit breaker retries (3x with exponential backoff) can cause 60s+ hangs when LLM is unavailable. Added timeout: 2_000 to opts for s"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 10c94ac5
+triggers: []
+updated_at: "2026-06-20T17:24:31.665176Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

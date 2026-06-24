@@ -1,0 +1,57 @@
+content: |
+  ## Synthesis Dedup Flow
+  
+  Phase 2 implements "Have I seen this before?" dedup for syntheses:
+  
+  1. After LLM generates synthesis content (post-content_hash exact dedup), compute embedding via `GoogleClient.embed(content)`
+  2. Cosine search existing syntheses via pgvector `<=>` operator with 0.3 distance threshold
+  3. Distance ≤ 0.1 (similarity ≥ 0.9) → automatic strengthen (high confidence match)
+  4. Distance ≤ 0.3 (similarity 0.7-0.9) → LLM fallback to confirm semantic equivalence, cached in `DedupCache` (two-tier: positive permanent, negative 24h TTL)
+  5. Distance > 0.3 or no results → create new synthesis, store embedding for future dedup
+  
+  ### Key invariants:
+  - `DedupCache` is in-memory GenServer, per-org, content-pair keyed by SHA-256(a ++ b)
+  - `SynthesisDedup.dedup/3` uses guard clauses for input validation
+  - `SynthesisDedup.strengthen/3` uses atomic `Repo.update_all` with `inc` — no race conditions
+  - Embedding stored via raw SQL `UPDATE syntheses SET embedding = $1::vector WHERE id = $2::uuid AND org_id = $3::uuid`
+  - Cosine search uses `SELECT id::text, embedding <=> $1::vector AS distance FROM syntheses WHERE org_id = $2::uuid AND embedding IS NOT NULL AND embedding <=> $1::vector < $3 ORDER BY embedding <=> $1::vector LIMIT 1`
+  
+  ### DedupCache TTL:
+  - Positive entries: permanent (semantic match confirmed)
+  - Negative entries: 24h TTL, cleanup every 6h
+  - `check_match` returns `:cached_same | :cached_different | :miss`
+  
+  ### LLM fallback:
+  - Uses `Anantha.LLM.Client.chat_completion` with NIM provider, temperature 0.0
+  - Simple system prompt: "Answer only SAME or DIFFERENT"
+  - On error: return `:different` (fail safe — create new rather than false-positive match)
+  - On DedupCache error: return `:different` (caught via try/catch)
+created_at: "2026-06-20T17:13:43.148708Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_synthesis_dedup_flow_embed_cosine_llm_st_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/synthesis_dedup
+status: proposed
+summary:
+tags:
+  - synthesis
+  - dedup
+  - embedding
+  - pgvector
+  - cosine-similarity
+title: "Synthesis dedup flow: embed → cosine → LLM → strengthen"
+triggers: []
+updated_at: "2026-06-20T17:13:43.148725Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,32 @@
+content: |
+  HubSpot has 11 object types but only 3 are high-value for initial sync: contacts, companies, deals. Strategy: implement core_object_types/0 optional callback. On initial sync, only sync core types. Config flag include_engagement: true forces all types. Detect initial sync via SyncState.source_has_any_state?/2.
+  
+  ---
+  Improvements: Consider adding a brief note on how this optimization interacts with the async background task pattern (e.g., whether the core_object_types callback should be invoked within the async task). Also, a code snippet showing the SyncState.source_has_any_state?/2 usage would enhance clarity.
+created_at: "2026-06-21T16:10:27Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_core_object_types_for_initial_crm_sync_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  marked_at: "2026-06-21T17:50:41.895405Z"
+  reason: "Design changed: resolve_core_types no longer uses source_has_any_state? to enable engagement objects on subsequent syncs. Engagement objects never sync unless include_engagement: true. See learning_crm_sync_engagement_types_always_excluded."
+scope_path: crm/sync
+status: stale
+summary:
+tags:
+  - crm
+  - sync
+  - object-types
+title: "CRM Initial Sync Optimization: Focus on Core Object Types"
+triggers: []
+updated_at: "2026-06-21T17:50:41Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

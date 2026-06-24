@@ -1,0 +1,27 @@
+content: "In Ecto, when a subquery with a `select` clause is used as a source in another query, it must be wrapped in `subquery()`. Otherwise Ecto raises \"only one select expression is allowed in query\". This is because Ecto treats the `select` on the inner query as conflicting with the outer `select`. Fix: `from s in subquery(inner_query)` instead of `from s in inner_query`."
+created_at: "2026-06-21T14:11:38.665176Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_11cd471c_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: In Ecto, when a subquery with a `select` clause is used as a source in another query, it must be wrapped in `subquery()`. Otherwise Ecto raises "only one select expression is allowed in query". This i
+tags:
+  - feedback
+  - learning
+title: Key learning from task 11cd471c
+triggers: []
+updated_at: "2026-06-21T14:11:38.665196Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

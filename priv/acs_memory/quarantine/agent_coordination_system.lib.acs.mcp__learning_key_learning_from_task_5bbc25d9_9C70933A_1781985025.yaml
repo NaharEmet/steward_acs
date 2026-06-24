@@ -1,0 +1,27 @@
+content: "Cache.put_agent_status bypasses default key merging that Acs.Acs.put_agent_status/2 provides. Any direct call must include all schema fields (current_task_id, application, component). Bug was in tools.ex:482 which stored only %{purpose: \\"active\\"} causing KeyError on :current_task_id in get_present_status."
+created_at: "2026-06-20T19:50:18.546811Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_5bbc25d9_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.mcp
+status: proposed
+summary: Cache.put_agent_status bypasses default key merging that Acs.Acs.put_agent_status/2 provides. Any direct call must include all schema fields (current_task_id, application, component). Bug was in tools
+tags:
+  - feedback
+  - learning
+title: Key learning from task 5bbc25d9
+triggers: []
+updated_at: "2026-06-20T19:50:18.546848Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

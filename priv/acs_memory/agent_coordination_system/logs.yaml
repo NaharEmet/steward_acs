@@ -1,0 +1,29 @@
+content: "ACS LogStore writes logs to two backends: ETS (synchronous, O(1) monotonic IDs for fast recent queries) and DB (fire-and-forget via Task.start with try/rescue/catch). ETS retains the existing 5K cap + 5-min TTL. DB uses `log_entries` table with JSONB metadata and separate retention policies: non-error logs deleted after 24h, error logs after 30d. The RetentionSweeper GenServer runs hourly. This ensures fast recent log queries while providing persistent log storage that survives restarts."
+created_at: "2026-06-19T20:16:38Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_acs_dual_write_log_pattern_ets_sync_db_a_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/logs
+status: approved
+summary:
+tags:
+  - acs
+  - logs
+  - ets
+  - dual-write
+  - retention
+title: "ACS dual-write log pattern: ETS sync + DB async"
+triggers: []
+updated_at: "2026-06-19T20:19:52Z"
+verification:
+  approved_at: "2026-06-19T20:19:52.607614Z"
+  approved_by: Key architectural pattern for log persistence — ETS for fast recent, DB for persistence
+  status: approved

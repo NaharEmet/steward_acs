@@ -1,0 +1,41 @@
+content: |
+  When using Chart.js with Phoenix LiveView hooks, two bugs can cause blank charts on initial load:
+  
+  1. **Bug 1 — Zero initial data**: The `mount/3` function must initialize `chart_data` with real system stats (via `get_system_stats()`) rather than hardcoded zeros. The JSON-encoded data is what the JS hook reads on mount.
+  
+  2. **Bug 2 — Missing updateCharts() call in mounted()**: The `mounted()` callback creates chart objects via `initCharts()` but never pushes data to them. You must call `updateCharts()` after `initCharts()` in `mounted()` so the initial data (now real data) is displayed immediately, rather than waiting for the first timed poll.
+  
+  Additionally, to show live number displays alongside charts:
+  - Add `memory_total_bytes` to the `get_system_stats/0` return map for easy MB conversion
+  - Assign `latest_memory_mb`, `latest_processes`, `latest_run_queue` in both `mount/3` and the `handle_event("refresh_chart_data", ...)`
+  - Render them as stat cards (grid-cols-3) above the charts in the template
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_charts_with_chart_js_in_liveview_need_both_real_in
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/live/admin_live/dashboard
+status: approved
+summary:
+tags:
+  - chart.js
+  - liveview
+  - phoenix
+  - dashboard
+  - charts
+  - hooks
+title: Charts with Chart.js in LiveView need both real initial data and immediate updateCharts() in mounted()
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.401098Z"
+  approved_by: human
+  status: approved

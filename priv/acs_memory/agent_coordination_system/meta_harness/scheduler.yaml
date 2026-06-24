@@ -1,0 +1,28 @@
+content: "GenServers that perform periodic work with external side effects (DB queries, file I/O, API calls) MUST wrap their work in try/rescue to prevent crashes from propagating through `:timer.tc` and terminating the GenServer. The `Acs.MetaHarness.Scheduler.run_analysis_cycle/0` calls `Acs.MetaHarness.Generator.generate/0` which can raise `Protocol.UndefinedError` (Enum on non-list), `File.Error` (missing directory), or `Ecto.QueryError` (missing tables). Wrap in try/rescue, log the error + stacktrace, and return a safe error map so the GenServer stays alive and reschedules."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_metaharness_scheduler_must_never_crash_wrap_an
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/meta_harness/scheduler
+status: approved
+summary:
+tags:
+  - genserver
+  - try-rescue
+  - error-boundary
+  - scheduler
+title: Acs.MetaHarness.Scheduler must never crash — wrap analysis cycle in try/rescue
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.307485Z"
+  approved_by: human
+  status: approved

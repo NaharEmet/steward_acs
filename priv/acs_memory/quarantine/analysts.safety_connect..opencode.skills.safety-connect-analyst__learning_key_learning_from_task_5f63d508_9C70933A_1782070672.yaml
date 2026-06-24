@@ -1,0 +1,27 @@
+content: "Updated Safety Connect analyst SKILL.md with 3 new query API features: (1) count mode `mode: \"count\"` for quick record counts, (2) compact mode `compact: true` for rows-only responses, (3) schema discovery tools `ant_list_datasets` and `ant_describe_dataset`. Also added corresponding sections and updated tool parameters. JSON strings with backtick code examples need double quotes escaped as `\\"` inside the string value."
+created_at: "2026-06-21T19:37:41.624010Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_5f63d508_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: analysts.safety_connect..opencode.skills.safety-connect-analyst
+status: proposed
+summary: "Updated Safety Connect analyst SKILL.md with 3 new query API features: (1) count mode `mode: \"count\"` for quick record counts, (2) compact mode `compact: true` for rows-only responses, (3) schema disc"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 5f63d508
+triggers: []
+updated_at: "2026-06-21T19:37:41.624023Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

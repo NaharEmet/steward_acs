@@ -1,0 +1,37 @@
+content: |
+  The `Anantha.Core.Observation` module was deleted (table dropped). Its dataset entry, description, and default columns were removed from DatasetRegistry and QueryEngine. Querying "observations" now returns clean "Unknown dataset" error instead of crash.
+  
+  `apply_field_conditions/3` had infinite recursion bug: `to_atom` returns string (not atom) for unknown fields, causing `is_binary` guard to match the same clause. Fixed by checking `is_binary(field_atom)` after conversion and skipping with warning.
+  
+  Count mode response in QueryController was missing `query_id`. All other modes include it. Fixed by `Map.put(result, :query_id, query_id)`.
+  
+  `describe/1` leaked `schema_module` and `preload_paths` internal fields. Removed from response map. Prefixed `preload_paths` with underscore in destructure to avoid unused variable warning.
+created_at: "2026-06-21T19:50:28.076744Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_query_system_observations_dataset_remove_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/query
+status: proposed
+summary:
+tags:
+  - query
+  - dataset_registry
+  - query_engine
+  - infinite_recursion
+  - observations
+title: "Query system: observations dataset removed, infinite recursion guard added"
+triggers: []
+updated_at: "2026-06-21T19:50:28.076763Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

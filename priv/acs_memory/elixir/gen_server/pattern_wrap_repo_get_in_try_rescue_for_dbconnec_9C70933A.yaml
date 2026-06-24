@@ -1,0 +1,58 @@
+content: |
+  When a GenServer calls `Repo.get/2` inside `handle_call`, and a non-owner process triggers it in sandbox `:manual` mode, the call raises `DBConnection.OwnershipError`. This crashes the GenServer, and if it exceeds the supervisor's `max_restarts`, the supervisor crashes too.
+  
+  Fix: Wrap all `Repo` calls in GenServer handle_call/3 (and handle_cast/2, handle_info/2) with try/rescue for `DBConnection.OwnershipError`:
+  
+  ```elixir
+  def handle_call({:enqueue, message_id}, _from, state) do
+    message_result =
+      try do
+        Repo.get(Message, message_id)
+      rescue
+        e in DBConnection.OwnershipError ->
+          Logger.warning("[MyGenServer] Cannot query DB (ownership error): #{inspect(e)}")
+          :ownership_error
+      end
+  
+    case message_result do
+      :ownership_error ->
+        {:reply, {:error, :ownership_error}, state}
+      nil ->
+        {:reply, {:error, :not_found}, state}
+      record ->
+        # process record...
+        {:reply, :ok, new_state}
+    end
+  end
+  ```
+  
+created_at: "2026-06-20T13:37:39.692422Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_wrap_repo_get_in_try_rescue_for_dbconnec_9C70933A
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/gen_server
+status: proposed
+summary:
+tags:
+  - elixir
+  - gen_server
+  - ecto
+  - sandbox
+  - ownership_error
+  - pattern
+title: Wrap Repo.get in try/rescue for DBConnection.OwnershipError in GenServer handle_call
+triggers: []
+updated_at: "2026-06-20T13:37:39.692440Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

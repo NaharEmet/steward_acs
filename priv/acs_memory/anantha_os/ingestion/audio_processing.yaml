@@ -1,0 +1,37 @@
+content: |
+  The audio processing subsystem can be disabled at multiple levels using `config :anantha_os, :audio_processing_enabled`. The config defaults to false and can be overridden via `AUDIO_PROCESSING_ENABLED` env var. Guard checks are applied in:
+  
+  1. `audio_transcriber.ex` - normalize/1 warns, poll/2 early-returns
+  2. `provider_router.ex` - transcribe/2 returns {:error, :audio_processing_disabled}
+  3. `scheduler.ex` - process_source/2 skips audio_transcriber sources
+  4. `upload.ex` - LiveView mount assigns audio_enabled, template shows disabled notice, process-audio handler early-returns
+  
+  All guards use `Application.get_env(:anantha_os, :audio_processing_enabled, false)` with a fallback to false for safety.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_audio_processing_guard_flag_pattern
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/audio_processing
+status: approved
+summary:
+tags:
+  - audio_processing
+  - guard_flag
+  - feature_flag
+  - ingestion
+title: Audio processing guard flag pattern
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.404517Z"
+  approved_by: human
+  status: approved

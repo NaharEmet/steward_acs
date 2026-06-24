@@ -1,0 +1,28 @@
+content: "Audio processing is now disabled by default (config :anantha_os, :audio_processing_enabled, false). The flag guards AudioTranscriber.poll/2, ProviderRouter.transcribe/2, the Scheduler (skips audio_transcriber sources), and the Upload LiveView (shows disabled message). Set AUDIO_PROCESSING_ENABLED=true env var to enable."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_audio_processing_disabled_by_default_behind_env_fl
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/audio
+status: approved
+summary:
+tags:
+  - audio
+  - flag
+  - guard
+  - configuration
+title: Audio processing disabled by default behind env flag
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.385865Z"
+  approved_by: human
+  status: approved

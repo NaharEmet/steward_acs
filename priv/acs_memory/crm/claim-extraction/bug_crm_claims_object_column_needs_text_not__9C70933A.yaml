@@ -1,0 +1,49 @@
+content: |
+  ## Bug: `claims.object` column truncation causes silent CRM claim extraction failure
+  
+  ### Symptom
+  CRM sync for emails/calls/meetings/notes/tasks processes records, creates events and clusters, but creates ZERO claims. No error logs because `safe_batch_extract_and_store` in crm.ex silently rescues all exceptions.
+  
+  ### Root Cause
+  `claims.object` column was `varchar(255)` (`:string` in Ecto migration). The `has_email_body` claim (mapped from `hs_email_text`) stores full email body text (thousands of chars). `Repo.insert_all(Claim, ...)` crashes with `Postgrex.Error: ERROR 22001 (string_data_right_truncation)`.
+  
+  Similarly, `claims.content` column was also `varchar(255)` because `content` is built as `"#{subject} #{predicate} #{object}"`.
+  
+  ### Fix
+  1. Migration: `ALTER TABLE claims ALTER COLUMN object TYPE TEXT; ALTER TABLE claims ALTER COLUMN content TYPE TEXT;`
+  2. Add `Logger.error` to `safe_batch_extract_and_store` rescue handler so future failures are visible.
+  
+  ### Affected Object Types
+  Any CRM object with long text fields: emails (`hs_email_text`), calls (`hs_call_body`), meetings (`hs_meeting_body`), notes (`hs_note_body`), tasks (`hs_task_body`).
+  
+  ### Detection
+  Check `claims` dataset for predicates matching `has_email_body`, `has_call_body`, etc. Zero results despite successful record sync indicates this bug.
+created_at: "2026-06-22T06:00:55.958415Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_crm_claims_object_column_needs_text_not__9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/claim-extraction
+status: proposed
+summary:
+tags:
+  - crm
+  - claims
+  - bug
+  - column-size
+  - claim-extraction
+title: "CRM claims.object column needs :text not :string for long engagement fields"
+triggers: []
+updated_at: "2026-06-22T06:00:55.958424Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

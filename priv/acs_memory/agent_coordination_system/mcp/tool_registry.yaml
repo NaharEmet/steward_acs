@@ -1,0 +1,29 @@
+content: When a tool's implementation calls ToolRegistry.list_tools() or ToolRegistry.list_categories() (both GenServer.call to the same process), and that tool is dispatched through ToolRegistry.call_tool/2 (another GenServer.call), it creates a deadlock. The GenServer can't respond to the nested call because it's still processing the original call. The fix is to handle such tools directly in execute_tool/3 using the state parameter instead of calling back to the GenServer. Following the existing pattern used by mcp_list_categories and mcp_list_tools, which already execute inline using state data.
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_avoid_genserver_call_deadlocks_by_handling_tools_i
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/tool_registry
+status: approved
+summary:
+tags:
+  - deadlock
+  - GenServer
+  - pattern
+  - mcp
+  - tool_registry
+title: Avoid GenServer.call deadlocks by handling tools inline in execute_tool/3
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.148525Z"
+  approved_by: human
+  status: approved

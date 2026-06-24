@@ -1,0 +1,38 @@
+content: |
+  The caveman-opencode-plugin was installed for the anantha-os project at /home/nahar/Documents/code/anantha-os.
+  
+  **Key details:**
+  - Installed via `opencode plugin caveman-opencode-plugin@latest` CLI command (not npm)
+  - Added `"caveman-opencode-plugin"` (without version) to the `plugin` array in `.opencode/opencode.json`
+  - Created `caveman.json` at project root with `enabled: true`, `defaultMode: "full"`, and all features enabled (caveman, commit, review)
+  
+  **Config location precedence:**
+  - Project-level: `./caveman.json` (takes precedence)
+  - Global: `~/.config/opencode/caveman.json` (fallback)
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_caveman_opencode_plugin_installed_locally
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: opencode/plugins
+status: approved
+summary:
+tags:
+  - caveman
+  - opencode-plugin
+  - installation
+title: caveman-opencode-plugin installed locally
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.601652Z"
+  approved_by: human
+  status: approved

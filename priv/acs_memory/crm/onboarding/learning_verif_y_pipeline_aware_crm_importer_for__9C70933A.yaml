@@ -1,0 +1,29 @@
+content: "Test HubSpot integration verified for org 2ec02a09-eeaa-468c-ae57-9bdf270c2bbe. Pipeline discovery API returns 403 because HubSpot private app tokens need `settings.users.teams.read` scope for the Pipelines API - standard CRM scopes don't cover it. However pipeline data still flows into claims via deal field mappings: `belongs_to_pipeline`, `has_deal_stage_id`, `has_hs_pipeline_id`, `has_hs_pipeline_stage_id`. The CRM field config defines `dealstage_label` -> `has_deal_stage` for human-readable stage names but it's marked low importance. 16,674 claims extracted with pipeline context. 3 unique pipeline IDs found across sampled deals."
+created_at: "2026-06-21T15:54:42.777747Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_verif_y_pipeline_aware_crm_importer_for__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/onboarding
+status: proposed
+summary:
+tags:
+  - hubspot
+  - pipeline
+  - crm
+  - verification
+title: Verif-y pipeline-aware CRM importer for HubSpot
+triggers: []
+updated_at: "2026-06-21T15:54:42.777756Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,62 @@
+content: |
+  # `mix clean --only` filters by environment, not app name
+  
+  ## The Trap
+  `mix clean --only anantha_os` does NOT clean the `anantha_os` app's build artifacts. It does absolutely nothing because there is no environment called `anantha_os`.
+  
+  ## How `mix clean` works
+  - `mix clean` — removes all compiled BEAM files for the current environment (`_build/dev/`)
+  - `mix clean --only dev` — same as above, removes dev environment files
+  - `mix clean --only test` — removes test environment files
+  - **`mix clean --only anantha_os`** — no-op. No env named `anantha_os` exists. Files remain.
+  
+  ## The Danger
+  When you change GenServer names, supervision tree entries, or other runtime registration, stale BEAM files cause:
+  - Old process name registrations
+  - Apparently inexplicable "no process" errors
+  - Hours of debugging time
+  
+  ## Proper cleanup
+  ```bash
+  # To fully clean everything
+  mix clean && mix compile
+  
+  # Or to clean targeted environments
+  mix clean --only dev
+  mix clean --only test
+  mix clean --only prod
+  ```
+  
+  If you need to clean a specific app's BEAM files, you must do it manually:
+  ```bash
+  rm -rf _build/dev/lib/anantha_os/ebin/
+  ```
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_mix_clean_only_filters_by_environment_name_not_app
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/mix
+status: approved
+summary: mix clean --only takes environment names (dev/test/prod) not app names. Using --only anantha_os does nothing — all files remain cached.
+tags:
+  - mix
+  - build
+  - cache
+  - clean
+  - stale-beams
+title: mix clean --only filters by environment name, not app name
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.888214Z"
+  approved_by: human
+  status: approved

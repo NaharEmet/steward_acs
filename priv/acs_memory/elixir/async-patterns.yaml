@@ -1,0 +1,58 @@
+content: |
+  ## Process.sleep Anti-pattern and Replacement Pattern
+  
+  **Context**: Process.sleep/1 blocks the entire process and can cause race conditions in concurrent Elixir code. It is considered an anti-pattern in production systems.
+  
+  **Replacement Pattern**: Use `receive do ... after delay -> ... end` block instead:
+  ```elixir
+  # Before (blocking)
+  Process.sleep(delay)
+  do_retry(...)
+  
+  # After (non-blocking equivalent)
+  receive do
+  after
+    delay -> do_retry(...)
+  end
+  ```
+  
+  **Key Insight**: `receive do ... after ... end` is the idiomatic Elixir way to delay without blocking message processing - messages sent to the process while waiting are queued and processed after the delay expires. This is different from Process.sleep which ALSO blocks message processing.
+  
+  **Files Fixed**:
+  - `lib/anantha_os/circuit_breaker.ex` - retry backoff in circuit breaker
+  - `lib/anantha_os/whatsapp/http_client.ex` - 503 retry wait
+  - `lib/anantha_os/whatsapp.ex` - wait_for_qr and wait_for_connection polling
+  - `lib/anantha_os/engine/graph_executor/node_execution.ex` - db connection retry backoff
+  - `lib/anantha_os/meta_harness/evaluator.ex` - LLM retry delay
+  - `lib/anantha_os/meta_harness/llm_judge.ex` - LLM retry delay
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes:
+  - If the receiving process expects other messages during the delay, those messages will queue and be processed after the `receive` times out
+  - If not careful with message matching, could accidentally consume unrelated messages
+id: pattern_replace_process_sleep_with_receive_after_pattern
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/async-patterns
+status: approved
+summary: Process.sleep should be replaced with receive/after for delays
+tags:
+  - elixir
+  - async
+  - concurrency
+  - retry
+  - anti-pattern
+title: Replace Process.sleep with receive/after pattern
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.836150Z"
+  approved_by: human
+  status: approved

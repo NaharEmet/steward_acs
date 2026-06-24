@@ -1,0 +1,38 @@
+content: |
+  The `do_call_provider/2` function in `Acs.LLM` sends HTTP requests to LLM providers via Req.post. After a shared lib refactor, the Authorization header (Bearer {api_key}) was dropped from the call. All external LLM API providers require an API key in the Authorization header.
+  
+  Three things must be present for a working call:
+  1. API key lookup via `Application.get_env` or `System.get_env` with early return `{:error, :missing_api_key}` if not found
+  2. `headers: [{"Authorization", "Bearer #{api_key}"}]` on the Req.post call
+  3. `receive_timeout: 30_000` on the Req.post call (default is 5s which is too short for LLM responses)
+  
+  Additionally, the request body must include `temperature: 0.0` for deterministic output, and the MiMo provider needs `%{thinking: %{type: "disabled"}}` when `config[:suppress_thinking]` is true.
+created_at: "2026-06-21T12:56:13.220497Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_acs_llm_provider_requires_api_key_auth_h_9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - acs
+  - llm
+  - auth
+  - api-key
+  - req
+title: ACS LLM provider requires API key auth header on Req.post calls
+triggers: []
+updated_at: "2026-06-21T12:56:13.220507Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

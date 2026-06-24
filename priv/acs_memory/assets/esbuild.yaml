@@ -1,0 +1,44 @@
+content: |
+  ## Problem
+  When using esbuild in IIFE mode (Phoenix default), `import Chart from "chart.js"` does NOT work correctly. The default import is wrapped into a module namespace object, so `new Chart(...)` calls `new module_namespace_object(...)` instead of the Chart constructor, silently failing.
+  
+  ## Fix
+  Use a named import instead:
+  ```javascript
+  import {Chart, registerables} from 'chart.js'
+  Chart.register(...registerables)
+  ```
+  
+  This resolves `chart_exports.Chart` directly — the actual constructor function.
+  
+  ## Why this happens
+  esbuild's IIFE wrapper resolves `import x from 'y'` into a module namespace proxy object when the imported module uses ESM exports. Named imports like `{Chart}` bypass this wrapping because they destructure the actual export.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_esbuild_iife_mode_wraps_chart_js_default_import_as
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: assets/esbuild
+status: approved
+summary:
+tags:
+  - esbuild
+  - chart.js
+  - import
+  - iife
+  - phoenix
+title: esbuild IIFE mode wraps Chart.js default import as namespace object
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.171221Z"
+  approved_by: human
+  status: approved

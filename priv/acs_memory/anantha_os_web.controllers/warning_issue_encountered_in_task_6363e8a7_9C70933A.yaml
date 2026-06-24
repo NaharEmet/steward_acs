@@ -1,0 +1,27 @@
+content: Phoenix server on port 4000 crashed during debugging (CPU 169%). Port 4001 only has ACS. Need user to restart server.
+created_at: "2026-06-20T10:25:37.460423Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_6363e8a7_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web.controllers
+status: proposed
+summary: Phoenix server on port 4000 crashed during debugging (CPU 169%). Port 4001 only has ACS. Need user to restart server.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 6363e8a7
+triggers: []
+updated_at: "2026-06-20T10:25:37.460435Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

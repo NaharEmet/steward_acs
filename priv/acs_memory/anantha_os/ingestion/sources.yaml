@@ -1,0 +1,37 @@
+content: |
+  The Fireflies.ai ingestion source adapter (`Anantha.Ingestion.Sources.Fireflies`) follows the same pattern as the HubSpot adapter: using `use Anantha.Ingestion.Source` (which sets `@behaviour`) instead of the raw `@behaviour` directive used in `AudioTranscriber`. This is the preferred pattern going forward.
+  
+  Key design decisions:
+  - Normalize handles 3 payload shapes: wrapped (event+data), event-only, and direct
+  - Transcript extraction tries multiple key names: "transcript", "text", "body", "content" plus fallback to building from segments
+  - Source ID from `data.id` or auto-generates `"fireflies_<integer>"`
+  - Timestamp parsing uses `DateTime.from_iso8601/1`
+  - Config validation is minimal (just checks it's a map) since Fireflies is webhook-only
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_fireflies_ai_ingestion_adapter_follows_hubspot_pat
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/sources
+status: approved
+summary:
+tags:
+  - fireflies
+  - ingestion
+  - source_adapter
+  - webhook
+title: Fireflies.ai ingestion adapter follows HubSpot pattern with `use Anantha.Ingestion.Source`
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.587894Z"
+  approved_by: human
+  status: approved

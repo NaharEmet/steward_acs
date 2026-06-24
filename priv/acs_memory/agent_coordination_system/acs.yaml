@@ -1,0 +1,29 @@
+content: "When an Ecto migration defines a column as `:boolean` but the schema defines it as `:integer` (or vice versa), SQLite/Exqlite may throw a `datatype mismatch` error during insert. Always ensure the schema field type matches the migration column type exactly. If the migration uses `:boolean`, the schema must use `:boolean` and the application should pass `true`/`false` (not `1`/`0`)."
+created_at: "2026-06-19T15:50:18.770667Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_ecto_schema_boolean_vs_integer_migration_9C70933A
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acs
+status: proposed
+summary:
+tags:
+  - ecto
+  - schema
+  - migration
+  - sqlite
+  - boolean
+title: Ecto schema boolean vs integer migration mismatch
+triggers: []
+updated_at: "2026-06-19T15:50:18.770678Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

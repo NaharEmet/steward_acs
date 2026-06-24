@@ -1,0 +1,57 @@
+content: |
+  ## 4 Pre-existing Failures Fixed
+  
+  ### Bug 1: HubSpot search_date_property/1
+  - **File**: `lib/anantha_os/crm/sync_engine/hub_spot.ex`
+  - **Fix**: Added `search_date_property` clause for engagement types (notes, calls, emails, tasks, meetings) returning `"createdate"` before catch-all
+  - **Root cause**: Only contacts had a specific mapping; engagement types fell through to catch-all returning `"hs_lastmodifieddate"`
+  - **5 tests pass**
+  
+  ### Bug 2: CRM pipeline relations extraction
+  - **File**: `lib/anantha_os/crm/join_config.ex` + `config/crm/joins/default.yaml`
+  - **Fix**: Added `"company"` to hubspot/contacts source_fields in both YAML config and module-level defaults
+  - **Root cause**: JoinResolver looked for `"hs_company_id"` or `"associated_company_id"` but test payload used `"company"` field — no match → no relations
+  - **Test updated**: join_config_test.exs assertion updated to include `"company"` in expected source_fields
+  
+  ### Bug 3: Memory pipeline inventory_movement extraction
+  - **File**: `lib/anantha_os/memory/pipeline.ex`
+  - **Fix**: Added `merge_extraction_structured_claim/2` — merges mock extraction data into rule result when rules partially match
+  - **Root cause**: RuleExtractor matched "10 boxes" but extracted `item_name: nil`. Rule path took priority over mock's structured_claim
+  - **Why cash_flow worked**: Multiple rule matches (2 records) prevented single-record match, falling through to LLM/mock path
+  
+  ### Bug 4: Memory pipeline observation extraction
+  - **File**: `lib/anantha_os/memory/pipeline/memory_extractor.ex`
+  - **Fix**: Added `subject`, `predicate`, `object` to signal claim attrs in `persist_signal_claims!`
+  - **Root cause**: Signal claims (observations) were missing required NOT NULL fields `subject`, `predicate`, `object` from migration `20260604000000_restructure_recursive_memory.exs`
+  
+  ### Result: Precommit went from 4 failures → 0 failures (2325 tests, all green)
+created_at: "2026-06-21T10:34:23.203181Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_all_4_pre_existing_failures_fixed_precom_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: testing/precommit
+status: proposed
+summary:
+tags:
+  - bug-fix
+  - hubspot
+  - crm
+  - pipeline
+  - join-config
+  - memory-extractor
+title: All 4 pre-existing failures fixed — precommit clean 2325/0
+triggers: []
+updated_at: "2026-06-21T10:34:23.203194Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

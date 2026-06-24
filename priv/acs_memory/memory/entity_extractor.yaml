@@ -1,0 +1,38 @@
+content: |
+  Entity extraction (`Anantha.Memory.EntityExtractor`) now has test coverage:
+  
+  - **`test/anantha_os/memory/entity_extractor_test.exs`** with 18 tests
+  - **Mock tests** (17): Guard clauses for nil/invalid input, entity resolution (person, company, person→company hierarchy), no-entities-found scenarios, edge cases for missing fields
+  - **Real LLM test** (1, tagged `@tag :real_llm`): End-to-end test using the NIM API (hardcoded `provider: "nim"` in `entity_extractor.ex` line 168)
+  
+  The entity extractor's `call_llm/3` supports `:mock_response` option for deterministic testing. The real LLM test successfully ran against NIM (10.8s for one call), confirming the NIM API key works in test environment.
+  
+  **Note**: The entity extractor hardcodes `provider: "nim"` rather than using a config-based provider. If the config-based mock provider needs to be used, this would need to be refactored.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_entity_extraction_tests_created_with_both_mock_and
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/entity_extractor
+status: approved
+summary:
+tags:
+  - entity_extractor
+  - tests
+  - mock
+  - real_llm
+title: Entity extraction tests created with both mock and real LLM variants
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.061702Z"
+  approved_by: human
+  status: approved

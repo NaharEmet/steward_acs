@@ -1,0 +1,46 @@
+content: |
+  When removing `phx-update="ignore"` from a LiveView container with Chart.js charts, the JS hook's `updated()` callback must check whether each Chart.js canvas was replaced by LiveView DOM patching. The pattern is:
+  
+  ```javascript
+  updated() {
+    const canvas = this.el.querySelector('#my-chart')
+    if (this.charts.myChart && canvas !== this.charts.myChart.canvas) {
+      this.charts.myChart.destroy()
+      delete this.charts.myChart
+    }
+    if (!this.charts.myChart) {
+      this.initCharts() // or create chart directly
+    }
+    this.updateCharts()
+  }
+  ```
+  
+  This is necessary because without `phx-update="ignore"`, LiveView replaces DOM nodes, invalidating Canvas references that Chart.js holds internally. Without this guard, Chart.js crashes silently and charts remain blank.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_chartmonitor_hook_needs_canvas_re_render_guard_whe
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: frontend/phoenix/liveview/charts
+status: approved
+summary:
+tags:
+  - phoenix-liveview
+  - chartjs
+  - phx-update
+  - chart-monitor
+title: ChartMonitor hook needs canvas re-render guard when removing phx-update="ignore"
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.041362Z"
+  approved_by: human
+  status: approved

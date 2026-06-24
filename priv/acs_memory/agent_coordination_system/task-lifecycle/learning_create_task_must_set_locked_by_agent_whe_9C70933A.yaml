@@ -1,0 +1,30 @@
+content: "When `create_task` receives `status: \"claimed\"` (from `create_work(claim: true)`), it must also set `locked_by_agent` to the `agent_id`. Previously the status was \"claimed\" but `locked_by_agent` was nil, causing `release_task` to return `{:ok, nil}` and the sweeper to race with the owner on release."
+created_at: "2026-06-23T07:29:41.322693Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_create_task_must_set_locked_by_agent_whe_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/task-lifecycle
+status: proposed
+summary:
+tags:
+  - acs
+  - create_task
+  - claimed
+  - locked_by_agent
+  - race-condition
+title: create_task must set locked_by_agent when status=claimed
+triggers: []
+updated_at: "2026-06-23T07:29:41.322702Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

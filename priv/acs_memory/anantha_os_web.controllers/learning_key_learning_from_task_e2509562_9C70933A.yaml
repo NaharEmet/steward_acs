@@ -1,0 +1,27 @@
+content: "When fixing filter query bugs, always check whether string_keys_to_atoms recurses into nested maps. Filter conditions are nested maps like %{subject: %{like: value}} — if only top-level keys are atomized, the nested operator keys (like, eq, gt) stay as strings and get silently dropped by pattern matching in apply_field_conditions."
+created_at: "2026-06-20T19:56:04.001496Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e2509562_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web.controllers
+status: proposed
+summary: "When fixing filter query bugs, always check whether string_keys_to_atoms recurses into nested maps. Filter conditions are nested maps like %{subject: %{like: value}} — if only top-level keys are atomi"
+tags:
+  - feedback
+  - learning
+title: Key learning from task e2509562
+triggers: []
+updated_at: "2026-06-20T19:56:04.001511Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

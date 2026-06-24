@@ -1,0 +1,26 @@
+content: "Tool names in .opencode/agents/ markdown files must match the `app` prefix from their YAML definitions (e.g., `app: org_setup` means all tools are `org_setup_*`). Always verify tool names against the YAML `app` field when writing agent prompts."
+created_at: "2026-06-20T09:11:30.628376Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_key_learning_from_task_2673a1d7_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .opencode/agents
+status: proposed
+summary: "Tool names in .opencode/agents/ markdown files must match the `app` prefix from their YAML definitions (e.g., `app: org_setup` means all tools are `org_setup_*`). Always verify tool names against the "
+tags:
+  - feedback
+  - learning
+title: Key learning from task 2673a1d7
+triggers: []
+updated_at: "2026-06-20T09:11:30.628384Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

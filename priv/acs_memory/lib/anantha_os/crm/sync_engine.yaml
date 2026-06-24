@@ -1,0 +1,38 @@
+content: |
+  CRM SyncEngine now limits first-ever sync to last 5 months of data. Pattern:
+  
+  1. SyncEngine checks if cursor is nil AND synced_at is nil (first sync)
+  2. If so, it adds `:since` (unix ms timestamp, 5 months ago) to config
+  3. HubSpot provider checks for `:since` in fetch_page/4 - dispatches to search API (POST) with lastmodifieddate GTE filter
+  4. After search API sync completes, cursor=nil is stored (same as before via atom key) but synced_at is set, preventing re-application of date filter
+  5. `first_sync_complete: true` metadata flag is stored for future cycles
+  
+  HubSpot Search API: POST /crm/v3/objects/{type}/search with filterGroups containing lastmodifieddate GTE filter. Response format same as list API (results + paging).
+created_at: "2026-06-19T15:37:14.485503Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_crm_first_time_sync_limited_to_last_5_mo_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/crm/sync_engine
+status: proposed
+summary:
+tags:
+  - crm
+  - sync-engine
+  - hubspot
+  - search-api
+  - first-sync
+title: CRM first-time sync limited to last 5 months via HubSpot search API
+triggers: []
+updated_at: "2026-06-19T15:37:14.485518Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

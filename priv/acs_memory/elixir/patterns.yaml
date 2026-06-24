@@ -1,0 +1,43 @@
+content: |
+  When a module optionally depends on an external Hex package (like JsonRemedy), use `Code.ensure_loaded?/1` at runtime to check availability before calling. This avoids a hard compile-time dependency:
+  
+      def decode!(json) when is_binary(json) do
+        if Code.ensure_loaded?(JsonRemedy) && function_exported?(JsonRemedy, :repair, 1) do
+          case JsonRemedy.repair(json) do
+            {:ok, repaired} -> Jason.decode!(repaired)
+            {:error, _} -> Jason.decode!(json)
+          end
+        else
+          Jason.decode!(json)
+        end
+      end
+  
+  This pattern permits graceful fallback when the optional package is not installed.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_optional_dependency_check_pattern_with_code_ensure
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/patterns
+status: approved
+summary:
+tags:
+  - elixir
+  - optional-deps
+  - json
+  - pattern
+title: Optional dependency check pattern with Code.ensure_loaded?
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.948547Z"
+  approved_by: human
+  status: approved

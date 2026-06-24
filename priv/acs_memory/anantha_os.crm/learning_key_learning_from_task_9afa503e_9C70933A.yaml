@@ -1,0 +1,27 @@
+content: "The batch path in ClaimExtractor now uses source_timestamp for first-time claims (not just now_iso). The key insight: query active (subject, predicate) pairs BEFORE the bulk close, build a MapSet, then use it in create_claims_batch to decide valid_from. Preserve full microsecond precision with DateTime.to_iso8601/1 without truncation."
+created_at: "2026-06-20T19:42:33.476510Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_9afa503e_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: "The batch path in ClaimExtractor now uses source_timestamp for first-time claims (not just now_iso). The key insight: query active (subject, predicate) pairs BEFORE the bulk close, build a MapSet, the"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 9afa503e
+triggers: []
+updated_at: "2026-06-20T19:42:33.476528Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

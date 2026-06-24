@@ -1,0 +1,27 @@
+content: "Never use `_` to discard the second element of an error tuple when the first element contains error details. This creates silent error swallowing that cascades through 3 layers. Always use `case` to match both `{:ok, _}` and `{:error, _}` patterns, even if type specs claim only `:ok` is possible at compile time."
+created_at: "2026-06-23T07:28:49.714473Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_9dc02fbc_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os
+status: proposed
+summary: Never use `_` to discard the second element of an error tuple when the first element contains error details. This creates silent error swallowing that cascades through 3 layers. Always use `case` to m
+tags:
+  - feedback
+  - learning
+title: Key learning from task 9dc02fbc
+triggers: []
+updated_at: "2026-06-23T07:28:49.714492Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

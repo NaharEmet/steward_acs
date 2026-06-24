@@ -1,0 +1,36 @@
+content: |
+  After ACS (Agent Coordination System) server restart, the ETS cache is created empty by Cache.init/1. The DB still has AgentStatus, Task, and FileLock records but they don't appear in `get_present_status` because the ETS cache is the source of truth for reads. The `Cache.warmup/0` function must be called after the supervisor starts (not from init, since that's too early). Call it from Application.start via a Task with a 100ms delay to ensure DB is ready.
+  
+  Three interlocking bugs cause agents to not appear:
+  1. Cache.warmup() not called after restart — ETS tables empty
+  2. acs_sleep handler doesn't register agent in AgentStatus
+  3. acs_get_present_status handler doesn't auto-register new agents
+created_at: "2026-06-20T16:48:07.267650Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_ets_cache_warmup_required_after_server_r_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cache
+status: proposed
+summary:
+tags:
+  - acs
+  - cache
+  - warmup
+  - agent-status
+  - ets
+title: ETS cache warmup required after server restart for agent visibility
+triggers: []
+updated_at: "2026-06-20T16:48:07.267664Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

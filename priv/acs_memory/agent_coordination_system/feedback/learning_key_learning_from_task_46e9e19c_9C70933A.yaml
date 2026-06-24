@@ -1,0 +1,27 @@
+content: "Bridge.ex has two dispatch paths: YAML-defined (active, via Bridge.call_tool) and handler-defined (disabled, gated behind config flag). When adding session auth, I chose to add ETS session support to the Bridge path because it's the active path. The session ETS table is shared with AnanthaQuery handler module. Protocol.ex injects _auth_role and _auth_org_id into tool call arguments for routing context. The ant_authenticate YAML tool doesn't require api_key in params (the auth endpoint doesn't use api_authenticated pipeline)."
+created_at: "2026-06-21T19:52:17.376220Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_46e9e19c_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "Bridge.ex has two dispatch paths: YAML-defined (active, via Bridge.call_tool) and handler-defined (disabled, gated behind config flag). When adding session auth, I chose to add ETS session support to "
+tags:
+  - feedback
+  - learning
+title: Key learning from task 46e9e19c
+triggers: []
+updated_at: "2026-06-21T19:52:17.376228Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

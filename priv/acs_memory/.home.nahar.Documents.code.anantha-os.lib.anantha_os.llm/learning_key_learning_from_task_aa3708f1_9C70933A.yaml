@@ -1,0 +1,27 @@
+content: "RateLimiter.check_rate_limit/1 @spec says :ok | :rate_limited but Agent.get_and_update return value is a tuple for Agent internals ({return_value, new_state}). The return_value is what callers get, so it must match @spec. Changed 3 returns from {{:rate_limited, count}, valid_timestamps} to {:rate_limited, valid_timestamps} so callers matching on bare :rate_limited atom don't get CaseClauseError."
+created_at: "2026-06-20T10:19:16.325371Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_aa3708f1_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.lib.anantha_os.llm
+status: proposed
+summary: "RateLimiter.check_rate_limit/1 @spec says :ok | :rate_limited but Agent.get_and_update return value is a tuple for Agent internals ({return_value, new_state}). The return_value is what callers get, so"
+tags:
+  - feedback
+  - learning
+title: Key learning from task aa3708f1
+triggers: []
+updated_at: "2026-06-20T10:19:16.325380Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

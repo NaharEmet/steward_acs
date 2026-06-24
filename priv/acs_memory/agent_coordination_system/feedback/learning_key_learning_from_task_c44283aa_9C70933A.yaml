@@ -1,0 +1,26 @@
+content: "ToolRegistry at Acs.MCP.ToolRegistry has get_tool/1. To inspect tools at runtime from umbrella root, run mix from the app dir (apps/agent_coordination_system). The `mix run` command doesn't support --app flag. Use `Application.ensure_all_started(:steward_acs)` after --no-start to boot the ACS app. Cognition loader tests have pre-existing fixture validation failures (strings too short, tmp file path issues) unrelated to tool changes."
+created_at: "2026-06-20T08:49:11.728607Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_key_learning_from_task_c44283aa_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: ToolRegistry at Acs.MCP.ToolRegistry has get_tool/1. To inspect tools at runtime from umbrella root, run mix from the app dir (apps/agent_coordination_system). The `mix run` command doesn't support --
+tags:
+  - feedback
+  - learning
+title: Key learning from task c44283aa
+triggers: []
+updated_at: "2026-06-20T08:49:11.728617Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

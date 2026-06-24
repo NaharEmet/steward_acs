@@ -1,0 +1,28 @@
+content: "In `config/runtime.exs`, always wrap env-required config blocks in `if config_env() != :test do ... else :ok end` to prevent test failures when env vars are not set. Test configs should be set in `config/test.exs` instead. This matches the existing pattern used by ENCRYPTION_KEY/HMAC_KEY blocks."
+created_at: "2026-06-21T15:07:14Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_runtime_exs_env_var_guard_pattern_for_no_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: config
+status: approved
+summary:
+tags:
+  - config
+  - runtime.exs
+  - test
+  - env-guard
+title: runtime.exs env var guard pattern for non-test environments
+triggers: []
+updated_at: "2026-06-21T15:07:46Z"
+verification:
+  approved_at: "2026-06-21T15:07:46.205095Z"
+  approved_by: Useful config pattern - wrap env-required config in config_env() guard to prevent test failures. Approved from proposed.
+  status: approved

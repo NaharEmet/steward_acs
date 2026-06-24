@@ -1,0 +1,27 @@
+content: MCP org_setup tools returned HTTP 401 because ANANTHA_API_KEY in .env didn't exist in the database. Had to manually generate a bootstrap key via mix run and fall back to direct curl calls to the Phoenix API.
+created_at: "2026-06-21T12:55:13.594836Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_4ce66d3e_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: MCP org_setup tools returned HTTP 401 because ANANTHA_API_KEY in .env didn't exist in the database. Had to manually generate a bootstrap key via mix run and fall back to direct curl calls to the Phoen
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 4ce66d3e
+triggers: []
+updated_at: "2026-06-21T12:55:13.594857Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

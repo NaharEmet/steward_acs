@@ -1,0 +1,40 @@
+content: |
+  When using `:ets.select/2` with match patterns that filter on map field values (not the ETS key), the function can return multiple results if multiple entries share the same field values. This is because ETS `:set` tables are keyed by the first tuple element (usually a UUID), not by the queried fields. Code must handle `[]`, single-match `[{key, value}]`, AND multi-match `[...]` cases explicitly to avoid `CaseClauseError`. The correct pattern is:
+  
+  ```elixir
+  case match_result do
+    [] -> # handle no match
+    matches when is_list(matches) -> # handle one or more matches
+  end
+  ```
+  
+  When handling duplicates, use `Enum.max_by/2` on `last_seen_at` to pick the freshest entry, and clean up stale duplicates with `List.keydelete/3` and `:ets.delete/2`.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ets_select_can_return_multiple_matches_for_non_key
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/error_trace
+status: approved
+summary:
+tags:
+  - ets
+  - pattern-matching
+  - error-trace
+  - case-clause
+  - duplicate-handling
+title: ETS select can return multiple matches for non-key field queries
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.087521Z"
+  approved_by: human
+  status: approved

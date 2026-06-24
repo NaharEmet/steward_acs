@@ -1,0 +1,29 @@
+content: "ObservabilityRunner.build_artifact/3 crashed with KeyError accessing `cluster.observations` because the EvidenceCluster schema never had an `observations` field. The observations table was migrated into claims as \"signal\" type claims (migration 20260609000004) and dropped. The fix replaces `cluster.observations || []` with filtering signal claims from the claims list and mapping them to the observation shape expected by EvaluationArtifact. This preserves the evaluation pipeline while using the correct data source."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_observabilityrunner_build_artifact_3_key_9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/meta_harness
+status: approved
+summary:
+tags:
+  - observability_runner
+  - build_artifact
+  - key_error
+  - observations_migrated
+  - evidence_cluster
+title: ObservabilityRunner.build_artifact/3 KeyError on cluster.observations
+triggers: []
+updated_at: "2026-06-19T14:00:07Z"
+verification:
+  approved_at: "2026-06-19T14:00:07.219869Z"
+  approved_by: human
+  status: approved

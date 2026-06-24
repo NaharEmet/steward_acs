@@ -1,0 +1,58 @@
+content: |
+  ## Meeting Transcript Webhook Integration
+  
+  Three source adapters were implemented for meeting transcript providers:
+  
+  ### Adapters (in `lib/anantha_os/ingestion/sources/`)
+  - **`Fireflies`** (`source_type: "fireflies"`): Handles both V1 (event+data wrapper with transcript) and V2 (notification-only with `meeting_id`) payloads. V2 notifications have no transcript — only metadata.
+  - **`ReadAI`** (`source_type: "read_ai"`): Handles flat JSON payloads with `transcript.speaker_blocks[].words`. Builds full text from speaker blocks. Preserves rich metadata (participants, summary, action_items, topics, chapter_summaries).
+  - **`SalesTrail`** (`source_type: "sales_trail"`): Dual format — original wrapper (`{event, call: {transcript, ...}}`) AND flat Push API (`{callId, ...}`). Push API is metadata-only with no transcript.
+  
+  ### Webhook Endpoint
+  - **Route**: `POST /api/ingestion/webhook/:provider` (where provider is `fireflies`, `read_ai`, or `sales_trail`)
+  - **Controller**: `AnanthaWeb.MeetingWebhookController` with HMAC-SHA256 signature verification per provider
+  - **Processing**: Delegates to `Anantha.Ingestion.WebhookHandler.handle_async/3` (fire-and-forget)
+  
+  ### Admin Settings
+  - **Route**: `GET /admin/settings/meeting-webhooks` (admin tier)
+  - **LiveView**: `AnanthaWeb.SettingsLive.MeetingWebhooksLive`
+  - **Storage**: `org.settings["meeting_webhooks"]` map with keys like `fireflies_enabled`, `fireflies_secret`, etc.
+  - **Secrets Config (app-level fallback)**: `config :anantha_os, :webhook_secrets, %{fireflies: "...", read_ai: "...", sales_trail: "..."}`
+  
+  ### Signature Headers
+  - Fireflies.ai: `x-hub-signature` (HMAC-SHA256)
+  - Read.ai: `x-read-signature` (HMAC-SHA256)
+  - Sales Trail: No signature verification (nil header = skip)
+  
+  ### Key Pattern
+  All adapters implement `Anantha.Ingestion.Source` behaviour with `normalize/1`, `validate_config/1`, `poll/2`. Registered in `Anantha.Ingestion.@source_adapters` map.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_meeting_transcript_webhook_adapter_architecture
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/meeting_webhooks
+status: approved
+summary:
+tags:
+  - webhooks
+  - meeting_transcripts
+  - fireflies
+  - read_ai
+  - sales_trail
+  - ingestion
+title: Meeting transcript webhook adapter architecture
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.467501Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,37 @@
+content: |
+  The `ingest_test` action in `DebugController` calls `Pipeline.process/1` which returns `{:ok, %{event: event, cluster: cluster}}` where `event` and `cluster` are Ecto schema structs. These cannot be directly passed to `json/2` because Ecto structs contain `__meta__` and association fields (`%Ecto.Association.NotLoaded{}`) that Jason cannot encode.
+  
+  The fix is to serialize Ecto structs to plain maps before calling `json/2`:
+  1. `Map.from_struct(struct)` to convert to map
+  2. `Map.drop([:__meta__])` to remove Ecto internals
+  3. Recursively convert/stringify remaining structs
+  
+  See `serialize_result/1`, `serialize_ecto/1`, and `serialize_value/1` in `DebugController`.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_debugcontroller_ingest_test_must_serialize_ecto_st
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/web/controllers
+status: approved
+summary:
+tags:
+  - debug-controller
+  - serialization
+  - ecto
+  - json
+title: DebugController ingest_test must serialize Ecto structs before json/2
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.157407Z"
+  approved_by: human
+  status: approved

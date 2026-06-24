@@ -1,0 +1,29 @@
+content: "`get_present_status/0` at `Acs.Acs.get_present_status` accesses agent status fields with dot notation (s.current_task_id) which raises `KeyError` when the ETS status map lacks that key. This happens when agents register with minimal `%{purpose: \"active\"}` map (from tools.ex:482). Fix: use `Map.get(s, :current_task_id)` for all optional fields (`:current_task_id`, `:application`, `:component`). The `:agent_id` key is always present because `get_all_agent_statuses/0` adds it from the ETS tuple key, but safer to use `Map.get` consistently."
+created_at: "2026-06-21T10:05:04.032188Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_get_present_status_keyerror_fix_optional_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acs/ex
+status: proposed
+summary:
+tags:
+  - acs
+  - bug
+  - KeyError
+  - get_present_status
+title: get_present_status KeyError fix - optional status fields
+triggers: []
+updated_at: "2026-06-21T10:05:04.032202Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

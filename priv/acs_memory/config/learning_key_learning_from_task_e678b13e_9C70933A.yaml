@@ -1,0 +1,27 @@
+content: "CRM ResourceGovernor was mis-namespaced (Anantha.ResourceGovernor vs Anantha.CRM.ResourceGovernor). File path and module namespace must match. Always check that module declarations follow directory structure. Also, Integer.parse/1 returns :error on non-numeric input — elem/2 on :error crashes the VM. Always use case/2 pattern matching for safe parsing. For crm_gov_opts, use config[:key] || default pattern instead of Application.get_env — the config map already contains merged CRM values."
+created_at: "2026-06-21T19:05:10.736514Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e678b13e_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: config
+status: proposed
+summary: CRM ResourceGovernor was mis-namespaced (Anantha.ResourceGovernor vs Anantha.CRM.ResourceGovernor). File path and module namespace must match. Always check that module declarations follow directory st
+tags:
+  - feedback
+  - learning
+title: Key learning from task e678b13e
+triggers: []
+updated_at: "2026-06-21T19:05:10.736544Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

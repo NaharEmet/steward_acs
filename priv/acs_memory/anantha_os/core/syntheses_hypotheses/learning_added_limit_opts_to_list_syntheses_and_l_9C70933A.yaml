@@ -1,0 +1,29 @@
+content: "Syntheses.list_syntheses/1 and Hypotheses.list_hypotheses/1 both originally did Repo.all() with no limit. Added optional opts parameter with :limit key (default 50) to both functions. The pattern follows Claims.list_claims/2 and Records.list_records/2 which already supported limit. All support default arg \\[] so existing callers continue to work unchanged."
+created_at: "2026-06-21T12:03:11.377919Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_added_limit_opts_to_list_syntheses_and_l_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/syntheses_hypotheses
+status: proposed
+summary:
+tags:
+  - syntheses
+  - hypotheses
+  - limit
+  - pagination
+title: Added limit opts to list_syntheses and list_hypotheses
+triggers: []
+updated_at: "2026-06-21T12:03:11.377942Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

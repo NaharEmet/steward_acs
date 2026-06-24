@@ -1,0 +1,41 @@
+content: |
+  In `anantha_query.ex` lines 107-109, the execute_query tool body construction defaults filters and aggregates to empty lists:
+  
+  ```elixir
+  filters: args["filters"] || [],   # Should be %{}
+  aggregates: args["aggregates"] || [],  # Should be %{}
+  ```
+  
+  The controller's `apply_filter_clauses` filters by `is_map(conditions)` — empty list falls through catch-all. The controller's `string_keys_to_atoms([])` returns `[]` which also hits the same catch-all.
+  
+  Fix: Default to `%{}` for both.
+  
+  File: `apps/agent_coordination_system/lib/acs/mcp/tools/anantha_query.ex`, line 107-109.
+created_at: "2026-06-21T19:24:44.433058Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_acs_tool_handler_defaults_filters_aggreg_9C70933A
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/tools/anantha_query
+status: proposed
+summary:
+tags:
+  - acs
+  - tool
+  - query
+  - bug
+title: ACS tool handler defaults filters/aggregates to [] (list) not %{} (map)
+triggers: []
+updated_at: "2026-06-21T19:24:44.433067Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

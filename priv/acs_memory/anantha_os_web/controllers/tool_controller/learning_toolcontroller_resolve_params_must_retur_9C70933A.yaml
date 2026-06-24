@@ -1,0 +1,29 @@
+content: "`ToolController.resolve_params/2` accepts a Phoenix params map (string-keyed from JSON) and a list of required atoms. It extracts values using both `params[k]` and `params[Atom.to_string(k)]` so it works regardless of input key type. BUT it MUST return a **string-keyed** map because all callers use `args[\"org_id\"]` string-keyed access. Previously it returned `%{org_id: \"value\"}` while callers did `args[\"org_id\"]` → nil."
+created_at: "2026-06-20T12:36:04.372890Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_toolcontroller_resolve_params_must_retur_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/controllers/tool_controller
+status: proposed
+summary:
+tags:
+  - tool_controller
+  - resolve_params
+  - bug-fix
+  - key-access-pattern
+title: ToolController.resolve_params must return string-keyed maps
+triggers: []
+updated_at: "2026-06-20T12:36:04.372900Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

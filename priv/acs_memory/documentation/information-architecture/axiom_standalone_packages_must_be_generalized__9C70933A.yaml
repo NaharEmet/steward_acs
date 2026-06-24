@@ -1,0 +1,35 @@
+content: |
+  Nested packages in `lib/*/` with their own `mix.exs` (git subtree or submodule) are published to Hex for the Elixir community. They MUST NOT depend on project internals (`Anantha.*`, `Acs.*`, project configs, internal modules). Every such dependency ties the package to this project and breaks standalone consumers.
+  
+  Before adding anything to a nested package, ask: "Would this make sense if someone pulled this from Hex without the Anantha OS project?"
+  
+  Violations include: importing `Anantha.Repo`, calling `Anantha.LLM.*` functions, referencing project structs, depending on app-level config.
+created_at: "2026-06-24T09:53:46.295898Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: axiom_standalone_packages_must_be_generalized__9C70933A
+importance: 5
+kind: axiom
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: documentation/information-architecture
+status: proposed
+summary:
+tags:
+  - standalone-packages
+  - generalization
+  - hex-publish
+  - git-subtree
+  - git-submodule
+title: Standalone packages must be generalized, not specialized to Anantha OS
+triggers: []
+updated_at: "2026-06-24T09:53:46.295911Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

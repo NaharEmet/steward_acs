@@ -1,0 +1,43 @@
+content: |
+  When using Task.async_stream, exceptions raised inside the stream function crash the task process. While async_stream yields {:exit, reason} for task exits, the safest pattern is to wrap the stream function body in try/rescue so that exceptions become {:ok, {:error, e}} tuples instead of {:exit, reason}. This prevents linked-process EXIT signals from propagating to the caller.
+  
+  ```elixir
+  |> Task.async_stream(fn arg ->
+    try do
+      result = risky_call(arg)
+      {:ok, result}
+    rescue
+      e -> {:error, e}
+    end
+  end)
+  ```
+  
+  This pattern was applied to SyncEngine.sync/3's async_stream to prevent HubSpot provider exceptions from crashing the test process.
+created_at: "2026-06-20T13:42:35.361915Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_task_async_stream_raises_in_task_crash_t_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix/task/async_stream
+status: proposed
+summary:
+tags:
+  - task
+  - async_stream
+  - error_handling
+  - test
+title: Task.async_stream raises in task crash the parent unless wrapped in try/rescue
+triggers: []
+updated_at: "2026-06-20T13:42:35.361928Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

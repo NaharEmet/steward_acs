@@ -1,0 +1,28 @@
+content: When parallelizing CRM object type syncs, the rate limiter must use a GLOBAL key scoped to (org_id, source_type). HubSpot API limit is per API key (10 req/sec total), not per object type. Implement both preventive (check before request) and reactive (handle 429 with record_failure) rate limiting layers.
+created_at: "2026-06-20T10:50:59.884673Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_sync_rate_limiter_must_be_wired_glob_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync
+status: proposed
+summary:
+tags:
+  - crm
+  - sync
+  - rate-limiter
+title: "CRM sync: rate limiter must be wired globally per source"
+triggers: []
+updated_at: "2026-06-20T10:50:59.884692Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

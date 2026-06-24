@@ -1,0 +1,47 @@
+content: |
+  When passing UUID parameters to raw SQL queries via Repo.query/2, Postgrex expects the Elixir value to be a 16-byte binary when the SQL uses `::uuid` cast. Passing a string UUID (e.g., "550e8400-e29b-41d4-a716-446655440000") causes:
+  
+  ```
+  (DBConnection.EncodeError) Postgrex expected a binary of 16 bytes, got "..."
+  ```
+  
+  The fix is to convert string UUIDs to 16-byte binaries using a decode_uuid helper:
+  
+  ```elixir
+  defp decode_uuid(<<_::64, ?-, _::32, ?-, _::32, ?-, _::32, ?-, _::96>> = uuid) do
+    uuid |> String.replace("-", "") |> Base.decode16!(case: :mixed)
+  end
+  defp decode_uuid(binary) when is_binary(binary) and byte_size(binary) == 16, do: binary
+  ```
+  
+  In contrast, when using Ecto queries with the schema module (e.g., `from(s in Anantha.Core.Synthesis, ...)`), Ecto handles the binary_id type encoding automatically — no decode_uuid needed.
+  
+  For `SELECT id::text`, Postgrex returns the UUID as a formatted string with hyphens (e.g., "550e8400-e29b-41d4-a716-446655440000"), so no conversion needed on read back.
+created_at: "2026-06-20T17:11:50.709082Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_postgrex_raw_sql_requires_binary_uuid_fo_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/synthesis_dedup
+status: proposed
+summary: "When using Repo.query with raw SQL and ::uuid casts, pass the UUID as 16-byte binary (not string). Use decode_uuid/1 helper that strips hyphens and Base.decode16!."
+tags:
+  - postgrex
+  - uuid
+  - raw-sql
+  - ecto
+title: "Postgrex raw SQL requires binary UUID for :uuid type params"
+triggers: []
+updated_at: "2026-06-20T17:11:50.709091Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

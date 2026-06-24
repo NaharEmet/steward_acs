@@ -1,0 +1,54 @@
+content: |
+  ## Bug: Active agents not appearing in ACS present status
+  
+  ### Root Causes
+  
+  1. **No agent auto-registration on connect/sleep** — agents only get into `AgentStatus` table when they claim a task (`claim_task` → `upsert_agent_status`). `acs_sleep` registers agent in `SleepRegistry` but not in `AgentStatus`. Calling `acs_get_present_status` assigns a name from the rotating pool but doesn't persist it.
+  
+  2. **No ETS cache warmup on restart** — `Cache.init/1` creates fresh empty ETS tables but never re-populates from DB. After server restart, `Acs.Acs.get_present_status()` (ETS version) returns empty even though DB still has records.
+  
+  3. **Two separate `get_present_status` implementations**:
+     - `Acs.Acs.get_present_status/0` — reads from ETS cache, used by MCP tool
+     - `Acs.get_present_status/1` — reads from DB, used by LiveView dashboard
+     - Different return types (list vs map)
+     - Can be out of sync
+  
+  ### Files affected
+  - `lib/acs/acs/cache.ex` — needs warmup function
+  - `lib/acs/mcp/tools/core_handlers.ex` — needs agent registration on sleep and get_present_status
+  - `lib/acs.ex` — needs register_agent or similar function
+  - `lib/acs/application.ex` — needs to call warmup on startup
+  
+  ### Evidence
+  - File locks exist for agents Xander and Ruby (indicating claimed tasks)
+  - But MCP `acs_get_present_status` returns empty agents list
+  - Agent Xander status exists in ETS cache when queried by agent_id but not returned in general listing
+created_at: "2026-06-20T16:32:25.596552Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_acs_agents_not_registered_no_auto_regist_9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/present_status
+status: proposed
+summary:
+tags:
+  - acs
+  - agent-status
+  - bug
+  - ets-cache
+  - registration
+title: ACS agents not registered - no auto-registration, no ETS warmup, two get_present_status
+triggers: []
+updated_at: "2026-06-20T16:32:25.596561Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

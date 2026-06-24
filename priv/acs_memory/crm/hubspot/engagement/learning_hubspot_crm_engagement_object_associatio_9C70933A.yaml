@@ -1,0 +1,30 @@
+content: HubSpot engagement objects (emails, calls, meetings, notes, tasks) support associations with contacts, companies, and deals via the `associations` query parameter in both the list API and search API. The `extract_associations/2` function in `Anantha.CRM.SyncEngine.HubSpot` extracts `associated_contact_ids`, `associated_company_id`, and `associated_deal_ids` from the API response. Join definitions in `Anantha.CRM.JoinConfig` and `config/crm/joins/default.yaml` map these to `associated_with_contact`, `associated_with_company`, and `associated_with_deal` predicates for engagement types. Field classifications in `priv/crm/hubspot_fields.yaml` define semantic predicates for engagement object fields.
+created_at: "2026-06-21T19:45:41.678959Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_hubspot_crm_engagement_object_associatio_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/hubspot/engagement
+status: proposed
+summary:
+tags:
+  - crm
+  - hubspot
+  - engagement
+  - associations
+  - joins
+title: HubSpot CRM engagement object associations pattern
+triggers: []
+updated_at: "2026-06-21T19:45:41.678971Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

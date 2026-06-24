@@ -1,0 +1,48 @@
+content: |
+  When a function has two sequential DB operations where the second depends on the first succeeding, use `with` to short-circuit on the first failure:
+  
+  ```elixir
+  # BAD: first result discarded, always falls through
+  case Indexer.update_status(...) do
+    {:ok, _} -> :ok
+    {:error, e} -> {:error, e}
+  end
+  # execution continues here regardless
+  
+  # GOOD: short-circuits on failure
+  with {:ok, _} <- Indexer.update_status(...) do
+    Repo.update_all(...)
+  end
+  ```
+  
+  Also: `Ecto.Repo.update_all/3` does NOT return `{:error, e}` tuples — it raises exceptions on failure. The correct approach is to either use `try/rescue` or match on `{count, nil}` return tuples. The `{:error, e} -> {:error, e}` catch-all clauses in `case Repo.update_all(...)` are unreachable and should be removed in favor of rescue blocks.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_use_with_to_short_circuit_on_the_first_db_error_in
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acs/memory/auditor
+status: approved
+summary:
+tags:
+  - learning
+  - elixir
+  - db
+  - error-handling
+  - with
+  - ecto
+title: Use `with` to short-circuit on the first DB error in multi-step operations
+triggers: []
+updated_at: "2026-06-19T13:59:57Z"
+verification:
+  approved_at: "2026-06-19T13:59:57.812280Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,35 @@
+content: |
+  CRM claim extraction had 3 layers of error swallowing:
+  1. `safe_batch_extract_and_store` returned `{[claims: inspect(e)], :error}` — caller destructured as `{claim_errors, _}` discarding `:error` status
+  2. `batch_extract_and_store` always returned `{:ok, all_stored}` — per-group errors buried in result
+  3. Sync engine only matched `{:ok, result}` — any non-ok tuple caused `CaseClauseError`
+  
+  Fix: Use `case` pattern matching to propagate `{:error, reason}` tuples consistently through all layers. Never use `_` to discard error status when the tuple carries meaningful failure information.
+created_at: "2026-06-23T07:28:35.262213Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_error_tuples_must_be_propagated_not__9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/crm
+status: proposed
+summary:
+tags:
+  - crm
+  - error-handling
+  - claim-extraction
+  - fail-fast
+title: CRM error tuples must be propagated, not pattern-matched with _
+triggers: []
+updated_at: "2026-06-23T07:28:35.262221Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

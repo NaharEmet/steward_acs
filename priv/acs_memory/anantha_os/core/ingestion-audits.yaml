@@ -1,0 +1,28 @@
+content: "When querying per-org ingestion stats from ingestion_audit_logs, use a left join with Anantha.Core.Org schema on org_id. The org_name falls back to org_id if NULL. Use `join(:left, [binding], o in Org, on: bind.org_id == o.id)` syntax in Ecto pipe-style queries. For conditional counts, use `sum(fragment(\"CASE WHEN ? = 'event_type' THEN 1 ELSE 0 END\", field))` pattern already established in the stats/2 function."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_ingestion_audit_per_org_summary_uses_left_join_wit
+importance: 2
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/ingestion-audits
+status: approved
+summary:
+tags:
+  - ingestion
+  - audit
+  - org-summary
+  - ecto
+title: Ingestion audit per-org summary uses left join with Org schema
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.623955Z"
+  approved_by: human
+  status: approved

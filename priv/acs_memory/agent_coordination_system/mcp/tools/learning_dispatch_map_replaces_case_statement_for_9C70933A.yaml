@@ -1,0 +1,36 @@
+content: |
+  The `Acs.MCP.Tools.call_tool/2` function previously used a massive `case name do` with 50+ clauses. Replaced with module attribute `@dispatch` map of string-to-function references and `Map.fetch/2` lookup. Gated tools (anantha_*) use a separate `@gated_tools` map with conditional enable check via `call_gated_tool/2`. Tools needing a fixed first arg (write_tool, org_*) use thin wrapper functions like `defp call_write_tool(args), do: DynamicTools.call_tool("write_tool", args)`.
+  
+  This is:
+  - More declarative: tool routing is data, not code
+  - Faster: O(1) map lookup vs O(n) sequential case matching
+  - Easier to extend: just add a new map entry
+  
+created_at: "2026-06-21T13:16:11.847514Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_dispatch_map_replaces_case_statement_for_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp/tools
+status: proposed
+summary:
+tags:
+  - acs
+  - mcp
+  - dispatch
+  - refactoring
+title: Dispatch map replaces case statement for tool routing
+triggers: []
+updated_at: "2026-06-21T13:16:11.847540Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

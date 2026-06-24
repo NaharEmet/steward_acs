@@ -1,0 +1,27 @@
+content: Agent rated guidance as helpful for this task
+created_at: "2026-06-22T07:09:58.442109Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_guidance_rated_as_useful_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.core
+status: proposed
+summary: Agent rated guidance as helpful for this task
+tags:
+  - feedback
+  - observation
+title: Guidance rated as useful
+triggers: []
+updated_at: "2026-06-22T07:09:58.442132Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,36 @@
+content: |
+  Users need:
+  1. Compact results format — query returning 1K rows with 15+ fields each blows up context. A count-only mode or summary format (key fields only) would help.
+  2. Working `select` field support — the `select` parameter is accepted but `execute_rows_query` doesn't properly limit fields when `select` is non-empty.
+  3. Native `SELECT COUNT(*)` mode without `GROUP BY` — for quick counts.
+  
+  The `select` param is validated and passed to Ecto `select: map(q, ^fields)`, but when `select` is empty, it falls back to selecting all fields. The fix would be to ensure select works as expected.
+created_at: "2026-06-21T19:24:59.807007Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_feature_request_compact_summary_results__9C70933A
+importance: 2
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query/query_engine
+status: proposed
+summary:
+tags:
+  - query
+  - results
+  - select
+  - count
+  - feature
+title: "Feature request: compact/summary results format and select field support"
+triggers: []
+updated_at: "2026-06-21T19:24:59.807016Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

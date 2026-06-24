@@ -1,0 +1,30 @@
+content: "JSON requires ALL control characters (0x00-0x1F) to be escaped inside string values. LLM providers like MiMo and NIM embed `\r`, `\t`, and other control chars in reasoning strings, producing invalid JSON. The `escape_newlines_in_strings/1` function must have a clause BEFORE the catch-all that intercepts control chars (c < 0x20, c != 0x0a) inside strings and escapes them as `\\uXXXX`. Pattern matching order matters — the specific clause must precede the generic `<<c::utf8>>` catch-all."
+created_at: "2026-06-21T10:17:32.432484Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_escape_all_control_chars_in_json_strings_9C70933A
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm/json_escape
+status: proposed
+summary:
+tags:
+  - json
+  - escape
+  - control-chars
+  - llm
+  - pattern-matching
+title: Escape all control chars in JSON strings for LLM responses
+triggers: []
+updated_at: "2026-06-21T10:17:32.432515Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

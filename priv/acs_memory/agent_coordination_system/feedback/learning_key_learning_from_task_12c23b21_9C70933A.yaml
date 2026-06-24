@@ -1,0 +1,27 @@
+content: "RateLimiter.check_rate_limit/1 returns {:rate_limited, count} from Agent.get_and_update but @spec says :rate_limited. When fixing Agent.get_and_update callbacks, the first element of the callback tuple is the return value — if count is unused, return bare atom. Check @spec vs actual return values for all Agent-based functions that use get_and_update."
+created_at: "2026-06-20T10:20:54.700422Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_12c23b21_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "RateLimiter.check_rate_limit/1 returns {:rate_limited, count} from Agent.get_and_update but @spec says :rate_limited. When fixing Agent.get_and_update callbacks, the first element of the callback tupl"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 12c23b21
+triggers: []
+updated_at: "2026-06-20T10:20:54.700438Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

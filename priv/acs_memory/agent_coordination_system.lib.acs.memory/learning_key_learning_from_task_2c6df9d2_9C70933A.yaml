@@ -1,0 +1,27 @@
+content: Minor comment-only fix. retry_available?/0 calls retry_available?(10, 1000) which runs 11 checks (n=10 down to 0) with up to 10 sleeps. Comment now accurately reflects this.
+created_at: "2026-06-21T11:06:56.258349Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_2c6df9d2_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.memory
+status: proposed
+summary: Minor comment-only fix. retry_available?/0 calls retry_available?(10, 1000) which runs 11 checks (n=10 down to 0) with up to 10 sleeps. Comment now accurately reflects this.
+tags:
+  - feedback
+  - learning
+title: Key learning from task 2c6df9d2
+triggers: []
+updated_at: "2026-06-21T11:06:56.258362Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

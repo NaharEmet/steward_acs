@@ -1,0 +1,27 @@
+content: An E2E integration test organization was created via POST /api/debug/orgs with name "E2E Integration Test Org" and ID ee6a7830-10a1-439f-89d9-0c7d43ba26a9. This org can be used for end-to-end integration testing. Existing orgs can be listed via GET /api/debug/orgs. The debug orgs API creates organizations directly without requiring authentication.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_e2e_integration_test_org_created
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: e2e/integration
+status: approved
+summary:
+tags:
+  - e2e
+  - integration-testing
+  - org-api
+title: E2E Integration Test Org Created
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.693561Z"
+  approved_by: human
+  status: approved

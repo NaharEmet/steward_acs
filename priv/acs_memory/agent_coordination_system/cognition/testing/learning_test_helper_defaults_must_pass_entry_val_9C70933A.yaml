@@ -1,0 +1,28 @@
+content: "When creating test fixtures for Acs.Cognition.Entry, all field values must pass strict quality validation in Entry.validate/1. Minimum lengths: title >= 10, purpose >= 20, invariants[N] >= 15, workflows[N] >= 20, failure_modes[N] >= 20. Additionally, values must pass `generic_*?` checks — titles like \"Test Module\" (matches `^[\w\s]+ module$` and length < 20) fail. Always use values that are long enough and semantically meaningful to avoid false validation failures in tests."
+created_at: "2026-06-20T09:08:28.560460Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_test_helper_defaults_must_pass_entry_val_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cognition/testing
+status: proposed
+summary:
+tags:
+  - cognition
+  - testing
+  - entry-validation
+  - test-fixtures
+title: Test helper defaults must pass Entry.validate/1 quality checks
+triggers: []
+updated_at: "2026-06-20T09:08:28.560470Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

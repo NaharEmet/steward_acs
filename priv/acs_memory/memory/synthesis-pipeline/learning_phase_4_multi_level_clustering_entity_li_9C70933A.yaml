@@ -1,0 +1,57 @@
+content: |
+  ## Phase 4 Implementation
+  
+  ### What was built
+  - **SynthesisClusterBuilder** — produces 3 cluster types: :topic (subject+predicate), :company (grouped by company_id), :cross_company (same predicate across 2+ companies). Each cluster has `cluster_type` and `entity_context` fields.
+  - **Entity linking** — `link_synthesis_to_entities/3` in CognitionProcessor creates LayerRelationship records (type: "references") from syntheses to source companies and actors. Called after both creation and strengthening paths.
+  - **Company filter** — `list_current_syntheses(org_id, company_id: x)` joins through LayerRelationships to filter by linked company.
+  - **Enhanced prompts** — SynthesisExtractor shows company name for :company clusters, company count for :cross_company clusters.
+  
+  ### Files created
+  - `lib/anantha_os/memory/synthesis_cluster_builder.ex` — multi-type cluster builder
+  - `test/anantha_os/memory/synthesis_cluster_builder_test.exs` — 10 tests
+  
+  ### Files modified
+  - `cognition_processor.ex` — uses SynthesisClusterBuilder, adds entity linking
+  - `claim_clusterer.ex` — adds cluster_type/entity_context fields for backward compat
+  - `layer_relationship.ex` — adds "references" to relationship_types
+  - `syntheses.ex` — list_current_syntheses/2 with company_id filter
+  - `core.ex` — delegation update
+  - `synthesis_extractor.ex` — prompt includes cluster type context
+  - `data_case.ex` — added company_fixture helper
+  - 3 test files — cleanup blocks, company filter test, prompt header tests
+  
+  ### Key lessons
+  - LayerRelationship FK must be cleaned in test teardown before Org deletion (15 FK violations fixed)
+  - Build entity linking into BOTH create and strengthen paths (not just create)
+  - Pass org_id explicitly to cluster builder functions (not extracted from claim data)
+  - Add org_id scoping to LayerRelationship join in list_current_syntheses
+created_at: "2026-06-20T20:05:15.544214Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_phase_4_multi_level_clustering_entity_li_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/synthesis-pipeline
+status: proposed
+summary:
+tags:
+  - synthesis
+  - phase-4
+  - clustering
+  - entity-linking
+  - layer-relationships
+title: "Phase 4: multi-level clustering + entity linking"
+triggers: []
+updated_at: "2026-06-20T20:05:15.544221Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

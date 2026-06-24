@@ -1,0 +1,51 @@
+content: |
+  ## Fix: Cache Application.get_env in hot-path rate_limiter
+  
+  **Problem:** `Anantha.LLM.RateLimiter` read `Application.get_env/2` on EVERY rate check call (6 private functions for 3 providers × 2 configs each). Hot-path overhead and prevents runtime config change.
+  
+  **Fix:** Moved all config reading to `start_rate_limiter/0` (Agent.start_link init). State changed from bare list `[]` to map `%{timestamps: [], nim_rate_limit: N, ...}`. Rate check functions use `state.field` instead of private function calls.
+  
+  **Pattern:**
+  ```elixir
+  def start_rate_limiter(opts \\ []) do
+    config = Application.get_env(:anantha_os, __MODULE__, [])
+    state = %{
+      timestamps: [],
+      nim_rate_limit: config[:nim_rate_limit] || 60,
+      nim_rate_window_ms: config[:nim_rate_window_ms] || 60_000,
+      # ... etc
+    }
+    Agent.start_link(fn -> state end, name: __MODULE__)
+  end
+  ```
+  
+  3 provider check functions (`nim`, `minimax`, `mimo`) all updated to access state fields instead of calling private `Application.get_env` wrappers.
+created_at: "2026-06-21T13:18:04.508963Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_ratelimiter_config_caching_read_once_at__9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/llm/rate_limiter
+status: proposed
+summary:
+tags:
+  - anti-pattern
+  - application-config
+  - performance
+  - hot-path
+  - rate-limiter
+title: RateLimiter config caching — read once at init
+triggers: []
+updated_at: "2026-06-21T13:18:04.508973Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

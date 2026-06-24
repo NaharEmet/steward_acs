@@ -1,0 +1,36 @@
+content: |
+  Several modules call `to_atom(key)` without a `String.` prefix or without having a `defp to_atom/1` defined locally. This causes a compilation error.
+  
+  Files affected:
+  - `lib/anantha_os/engine/tools/argument_normalizer.ex` line 40 - needed `String.to_existing_atom(key)` 
+  - `lib/anantha_os/query/query_engine.ex` line 350 - needed `String.to_atom(field)`
+  
+  The `to_atom` function should be called as `String.to_atom/1` or `String.to_existing_atom/1` in these locations. Some modules (like query_engine.ex and evaluator.ex) define their own private `defp to_atom/1` helper, which works fine.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_to_atom_1_undefined_function_in_multiple_modules
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: compilation
+status: approved
+summary:
+tags:
+  - compilation
+  - bug
+  - to_atom
+  - fix
+title: to_atom/1 undefined function in multiple modules
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.385355Z"
+  approved_by: human
+  status: approved

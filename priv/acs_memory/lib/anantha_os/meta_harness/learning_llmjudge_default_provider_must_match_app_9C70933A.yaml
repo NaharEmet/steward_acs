@@ -1,0 +1,29 @@
+content: "LLMJudge had `@default_provider \"sarvam\"` but Sarvam API key isn't configured in any environment. The app-wide default in `Client` is `\"nim\"`. Changed LLMJudge default to `\"nim\"` and added a `providers_available?/0` guard that checks the resolved provider has an API key before calling `Client.chat_completion`. This prevents the `{:error, :missing_api_key}` crash and returns `{:error, :no_provider_configured}` with a clear log message instead."
+created_at: "2026-06-20T16:59:40.122017Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_llmjudge_default_provider_must_match_app_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/meta_harness
+status: proposed
+summary:
+tags:
+  - llm_judge
+  - provider
+  - default_provider
+  - missing_api_key
+title: LLMJudge default provider must match app default (nim)
+triggers: []
+updated_at: "2026-06-20T16:59:40.122032Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

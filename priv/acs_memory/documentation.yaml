@@ -1,0 +1,27 @@
+content: "Task f8907b59 \"Fix 3 minor AGENTS.md documentation issues\" was a ghost task - all 3 items were already properly documented: (1) importance scale note exists at line 606, (2) scope vs scope_path clarification exists at line 676, (3) rejected lifecycle entry exists at lines 699-706. The task description was stale/incorrect. Always verify task items actually need fixing before claiming."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_agents_md_documentation_task_was_stale_ghost
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: documentation
+status: approved
+summary:
+tags:
+  - agents.md
+  - stale-task
+  - documentation
+title: AGENTS.md documentation task was stale ghost
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.591581Z"
+  approved_by: human
+  status: approved

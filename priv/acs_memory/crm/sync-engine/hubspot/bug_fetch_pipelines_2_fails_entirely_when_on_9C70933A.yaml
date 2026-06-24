@@ -1,0 +1,44 @@
+content: |
+  `Anantha.CRM.SyncEngine.HubSpot.fetch_pipelines/2` uses a `with` block to chain pipeline fetches for both deals and tickets:
+  
+  ```elixir
+  with {:ok, deals_pipelines} <- fetch_pipeline_type(api_key, api_base, "deals", org_id),
+       {:ok, tickets_pipelines} <- fetch_pipeline_type(api_key, api_base, "tickets", org_id) do
+    {:ok, deals_pipelines ++ tickets_pipelines}
+  end
+  ```
+  
+  If tickets returns 403 (forbidden scope), the entire pipeline discovery fails — even though deal pipelines would succeed. Fix: fetch each type independently and merge successful results. While `discover_pipelines` in SyncEngine catches the error gracefully (logs warning, returns empty config, doesn't block sync), the pipeline data is lost for deals too. Also affects `org_setup_discover_pipelines` tool which returns the error to the user as a failure.
+  
+  Other parts of the codebase handle 403s gracefully:
+  - `sync_type_list` wraps each type in `try/rescue` — individual type failures don't block others
+  - Scheduler syncs only core types (contacts, companies, deals) by default — forbidden engagement types never attempted
+  - `acs_crm_sync_object_type` bypasses type filtering but errors caught in rescue
+created_at: "2026-06-21T18:14:32.797288Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_fetch_pipelines_2_fails_entirely_when_on_9C70933A
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync-engine/hubspot
+status: proposed
+summary:
+tags:
+  - crm
+  - hubspot
+  - pipeline-discovery
+  - bug
+title: fetch_pipelines/2 fails entirely when one pipeline type scope is missing
+triggers: []
+updated_at: "2026-06-21T18:14:32.797301Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

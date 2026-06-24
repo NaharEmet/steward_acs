@@ -1,0 +1,29 @@
+content: "The `apply_linear_decay/0` function in `CognitionProcessor` computes `temporal_relevance` via raw SQL: `GREATEST(0, 1 - EXTRACT(EPOCH FROM ($1 - inserted_at)) / 86400.0 / 90)`. This means even \"fresh\" syntheses created moments ago get temporal_relevance slightly below 1.0 (e.g., 0.999999874) due to the time delta between insertion and the `now` timestamp passed to the SQL query. Tests must use `assert_in_delta` rather than exact equality for fresh syntheses."
+created_at: "2026-06-21T10:03:18.492948Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_linear_decay_formula_temporal_relevance__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/synthesis
+status: proposed
+summary:
+tags:
+  - linear_decay
+  - temporal_relevance
+  - floating_point
+  - testing
+title: "Linear decay formula: temporal_relevance uses raw SQL with floating point precision"
+triggers: []
+updated_at: "2026-06-21T10:03:18.492965Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

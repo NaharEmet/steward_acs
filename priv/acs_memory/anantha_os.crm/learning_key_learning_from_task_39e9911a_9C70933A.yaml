@@ -1,0 +1,27 @@
+content: "CRM ResourceGovernor should use configured max_memory_bytes from opts or Application config, never :erlang.memory(:system_limit) which returns VM limit not configured limit. Use Keyword.get(opts, :max_memory_bytes) with fallback to Application.get_env(:anantha_os, :crm, []) |> Keyword.get(:max_memory_mb, 2048) |> Kernel.*(1_048_576). {:stop, reason, wait_ms} tuple is unused pattern; {:stop, reason} is sufficient. All CRM env vars in runtime.exs require Integer.parse pattern, never String.to_integer on raw input."
+created_at: "2026-06-21T18:55:22.461937Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_39e9911a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: "CRM ResourceGovernor should use configured max_memory_bytes from opts or Application config, never :erlang.memory(:system_limit) which returns VM limit not configured limit. Use Keyword.get(opts, :max"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 39e9911a
+triggers: []
+updated_at: "2026-06-21T18:55:22.461946Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

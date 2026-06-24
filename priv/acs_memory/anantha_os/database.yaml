@@ -1,0 +1,56 @@
+content: |
+  ## Database State (2026-06-02)
+  
+  ### Global counts
+  - **Claims**: 398
+  - **Observations**: 1,338
+  - **Syntheses**: 2
+  - **OntologyNodes**: 384
+  - **Total records**: 2,122
+  
+  ### Key orgs with data
+  
+  **Admin Organization** (`80baf8e4-a7b4-479a-8209-6cca76a68dfa`)
+  - Claims: 4 | Observations: 4 | Syntheses: 2 | OntologyNodes: 3 = 13 total
+  - The ONLY org with syntheses data
+  - Created: 2026-05-07
+  
+  **E2E Integration Test Org** (`ee6a7830-10a1-439f-89d9-0c7d43ba26a9`)
+  - Claims: 18 | Observations: 15 | Syntheses: 0 | OntologyNodes: 9 = 42 total
+  - Most recent data (2026-06-02)
+  
+  **SafetyConnect** (`01f63922-397a-463f-9c24-1daf1e159e0e`)
+  - Claims: 0 | Observations: 0 | Syntheses: 0 | OntologyNodes: 0 = 0 total
+  - Empty org - good candidate for test data ingestion
+  
+  **E2E Test Org** (`347959c0-88f1-4788-8430-8ed9b1ebf239`)
+  - All counts 0 - another empty org
+  
+  ### Total orgs: 47 (mostly Ingestion E2E Test orgs with varying amounts of data)
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_anantha_database_state_june_2_2026
+importance: 2
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/database
+status: approved
+summary:
+tags:
+  - database
+  - anantha
+  - data-exploration
+title: Anantha database state - June 2, 2026
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.896248Z"
+  approved_by: human
+  status: approved

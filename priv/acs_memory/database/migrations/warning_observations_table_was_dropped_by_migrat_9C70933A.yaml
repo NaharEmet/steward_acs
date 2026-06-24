@@ -1,0 +1,41 @@
+content: |
+  ## Migration 20260609000004 drops the `observations` table
+  
+  `priv/repo/migrations/20260609000004_add_semantic_types_and_migrate_observations.exs` migrates observation data into the `claims` table as "signal" claims, then drops the `observations` table (line 74: `drop table(:observations)`).
+  
+  The `Observation` Ecto schema (`lib/anantha_os/core/observation.ex`) still maps to `schema "observations"`, but the table no longer exists in the database.
+  
+  Test `test/anantha_os/memory/pipeline_test.exs:470` fails with:
+  `ERROR 42P01 (undefined_table) relation "observations" does not exist`
+  
+  This affects any code that queries the `observations` table through the `Observation` schema.
+  
+  Fix: Either remove the `Observation` schema/module, update the pipeline test to not reference `Observation`, or restore the table and update the code to work with it.
+created_at: "2026-06-20T13:27:10.562272Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_observations_table_was_dropped_by_migrat_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: database/migrations
+status: proposed
+summary:
+tags:
+  - migration
+  - observations
+  - table_dropped
+  - test_failure
+title: observations table was dropped by migration 20260609000004
+triggers: []
+updated_at: "2026-06-20T13:27:10.562288Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

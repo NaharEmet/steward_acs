@@ -1,0 +1,39 @@
+content: |
+  The MCP org_setup tools (acs_org_setup_org_create, acs_org_setup_source_register, etc.) call the Phoenix API on port 4000 via ACS HTTP handlers. These handlers authenticate using the ANANTHA_API_KEY from .env. This creates a chicken-and-egg bootstrapping problem: you need an API key to call the tools, but the tools create orgs/API keys.
+  
+  Solution for fresh environments:
+  1. The system org already exists in the database (hardcoded UUID)
+  2. Generate a bootstrap admin API key for the system org using: `mix run -e "IO.puts(Anantha.ApiKeys.generate_key(Anantha.Constants.system_org_id(), \"bootstrap\", \"admin\"))"` 
+  3. Export that key as ANANTHA_API_KEY in .env
+  4. Now MCP tools can authenticate via the system org key to create new orgs
+  
+  This is only needed once for bootstrapping. After creating the target org and generating its own API key, update .env with the org-specific key.
+created_at: "2026-06-21T12:54:51.895369Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_mcp_org_setup_tools_need_anantha_api_key_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/onboarding
+status: proposed
+summary:
+tags:
+  - org_setup
+  - bootstrapping
+  - MCP
+  - API keys
+  - chicken-egg
+title: MCP org_setup tools need ANANTHA_API_KEY bootstrap key
+triggers: []
+updated_at: "2026-06-21T12:54:51.895377Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

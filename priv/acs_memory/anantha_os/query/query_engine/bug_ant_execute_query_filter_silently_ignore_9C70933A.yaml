@@ -1,0 +1,39 @@
+content: |
+  The `apply_filter_clauses/3` in QueryEngine requires filter values to be maps with operator keys (e.g. `{"predicate": {"eq": "belongs_to_pipeline"}}`). Simple `{"predicate": "belongs_to_pipeline"}` silently matches the catch-all `_, acc -> acc` and returns unfiltered results. No error, no log warning.
+  
+  File: `lib/anantha_os/query/query_engine.ex`, lines 314-324.
+  
+  Fix options:
+  1. Auto-wrap bare string values as `%{eq: value}` before matching
+  2. Return `{:error, ...}` for invalid filter format instead of silently ignoring
+  3. Log a warning when a filter is dropped
+  
+  Also, the ACS tool handler (`anantha_query.ex` line 107) defaults filters to `[]` instead of `%{}`, which also hits the catch-all map guard.
+created_at: "2026-06-21T19:24:37.168598Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_ant_execute_query_filter_silently_ignore_9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query/query_engine
+status: proposed
+summary:
+tags:
+  - query
+  - filter
+  - bug
+  - silent-failure
+title: ant_execute_query filter silently ignored when value is not a map with operators
+triggers: []
+updated_at: "2026-06-21T19:24:37.168606Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,45 @@
+content: |
+  When using `belongs_to :assoc, Module, foreign_key: :field_id, define_field: false`, the `field_id` column is NOT added to the Ecto schema at all. This means:
+  1. The field cannot be used in `cast/3` (raises ArgumentError at compile/runtime)
+  2. `foreign_key_constraint(:field_id, ...)` references a non-existent field (always no-ops)
+  3. The field value is silently dropped on insert/update
+  
+  To use `define_field: false` (e.g., for self-referential FKs) but still have the field available for casting, add an explicit `field` declaration before the `belongs_to`:
+  
+  ```elixir
+  field :previous_snapshot_id, :binary_id
+  belongs_to :previous_snapshot, __MODULE__,
+    foreign_key: :previous_snapshot_id,
+    define_field: false
+  ```
+  
+  The `field` declaration makes the column available for casting and validation, while `define_field: false` on `belongs_to` prevents Ecto from managing it as an association field.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_define_field_false_removes_field_from_ecto_schema_
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/ecto
+status: approved
+summary:
+tags:
+  - elixir
+  - ecto
+  - gotcha
+  - persistence
+  - schema
+title: "define_field: false removes field from Ecto schema entirely"
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.844432Z"
+  approved_by: human
+  status: approved

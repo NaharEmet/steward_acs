@@ -1,0 +1,28 @@
+content: HubSpot CRM API v3 uses cursor-based pagination with an `after` parameter. The HubSpot provider implementation in Anantha.CRM.SyncEngine.HubSpot uses Req for HTTP requests and extracts the next cursor from the paging.next.after field in API responses. The pagination limit is 100 records per page.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_hubspot_crm_sync_follows_cursor_based_pagination_p
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/sync_engine
+status: approved
+summary:
+tags:
+  - hubspot
+  - crm
+  - pagination
+  - sync
+title: HubSpot CRM sync follows cursor-based pagination pattern
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.844173Z"
+  approved_by: human
+  status: approved

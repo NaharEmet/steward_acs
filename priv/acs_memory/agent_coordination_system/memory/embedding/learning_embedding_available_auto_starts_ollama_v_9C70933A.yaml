@@ -1,0 +1,37 @@
+content: |
+  `Acs.Memory.Embedding.available?/0` now auto-starts Ollama when it's not running:
+  
+  1. Calls `check_ollama/0` (pings `/api/tags` with 2s timeouts + retry:false)
+  2. If down, uses `:persistent_term` tracking to only attempt auto-start once per app lifetime
+  3. Fires `ollama serve` via `Task.start` (fire-and-forget, non-blocking)
+  4. Sleeps 3s, then retries once
+  
+  Uses `:persistent_term` for the flag (`{__MODULE__, :auto_start}`) so the one-attempt constraint persists across processes but resets on app restart. This prevents hammering `ollama serve` on every search while still retrying if the user restarts the app.
+  
+created_at: "2026-06-21T14:46:54Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_embedding_available_auto_starts_ollama_v_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  marked_at: "2026-06-21T11:01:57.630156Z"
+  reason: Describes removed try_start_ollama/0 auto-start behavior. Now uses pure check_ollama() with Docker-managed always-on assumption.
+scope_path: agent_coordination_system/memory/embedding
+status: rejected
+summary:
+tags:
+  - embedding
+  - ollama
+  - auto-start
+  - available?
+title: "Embedding.available?() auto-starts Ollama via Task.start + :persistent_term"
+triggers: []
+updated_at: "2026-06-21T15:06:00Z"
+verification:
+  rejected_at: "2026-06-21T15:06:00.460547Z"
+  rejected_by: Duplicate of learning_embedding_available_auto_starts_ollama_o_9C70933A which has better wording. Rejected from stale.
+  status: rejected

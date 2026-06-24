@@ -1,0 +1,30 @@
+content: "Anantha.Core.Claims.list_claims/2 accepts a limit option but when called without it, loads ALL claims for an org into memory. This causes DB connection pool timeouts and out-of-memory crashes. Always pass `limit: limit` when calling list_claims from ToolController endpoints. The same applies to list_records, list_syntheses, and list_hypotheses."
+created_at: "2026-06-21T11:11:47.561654Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_list_claims_must_be_called_with_limit_op_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/tool_controller
+status: proposed
+summary:
+tags:
+  - claims
+  - limit
+  - timeout
+  - memory
+  - database
+title: list_claims must be called with limit option in ToolController
+triggers: []
+updated_at: "2026-06-21T11:11:47.561670Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

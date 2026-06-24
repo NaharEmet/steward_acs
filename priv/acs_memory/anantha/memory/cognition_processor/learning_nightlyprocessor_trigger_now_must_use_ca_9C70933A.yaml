@@ -1,0 +1,32 @@
+content: |
+  `CognitionProcessor.trigger_now/0` was using `GenServer.call/2` which blocks the HTTP request for the entire duration of the pipeline (minutes for 402k claims + LLM synthesis). Changed to `GenServer.cast/2` so it returns immediately and processing happens in background. The `handle_cast(:trigger_now, state)` callback handles the actual work asynchronously.
+  
+  This is critical for any HTTP-triggered GenServer operations that do heavy processing — always use `cast` for fire-and-forget, never `call`.
+created_at: "2026-06-20T14:57:57.850056Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_nightlyprocessor_trigger_now_must_use_ca_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/memory/cognition_processor
+status: proposed
+summary:
+tags:
+  - gen_server
+  - fire-and-forget
+  - cast-vs-call
+  - synthesis-pipeline
+title: CognitionProcessor trigger_now must use cast not call
+triggers: []
+updated_at: "2026-06-20T14:57:57.850063Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

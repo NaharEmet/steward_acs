@@ -1,0 +1,27 @@
+content: "Installing opencode plugins in a local project scope: use `opencode plugin <package-name>@latest` from the project root. The CLI automatically updates `.opencode/opencode.json` and installs the package. Note that `opencode plugin list` does not work as expected — it attempts to install a package named \"list\". Always verify the plugin array in opencode.json manually after installation."
+created_at: "2026-06-06T12:36:38.024489Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_opencode_plugin_installation_via_cli
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .opencode/plugins
+status: proposed
+summary:
+tags:
+  - opencode
+  - plugins
+  - installation
+title: opencode plugin installation via CLI
+triggers: []
+updated_at: "2026-06-06T12:36:38.024506Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

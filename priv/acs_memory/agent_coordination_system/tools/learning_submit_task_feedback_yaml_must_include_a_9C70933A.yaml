@@ -1,0 +1,35 @@
+content: |
+  The `submit_task_feedback` MCP tool YAML definition was missing `agent_id` as a parameter, causing agents to not pass it and the handler to default to `"unknown"`. Always ensure tool YAML definitions include `agent_id` as a required param for any tool that needs to identify the calling agent. Also ensure `release_work`'s feedback prompt includes `agent_id` in its suggested params so agents see it.
+  
+  Files to check when adding agent_id to a tool:
+  1. YAML definition (`acs.yaml`) — add param
+  2. Handler function — extract from args with `|| "unknown"` fallback
+  3. release_work feedback prompt (`core_handlers.ex`) — include in suggested params
+  
+created_at: "2026-06-19T20:38:42.393315Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_submit_task_feedback_yaml_must_include_a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/tools
+status: proposed
+summary:
+tags:
+  - yaml
+  - tools
+  - agent_id
+  - submit_task_feedback
+title: submit_task_feedback YAML must include agent_id
+triggers: []
+updated_at: "2026-06-19T20:38:42.393334Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

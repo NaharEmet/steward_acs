@@ -1,0 +1,26 @@
+content: Agent rated guidance as helpful for this task
+created_at: "2026-06-05T03:43:17.786868Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_guidance_rated_as_useful
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: assets
+status: proposed
+summary: Agent rated guidance as helpful for this task
+tags:
+  - feedback
+  - observation
+title: Guidance rated as useful
+triggers: []
+updated_at: "2026-06-05T03:43:17.786875Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

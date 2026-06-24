@@ -1,0 +1,33 @@
+content: |
+  When a migration drops a database table, the corresponding Ecto schema module becomes dead code (if no production code creates structs or queries via that schema). The schema file must be deleted to prevent test failures with 'relation "X" does not exist'. Search for all references in lib/ (production code) — if none exist, the schema is safe to delete. Also update test files that alias or query the deleted schema.
+  
+  Pattern: migration drops table → check lib/ for struct usage → if dead, remove schema file + update test imports/queries.
+created_at: "2026-06-20T13:42:37.821172Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_remove_dead_ecto_schemas_after_migration_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix/ecto/schema_migration
+status: proposed
+summary:
+tags:
+  - ecto
+  - schema
+  - migration
+  - dead_code
+  - test
+title: Remove dead Ecto schemas after migration drops tables
+triggers: []
+updated_at: "2026-06-20T13:42:37.821180Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,30 @@
+content: "When using `Repo.update_all/3` with `set: [metadata: fragment(...)]`, the fragment cannot reference query bindings (e.g., `c.metadata`) or use the `^` pin operator directly. To reference a query column in the SET value, use `dynamic([c], fragment(\"col_name || jsonb_build_object('key', ?)\", ^value))` where `col_name` is the raw SQL column name as a string in the fragment template, not a binding reference. For PostgreSQL JSONB updates, use `dynamic([c], fragment(\"metadata || jsonb_build_object('valid_to', ?)\", ^value))`."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_update_all_with_jsonb_fragment_requires_dynamic_ma
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/claim_extractor
+status: approved
+summary:
+tags:
+  - claim_extractor
+  - repo
+  - update_all
+  - jsonb
+  - dynamic
+  - ecto
+title: update_all with JSONB fragment requires dynamic macro
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.698167Z"
+  approved_by: human
+  status: approved

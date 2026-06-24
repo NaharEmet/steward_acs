@@ -1,0 +1,46 @@
+content: |
+  ## DedupCache Design Decisions
+  
+  ### 1. Length-prefixed cache keys
+  `compute_key/2` uses `"#{byte_size(a)}|#{a}|#{byte_size(b)}|#{b}"` instead of `a <> b` for SHA-256 input. Prevents collisions where `compute_key("ab","c")` and `compute_key("a","bc")` would produce the same hash.
+  
+  ### 2. Positive cache TTL (7 days)
+  Positive entries (semantically same) initially had no TTL — unbounded memory growth. Added `@positive_ttl_seconds 604_800` (7 days) with cleanup alongside negative entries. 7× longer than negative because positive cache is more valuable (avoiding LLM calls) and has lower churn.
+  
+  ### 3. Cache tiers
+  - **Positive**: Permanent but auto-expired after 7 days. Timestamps stored instead of `true`.
+  - **Negative**: TTL 24h. Prevents repeated LLM checks on borderline-but-different pairs.
+  
+  ### 4. Cleanup pattern
+  - Cleanup runs every 6 hours via `Process.send_after(self(), :cleanup, @cleanup_interval_ms)`
+  - Single pass filters both positive and negative entries
+  - Uses `Map.reject/2` for O(n) sweep (n = total keys per org)
+  - Schedule re-arms itself after each sweep
+created_at: "2026-06-20T17:26:33.873972Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: decision_dedupcache_positive_entries_length_prefi_9C70933A
+importance: 3
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/synthesis/dedup/cache
+status: proposed
+summary:
+tags:
+  - dedup-cache
+  - ttl
+  - cache-keys
+  - gen-server
+title: "DedupCache positive entries: length-prefixed keys + 7-day TTL"
+triggers: []
+updated_at: "2026-06-20T17:26:33.873980Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

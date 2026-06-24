@@ -1,0 +1,29 @@
+content: "`Acs.LLM.try_extract_json/1` now has three decode attempts: (1) raw `Jason.decode`, (2) `escape_newlines_in_strings` + `Jason.decode`, (3) `try_json_remedy` + `Jason.decode`. Uses `apply(JsonRemedy, :repair, [json_string])` to avoid compile-time warnings about optional dependency. The `try_json_remedy/1` function uses `Code.ensure_loaded?/1` and `function_exported?/2` guards and returns `:fallback` if json_remedy is unavailable."
+created_at: "2026-06-21T11:23:01.559403Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_jsonremedy_repair_as_3rd_decode_attempt__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm/json
+status: proposed
+summary:
+tags:
+  - json
+  - llm
+  - json-remedy
+  - parse
+title: JsonRemedy repair as 3rd decode attempt in try_extract_json
+triggers: []
+updated_at: "2026-06-21T11:23:01.559419Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

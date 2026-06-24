@@ -1,0 +1,29 @@
+content: HubSpot engagement types (notes, calls, emails, meetings, tasks) require `hs_createdate` as the search API date filter property, not `createdate`. Using `createdate` in the search API returns 400 Bad Request. The fix is in `lib/anantha_os/crm/sync_engine/hub_spot.ex` line 55 - changed `"createdate"` to `"hs_createdate"` for these types. The list API (GET /crm/v3/objects/{type}) works fine for all engagement types. Also discovered that tickets and line_items are forbidden (403) for this particular API key.
+created_at: "2026-06-21T17:54:17.335740Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_hubspot_engagement_types_need_hs_created_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: proposed
+summary: HubSpot engagement types need hs_createdate not createdate for search API date filter
+tags:
+  - hubspot
+  - search-api
+  - engagement-types
+  - sync-engine
+title: HubSpot engagement types need hs_createdate not createdate for search API
+triggers: []
+updated_at: "2026-06-21T17:54:17.335749Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

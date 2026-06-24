@@ -1,0 +1,66 @@
+content: |
+  ## Problem
+  Phoenix LiveView hooks' `updated()` callback does NOT fire when only `data-*` attributes on the DOM element change via LiveView DOM patching. This means JS libraries initialized inside hooks (Chart.js, etc.) that read from `data-*` attributes won't update when the server sends new data.
+  
+  ## Solution
+  Use `push_event/3` on the server side to push data directly over the WebSocket to the hook, bypassing DOM patching entirely:
+  
+  ### Server (LiveView):
+  ```elixir
+  {:noreply,
+   socket
+   |> assign(...)
+   |> push_event("chart_refresh", %{chart_data: chart_data})}
+  ```
+  
+  ### Client (Hook):
+  ```javascript
+  mounted() {
+      this.handleEvent("chart_refresh", (payload) => {
+          if (payload && payload.chart_data) {
+              this.updateChartsWithData(payload.chart_data)
+          }
+      })
+  }
+  ```
+  
+  ## Key Points
+  - `handleEvent` registered in `mounted()` persists for the hook's lifetime
+  - Automatically cleaned up by LiveView's `destroyHook` → `__cleanup__()` — no manual cleanup needed
+  - Nested maps serialize correctly through Jason (no timing concerns)
+  - POST events dispatch to the LiveView process, which checks for hook cleanup before delivery
+  - The `updated()` callback should only handle canvas lifecycle (replacing orphaned canvases), NOT data updates
+  
+  ## Files
+  - lib/anantha_os_web/live/admin_live/dashboard.ex
+  - assets/js/app.js (ChartMonitor hook)
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_liveview_hook_data_updates_via_push_event_handleev
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix_liveview/hooks
+status: approved
+summary:
+tags:
+  - phoenix
+  - liveview
+  - hooks
+  - chartjs
+  - websocket
+  - push_event
+title: LiveView Hook Data Updates via push_event/handleEvent
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.791999Z"
+  approved_by: human
+  status: approved

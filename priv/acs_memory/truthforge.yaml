@@ -1,0 +1,60 @@
+content: |
+  ## Pattern: Pipeline Adapter (Composable, Non-Invasive)
+  
+  When adding new analysis capabilities to an existing extraction/testing pipeline, use an **Adapter** pattern:
+  
+  1. Let the existing pipeline run as-is (complete with its own evaluation)
+  2. Post-process the pipeline results with new analysis
+  3. Keep old and new results side-by-side
+  
+  ### Benefits:
+  - Zero risk of breaking existing pipeline
+  - Can be enabled/disabled with a flag (`--truthforge`)
+  - Old results still available for comparison
+  - Clean separation of concerns
+  
+  ### Implementation:
+  ```elixir
+  defmodule NewSystem.Adapter do
+    def run(opts \\ []) do
+      # 1. Run existing pipeline
+      pipeline_result = ExistingPipeline.run(opts)
+      
+      # 2. Post-process with new analysis
+      new_analysis = analyze(pipeline_result, opts)
+      
+      # 3. Merge results
+      Map.merge(pipeline_result, new_analysis)
+    end
+  end
+  ```
+  
+  ### Used in: Truthforge.Adapter wrapping MemoryTesting.Runner
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_truthforge_pattern_adapter_pattern_for_wrapping_ex
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: truthforge
+status: approved
+summary: Use an Adapter module to wrap existing pipeline results with new analysis rather than modifying pipeline internals. Composable, non-invasive architecture.
+tags:
+  - pattern
+  - adapter
+  - pipeline
+  - extensibility
+title: "Truthforge Pattern: Adapter pattern for wrapping existing pipelines"
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.239870Z"
+  approved_by: human
+  status: approved

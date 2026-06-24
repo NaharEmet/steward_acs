@@ -1,0 +1,28 @@
+content: "A 16-byte UUID binary must be pattern-matched as `<<a::32, b::16, c::16, d::16, e::48>>` (total: 128 bits = 16 bytes). A common mistake is using `<<a::64, b::32, c::32, d::32, e::96>>` which expects 256 bits = 32 bytes. The format should match the standard UUID string format `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` where the first group is 32 bits (8 hex chars), then 16 bits (4 hex chars), etc."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_uuid_binary_pattern_16_bytes_128_bits_32_16_16_16_
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query/provenance_tracer
+status: approved
+summary:
+tags:
+  - uuid
+  - binary
+  - pattern-matching
+  - 128-bit
+title: "UUID binary pattern: 16 bytes = 128 bits = 32+16+16+16+48 bits"
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.739287Z"
+  approved_by: human
+  status: approved

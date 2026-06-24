@@ -1,0 +1,40 @@
+content: |
+  `Acs.LLM` must handle nil values from reasoning model responses (content or reasoning_content can be nil when JSON key exists with null value). Three nil guard clauses required: `extract_json_content(nil)`, `try_extract_json(nil)`, and `try_reasoning_content(nil)`.
+  
+  For reasoning models (mimo-v2.5) that mix thinking text with JSON output, `extract_json_content/1` uses a 4-stage cascading fallback:
+  1. Strip `<thinking>...</thinking>` tags
+  2. Extract from markdown code fences ```json ... ```
+  3. Extract balanced `{...}` braces via brace counting
+  4. Last resort: regex search for `"recommendation"` or `"quality_score"` keys in a JSON-like block
+  
+  This prevents crashes and improves resilience against non-standard LLM response formats.
+created_at: "2026-06-20T12:56:44.332482Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_llm_json_extraction_requires_nil_gua_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/lib/acs/llm
+status: proposed
+summary:
+tags:
+  - acs
+  - llm
+  - json-extraction
+  - nil-guards
+  - reasoning-models
+  - mimo
+title: Acs.LLM JSON extraction requires nil guards and multi-stage cascading fallbacks
+triggers: []
+updated_at: "2026-06-20T12:56:44.332491Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

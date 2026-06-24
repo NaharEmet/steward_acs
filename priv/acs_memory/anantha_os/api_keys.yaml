@@ -1,0 +1,37 @@
+content: |
+  `ApiKeys.generate_key/3` now accepts a `role` parameter (default "analyst") and sets permissions via `role_permissions/1`:
+  
+  - `"admin"` — read, write, memory.read, memory.search, analytics.query, analytics.export, admin
+  - `"dev"` — read, write, memory.read, memory.search, analytics.query, analytics.export
+  - `"analyst"` — memory.read, memory.search, analytics.query, analytics.export
+  - any other — `["read"]` only (fallback)
+  
+  The `role` is also stored directly on the ApiKey record, so callers no longer need a separate role update after key creation. Both `AuthController.generate_key` and the `mix generate_api_key` task were updated to pass the role directly.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_api_key_permissions_are_now_role_based_in_generate
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/api_keys
+status: approved
+summary:
+tags:
+  - api_keys
+  - permissions
+  - roles
+  - analyst
+title: API key permissions are now role-based in generate_key/3
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.454164Z"
+  approved_by: human
+  status: approved

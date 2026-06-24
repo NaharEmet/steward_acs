@@ -1,0 +1,31 @@
+defmodule Acs.Developers.DeveloperApiKey do
+  @moduledoc """
+  Ecto schema for developer API keys with SHA-256 hashing.
+
+  Keys are stored as SHA-256 hex digests for fast lookup.
+  The raw key is shown once at creation time and cannot be retrieved.
+  """
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+  @foreign_key_type :binary_id
+  schema "acs_developer_api_keys" do
+    field :key_hash, :string
+    field :key_prefix, :string
+    field :developer_name, :string
+    field :role, :string, default: "admin"
+    field :cluster, :string, default: "default"
+    field :active, :boolean, default: true
+    field :last_used_at, :utc_datetime
+    timestamps(type: :utc_datetime)
+  end
+
+  def changeset(key, attrs) do
+    key
+    |> cast(attrs, [:key_hash, :key_prefix, :developer_name, :role, :cluster, :active, :last_used_at])
+    |> validate_required([:key_hash, :developer_name])
+    |> validate_inclusion(:role, ~w(admin service reader))
+    |> validate_length(:developer_name, min: 1, max: 100)
+  end
+end

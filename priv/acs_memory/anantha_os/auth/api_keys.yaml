@@ -1,0 +1,42 @@
+content: |
+  To create an API endpoint that only works in development:
+  
+  1. Add a guard at the top of the controller action:
+     ```elixir
+     if Application.get_env(:anantha_os, :dev_key_endpoint, false) || Mix.env() == :dev do
+       # dev logic
+     else
+       send_resp(conn, 404, ~s/{"error":"not_found"}/)
+     end
+     ```
+  2. Register the route normally in `router.ex` — it just returns 404 in production
+  3. The `Mix.env() == :dev` check makes it available in dev without configuration
+  4. The `Application.get_env(:anantha_os, :dev_key_endpoint, false)` allows explicit enabling in other environments if needed
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_dev_only_api_endpoint_pattern
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/auth/api_keys
+status: approved
+summary:
+tags:
+  - pattern
+  - dev-only
+  - api
+  - controller
+title: Dev-Only API Endpoint Pattern
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.472278Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,27 @@
+content: The script would be much simpler if batch_extract_and_store handled the metadata key in relationship specs.
+created_at: "2026-06-22T06:00:09.124640Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_improvement_suggestion_from_task_feedbac_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .tmp
+status: proposed
+summary: The script would be much simpler if batch_extract_and_store handled the metadata key in relationship specs.
+tags:
+  - feedback
+  - learning
+title: Improvement suggestion from task feedback
+triggers: []
+updated_at: "2026-06-22T06:00:09.124650Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

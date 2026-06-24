@@ -1,0 +1,27 @@
+content: Add a pre-check step in the task description to verify files don't already exist before creating them.
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_improvement_suggestion_from_task_feedback
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: acs/specs/anantha/ant/compiler
+status: proposed
+summary: Add a pre-check step in the task description to verify files don't already exist before creating them.
+tags:
+  - feedback
+  - learning
+timestamps:
+  created_at: "2026-05-19T10:36:13.979062Z"
+  updated_at: "2026-05-19T10:36:13.979066Z"
+title: Improvement suggestion from task feedback
+triggers: []
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

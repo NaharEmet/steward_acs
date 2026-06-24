@@ -1,0 +1,37 @@
+content: |
+  ACS and Anantha are separate OTP Applications running in the same BEAM VM but with separate supervision trees. MCP Tool handlers in ACS (e.g., OrgSetupHandlers, CRMHandlers) **cannot** call Anantha modules directly via function calls — they must go through HTTP (Req POST with ANANTHA_API_KEY Bearer auth).
+  
+  **Key constraints:**
+  - ACS handlers use `Req.post!` to call Anantha's REST endpoints at `ANANTHA_URL`
+  - Anantha API key auth: `Authorization: Bearer #{api_key}` header
+  - The API key must belong to an existing org — creating a key then deleting the org makes it invalid
+  - This applies to ALL tools that need to interact with Anantha data: org setup, CRM sync, API key generation
+  
+created_at: "2026-06-20T14:35:44Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_cross_beam_tool_architecture_acs_handler_9C70933A
+importance: 5
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/architecture
+status: approved
+summary:
+tags:
+  - acs
+  - architecture
+  - cross-beam
+  - tools
+title: "Cross-BEAM tool architecture: ACS handlers cannot call Anantha modules directly"
+triggers: []
+updated_at: "2026-06-20T14:35:51Z"
+verification:
+  approved_at: "2026-06-20T14:35:51.462746Z"
+  approved_by: Approved from agent feedback — #1 source of wasted agent time
+  status: approved

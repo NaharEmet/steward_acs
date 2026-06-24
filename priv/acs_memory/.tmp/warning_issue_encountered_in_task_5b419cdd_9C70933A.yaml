@@ -1,0 +1,27 @@
+content: "Three issues encountered: 1) claims.content was still varchar(255) causing truncation error. Fixed by ALTER TABLE. 2) claims_subject_predicate_object_index btree couldn't handle large email body text. Fixed by dropping and recreating on (subject, predicate) only. 3) KeyError in LayerRelationships from missing :metadata key in relationship specs. This doesn't prevent claim insertion but loses derived_from links."
+created_at: "2026-06-22T06:00:09.121955Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_5b419cdd_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .tmp
+status: proposed
+summary: "Three issues encountered: 1) claims.content was still varchar(255) causing truncation error. Fixed by ALTER TABLE. 2) claims_subject_predicate_object_index btree couldn't handle large email body text."
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 5b419cdd
+triggers: []
+updated_at: "2026-06-22T06:00:09.121964Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: When a config function uses Application.get_env with System.get_env fallback per key, it can be safely cached with module attributes. Application.compile_env + System.get_env in module attributes evaluates at compile time, which matches deployment behavior (env vars set before compile). This eliminates repeated runtime config lookups in hot paths like OAuth token exchange. Keep the _org_id parameter even if unused to avoid breaking callers.
+created_at: "2026-06-21T13:59:55.411684Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_a10e75dd_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.connectors.google
+status: proposed
+summary: When a config function uses Application.get_env with System.get_env fallback per key, it can be safely cached with module attributes. Application.compile_env + System.get_env in module attributes eval
+tags:
+  - feedback
+  - learning
+title: Key learning from task a10e75dd
+triggers: []
+updated_at: "2026-06-21T13:59:55.411699Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

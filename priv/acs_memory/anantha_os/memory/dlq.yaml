@@ -1,0 +1,40 @@
+content: |
+  Anantha.Memory.DLQ uses ETS table :dlq_messages that is created in start_link/init. If DLQ is not included in the application supervision tree, the ETS table is never created and any call to :ets.tab2list(:dlq_messages) causes an ArgumentError crash. Always ensure ETS-dependent GenServers are in the supervision tree.
+  
+  Pattern: Convert to `use GenServer`, create ETS table in `init/1`, set `:public` access when external processes access the table directly by name (not through GenServer calls).
+  
+  Reference files:
+  - lib/anantha_os/memory/dlq.ex
+  - lib/anantha_os/application.ex (line 33: Anantha.Memory.DLQ)
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_dlq_must_be_in_supervision_tree_for_ets_table_crea
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/dlq
+status: approved
+summary: DLQ ETS table crash fixed by adding DLQ GenServer to supervision tree. All ETS-based GenServers must be in the supervision tree to avoid ETS table-not-found errors.
+tags:
+  - dlq
+  - ets
+  - supervision-tree
+  - genserver
+  - crash-prevention
+title: DLQ must be in supervision tree for ETS table creation
+triggers:
+  - "ArgumentError: :ets.tab2list(:dlq_messages)"
+  - DLQ ETS table not found
+  - dashboard crash DLQ
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.162688Z"
+  approved_by: human
+  status: approved

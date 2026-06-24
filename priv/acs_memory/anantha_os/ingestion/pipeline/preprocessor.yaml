@@ -1,0 +1,28 @@
+content: "The `Preprocessor.deep_truncate/3` function has three clauses: depth-exceeded, non-map, and map. The map clause matches `%{}` which catches structs too, but then tries `Map.new(map, ...)` which fails because structs don't implement `Enumerable`. Add a clause `defp deep_truncate(%_{} = struct, _depth, _max_depth), do: struct` before the `%{}` clause to handle structs by passing them through unchanged."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_preprocessor_deep_truncate_must_handle_structs_in_
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/pipeline/preprocessor
+status: approved
+summary:
+tags:
+  - preprocessor
+  - deep_truncate
+  - struct
+  - enumerable
+title: Preprocessor deep_truncate must handle structs in metadata
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.479887Z"
+  approved_by: human
+  status: approved

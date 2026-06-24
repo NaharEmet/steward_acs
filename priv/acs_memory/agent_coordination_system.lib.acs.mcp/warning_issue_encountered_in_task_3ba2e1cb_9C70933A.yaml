@@ -1,0 +1,27 @@
+content: Test failures are pre-existing (Acs.DataCase not loaded). Compilation is clean.
+created_at: "2026-06-21T13:16:35.012790Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_3ba2e1cb_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.mcp
+status: proposed
+summary: Test failures are pre-existing (Acs.DataCase not loaded). Compilation is clean.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 3ba2e1cb
+triggers: []
+updated_at: "2026-06-21T13:16:35.012812Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

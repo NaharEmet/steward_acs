@@ -1,0 +1,27 @@
+content: "CRM ResourceGovernor must use `Anantha.CRM.*` namespace. Env var parsing in runtime.exs needs proper `case Integer.parse` pattern matching — `elem/2` on `:error` crashes. Memory governor must guard against zero `max_memory_mb` config values. `suggested_batch_size` must cap return values at `max_batch`."
+created_at: "2026-06-21T19:08:13.021390Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_10b4cb74_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "CRM ResourceGovernor must use `Anantha.CRM.*` namespace. Env var parsing in runtime.exs needs proper `case Integer.parse` pattern matching — `elem/2` on `:error` crashes. Memory governor must guard ag"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 10b4cb74
+triggers: []
+updated_at: "2026-06-21T19:08:13.021400Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

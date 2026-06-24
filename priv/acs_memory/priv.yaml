@@ -1,0 +1,27 @@
+content: It would be helpful to have a published testing guide documenting the exact mock response format required for each component in the pipeline, especially the encode/decode flow for observations and claims.
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_improvement_suggestion_from_task_feedback
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: priv
+status: proposed
+summary: It would be helpful to have a published testing guide documenting the exact mock response format required for each component in the pipeline, especially the encode/decode flow for observations and cla
+tags:
+  - feedback
+  - learning
+timestamps:
+  created_at: "2026-06-01T17:10:04.052505Z"
+  updated_at: "2026-06-01T17:10:04.052518Z"
+title: Improvement suggestion from task feedback
+triggers: []
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,37 @@
+content: |
+  Admin email authorization uses `Application.get_env(:anantha_os, :admin_email)` at runtime instead of a hardcoded `@admin_emails` list.
+  
+  Config values set in:
+  - config/runtime.exs (from ADMIN_EMAIL env var, raises if unset when not test)
+  - config/test.exs (set to "admin@test.com" for tests)
+  
+  The authenticate_admin/1 function checks `admin_email && email == admin_email` where admin_email comes from Application config. If nil (unconfigured), all auth fails with {:error, :unauthorized} — fail-safe by default.
+  
+  This was changed from a hardcoded `@admin_emails ["naharemete@gmail.com"]` attribute to fix CRIT-3.
+created_at: "2026-06-19T14:41:14.459913Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: decision_admin_email_sourced_from_application_con_9C70933A
+importance: 4
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/auth
+status: proposed
+summary:
+tags:
+  - admin
+  - auth
+  - configuration
+  - security
+title: Admin email sourced from Application config, not hardcoded
+triggers: []
+updated_at: "2026-06-19T14:41:14.459924Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

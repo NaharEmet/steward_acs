@@ -1,0 +1,43 @@
+content: |
+  `JsonRemedy.repair/1` returns `{:ok, decoded_map, repairs}` or `{:ok, decoded_map}`, where `decoded_map` is an **already-decoded Elixir term** (map, list, etc.), NOT a JSON binary string.
+  
+  This means:
+  1. Do NOT call `Jason.decode(result)` on the return value — it's already decoded
+  2. The old `JsonAdapter.decode/1` `with` block was fundamentally broken: it took the result of `JsonRemedy.repair`, wrapped it in `{:repair, ...}` for tagging, then tried `Jason.decode` on the already-decoded map — which always crashed with `WithClauseError`
+  3. The correct pattern is:
+     - `try_json_remedy` returns `{:ok, decoded_map}` → return `{:ok, decoded_map}` directly
+     - `try_json_remedy` returns `:fallback` (JsonRemedy unavailable) → use `Jason.decode`
+     - `try_json_remedy` returns `{:error, reason}` → use `Jason.decode`
+  
+  Fix verified in `JsonAdapter.decode/1` using `case try_json_remedy(json_string)` instead of the broken `with` block.
+created_at: "2026-06-21T12:33:19.586114Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_jsonremedy_repair_1_returns_decoded_maps_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_json
+status: proposed
+summary: "JsonRemedy.repair/1 returns {:ok, decoded_map} — do NOT call Jason.decode on its result"
+tags:
+  - json_remedy
+  - json_adapter
+  - decode
+  - anantha_json
+title: JsonRemedy.repair/1 returns decoded maps, not JSON strings
+triggers:
+  - working with JsonRemedy
+  - using JsonAdapter.decode
+  - fixing LLM JSON extraction
+updated_at: "2026-06-21T12:33:19.586120Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

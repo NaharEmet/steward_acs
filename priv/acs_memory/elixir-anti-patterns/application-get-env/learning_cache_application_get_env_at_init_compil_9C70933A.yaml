@@ -1,0 +1,40 @@
+content: |
+  ## Pattern: Cache Application.get_env at boundary
+  
+  ### Decision tree:
+  1. **Static config**: `@attr Application.compile_env(:app, :key, :default)`
+     - Used in: orchestrator.ex, message_queue.ex, server.ex (ACS)
+  2. **Per-process config**: read in init/1, store in state
+     - Used in: scheduler.ex (audio_processing_enabled)
+  3. **Config via opts**: caller passes config as function parameter with fallback
+     - Used in: storage.ex
+  
+  ### Files changed: 5 files, 2308 tests pass
+created_at: "2026-06-21T14:13:03.197291Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_cache_application_get_env_at_init_compil_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir-anti-patterns/application-get-env
+status: proposed
+summary: Moved 8+ runtime Application.get_env calls to init state or Application.compile_env across 5 files (storage, scheduler, orchestrator, message_queue, acs/server).
+tags:
+  - application-get-env
+  - config
+  - caching
+  - compile-env
+title: Cache Application.get_env at init/compile time
+triggers: []
+updated_at: "2026-06-21T14:13:03.197390Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

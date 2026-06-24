@@ -1,0 +1,37 @@
+content: |
+  For org "sc" (9dcc8872-3d22-412a-80a1-ac5c1265d8a2) with Safety Connect CRM source:
+  - Events(17,530) = EvidenceClusters(17,530) — one cluster per event
+  - Claims(96,588) generated from the events (≈5.5 claims per event)
+  - Observations(45) from linked entity extraction
+  - Event sources: call_transcripts(30), crm_safety_connect_contacts(15,816), crm_safety_connect_deals(1,684)
+  - Cluster sources: sales_call(30), crm_safety_connect(17,500)
+  - OntologyNodes(0) and Messages(0) as expected for CRM-only ingestion
+  - Ingestion source: safety_connect enabled
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_org_data_verification_for_crm_ingestion
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: ingestion/verification
+status: approved
+summary:
+tags:
+  - ingestion
+  - verification
+  - safety_connect
+  - crm
+title: Org data verification for crm ingestion
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.414987Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,26 @@
+content: Compilation error in observability_scheduler_test.exs prevented tests from running. The test output mixes stderr and stdout making parsing difficult.
+created_at: "2026-06-19T14:13:42Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_issue_encountered_in_task_07697097
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test/anantha_os/meta_harness
+status: rejected
+summary: Compilation error in observability_scheduler_test.exs prevented tests from running. The test output mixes stderr and stdout making parsing difficult.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 07697097
+triggers: []
+updated_at: "2026-06-20T09:30:42Z"
+verification:
+  rejected_at: "2026-06-20T09:30:42.441564Z"
+  rejected_by: "Test data + auto-generated template feedback. Scope: test/anantha_os/meta_harness. Title starts with 'Issue encountered in task'."
+  status: rejected

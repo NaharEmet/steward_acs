@@ -1,0 +1,27 @@
+content: "ClaimClusterer test had a bug: first test called cluster_claims(org.id) without min_cluster_size, but default is 3. Only 2 matching claims created, so 0 clusters returned. Fix: add min_cluster_size: 2 option. Saved as memory learning_claimclusterer_default_min_cluster_size__9C70933A."
+created_at: "2026-06-20T16:38:33.262212Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_9d7cd09b_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "ClaimClusterer test had a bug: first test called cluster_claims(org.id) without min_cluster_size, but default is 3. Only 2 matching claims created, so 0 clusters returned. Fix: add min_cluster_size: 2"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 9d7cd09b
+triggers: []
+updated_at: "2026-06-20T16:38:33.262226Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

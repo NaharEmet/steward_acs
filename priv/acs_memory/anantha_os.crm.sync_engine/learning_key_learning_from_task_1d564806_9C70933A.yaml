@@ -1,0 +1,27 @@
+content: "hub_spot.ex backoff used linear formula (1000 * (4 - retries)) but comment said \"exponential\". Fixed to exponential via :math.pow(2, 3 - retries). Also acs.ex claim_task lacked FOR UPDATE lock, added for consistency with set_task_status. Two safe_batch callers in crm.ex used old {errors, _} destructuring instead of case pattern."
+created_at: "2026-06-23T09:02:19.199954Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_1d564806_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm.sync_engine
+status: proposed
+summary: "hub_spot.ex backoff used linear formula (1000 * (4 - retries)) but comment said \"exponential\". Fixed to exponential via :math.pow(2, 3 - retries). Also acs.ex claim_task lacked FOR UPDATE lock, added "
+tags:
+  - feedback
+  - learning
+title: Key learning from task 1d564806
+triggers: []
+updated_at: "2026-06-23T09:02:19.199970Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

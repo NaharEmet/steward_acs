@@ -1,0 +1,27 @@
+content: "HubSpot CRM: (1) Association query param `?associations=contacts,companies,deals` works for ALL CRM object types including emails/calls/meetings/notes/tasks — not just deals. (2) extract_associations/2 needs 3 case blocks (contacts, companies, deals) each pattern-matching on associations.<type>.results. (3) join_config.ex @engagement_joins maps cleanly with same 3 join defs reused across 5 engagement types. (4) S3 storage for large text follows existing store_audio/store_transcript pattern — store_large_text/4 with guard clause, key prefix `content/{org_id}/`. (5) Email body S3 URL substitution must happen AFTER envelope creation in process_crm_records_batch so claim extractor reads `hs_email_text` naturally after URL replacement. (6) hubspot_fields.yaml for engagement types needs `communication` claim_type with metadata fields and suppressed operational fields."
+created_at: "2026-06-21T19:51:48.847480Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e757f339_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm.sync_engine
+status: proposed
+summary: "HubSpot CRM: (1) Association query param `?associations=contacts,companies,deals` works for ALL CRM object types including emails/calls/meetings/notes/tasks — not just deals. (2) extract_associations/"
+tags:
+  - feedback
+  - learning
+title: Key learning from task e757f339
+triggers: []
+updated_at: "2026-06-21T19:51:48.847495Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

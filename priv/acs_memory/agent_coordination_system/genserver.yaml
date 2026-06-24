@@ -1,0 +1,28 @@
+content: When a GenServer performs periodic work (like error analysis every 60s), unexpected errors in the work function will crash the GenServer. Even though supervisors restart it, the in-memory state is lost. Wrap the main body of periodic work functions in try/rescue blocks so that unexpected errors are logged (Logger.error with stacktrace) but the function returns state unchanged, keeping the GenServer alive.
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_wrap_genserver_periodic_work_in_try_rescue_for_cra
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/genserver
+status: approved
+summary:
+tags:
+  - genserver
+  - resilience
+  - try-rescue
+  - periodic-work
+title: Wrap GenServer periodic work in try/rescue for crash resilience
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.013428Z"
+  approved_by: human
+  status: approved

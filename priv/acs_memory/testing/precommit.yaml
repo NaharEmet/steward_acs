@@ -1,0 +1,56 @@
+content: |
+  ## Root Cause Analysis: decision_versions.changed_by_actor_id NOT NULL violation
+  
+  ### The Error (from 2026-06-01 precommit.yaml)
+  16 test failures across `WorkflowLive.IndexTest` (14 tests) and `ChatLive.IndexTest` (2 tests) with error:
+  ```
+  null value in column "changed_by_actor_id" of relation "decision_versions" violates not-null constraint
+  ```
+  
+  ### Root Cause
+  1. Migration `20260502000002_create_decisions_tables.exs` adds `changed_by_actor_id` with `null: false` (lines 24-26)
+  2. `Repo.delete_all(Anantha.Core.Org)` in `insert_primary_org/0` does NOT cascade to `decision_versions` because:
+     - `decision_versions` has no FK to `orgs` (it references `actors`, `decisions`)
+     - FK chain: `decision_versions` → `decisions` → `orgs` (on_delete: delete_all)
+  3. Stale `decision_versions` records with NULL `changed_by_actor_id` persisted from previous test runs
+  4. When new actor creation triggered certain operations, the NOT NULL constraint was violated
+  
+  ### Why Tests Pass Now
+  1. Database likely reset with fresh migrations
+  2. `async: false` ensures proper test isolation - sequential execution prevents cross-test contamination
+  3. No operations in these specific tests actually create decision_versions records that would violate the constraint
+  
+  ### Prevention
+  If this recurs, the test helper should also:
+  ```elixir
+  Repo.delete_all(Anantha.Core.Memory.DecisionVersion)  # if such table exists and is safe
+  ```
+  Or ensure the cascade delete properly清理s stale data from related tables.
+created_at: "2026-06-02T17:08:14Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes:
+  - Stale decision_versions records with NULL changed_by_actor_id cause NOT NULL constraint violations when tests create new actors
+id: observation_decision_versions_changed_by_actor_id_not_null_vio
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: testing/precommit
+status: rejected
+summary: decision_versions NOT NULL violation root cause
+tags:
+  - testing
+  - precommit
+  - decision_versions
+  - not_null_violation
+title: decision_versions.changed_by_actor_id NOT NULL violation in test setup
+triggers: []
+updated_at: "2026-06-02T17:12:22Z"
+verification:
+  rejected_at: "2026-06-02T17:12:22.431163Z"
+  rejected_by: human
+  status: rejected

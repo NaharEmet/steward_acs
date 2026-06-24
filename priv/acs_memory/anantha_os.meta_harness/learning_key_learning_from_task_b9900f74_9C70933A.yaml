@@ -1,0 +1,27 @@
+content: "MetaHarness.Score schema created following the same pattern as ExtractionEvaluation and Execution schemas. Key pattern: use Ecto.UUID type for UUID columns (run_id), :float for score fields, :map with default %{} for details/metadata. The changeset validates run_id and scenario_id as required. No foreign key constraints needed since run_id is a plain UUID reference."
+created_at: "2026-06-20T16:57:41.652114Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_b9900f74_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.meta_harness
+status: proposed
+summary: "MetaHarness.Score schema created following the same pattern as ExtractionEvaluation and Execution schemas. Key pattern: use Ecto.UUID type for UUID columns (run_id), :float for score fields, :map with"
+tags:
+  - feedback
+  - learning
+title: Key learning from task b9900f74
+triggers: []
+updated_at: "2026-06-20T16:57:41.652129Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

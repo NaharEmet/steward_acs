@@ -1,0 +1,52 @@
+content: |
+  ## Problem
+  HubSpot CRM sync hammers API with rapid paginated requests. Token bucket (10 req/sec) drains instantly with 3 parallel object-type syncs. The `check_rate_limit` function then retries with fixed 100ms wait (from `div(1000, 10) = 100ms`), causing repeated rate-limit cycles.
+  
+  ## Solution
+  Two-layer rate limiting in `lib/anantha_os/crm/sync_engine/hub_spot.ex`:
+  
+  ### 1. Request pacing (`@page_pacing_ms 300`)
+  A 300ms delay after each successful page fetch spaces requests naturally. With 3 parallel syncs, this yields ~7.5 req/sec average, below the 10 req/sec token bucket.
+  
+  ### 2. Exponential backoff via process dictionary
+  Track consecutive rate limit hits per org_id using `Process.get/put`. Backoff doubles each hit: 500ms → 1s → 2s → 4s → 8s → capped 10s.
+  
+  - `check_rate_limit` (preventive): uses `max(token_bucket_wait, exponential_backoff)`
+  - 429 handler (reactive): uses `max(Retry-After header, exponential_backoff)`
+  - Counter resets on successful token bucket check (prevents permanent backoff spiral)
+  
+  ## Key Files
+  - `lib/anantha_os/crm/sync_engine/hub_spot.ex` — all changes
+  - `lib/anantha_os/ingestion/rate_limiter.ex` — shared ETS token bucket (unchanged)
+  
+  ## Syncing note
+  `sync_engine.ex` has `max_concurrency: 3` for object type syncs, which amplifies rate limiting. Pacing at provider level mitigates this without changing sync_engine.
+created_at: "2026-06-20T13:10:42.336528Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_hubspot_rate_limiting_needs_exponent_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/hubspot
+status: proposed
+summary:
+tags:
+  - crm
+  - hubspot
+  - rate-limiting
+  - backoff
+  - pacing
+title: CRM HubSpot rate limiting needs exponential backoff + pacing
+triggers: []
+updated_at: "2026-06-20T13:10:42.336544Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

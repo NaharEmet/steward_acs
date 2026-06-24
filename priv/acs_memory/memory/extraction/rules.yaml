@@ -1,0 +1,44 @@
+content: |
+  RuleExtractor uses a YAML-first architecture for configurable extraction rules. Rules are defined in `priv/rules/memory_extraction_rules.yml` and loaded at runtime via `YamlElixir.read_from_file/1`. The file is re-read on every call, so agents can edit rules without restarting.
+  
+  Architecture: Rules → RuleLoader (compiles regex) → RuleExtractor (applies rules to content) → build record attrs → Pipeline creates Record.
+  
+  For each memory_type (cash_flow, inventory_movement), the highest-priority matching rule per target_field wins. If YAML rules produce no data, hardcoded heuristic fallback kicks in.
+  
+  Key patterns:
+  - Each rule has: id, memory_type, target_field, patterns (regex list), capture_group, transform (decimal/integer), static_value (for keyword matches), priority
+  - Single-quoted YAML strings preserve regex backslashes literally
+  - `Regex.compile!(pattern, "i")` for case-insensitive matching
+  - Decimal transform: `raw |> String.replace(\",\", \"\") |> Decimal.new()`
+  - Integer transform: `String.to_integer(raw)`
+  - Static value rules: when matched, use the static_value instead of captured group
+  - Rules sorted by priority DESC; first match per target_field wins (like Enum.reduce)
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_yaml_configured_rule_extraction_with_live_reload
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/extraction/rules
+status: approved
+summary:
+tags:
+  - extraction
+  - rules
+  - yaml
+  - memory
+  - pattern
+title: YAML-configured rule extraction with live reload
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.081884Z"
+  approved_by: human
+  status: approved

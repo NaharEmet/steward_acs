@@ -1,0 +1,41 @@
+content: |
+  The ACS Meta-Harness had two parallel analysis pipelines: `Generator` (raw SQL queries) and `Analyzer`+`DocumentGenerator` (sophisticated with percentiles). Fixed by consolidating Generator to use Analyzer internally for tool/error/agent data. Generator retains plan generation and file writing; Analyzer provides the data backbone.
+  
+  Fixes applied:
+  - Generator now calls `Analyzer.analyze(timeframe: :last_24_hours)` instead of raw SQL
+  - Used `task_completion_feedback` table uses `inserted_at` not `created_at`
+  - Lowered error cluster threshold from 5 to 2
+  - Float-rounded latency display values
+  - Filtered empty agent_id entries from agent behavior
+  - Telemetry query uses `inserted_at` column
+  - MemoryGenerator wired to persist findings as YAML memory files
+  - 35 tests added for Analyzer, OperationLogger, DocumentGenerator, Generator
+  - Fresh baseline set after fixes
+  
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_meta_harness_has_duplicate_pipelines_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/meta_harness
+status: approved
+summary:
+tags:
+  - acs
+  - meta-harness
+  - pipeline
+  - consolidation
+title: ACS Meta-Harness has duplicate pipelines - fix consolidated
+triggers: []
+updated_at: "2026-06-19T14:00:09Z"
+verification:
+  approved_at: "2026-06-19T14:00:09.169489Z"
+  approved_by: human
+  status: approved

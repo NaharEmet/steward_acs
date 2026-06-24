@@ -1,0 +1,39 @@
+content: |
+  The `write_tool` MCP tool allows agents to dynamically register new tools by writing YAML definition files to the acstools/ directory and hot-reloading via ToolRegistry.refresh/0. Key implementation details:
+  
+  - New tool definitions are written as `<name>.yaml` files in the first writable tools path (MCP_TOOLS_PATH env → configured tools_paths → default `_build/acs/acstools/`)
+  - The YAML encoder produces block-style YAML with correct indentation for nested maps and lists, matching the format expected by ToolLoader
+  - Endpoint URLs are parsed with URI.parse to extract base_url + endpoint_path for Bridge dispatch
+  - The tool supports both handler-based (Elixir module) and endpoint-based (HTTP URL) tools
+  - After writing, ToolRegistry.refresh/0 is called to hot-reload without BEAM recompile
+  - Validation requires: name, description, inputSchema, and at least one of handler or endpoint
+  - The generated YAML only includes fields relevant to the handler type (no empty endpoint/method for handler-based tools) to pass ToolLoader validation
+  - Path: apps/agent_coordination_system/lib/acs/mcp/tools/dynamic_tools.ex
+created_at: "2026-06-19T20:13:09.488841Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_write_tool_mcp_tool_for_dynamic_yaml_bas_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: apps/agent_coordination_system/lib/acs/mcp/tools
+status: proposed
+summary:
+tags:
+  - write_tool
+  - dynamic_tools
+  - MCP
+  - YAML
+  - hot-reload
+title: write_tool MCP tool for dynamic YAML-based tool registration
+triggers: []
+updated_at: "2026-06-19T20:13:09.488856Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

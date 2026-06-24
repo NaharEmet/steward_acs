@@ -1,0 +1,47 @@
+content: |
+  The extraction pipeline builds progressively richer context at each layer for LLM prompts:
+  
+  **Layer 0 — Classifier** (DotPrompt: `classify.message.prompt`): Uses `message_content`, `message_direction`, `actor_id`, `org_id`, `raw_metadata`. No prior message context — each message classified independently.
+  
+  **Layer 0 — Extractor** (inline system+user prompt): Injects up to 5 prior messages from same conversation via `Messages.list_conversation_before/3`, formatted as `- Actor(id) | direction | "content"`. Also injects actor_name + direction metadata. System prompt defines all 6 categories (CASH_FLOW, INVENTORY_MOVEMENT, RELATIONSHIP_SENTIMENT, PROMISE, DECISION, UNCLASSIFIED) with per-category extraction rules and revision detection instructions.
+  
+  **Layer 1.5 — ObservationExtractor** (DotPrompt: `observations.prompt`): Uses `content`, `actor_name`, `direction`, `prior_context`. No system prompt — single user message. Defines 16 semantic types (pricing_objection → general_signal). Multi-label extraction per message.
+  
+  **Layer 2 — ClaimExtractor** (DotPrompt: `claims.prompt`): Uses `content`, `actor_name`, `direction`, `prior_context`, `prior_observations` (serialized from ObservationExtractor results). Defines 12 claim types, S-P-O structure, modality, sentiment, certainty.
+  
+  **Layer 2 (CRM path)** — `MemoryExtractor.extract_from_event/3`: For ingestion events, content extracted from `event.payload[\"content\"]` or fetched from S3 transcript. Same ObservationExtractor + ClaimExtractor flow.
+  
+  **Layer 2.5 — SynthesisExtractor**: Builds cluster context with subject, predicate, claim count, overall sentiment, avg_certainty, first/last observed_at, then all claims formatted as bulleted S-P-O lines. Uses system+user message pair.
+  
+  **Post-extraction — ContextSeeder**: Small LLM generates seed plan (1 semantic + 1 structured query), executes them, shapes results deterministically via ContextShaper. Results passed to AnswerAgent which evaluates sufficiency and produces answer or asks for more.
+  
+  **Key constraints**: ExtractionWorker processes messages pending→classified→extracted (2-stage). MemoryExtractor runs fire-and-forget. Observations get 1 retry, claims get 3 retries with exponential backoff. Rate limited at 40 RPM globally.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_extraction_pipeline_context_building_at_each_layer
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/extraction_pipeline
+status: approved
+summary:
+tags:
+  - extraction
+  - pipeline
+  - context-building
+  - llm-prompts
+  - architecture
+title: "Extraction Pipeline: Context Building at Each Layer"
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.228010Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,27 @@
+content: "AGENTS.md now has a full \"📦 Standalone Packages\" section replacing the old ad-hoc \"llm_utils Library\" section. Covers both lib/anantha_json (git subtree) and lib/dot_prompt (git submodule) with the \"Golden Rule: GENERALIZE, DON'T SPECIALIZE\" — code in these nested repos must be published to Hex and cannot depend on project internals. Each package has its own rules section for AI developers. There's also a guide for adding new standalone packages to the project."
+created_at: "2026-06-24T09:53:57.469737Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_dea73832_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: AGENTS.md now has a full "📦 Standalone Packages" section replacing the old ad-hoc "llm_utils Library" section. Covers both lib/anantha_json (git subtree) and lib/dot_prompt (git submodule) with the "G
+tags:
+  - feedback
+  - learning
+title: Key learning from task dea73832
+triggers: []
+updated_at: "2026-06-24T09:53:57.469749Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

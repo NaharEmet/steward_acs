@@ -1,0 +1,28 @@
+content: "`Anantha.LLM.JsonExtractor.extract/1` returns `\"\"` (empty string) when it cannot find valid JSON in the input content. This is the correct contract because callers check `if extracted == \"\"` to determine if extraction failed. The fallback clause in `do_extract/1` returns `\"\"` (not the original text) when no markdown code block or balanced JSON object is found."
+created_at: "2026-06-21T12:17:07.519718Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_jsonextractor_returns_empty_string_on_no_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_json/json_extractor
+status: proposed
+summary: JsonExtractor returns "" on no match, not original text
+tags:
+  - json-extraction
+  - anantha_json
+  - contract
+title: JsonExtractor returns empty string on no JSON match
+triggers: []
+updated_at: "2026-06-21T12:17:07.519771Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

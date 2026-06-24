@@ -1,0 +1,45 @@
+content: |
+  The DotPrompt OTP application is registered as `:dot_prompt` in `lib/dot_prompt/mix.exs`:
+  ```elixir
+  def project do
+    [app: :dot_prompt, ...]
+  end
+  ```
+  
+  All configuration is done under `:dot_prompt`:
+  ```elixir
+  config :dot_prompt, prompts_dir: Path.expand("../prompts", __DIR__)
+  ```
+  
+  The `prompts_dir/0` function reads from `Application.get_env(:dot_prompt, :prompts_dir)`.
+  
+  Some test files incorrectly used `:dot_prompt` which caused prompts_dir overrides to be silently ignored, leading to all prompt_not_found errors in the dot_prompt test suite.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: axiom_dotprompt_otp_app_name_is_dot_prompt_not_d
+importance: 3
+kind: axiom
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: dot_prompt/test
+status: approved
+summary: "The DotPrompt OTP application is named :dot_prompt. All Application.get_env and Application.put_env calls must use :dot_prompt. Using :dot_prompt (the wrong key) causes prompts_dir and other config to be silently ignored."
+tags:
+  - dot_prompt
+  - otp
+  - application
+  - key
+  - config
+title: "DotPrompt OTP app name is :dot_prompt, not :dot_prompt"
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.611572Z"
+  approved_by: human
+  status: approved

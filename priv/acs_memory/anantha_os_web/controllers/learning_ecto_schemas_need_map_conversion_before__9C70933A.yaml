@@ -1,0 +1,30 @@
+content: "Ecto schemas (e.g. %Actor{}, %IngestionSource{}, %Claim{}) do not implement Jason.Encoder by default. When returning them via json(conn, data), any map containing structs will crash at serialization time. Always convert Ecto structs to plain maps with explicit field selection before calling json(). The same applies to GenServer call returns that are maps vs. {:ok, map} tuples — always check the actual return format before pattern matching."
+created_at: "2026-06-21T11:10:47.644748Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_ecto_schemas_need_map_conversion_before__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/controllers
+status: proposed
+summary:
+tags:
+  - jason
+  - serialization
+  - ecto
+  - tool_controller
+  - json
+title: Ecto schemas need map conversion before json() serialization
+triggers: []
+updated_at: "2026-06-21T11:10:47.644758Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,28 @@
+content: "In Anantha OS projects, when using Ecto's join in pipe-style (`|>`) queries, use `join(:left, [binding], assoc in Schema, on: ...)` instead of `left_join([binding], ...)`. The `left_join` macro causes compilation errors (undefined variable) when used in pipe chains with Ecto.Query imports. The `join(:qualifier, ...)` form works reliably."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ecto_join_use_join_left_not_left_join_macro_in_pip
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/ecto-queries
+status: approved
+summary:
+tags:
+  - ecto
+  - join
+  - query
+  - elixir
+title: "Ecto join: use join(:left, ...) not left_join macro in pipe-style queries"
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.598403Z"
+  approved_by: human
+  status: approved

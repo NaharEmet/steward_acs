@@ -1,0 +1,28 @@
+content: During concurrent release flows, stale ownership may remain if agent state is not cleared before cache deletion.
+created_at: "2026-06-23T07:29:31.603422Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes:
+  - stale ownership
+id: guidance_test_warning
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cache/release
+status: approved
+summary: Concurrent release can leave stale ownership
+tags:
+  - cache
+  - concurrency
+title: Stale Task Release Race
+triggers:
+  - concurrent release
+updated_at: "2026-06-23T07:29:31.603438Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

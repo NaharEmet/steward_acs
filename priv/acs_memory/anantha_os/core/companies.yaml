@@ -1,0 +1,35 @@
+content: |
+  When calling `Map.put(attrs, "org_id", org_id)` where `attrs` has atom keys (e.g. `%{name: "Foo", type: "bar"}`), the resulting map has mixed key types (atom and string). Ecto's `cast/3` rejects mixed key types with `Ecto.CastError`. This was fixed in `Anantha.Core.Companies.create/2` by normalizing attrs to string keys before adding the org_id.
+  
+  Fix: Convert all keys to strings upfront:
+  ```elixir
+  attrs = attrs |> Map.new(fn {key, val} -> {to_string(key), val} end) |> Map.put("org_id", org_id)
+  ```
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_mixed_atom_string_keys_in_ecto_changeset_params_ca
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/core/companies
+status: approved
+summary:
+tags:
+  - ecto
+  - changeset
+  - bugfix
+  - key_normalization
+title: Mixed atom/string keys in Ecto changeset params causes Ecto.CastError
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.577340Z"
+  approved_by: human
+  status: approved

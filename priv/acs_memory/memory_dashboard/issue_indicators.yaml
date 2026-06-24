@@ -1,0 +1,37 @@
+content: |
+  The memory dashboard LiveView surfaces 6 issue indicators for at-a-glance health assessment:
+  1. Stuck classified messages (critical) — messages stuck in "classified" state >5min
+  2. DLQ entries (critical if >10/hr, warning otherwise) — dead-letter queue entries  
+  3. Pipeline worker stale (critical) — worker hasn't run in 2x interval
+  4. Failed messages (warning) — any failed extraction count
+  5. Unclassified messages (info) — messages the LLM couldn't classify
+  6. Overdue pending items (warning) — promises past their due date
+  
+  This maps directly to the user's requirement to "see if there are issues at a glance."
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_memory_dashboard_6_indicator_issues_for_at_a_glanc
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory_dashboard/issue_indicators
+status: approved
+summary:
+tags:
+  - dashboard
+  - issues
+  - health
+title: "Memory Dashboard: 6 indicator issues for at-a-glance health"
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.206237Z"
+  approved_by: human
+  status: approved

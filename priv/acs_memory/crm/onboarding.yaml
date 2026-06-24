@@ -1,0 +1,62 @@
+content: |
+  # CRM Scheduler
+  
+  The CRM scheduler runs periodic syncs for all configured sources.
+  
+  ## Configuration
+  
+  - **Interval**: Every 1 hour
+  - **Name**: `"crm_sync"` in the scheduler registry
+  - **Trigger**: Cron-based (`@hourly`) or manual via `crm_trigger_scheduler`
+  - **Supervision**: Part of the Anantha application tree
+  
+  ## Behavior
+  
+  1. On trigger, scheduler iterates all orgs with configured ingestion sources
+  2. For each org + source, calls `Anantha.CRM.sync/3` 
+  3. Sources without `configured? = true` are skipped
+  4. Errors per object type are logged (doesn't fail the whole sync)
+  5. State is persisted after each object type completes
+  
+  ## Manual Triggers
+  
+  Use `crm_trigger_scheduler` ACS tool or:
+  ```elixir
+  Anantha.CRM.Scheduler.trigger_now()
+  ```
+  
+  This runs the scheduler logic immediately regardless of last run time.
+  
+  ## First Sync vs. Routine Syncs
+  
+  - **First sync** (no `first_sync_complete` metadata): Uses search API with 5-month date filter. Only fetches records modified in last 5 months.
+  - **Routine syncs** (`first_sync_complete = true`): Uses standard list API with cursor pagination. Fetches all records modified since last `synced_at` timestamp.
+  
+  This ensures the initial load is manageable (not pulling years of historical data) while routine syncs stay incremental.
+created_at: "2026-06-19T20:14:23Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_crm_scheduler_behavior_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/onboarding
+status: approved
+summary: "CRM scheduler: interval, behavior, first sync vs. routine syncs, manual triggers"
+tags:
+  - crm
+  - scheduler
+  - automation
+  - sync
+title: CRM Scheduler Behavior
+triggers: []
+updated_at: "2026-06-19T20:14:31Z"
+verification:
+  approved_at: "2026-06-19T20:14:31.465389Z"
+  approved_by: CRM onboarding — scheduler guide
+  status: approved

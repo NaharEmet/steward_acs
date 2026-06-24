@@ -1,0 +1,30 @@
+content: "ACS MetaHarness zero-data root cause: OperationLogger passes DateTime struct as raw SQL parameter to Ecto.Adapters.SQL.query/4. The Exqlite adapter cannot encode DateTime structs in raw queries. Fix: convert DateTime.utc_now() to ISO 8601 string via DateTime.to_iso8601() before storing in the entry map. Also added consecutive failure tracking with ERROR logging at threshold of 3 failures."
+created_at: "2026-06-20T17:11:45.353717Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_metaharness_zero_data_root_cause_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/meta_harness
+status: proposed
+summary:
+tags:
+  - meta_harness
+  - operation_logger
+  - exqlite
+  - datetime
+  - bug
+title: ACS MetaHarness zero-data root cause
+triggers: []
+updated_at: "2026-06-20T17:11:45.353725Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

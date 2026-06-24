@@ -1,0 +1,27 @@
+content: "When implementing a filtered contact sync for HubSpot CRM, the two-phase approach works well: sync deals/companies first, collect associated_contact_ids, then use HubSpot's batch read API (POST /crm/v3/objects/contacts/batch/read with 100-ID chunks) to fetch only those contacts. Key pitfalls: (1) batch read error handling must propagate failures, not silently swallow them; (2) rate limiting (check_rate_limit + 429 retry) must apply to batch reads too; (3) when no associated contacts exist, the filter must be set to empty list (not skipped) to prevent importing all contacts; (4) 401 from batch read must be fatal like the regular API path."
+created_at: "2026-06-21T12:30:35.808220Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_29afb40b_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: "When implementing a filtered contact sync for HubSpot CRM, the two-phase approach works well: sync deals/companies first, collect associated_contact_ids, then use HubSpot's batch read API (POST /crm/v"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 29afb40b
+triggers: []
+updated_at: "2026-06-21T12:30:35.808234Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

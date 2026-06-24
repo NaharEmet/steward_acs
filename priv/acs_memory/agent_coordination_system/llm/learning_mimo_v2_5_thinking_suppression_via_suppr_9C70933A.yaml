@@ -1,0 +1,30 @@
+content: "MiMo v2.5 has \"deep thinking\" enabled by default, which wraps JSON output in thinking context even with response_format: {type: \"json_object\"}. To disable thinking, add `suppress_thinking: true` to the provider config and pass `thinking: %{type: \"disabled\"}` in the request body. Use `config[:suppress_thinking]` (access syntax) rather than `config.suppress_thinking` because not all providers have this field."
+created_at: "2026-06-20T12:46:15.996635Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_mimo_v2_5_thinking_suppression_via_suppr_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - mimo
+  - thinking
+  - json_mode
+  - llm
+  - provider
+title: MiMo v2.5 thinking suppression via suppress_thinking flag
+triggers: []
+updated_at: "2026-06-20T12:46:15.996650Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

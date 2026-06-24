@@ -1,0 +1,27 @@
+content: "MiMo v2.5 thinking mode wraps JSON output even with response_format set. Must disable thinking via `thinking: {type: \"disabled\"}` in request body. Also add nil guards to extract_json_content, try_reasoning_content, try_extract_json to prevent FunctionClauseError crashes when content/reasoning fields are nil."
+created_at: "2026-06-20T12:47:33.081223Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_85510f0c_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "MiMo v2.5 thinking mode wraps JSON output even with response_format set. Must disable thinking via `thinking: {type: \"disabled\"}` in request body. Also add nil guards to extract_json_content, try_reas"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 85510f0c
+triggers: []
+updated_at: "2026-06-20T12:47:33.081239Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

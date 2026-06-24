@@ -1,0 +1,59 @@
+content: |
+  Never use `String.to_atom/1` with any string derived from external input, parsed DSL, configuration files, or HTTP params. Atoms are never garbage collected in the BEAM — dynamic atom creation is a memory leak and potential DoS vector.
+  
+  **Safe patterns:**
+  
+  1. **`String.to_existing_atom/1` with try/rescue returning string key** — use when the atom may not pre-exist and you want to keep the value as a map key:
+     ```elixir
+     defp safe_to_atom(binary) when is_binary(binary) do
+       String.to_existing_atom(binary)
+     rescue
+       ArgumentError -> binary
+     end
+     ```
+  
+  2. **`String.to_existing_atom/1` with try/rescue returning nil** — use when nil is handled explicitly:
+     ```elixir
+     defp to_existing_or_nil(binary) when is_binary(binary) do
+       String.to_existing_atom(binary)
+     rescue
+       ArgumentError -> nil
+     end
+     ```
+  
+  3. **Explicit mapping map** — use when dealing with a known set of keys:
+     ```elixir
+     @known_fields %{"key1" => :key1, "key2" => :key2}
+     ```
+     then `Map.fetch!(@known_fields, key)`.
+  
+  The 3-file pattern (query_engine.ex, evaluator.ex, http_server.ex) that did `to_existing_atom` with `String.to_atom` fallback is wrong — the fallback should just return the string key.
+created_at: "2026-06-21T13:16:23.544499Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_string_to_atom_1_creates_atoms_dynamical_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/security/atom-creation
+status: proposed
+summary:
+tags:
+  - elixir
+  - security
+  - atom
+  - memory-leak
+  - best-practice
+title: String.to_atom/1 creates atoms dynamically — use to_existing_atom or safe_to_atom
+triggers: []
+updated_at: "2026-06-21T13:16:23.544518Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

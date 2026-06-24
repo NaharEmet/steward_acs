@@ -1,0 +1,36 @@
+content: |
+  The Memory Auditor interval is configured via `AUDITOR_INTERVAL` env var (default 30000ms = 30s). It requires three config files to be consistent:
+  
+  1. `.env.example` — Template in KEY=VALUE Dotenvy format (not Config syntax)
+  2. `.env` — Actual env file with the correct value
+  3. `config/runtime.exs` — Must wire `System.get_env("AUDITOR_INTERVAL")` into `Application.get_env(:steward_acs, :auditor_interval)` using `String.to_integer/1` conversion
+  
+  The value was previously 300000ms (5 min). Current correct value is 30000ms (30s). The old `.env.example` line used Config syntax (`config :steward_acs, :auditor_interval, 300_000`) instead of KEY=VALUE format (`AUDITOR_INTERVAL=30000`), which Dotenvy ignores at runtime — meaning the env var never actually flowed to Application config.
+created_at: "2026-06-20T09:20:46.630312Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_memory_auditor_interval_must_be_wire_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/config
+status: proposed
+summary:
+tags:
+  - auditor
+  - config
+  - env
+  - runtime.exs
+  - acs
+title: ACS Memory Auditor interval must be wired in runtime.exs
+triggers: []
+updated_at: "2026-06-20T09:20:46.630324Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

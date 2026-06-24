@@ -1,0 +1,39 @@
+content: |
+  When setting up a new org or CRM source, several prerequisites must be verified or the setup will fail with confusing errors:
+  
+  1. ANANTHA_API_KEY must be valid AND belong to an existing org — a key for a deleted org returns auth errors
+  2. Phoenix server must be accessible at the configured ANANTHA_URL
+  3. DB migrations must be current — stale migrations cause insert failures
+  4. ACS server must be accessible (port 4001 in single-BEAM mode)
+  5. HubSpot OAuth tokens expire — expired tokens cause 401 on ALL object types with no clear error message
+  6. Source secrets must be registered BEFORE first sync attempt
+  
+  **Chicken-egg bootstrap:** Creating the first org requires a valid API key, but creating the API key requires an org. Use a bootstrap script that creates the system org first, then generates its API key.
+created_at: "2026-06-20T14:35:41Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_org_setup_pre_flight_checklist_prevents__9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/org_setup
+status: approved
+summary:
+tags:
+  - org-setup
+  - crm
+  - bootstrap
+  - prerequisites
+title: Org setup pre-flight checklist prevents bootstrap failures
+triggers: []
+updated_at: "2026-06-20T14:35:52Z"
+verification:
+  approved_at: "2026-06-20T14:35:52.406414Z"
+  approved_by: Approved from agent feedback — org setup failures were costly and repetitive
+  status: approved

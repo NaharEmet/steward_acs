@@ -1,0 +1,27 @@
+content: "JsonRemedy.repair/1 returns {:ok, decoded_map} not a repaired JSON string. The `with` block pattern in json_adapter.ex that tried Jason.decode(result) crashed because `result` is already a decoded map. Replaced with `case` statement that returns decoded result directly when non-empty. Also removed dead `parse_llm_response/1` and its callees (`normalize_keys/1`, `normalize_recommendation/1`, `normalize_recommendation_value/1`) from acs/llm.ex since they were unused."
+created_at: "2026-06-21T12:30:44.940583Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_512bbe3e_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.lib.anantha_json.lib.anantha.llm
+status: proposed
+summary: "JsonRemedy.repair/1 returns {:ok, decoded_map} not a repaired JSON string. The `with` block pattern in json_adapter.ex that tried Jason.decode(result) crashed because `result` is already a decoded map"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 512bbe3e
+triggers: []
+updated_at: "2026-06-21T12:30:44.940594Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

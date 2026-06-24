@@ -1,0 +1,49 @@
+content: |
+  Use `@attr Application.compile_env(:app, :key, default)` module attributes instead of runtime `Application.get_env` calls for static config values. This moves config reads from runtime to compile time, eliminating redundant function calls on every invocation.
+  
+  Pattern:
+  ```elixir
+  # Before (runtime call every invocation)
+  defp config(key, default),
+    do: Application.get_env(:anantha_os, :retrieval, []) |> Keyword.get(key, default)
+  
+  # After (compile-time constant)
+  @retrieval_config Application.compile_env(:anantha_os, :retrieval, [])
+  defp config(key, default),
+    do: @retrieval_config |> Keyword.get(key, default)
+  ```
+  
+  Key rules:
+  - Always provide a default value (Application.compile_env raises without one if key not found)
+  - Keep same default values as original Application.get_env calls
+  - Only use for configs that are static per deployment (not runtime-changeable)
+  - List config (Keyword list) needs parens in default: `%{}` vs `[]` vs `%{key: val}`
+created_at: "2026-06-21T13:57:32.790540Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_cache_application_get_env_in_module_attr_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/patterns/config-caching
+status: proposed
+summary:
+tags:
+  - elixir
+  - pattern
+  - config
+  - performance
+  - compile-time
+title: Cache Application.get_env in module attributes at compile time
+triggers: []
+updated_at: "2026-06-21T13:57:32.790557Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,36 @@
+content: |
+  Changed weighted_transcript_sampler.py from linear weights (f[\"count\"]) to log-scale weights (math.log(f[\"count\"])) for picking 10 test transcripts. Linear weights caused the 100k-row 02_b2b_saas_sales dataset to dominate picks (~95% weight). Log-scale balances this: largest dataset gets ~24% weight, smallest ~8%, with all folders in 8-24% range. This ensures diverse transcript representation in memory test scenarios.
+  
+  Key changes:
+  - Added import math
+  - Changed weights dict to use math.log(f[\"count\"]) / total_log
+  - Changed folder_weights for random.choices to use math.log(f[\"count\"])
+  - Updated display to show log(w) column
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_log_scale_weights_balance_transcript_sampler_distr
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: scripts/weighted_transcript_sampler
+status: approved
+summary:
+tags:
+  - weighted-sampler
+  - log-scale
+  - transcripts
+  - memory-test
+title: Log-scale weights balance transcript sampler distribution
+triggers: []
+updated_at: "2026-06-19T14:00:07Z"
+verification:
+  approved_at: "2026-06-19T14:00:07.018502Z"
+  approved_by: human
+  status: approved

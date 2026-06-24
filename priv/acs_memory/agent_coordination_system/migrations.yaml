@@ -1,0 +1,34 @@
+content: |
+  SQLite3 (via ecto_sqlite3) can corrupt the database when ALTER TABLE ADD COLUMN and CREATE INDEX are executed in the same migration. The error manifests as "database disk image is malformed" on the CREATE INDEX statement. This is because SQLite's DDL transaction handling for mixed alter+create operations is fragile.
+  
+  **Solution:** Use `@disable_ddl_transaction true` in the migration module, or split the operations into separate migrations. The `@disable_ddl_transaction` annotation causes each DDL statement to be executed in its own transaction, avoiding the corruption.
+  
+  Also ensure WAL/SHM files are cleaned when recreating the database — stale WAL files from interrupted migrations can cause persistent "malformed" errors even after deleting the main .sqlite file.
+created_at: "2026-06-19T16:13:42.679583Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_sqlite_ecto_alter_table_create_index_in__9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/migrations
+status: proposed
+summary:
+tags:
+  - sqlite
+  - exqlite
+  - migration
+  - ddl
+  - ecto
+title: "SQLite + Ecto: ALTER TABLE + CREATE INDEX in same migration causes DB corruption"
+triggers: []
+updated_at: "2026-06-19T16:13:42.679616Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

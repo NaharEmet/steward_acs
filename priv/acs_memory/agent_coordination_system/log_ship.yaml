@@ -1,0 +1,24 @@
+content: Logger backends configured in config files (like `config/config.exs`) are NOT automatically registered with Elixir's Logger. They must be explicitly registered at application startup via `Logger.add_backend(MyApp.LogBackend)` in the `Application.start/2` callback. Without this call, the backend module exists but never receives log events. Always add this registration before the supervision tree starts.
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_logger_backends_must_be_registered_via_logger_add_
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/log_ship
+status: approved
+summary:
+tags: []
+title: Logger backends must be registered via Logger.add_backend/1
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.052023Z"
+  approved_by: human
+  status: approved

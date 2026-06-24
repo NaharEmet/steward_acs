@@ -1,0 +1,33 @@
+content: |
+  When parsing integer env vars in `config/runtime.exs`, NEVER use `elem(Integer.parse(val), 0) || default` — `Integer.parse/1` returns `:error` on invalid input and `elem(:error, 0)` crashes with ArgumentError. Use proper pattern matching:
+  
+  ```elixir
+  case Integer.parse(val) do
+    {num, _} -> num
+    :error -> default_value
+  end
+  ```
+created_at: "2026-06-21T19:08:03.002814Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_safe_integer_parse_pattern_for_env_vars__9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: config
+status: proposed
+summary: Safe Integer.parse for runtime.exs env vars
+tags: []
+title: Safe Integer.parse pattern for env vars in runtime.exs
+triggers: []
+updated_at: "2026-06-21T19:08:03.002827Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: "Added retry_available?/0 and retry_available?/2 as private helpers in Embedding module. Pattern: recursive retry with countdown + Process.sleep delay for startup ordering tolerance. Keep retry helpers as defp (private) since they are implementation detail of ensure_embeddings/0."
+created_at: "2026-06-21T11:03:02.539937Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_b18f9c9e_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.memory
+status: proposed
+summary: "Added retry_available?/0 and retry_available?/2 as private helpers in Embedding module. Pattern: recursive retry with countdown + Process.sleep delay for startup ordering tolerance. Keep retry helpers"
+tags:
+  - feedback
+  - learning
+title: Key learning from task b18f9c9e
+triggers: []
+updated_at: "2026-06-21T11:03:02.539949Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

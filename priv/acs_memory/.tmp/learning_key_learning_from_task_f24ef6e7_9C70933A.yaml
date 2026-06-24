@@ -1,0 +1,27 @@
+content: Email claim extraction crashes with Postgrex varchar(255) overflow on `object` column when processing hs_email_text (email body). The `object` and `content` columns in claims table are varchar(255) but email body text can be thousands of chars. Created bug memory with full root cause analysis.
+created_at: "2026-06-22T05:46:10.274054Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_f24ef6e7_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .tmp
+status: proposed
+summary: Email claim extraction crashes with Postgrex varchar(255) overflow on `object` column when processing hs_email_text (email body). The `object` and `content` columns in claims table are varchar(255) bu
+tags:
+  - feedback
+  - learning
+title: Key learning from task f24ef6e7
+triggers: []
+updated_at: "2026-06-22T05:46:10.274062Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

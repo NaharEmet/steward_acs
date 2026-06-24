@@ -1,0 +1,29 @@
+content: "`:crypto.hash(:sha256, data)` takes algorithm as first arg and data as second. Using pipe syntax (`data |> :crypto.hash(:sha256)`) puts data as FIRST arg, which causes \"not an iodata term\" errors. Always call `:crypto.hash` directly: `:crypto.hash(:sha256, data)`, or wrap with `then` when piping: `data |> then(&:crypto.hash(:sha256, &1))`."
+created_at: "2026-06-20T19:08:15.812866Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_crypto_hash_2_arg_order_breaks_with_pipe_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: code-patterns
+status: proposed
+summary:
+tags:
+  - crypto
+  - hash
+  - pipe
+  - elixir
+title: ":crypto.hash/2 arg order breaks with pipe operator"
+triggers: []
+updated_at: "2026-06-20T19:08:15.812876Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

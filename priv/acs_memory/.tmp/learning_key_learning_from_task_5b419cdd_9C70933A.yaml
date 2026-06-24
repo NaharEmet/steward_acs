@@ -1,0 +1,27 @@
+content: "1. CRM email raw payloads are stored in crm_entity_snapshots.state_snapshot, not in events. Events for batch sync only store (crm_source, crm_object_type, crm_external_id) in raw_metadata, not the full raw_payload. 2. The btree index on claims(subject, predicate, object) cannot handle email body text (>2704 bytes for btree index). Use hash indexes or drop the object column from the index. 3. claims.content is still varchar(255) — needs migration to text for long claim values that embed the full object text. 4. ClaimExtractor.store_claims_batch has a bug: relationship_specs missing :metadata key, causing KeyError after successful claim insertion. 5. Repo.insert_all with returning: true commits immediately — claims are persisted even if subsequent steps (like relationship creation) fail."
+created_at: "2026-06-22T06:00:09.120182Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_5b419cdd_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .tmp
+status: proposed
+summary: 1. CRM email raw payloads are stored in crm_entity_snapshots.state_snapshot, not in events. Events for batch sync only store (crm_source, crm_object_type, crm_external_id) in raw_metadata, not the ful
+tags:
+  - feedback
+  - learning
+title: Key learning from task 5b419cdd
+triggers: []
+updated_at: "2026-06-22T06:00:09.120191Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

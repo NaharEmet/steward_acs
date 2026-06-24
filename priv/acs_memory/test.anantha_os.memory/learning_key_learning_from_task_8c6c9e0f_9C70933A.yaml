@@ -1,0 +1,27 @@
+content: "Phase 4 link_synthesis_to_entities creates LayerRelationship rows. Test cleanup blocks must delete LayerRelationship AFTER Synthesis but BEFORE Org cleanup to avoid FK violations. The pattern: delete_all LayerRelationship immediately after delete_all Synthesis in any test setup that cleans up syntheses globally."
+created_at: "2026-06-20T20:02:10.809032Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_8c6c9e0f_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test.anantha_os.memory
+status: proposed
+summary: "Phase 4 link_synthesis_to_entities creates LayerRelationship rows. Test cleanup blocks must delete LayerRelationship AFTER Synthesis but BEFORE Org cleanup to avoid FK violations. The pattern: delete_"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 8c6c9e0f
+triggers: []
+updated_at: "2026-06-20T20:02:10.809042Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

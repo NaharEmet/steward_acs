@@ -1,0 +1,28 @@
+content: All 9 analyst tools (`ant_search_memory`, `ant_get_synthesis`, `ant_get_claim`, `ant_get_observation`, `ant_get_source_excerpt`, `ant_get_entity`, `ant_execute_query`, `ant_export_dataset`, `ant_drilldown`) require `org_id` as a required parameter in every call. The `org_id` is passed as a POST body parameter. Code examples and documentation must always include `org_id`. This applies to all calls — both single-line and multi-line Elixir syntax.
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_all_analyst_tools_require_org_id_as_required_param
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: analyst/workflow
+status: approved
+summary:
+tags:
+  - analyst
+  - org_id
+  - required-params
+  - documentation
+title: All analyst tools require org_id as required parameter
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.397087Z"
+  approved_by: human
+  status: approved

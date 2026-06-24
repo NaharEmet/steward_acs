@@ -1,0 +1,29 @@
+content: CRM deal stage history uses append-only linked-list pattern per deal. Each entry represent a stage entry. When a deal moves to a new stage, the previous entry gets `exited_at` and `duration_seconds` computed. The `record_transition/2` function wraps both operations in a transaction. `create_initial/5` handles first-time syncs. Linked-list chain via `previous_history_id` enables forward/backward traversal of stage timeline.
+created_at: "2026-06-23T15:10:26Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_deal_stage_history_tracking_pattern_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/deal_stage_history
+status: approved
+summary:
+tags:
+  - crm
+  - deal
+  - stage_history
+  - pattern
+title: Deal stage history tracking pattern
+triggers: []
+updated_at: "2026-06-23T15:12:25Z"
+verification:
+  approved_at: "2026-06-23T15:12:25.794710Z"
+  approved_by: Implementation complete. 187 CRM tests pass. Reviewed by build orchestrator.
+  status: approved

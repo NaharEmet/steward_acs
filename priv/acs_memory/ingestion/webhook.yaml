@@ -1,0 +1,32 @@
+content: |
+  When ingesting CRM data via the ingestion webhook using unregistered source types (e.g., `safety_connect_deals`), the payload goes through `Payload.parse` directly. The Payload schema's `cast` function only accepts `raw_metadata`, not `metadata`. Using `metadata` as a key will cause the field to be silently dropped.
+  
+  For source types with registered adapters (like `call_transcripts`), the adapter's `normalize` function handles the key mapping. In that case, `metadata` is correct because the adapter maps it to `raw_metadata` during normalization.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_crm_ingestion_payload_must_use_raw_metadata_not_me
+importance: 2
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: ingestion/webhook
+status: approved
+summary:
+tags:
+  - ingestion
+  - crm
+  - payload
+  - raw_metadata
+title: CRM ingestion payload must use raw_metadata not metadata
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.435669Z"
+  approved_by: human
+  status: approved

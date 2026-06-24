@@ -1,0 +1,28 @@
+content: "CRM identity resolution follows a cascading fallback pattern: (1) lookup by email_hash, (2) lookup by phone_hash via actor_id, (3) in-memory case-insensitive name match, (4) auto-create new Actor. This enables cross-provider identity unification (same email in HubSpot and Zoho resolves to same Actor). Uses existing Actors.get_actor_by_email/2 and Actors.get_actor_by_phone/2 functions for consistency."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_crm_identity_resolution_uses_cascading_fallback_st
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/identity_resolver
+status: approved
+summary:
+tags:
+  - crm
+  - identity
+  - resolution
+  - actor
+title: CRM identity resolution uses cascading fallback strategy
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.811137Z"
+  approved_by: human
+  status: approved

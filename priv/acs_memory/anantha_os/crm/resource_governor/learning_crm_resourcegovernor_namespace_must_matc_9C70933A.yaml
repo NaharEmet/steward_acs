@@ -1,0 +1,29 @@
+content: The CRM ResourceGovernor module was defined as `Anantha.ResourceGovernor` at `lib/anantha_os/crm/resource_governor.ex`, violating the convention that module namespaces follow directory structure. Renamed to `Anantha.CRM.ResourceGovernor` to match the file path `lib/anantha_os/crm/`. All references in `sync_engine.ex` updated accordingly.
+created_at: "2026-06-21T19:04:50.527456Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_resourcegovernor_namespace_must_matc_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/resource_governor
+status: proposed
+summary:
+tags:
+  - crm
+  - resource-governor
+  - module-naming
+  - convention
+title: CRM ResourceGovernor namespace must match file location
+triggers: []
+updated_at: "2026-06-21T19:04:50.527466Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

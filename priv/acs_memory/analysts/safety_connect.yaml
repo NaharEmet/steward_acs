@@ -1,0 +1,26 @@
+content: Restructured analysts/safety_connect to use standard .opencode/ folder layout. Old root-level opencode.json and SKILL.md were moved to .opencode/opencode.json and .opencode/skills/safety-connect-analyst/SKILL.md respectively. The "skills" key was removed from opencode.json since OpenCode auto-scans .opencode/skills/. The README was updated to use env vars instead of embedding API keys in config.
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_key_learning_from_task_c207d4cb
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: analysts/safety_connect
+status: approved
+summary: Restructured analysts/safety_connect to use standard .opencode/ folder layout. Old root-level opencode.json and SKILL.md were moved to .opencode/opencode.json and .opencode/skills/safety-connect-analy
+tags:
+  - feedback
+  - learning
+title: Key learning from task c207d4cb
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.405385Z"
+  approved_by: human
+  status: approved

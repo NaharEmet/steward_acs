@@ -1,0 +1,27 @@
+content: "Created 11 cognition spec YAML files for the memory testing pipeline modules under acs/specs/anantha/memory_testing/. Each spec includes purpose, invariants (>=2), workflows (>=2), and failure_modes (>=2) extracted directly from the @moduledoc and function annotations of each source file. The memory testing pipeline has 11 distinct stages: agent generation, quality filtering, scenario compilation, fuzzing, deduplication, ranking, extraction, normalization, evaluation, bug reporting, and pattern storage."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_memory_testing_cognition_specs_created
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory_testing
+status: approved
+summary:
+tags:
+  - memory_testing
+  - cognition_specs
+  - documentation
+title: Memory testing cognition specs created
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.319239Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,32 @@
+content: |
+  fetch_page/4 in HubSpot sync engine dispatched to search API only when cursor was nil (`if since && is_nil(cursor) do`). After first search API call returned `next_cursor`, subsequent calls fell through to list API which received an incompatible search API offset cursor.
+  
+  Fix: Dispatch to search API whenever `:since` is present in config (`if since do`). Pass cursor to `fetch_page_search_api` as `after` parameter in the request body (converted to integer). Search API pagination uses `after` as integer offset (0-based).
+  
+created_at: "2026-06-20T09:32:42Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_hubspot_search_api_pagination_cursor_not_9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/crm/sync_engine/hub_spot.ex
+status: approved
+summary:
+tags:
+  - hubspot
+  - crm
+  - pagination
+  - search-api
+title: "HubSpot search API pagination: cursor not passed to search API"
+triggers: []
+updated_at: "2026-06-20T09:32:46Z"
+verification:
+  approved_at: "2026-06-20T09:32:46.689942Z"
+  approved_by: "Valid: HubSpot pagination bug"
+  status: approved

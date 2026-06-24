@@ -1,0 +1,27 @@
+content: "7 issues from code review were fixed: (1) deep-redacted sanitize_config/1 with recursion + atom key support, (2) safe Jason.decode in source_register, (3) added limit param to list_contacts via list_actors/2, (4) added limit opts to Syntheses.list_syntheses/2 and Hypotheses.list_hypotheses/2, (5) replaced inspect(reason) with safe_error_message/1 across 12+ endpoints, (6) added format_records clauses for syntheses and hypotheses, (7) fixed N+1 in list_pending_messages with batch_get_messages/2. Key principle: ToolController must never return raw Ecto structs as JSON or use inspect() for API error responses."
+created_at: "2026-06-21T12:03:24.784298Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_ed307d92_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "7 issues from code review were fixed: (1) deep-redacted sanitize_config/1 with recursion + atom key support, (2) safe Jason.decode in source_register, (3) added limit param to list_contacts via list_a"
+tags:
+  - feedback
+  - learning
+title: Key learning from task ed307d92
+triggers: []
+updated_at: "2026-06-21T12:03:24.784307Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

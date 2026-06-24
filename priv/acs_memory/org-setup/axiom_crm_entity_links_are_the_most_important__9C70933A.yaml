@@ -1,0 +1,40 @@
+content: |
+  CRM entity associations (links between emails↔contacts↔companies↔deals↔calls↔meetings↔notes↔tasks) are the critical data for insight gathering. Without links, entities are isolated facts. With links, the analyst can traverse a graph: "show me all emails from this contact", "what deals is this company associated with?", "who from our team emailed this contact about this deal?"
+  
+  Every CRM sync must:
+  1. Request ALL possible associations from HubSpot API for EVERY object type (not just deals)
+  2. Extract and persist every association as a relationship in the DB
+  3. Store team member names from email metadata (hs_email_from_firstname, hs_email_from_lastname)
+  4. Enable bidsirectional traversal: contact→email→deal→company, etc.
+  
+  Missing a link = invisible insight. Links are the #1 priority over individual field extraction.
+created_at: "2026-06-21T19:39:22.282059Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: axiom_crm_entity_links_are_the_most_important__9C70933A
+importance: 5
+kind: axiom
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: proposed
+summary:
+tags:
+  - associations
+  - links
+  - relationships
+  - insights
+  - crm
+  - email
+title: CRM entity links are the most important data — they enable insight graph traversal
+triggers: []
+updated_at: "2026-06-21T19:39:22.282076Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

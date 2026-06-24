@@ -1,0 +1,27 @@
+content: "Critical rule \"ALWAYS save learnings BEFORE calling acs_release_work\" caused agents to miss release. It was an ordering constraint disguised as a mandate. Fix: split into two standalone rules — one for release mandate, one for ordering. Any mandatory completion step needs its OWN critical rule, not a compound instruction. Also moved release to top of Important Rules and added ⚠️ MANDATORY tag in Quick Reference."
+created_at: "2026-06-23T18:16:30.107553Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_b6138ae7_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os
+status: proposed
+summary: "Critical rule \"ALWAYS save learnings BEFORE calling acs_release_work\" caused agents to miss release. It was an ordering constraint disguised as a mandate. Fix: split into two standalone rules — one fo"
+tags:
+  - feedback
+  - learning
+title: Key learning from task b6138ae7
+triggers: []
+updated_at: "2026-06-23T18:16:30.107565Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

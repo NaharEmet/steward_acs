@@ -1,0 +1,27 @@
+content: Already knew the ResponseParser API, but verifying it handles text-before-JSON required tracing through JsonRemedy source. Would be helpful to have a quick reference of what edge cases ResponseParser handles vs what needs ACS-specific pre-processing (like thinking tag stripping).
+created_at: "2026-06-24T11:43:22.215168Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: observation_guidance_gap_identified_9C70933A
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "Already knew the ResponseParser API, but verifying it handles text-before-JSON required tracing through JsonRemedy source. Would be helpful to have a quick reference of what edge cases ResponseParser "
+tags:
+  - feedback
+  - observation
+title: Guidance gap identified
+triggers: []
+updated_at: "2026-06-24T11:43:22.215182Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

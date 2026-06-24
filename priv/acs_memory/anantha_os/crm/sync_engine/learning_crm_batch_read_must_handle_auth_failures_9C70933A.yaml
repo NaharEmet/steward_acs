@@ -1,0 +1,37 @@
+content: |
+  HubSpot batch read API (fetch_contacts_by_ids) must:
+  1. Call check_rate_limit(org_id) before and during chunk processing to respect rate limits
+  2. Handle 429 responses with backoff + single retry inside the chunk loop
+  3. Short-circuit on 401 with {:error, :authentication_failed} immediately (don't accumulate)
+  4. Distinguish between partial failure (records + errors → warn + return OK) and total failure (no records + errors → {:error, {:batch_read_failed, errors}})
+  5. When contact_ids list is empty, the empty chunk_every/2 naturally produces zero records via the reduce, which is correct
+created_at: "2026-06-21T12:29:37.748769Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_batch_read_must_handle_auth_failures_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/sync_engine
+status: proposed
+summary:
+tags:
+  - hubspot
+  - batch_read
+  - rate_limiting
+  - error_handling
+  - "401"
+  - "429"
+title: CRM batch read must handle auth failures, rate limits, and total failure explicitly
+triggers: []
+updated_at: "2026-06-21T12:29:37.748783Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

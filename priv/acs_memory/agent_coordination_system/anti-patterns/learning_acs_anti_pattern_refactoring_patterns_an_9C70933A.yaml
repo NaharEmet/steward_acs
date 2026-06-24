@@ -1,0 +1,55 @@
+content: |
+  # ACS Anti-Pattern Refactoring
+  
+  ## Scope: agent_coordination_system app
+  
+  ## Changes Made
+  
+  ### 1. Dispatch Map Over Case Statement
+  In `tools.ex`, replaced 50+ clause `case name do` with a `@dispatch` module attribute map. This converts O(n) pattern matching to O(1) map lookup and reduces visual noise.
+  - Pattern: `@dispatch = %{"tool_name" => &handler_func/1}`
+  - Dynamic tools (org_setup_*) and gated tools (anantha_*) kept separate in `@gated_tools` map
+  - Catch-all `_ -> {:error, "Unknown tool"}` becomes `Map.fetch` + fallback
+  
+  ### 2. try/rescue → With/Pipe with Ok Tuples
+  Removed 10+ try/rescue blocks by using libraries' native return types:
+  - `Req.request` already returns `{:ok, %Req.Response{}} | {:error, reason}`
+  - `Ecto.Repo.query` already returns tuples
+  - `File.write/2` already returns `:ok | {:error, reason}`
+  - `Ecto.Repo.get!/2` replaced with `Repo.get/2` + nil pattern match
+  - `:ets.info(name, :name)` errors prevented via `when is_atom(name)` guard
+  
+  ### 3. Keep Legitimate Rescues
+  Port operations (`Port.close`) can raise `ArgumentError` when already closed — rescue is appropriate.
+  Best-effort diagnostic functions (`collect_log_db_stats`, `count_log_clusters`) where crash would crash the entire health check — rescue is acceptable.
+  
+  ### 4. Comment Cleanup
+  Removed decorative `# ───` section divider comments. Elixir modules already have clear structure; dividers contribute noise, not signal.
+created_at: "2026-06-21T13:20:42.938007Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_anti_pattern_refactoring_patterns_an_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/anti-patterns
+status: proposed
+summary:
+tags:
+  - acs
+  - refactoring
+  - anti-patterns
+  - elixir
+title: "ACS Anti-Pattern Refactoring: Patterns and Results"
+triggers: []
+updated_at: "2026-06-21T13:20:42.938017Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

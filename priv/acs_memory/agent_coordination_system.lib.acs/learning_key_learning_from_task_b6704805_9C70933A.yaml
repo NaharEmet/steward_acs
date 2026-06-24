@@ -1,0 +1,27 @@
+content: "3 fixes from code review: (1) Logger.warning added to list_orgs error branch to avoid silent failure. (2) check_llm_service replaced try/rescue with case + guards on fetch_llm_config result — guards use not is_nil for proper pattern matching. (3) call_gated_tool inlined into call_tool using Map.fetch directly, eliminating double map lookup (Map.has_key? + Map.fetch). All changes compile clean."
+created_at: "2026-06-21T13:25:20.164590Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_b6704805_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "3 fixes from code review: (1) Logger.warning added to list_orgs error branch to avoid silent failure. (2) check_llm_service replaced try/rescue with case + guards on fetch_llm_config result — guards u"
+tags:
+  - feedback
+  - learning
+title: Key learning from task b6704805
+triggers: []
+updated_at: "2026-06-21T13:25:20.164601Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

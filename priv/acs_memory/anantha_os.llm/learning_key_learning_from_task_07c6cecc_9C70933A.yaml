@@ -1,0 +1,27 @@
+content: "Cache Application.get_env in module attributes with Application.compile_env. Pattern: add @attr at module level, use it in private functions instead of runtime Application.get_env. Keep same defaults. Static config only - not for runtime-changing values."
+created_at: "2026-06-21T13:57:45.222779Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_07c6cecc_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.llm
+status: proposed
+summary: "Cache Application.get_env in module attributes with Application.compile_env. Pattern: add @attr at module level, use it in private functions instead of runtime Application.get_env. Keep same defaults."
+tags:
+  - feedback
+  - learning
+title: Key learning from task 07c6cecc
+triggers: []
+updated_at: "2026-06-21T13:57:45.222802Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

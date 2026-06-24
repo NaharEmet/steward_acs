@@ -1,0 +1,25 @@
+content: "Running mix commands from the root project fails due to 5s GenServer.call timeout at protocol.ex:96 (full app compilation + startup >5s). Workaround: run commands from `apps/agent_coordination_system/` sub-directory. Only that app loads, which is fast enough (<5s). Use: `cd apps/agent_coordination_system && mix run -e 'Module.function()'` instead of `mix acs.module.task` from root."
+created_at: "2026-06-20T19:39:57.679193Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_sub_app_mix_tasks_avoid_5s_mcp_timeout_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system
+status: proposed
+summary:
+tags: []
+title: Sub-app mix tasks avoid 5s MCP timeout
+triggers: []
+updated_at: "2026-06-20T19:39:57.679209Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

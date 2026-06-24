@@ -1,0 +1,28 @@
+content: "Rate limit values should have a single source of truth in `config/config.exs`. The `runtime.exs` should only provide env var *overrides* (no defaults). Fallback values should only exist in one place — `config/config.exs` — and use `Application.get_env(:anantha_os, :llm, [])` with no fallback keyword default in `Keyword.get/3`. The `Keyword.get/3` fallback in rate_limiter.ex should match config.exs as a safety net."
+created_at: "2026-06-21T15:07:14Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_rate_limit_config_consolidation_pattern_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: config/rate_limiting
+status: approved
+summary:
+tags:
+  - config
+  - rate-limiting
+  - mimo
+title: Rate limit config consolidation pattern
+triggers: []
+updated_at: "2026-06-21T15:07:46Z"
+verification:
+  approved_at: "2026-06-21T15:07:46.642236Z"
+  approved_by: Useful architecture pattern - single source of truth for rate limits in config.exs. Approved from proposed.
+  status: approved

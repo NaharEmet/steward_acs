@@ -1,0 +1,34 @@
+content: |
+  The `acs_exec_command` MCP tool is returning Internal Server Error (500) when called, which prevents agents from running compile checks (`mix compile`) and other shell commands during their workflow. This blocks the standard "compile → verify → test" loop.
+  
+  **Workaround:** Agents cannot rely on acs_exec_command for compilation verification. Run mix commands manually or use alternative verification approaches.
+  
+  **Root cause:** Unknown — needs investigation of the DiagnosticHandlers module.
+created_at: "2026-06-20T14:36:06Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_acs_exec_command_tool_returns_internal_s_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/tools
+status: approved
+summary:
+tags:
+  - acs_exec_command
+  - tools
+  - blocker
+  - broken
+title: acs_exec_command tool returns Internal Server Error — blocks compile verification
+triggers: []
+updated_at: "2026-06-20T14:36:12Z"
+verification:
+  approved_at: "2026-06-20T14:36:12.288059Z"
+  approved_by: Approved — agents need to know this tool is broken
+  status: approved

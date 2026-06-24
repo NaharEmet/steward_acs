@@ -1,0 +1,51 @@
+content: |
+  # Package Guides and Agent Skills Setup
+  
+  Both standalone packages (llm_utils and dot_prompt) now have:
+  
+  ## In-Package Development Guides (ship with Hex)
+  
+  - `lib/anantha_json/GUIDE.md` — covers module architecture (JsonExtractor, JsonAdapter, ResponseParser), extension patterns, code philosophy, testing
+  - `lib/dot_prompt/docs/development.md` — covers 5-stage compiler pipeline, 25-module map, 3 cache layers, how to add new features, code philosophy
+  
+  ## Agent Skills (in monorepo .opencode/skills/)
+  
+  - `.opencode/skills/llm-utils/SKILL.md` — loaded via `skill(name: "llm-utils")` when working on llm_utils
+  - `.opencode/skills/dot-prompt-elixir/SKILL.md` — loaded via `skill(name: "dot-prompt-elixir")` when working on dot_prompt
+  - Both skills cover: package structure, golden rules, key modules, testing, common pitfalls
+  
+  ## AGENTS.md Updates
+  
+  - Subtree section (llm_utils): added "Before editing: load the llm-utils skill"
+  - Submodule section (dot_prompt): added "Before editing: load the dot-prompt-elixir skill"
+  
+  ## Verification
+  
+  - Both packages remain standalone: zero Anantha.* or Acs.* references in docs
+  - All tests pass: llm_utils (26/26), dot_prompt (346/346)
+  - Subtree remote `llm-utils` configured, subtree pushed to GitHub
+  - Submodule `dot_prompt` committed with new docs/ directory
+created_at: "2026-06-24T10:57:19.342459Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_package_guides_skills_setup_complete_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: standalone_packages
+status: proposed
+summary:
+tags: []
+title: Package guides + skills setup complete
+triggers: []
+updated_at: "2026-06-24T10:57:19.342556Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

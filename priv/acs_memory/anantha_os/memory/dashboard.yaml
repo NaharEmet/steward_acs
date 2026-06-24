@@ -1,0 +1,41 @@
+content: |
+  The Memory Dashboard in `AnanthaWeb.AdminDashboardLive.Memory` draws data from two independent sources:
+  
+  1. **`message_status_counts/1`** — counts messages grouped by `extraction_status`. Returns zero-filled buckets: pending, classified, extracted, unclassified, failed, skipped. The `Message` schema has `extraction_status` defaulting to `"pending"`.
+  
+  2. **`memory_totals_by_org/1`** — counts records, claims, observations, pending_items across their respective database tables. These counts come from completely different tables (records, claims, observations) and are NOT dependent on messages existing.
+  
+  This means:
+  - A dashboard can show zero messages but still show non-zero records/claims/observations if data was ingested through a path that creates records without messages.
+  - Both functions accept `nil` (all orgs) or a specific org_id, filtering by `org_id` column.
+  - The two datasets diverge in the dashboard. The Pipeline Flow panel shows both together (messages from `message_status_counts`, records/claims/etc from `memory_totals_by_org`), while the Pipeline Overview Metrics panel only uses `message_status_counts`.
+  
+  When investigating data discrepancies, always check BOTH functions separately to isolate which data source is affected.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_memory_dashboard_message_status_counts_vs_memory_t
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/dashboard
+status: approved
+summary:
+tags:
+  - memory-dashboard
+  - data-discrepancy
+  - message_status_counts
+  - memory_totals_by_org
+title: "Memory Dashboard: message_status_counts vs memory_totals_by_org show different data sources"
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.135757Z"
+  approved_by: human
+  status: approved

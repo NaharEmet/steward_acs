@@ -1,0 +1,35 @@
+content: |
+  In Anantha.LLM.RateLimiter, `Application.get_env(:anantha_os, :llm, [])` was called on every `start_rate_limiter/0` invocation, which ran on every `check_rate_limit/1` call. Since the Agent is only started once (subsequent calls hit `{:already_started}`), the `Application.get_env` was wasted work on every rate limit check.
+  
+  Fix: moved the config read to module attributes (`@llm_config`) using `Application.compile_env/3`, which caches at compile time. Also changed `Application.get_env` → `Application.compile_env` per Elixir best practices.
+  
+  See `lib/anantha_os/llm/rate_limiter.ex` for the pattern.
+created_at: "2026-06-21T13:51:06.950395Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_cache_application_compile_env_in_module__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/llm
+status: proposed
+summary:
+tags:
+  - config
+  - rate-limiter
+  - compile-time
+  - performance
+  - cache
+title: Cache Application.compile_env in module attributes for hot-path config reads
+triggers: []
+updated_at: "2026-06-21T13:51:06.950404Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

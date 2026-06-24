@@ -1,0 +1,95 @@
+content: |
+  ## Pattern
+  Use a named public ETS table as a rolling buffer to persist chart data between LiveView mounts. Direct ETS access (bypassing GenServer.call) for push/get operations avoids bottlenecks.
+  
+  ### GenServer Setup
+  ```elixir
+  defmodule MyApp.ChartHistory do
+    use GenServer
+  
+    @table :chart_history
+    @max_points 60
+  
+    def start_link(opts \\ []) do
+      GenServer.start_link(__MODULE__, :ok, Keyword.take(opts, [:name]))
+    end
+  
+    def init(:ok) do
+      :ets.new(@table, [:named_table, :public, :set, write_concurrency: true])
+      {:ok, %{}}
+    end
+  end
+  ```
+  
+  ### Push (direct ETS access)
+  ```elixir
+  def push_point(point) when is_map(point) do
+    id = System.unique_integer([:positive])
+    :ets.insert(@table, {id, point})
+    trim_excess()
+    :ok
+  end
+  ```
+  
+  ### Get (direct ETS access)
+  ```elixir
+  def get_points(count \\ @max_points) do
+    case :ets.info(@table) do
+      :undefined -> []
+      _ ->
+        @table
+        |> :ets.select([{:"$1", [], [:"$1"]}])
+        |> Enum.sort_by(fn {id, _point} -> id end, :desc)
+        |> Enum.take(count)
+        |> Enum.map(fn {_id, point} -> point end)
+        |> Enum.reverse()
+    end
+  end
+  ```
+  
+  ### Trim (avoid TOCTOU)
+  - Use the SAME `:ets.select` result for both count and deletion calculation
+  - Don't read `:ets.info(@table, :size)` separately (can be stale)
+  - Calculate `excess = length(all) - @max_points` from the select result
+  
+  ### Key Points
+  - ETS table must be `:public` for external process access
+  - `write_concurrency: true` optimizes for concurrent pushes from multiple LiveViews
+  - The rolling buffer resets on app restart (in-memory only) — charts will start empty and fill naturally
+  - The GenServer owns only the table's lifecycle, not its data path
+  - Place in supervision tree before `Endpoint` so table exists before any LiveView mount
+  - For visual buffers (60 points), the race condition between concurrent trim calls is acceptable
+  
+  ## Files
+  - lib/anantha_os_web/chart_history.ex
+  - lib/anantha_os/application.ex
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ets_rolling_buffer_pattern_for_liveview_chart_hist
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix_liveview/charts
+status: approved
+summary:
+tags:
+  - phoenix
+  - liveview
+  - ets
+  - charts
+  - chartjs
+  - rolling-buffer
+title: ETS Rolling Buffer Pattern for LiveView Chart History
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.671867Z"
+  approved_by: human
+  status: approved

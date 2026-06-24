@@ -1,0 +1,30 @@
+content: |
+  The `maybe_create_message/2` function in Pipeline requires an actor_id to create a message. For CRM data (safety_connect_companies, etc.), `resolve_or_create_actor` returns `nil` because:
+  1. `external_actor_id` is `nil` (CRM records have no sender identifier)
+  2. `source_type` is not `"call_transcripts"` (so no speaker extraction)
+  
+  This causes `maybe_create_message` to skip message creation even though content exists. The fix would be to use `get_or_create_unknown_actor` as a fallback for CRM data with content but no actor.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_crm_ingestion_creates_events_but_not_messages_due_
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: ingestion/pipeline
+status: approved
+summary: CRM data skips message creation due to nil actor_id
+tags: []
+title: CRM ingestion creates events but not messages due to nil external_actor_id
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.375154Z"
+  approved_by: human
+  status: approved

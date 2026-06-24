@@ -1,0 +1,33 @@
+content: |
+  The do_exec/4 function in Acs.MCP.Tools.ClusterHandlers used nested receive blocks that assumed data always arrives before exit_status from a port. When a command exits without stdout (or exits extremely fast), exit_status arrives first and goes unmatched, causing a timeout that calls Port.close on an already-closed port → ArgumentError crash.
+  
+  Fix: Replace nested receive with recursive collect_output/3 that matches both {:data, data} and {:exit_status, status} at same level. Use safe_close/1 wrapper that rescues ArgumentError on Port.close. This handles all port message orderings and prevents ToolRegistry crash.
+created_at: "2026-06-20T16:32:14.380818Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_port_based_do_exec_fragile_receive_patte_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/exec_command
+status: proposed
+summary:
+tags:
+  - port
+  - do_exec
+  - cluster_handlers
+  - toolregistry
+  - crash
+title: Port-based do_exec fragile receive pattern fixed
+triggers: []
+updated_at: "2026-06-20T16:32:14.380831Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: "The credential_hash authentication in WebhookController IS a form of HMAC-like Pre-Shared Key (PSK) authentication. The SHA-256(org_id:credential_id) hash serves as the shared secret between Go adapter and Elixir backend. The Go adapter knows this hash (computed from org_id and its own credential_id), includes it in the webhook payload, and Elixir verifies by lookup. This is already cryptographically equivalent to HMAC verification - no additional X-Signature header verification is needed."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_credential_hash_is_already_hmac_like_authenticatio
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/controllers/webhook_controller
+status: approved
+summary: credential_hash IS HMAC-like PSK auth
+tags:
+  - webhook
+  - authentication
+  - security
+title: credential_hash is already HMAC-like authentication
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.338200Z"
+  approved_by: human
+  status: approved

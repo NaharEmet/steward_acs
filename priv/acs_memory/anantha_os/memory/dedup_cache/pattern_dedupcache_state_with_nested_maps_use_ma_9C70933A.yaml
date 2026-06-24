@@ -1,0 +1,40 @@
+content: |
+  When building GenServer state with two-tier nested maps (e.g., `%{positive: %{org_id => %{key_hash => true}}}`), avoid using `Kernel.put_in/3` with `Access.key` for nested updates. `put_in(state, [:positive, org_id, key], value)` raises `ArgumentError` when `state.positive.org_id` is nil.
+  
+  Instead, use explicit map operations:
+  
+  ```elixir
+  # Safe pattern for nested map update:
+  org_entries = Map.get(state.positive, org_id, %{})
+  state = %{state | positive: Map.put(state.positive, org_id, Map.put(org_entries, key, value))}
+  ```
+  
+  The `get_in/2` function is safe with nil intermediate values (returns nil gracefully), but `put_in/3` is not. Always use explicit Map.get + Map.put for writes when intermediate keys may not exist.
+created_at: "2026-06-20T17:11:58.717961Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_dedupcache_state_with_nested_maps_use_ma_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/dedup_cache
+status: proposed
+summary: When updating nested maps where intermediate keys might not exist, use explicit Map.get + Map.put pattern. Kernel.put_in/3 fails when intermediate key maps to nil.
+tags:
+  - genserver
+  - state-management
+  - maps
+  - elixir
+title: DedupCache state with nested maps — use Map.update, not put_in
+triggers: []
+updated_at: "2026-06-20T17:11:58.717969Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

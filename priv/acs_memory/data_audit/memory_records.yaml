@@ -1,0 +1,54 @@
+content: |
+  ## Record Schema Relationship
+  
+  Records (Layer 0) are the source layer containing structured_claim JSONB. They link to:
+  - Claims via `structured_record_id` (one-to-many, claims have the FK)
+  - Observations via `source_event_id` (but observations table doesn't link back to records)
+  - Layer relationships track derivation to Claims and Observations
+  
+  ## Claims Link to Records via structured_record_id
+  
+  The claims table uses `structured_record_id` as foreign key to records. A claim without a structured_record_id is invalid (0 claims have NULL).
+  
+  ## Observations Are Orphaned From Records
+  
+  All 41 observations have `source_event_id = NULL`, meaning observations were never properly linked to source events. This is a data quality issue in the observation extraction pipeline.
+  
+  ## Records Also Orphaned From Events
+  
+  All 77 records have `source_event_id = NULL`. This suggests records were created without proper event sourcing - likely from batch CRM note or transcript ingestion that bypassed event tracking.
+  
+  ## Memory Totals Discrepancy Explained
+  
+  When memory_totals_by_org shows 46 records but 0 claims and 0 observations for an org, it means:
+  - Records exist and are counted (46)
+  - Claims derivation either didn't run or failed for these records (only 1 of 46 has a claim)
+  - Observations exist in the org but aren't linked to records (they link via source_event which is NULL for all)
+  
+  ## Data Quality Verdict
+  
+  The 46 records are NOT garbage - they contain valid structured_claim data with 0.9-1.0 extraction confidence. They are technically "orphaned" from events but have valid org_id. The issue is that the claims derivation pipeline didn't process them (or they were ingested after the last claim extraction batch).
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_record_to_claim_relationship_uses_structured_recor
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: data_audit/memory_records
+status: approved
+summary:
+tags: []
+title: Record-to-Claim relationship uses structured_record_id FK on Claims table
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.551758Z"
+  approved_by: human
+  status: approved

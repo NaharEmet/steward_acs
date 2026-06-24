@@ -1,0 +1,27 @@
+content: Stale file locks from a previous agent instance caused confusion. Had to clean up 2 stale locks (storage.ex, crm.ex) before verification.
+created_at: "2026-06-21T19:51:48.853889Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_e757f339_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm.sync_engine
+status: proposed
+summary: Stale file locks from a previous agent instance caused confusion. Had to clean up 2 stale locks (storage.ex, crm.ex) before verification.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task e757f339
+triggers: []
+updated_at: "2026-06-21T19:51:48.853910Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

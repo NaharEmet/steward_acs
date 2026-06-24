@@ -1,0 +1,27 @@
+content: Linear decay formula uses raw SQL with GREATEST(0, 1 - days/90) for temporal_relevance. Fresh syntheses get ~0.999999874 not exactly 1.0 due to time delta between insertion and SQL execution. Use assert_in_delta in tests. Stale marking requires effective_score < 0.1 AND inserted_at < now - 7 days (stale_grace_days). Effective_score = reinforcement_count * temporal_relevance + LN(1 + supporting_claim_count). Syntheses need reinforcement_count >= 1 to avoid being marked stale when older than 14 days (via determine_operational_transition's reinforcement_count == 0 and age > 14 check).
+created_at: "2026-06-21T10:03:27.919981Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_87eadb37_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test.anantha_os.memory
+status: proposed
+summary: Linear decay formula uses raw SQL with GREATEST(0, 1 - days/90) for temporal_relevance. Fresh syntheses get ~0.999999874 not exactly 1.0 due to time delta between insertion and SQL execution. Use asse
+tags:
+  - feedback
+  - learning
+title: Key learning from task 87eadb37
+triggers: []
+updated_at: "2026-06-21T10:03:27.920003Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: Deal stage history pipeline is fully operational. create_initial/5 creates version 1 entries with nil from_* fields. record_transition/2 atomically closes previous active stage (sets exited_at + duration_seconds) and creates new entry with linked chain via previous_history_id. get_history/2 returns ordered by version ascending. get_active_stage/2 returns the one entry where exited_at IS NULL. Schema requires org_id, deal_id, deal_external_id, to_stage_id, entered_at, version as required fields.
+created_at: "2026-06-23T15:32:35.858731Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_f2ec6d9c_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test.anantha_os.crm
+status: proposed
+summary: Deal stage history pipeline is fully operational. create_initial/5 creates version 1 entries with nil from_* fields. record_transition/2 atomically closes previous active stage (sets exited_at + durat
+tags:
+  - feedback
+  - learning
+title: Key learning from task f2ec6d9c
+triggers: []
+updated_at: "2026-06-23T15:32:35.858744Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

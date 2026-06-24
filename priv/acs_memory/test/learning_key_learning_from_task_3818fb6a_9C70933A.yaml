@@ -1,0 +1,27 @@
+content: "The 678 \"could not lookup Ecto repo\" test failures are caused by a cascading crash: 1) SyncEngineTest's linked Task crashes with EXIT → 2) MessageQueue (background GenServer) crashes with OwnershipError in :manual sandbox mode 3 times → 3) Anantha.Supervisor exceeds restart threshold → 4) ALL children (including Repo) terminate → 5) Repo unregistered from Ecto Repo Registry → 6) All subsequent tests fail. Also: migration 20260609000004 drops observations table but schema still references it."
+created_at: "2026-06-20T13:27:24.526569Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_3818fb6a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test
+status: proposed
+summary: "The 678 \"could not lookup Ecto repo\" test failures are caused by a cascading crash: 1) SyncEngineTest's linked Task crashes with EXIT → 2) MessageQueue (background GenServer) crashes with OwnershipErr"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 3818fb6a
+triggers: []
+updated_at: "2026-06-20T13:27:24.526592Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

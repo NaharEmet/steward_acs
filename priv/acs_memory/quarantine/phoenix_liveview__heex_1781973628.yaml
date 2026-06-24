@@ -1,0 +1,28 @@
+content: In Phoenix LiveView HEEx templates, you cannot use double quotes (`"`) inside EEx interpolation (`<%= %>`) within double-quoted HTML attributes. The parser confuses them with attribute delimiters. Use the `class={"..."}` syntax with string interpolation (`#{}`) instead, or use single quotes/sigils inside the interpolation.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_heex_attribute_interpolation_with_double_quotes
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix_liveview/heex
+status: approved
+summary:
+tags:
+  - heex
+  - phoenix-liveview
+  - template
+  - interpolation
+title: HEEx attribute interpolation with double quotes
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.785275Z"
+  approved_by: human
+  status: approved

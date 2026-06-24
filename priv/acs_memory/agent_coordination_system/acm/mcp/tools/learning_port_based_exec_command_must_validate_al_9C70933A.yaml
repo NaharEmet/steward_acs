@@ -1,0 +1,36 @@
+content: |
+  When implementing Port-based command execution via `spawn_executable`, three guards are essential:
+  
+  1. **Validate cwd before Port.open** — Check `is_binary(cwd) and File.dir?(cwd)` to avoid crashes from invalid working directories.
+  2. **Coerce args type** — Ensure `args` is a list (`if is_list(args["args"]), do: args["args"], else: []`) since Port.open raises on non-list args.
+  3. **Wrap Port.open in try/rescue** — Port can raise `ArgumentError` (bad path) or `ErlangError` (OS kill, OOM). Rescue both and return structured error tuples instead of crashing the calling process.
+  
+  Also check `System.find_executable(command)` before attempting to open the port. This pattern prevents port-related crashes from propagating up the call chain.
+created_at: "2026-06-20T16:37:10.659102Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_port_based_exec_command_must_validate_al_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acm/mcp/tools
+status: proposed
+summary:
+tags:
+  - port
+  - exec_command
+  - crash-isolation
+  - spawn_executable
+title: Port-based exec_command must validate all inputs and wrap in try/rescue
+triggers: []
+updated_at: "2026-06-20T16:37:10.659123Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

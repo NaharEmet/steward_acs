@@ -1,0 +1,28 @@
+content: "The cognition_list and cognition_get MCP tools query a server-side index that may be out of sync with the actual files on disk. After creating 287 spec files, cognition_list only returned 1 result. Always verify spec creation by counting files on disk with `ls acs/specs/anantha/**/*.yaml | wc -l` instead of relying on cognition_list."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_cognition_list_does_not_reflect_on_disk_state
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/cognition_specs
+status: approved
+summary:
+tags:
+  - cognition
+  - specs
+  - mcp
+  - indexing
+title: cognition_list does not reflect on-disk state
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.432547Z"
+  approved_by: human
+  status: approved

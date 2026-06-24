@@ -1,0 +1,27 @@
+content: CRM sync actions (crm_sync, crm_sync_object_type) in ToolController must load IngestionSource secrets from DB before calling Anantha.CRM.sync. The HubSpot sync engine reads config[\"secrets\"][\"api_key\"]. Add enrich_config_with_secrets/3 helper to query the IngestionSource by org_id + source_type and merge secrets into config.
+created_at: "2026-06-20T09:59:01.602381Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_93e5b975_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.lib.anantha_os_web.controllers
+status: proposed
+summary: CRM sync actions (crm_sync, crm_sync_object_type) in ToolController must load IngestionSource secrets from DB before calling Anantha.CRM.sync. The HubSpot sync engine reads config[\"secrets\"][\"api_k
+tags:
+  - feedback
+  - learning
+title: Key learning from task 93e5b975
+triggers: []
+updated_at: "2026-06-20T09:59:01.602387Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

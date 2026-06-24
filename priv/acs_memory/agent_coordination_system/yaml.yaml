@@ -1,0 +1,28 @@
+content: "The YAML quoting functions encode_scalar/1 (memory/loader.ex) and encode_yaml_inline_value/1 (cognition/loader.ex) must handle all YAML special characters to prevent parsing errors. Characters like backtick (`), [, ], {, } can be misinterpreted by YAML parsers when unquoted. Additionally, standalone pipe (|) must be quoted separately from colon checks because it introduces a YAML block scalar."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_yaml_quoting_needs_to_cover_all_special_characters
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/yaml
+status: approved
+summary:
+tags:
+  - yaml
+  - quoting
+  - encoding
+  - special-characters
+title: YAML quoting needs to cover all special characters
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.363122Z"
+  approved_by: human
+  status: approved

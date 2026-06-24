@@ -1,0 +1,59 @@
+content: |
+  ## Safety Connect Org Setup Summary
+  
+  **Org**: Safety Connect (a82ecccf-ce88-451c-bd38-f870e9bd2f0b)
+  **Timezone**: Asia/Kolkata
+  **HubSpot Source**: 4315938f-9ec1-40c4-bbe7-47976856d491
+  
+  ### Scope Probe Results (June 21, 2026)
+  - Accessible (200): contacts, companies, deals, notes, calls, emails, meetings, tasks, quotes
+  - Forbidden (403): tickets, line_items
+  - Pipeline discovery failed with 403 - Pipelines API requires different scopes than CRM object APIs
+  
+  ### Sync Results
+  - contacts: 0 records ✅
+  - companies: 0 records ✅
+  - deals: 0 records ✅
+  - quotes: 0 records ✅
+  - notes/calls/emails/meetings/tasks: Search API 400 error — `createdate` search property may not be indexed for engagement objects. Requires investigation.
+  - tickets, line_items: Skipped (forbidden by scope probe)
+  
+  ### Analyst Key
+  - Name: analyst-safety-connect
+  - Raw key: REDACTED
+  - Role: analyst
+  
+  ### Analyst Agent
+  - Setup completed at analysts/safety_connect/
+  
+  ### Notes
+  - HubSpot private app token scopes: Has CRM object read access for 9/11 types
+  - Missing scopes: tickets, line_items, and pipeline management
+  - The Search API 400 for engagement objects (notes/calls/emails/meetings/tasks) suggests `createdate` might not be the right search property. Could need code fix in HubSpot provider search_date_property/1.
+created_at: "2026-06-21T16:10:11.880027Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_org_setup_for_safety_connect_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: proposed
+summary:
+tags:
+  - safety-connect
+  - org-setup
+  - hubspot
+title: Org setup for Safety Connect
+triggers: []
+updated_at: "2026-06-21T16:10:11.880040Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

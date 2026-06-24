@@ -1,0 +1,36 @@
+content: |
+  When deciding where information should live, use this decision matrix:
+  - AGENTS.md: Critical for every session, startup knowledge, must-know rules
+  - Guides (.opencode/guides/): Task-specific workflows, detailed patterns, reference material
+  - Guidance packets: Dynamic context at task claim time, scope-specific
+  - Memory system: Eternal truths, principles, invariants, learnings that persist across sessions
+  - Skills: Specialized instructions for specific task types
+  
+  Never put detailed task-specific content in AGENTS.md — it bloats the startup context. Extract to guides with a summary + reference in AGENTS.md.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_info_placement_decision_matrix
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: infrastructure/documentation
+status: approved
+summary:
+tags:
+  - information-architecture
+  - decision-matrix
+  - guides
+title: Info placement decision matrix
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.344523Z"
+  approved_by: human
+  status: approved

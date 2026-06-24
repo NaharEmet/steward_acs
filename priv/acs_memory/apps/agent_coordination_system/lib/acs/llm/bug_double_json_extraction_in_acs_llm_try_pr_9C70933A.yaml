@@ -1,0 +1,32 @@
+content: |
+  Bug: `try_providers/4` in `Acs.LLM` calls `try_extract_json(response)` on an already-decoded map. `call_provider/3` (via `extract_json_from_message/1`) already parses the JSON and returns `{:ok, decoded_map}`. The second extraction passes a non-string map to `extract_json_content/1`, which hits the catch-all clause returning `""`, causing extraction to fail as `:error`.
+  
+  Fix: Remove `try_extract_json` wrapper in `try_providers/4`. Use the decoded map directly from `call_provider`'s `{:ok, response}` as the evaluation result.
+created_at: "2026-06-21T13:05:26.426152Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_double_json_extraction_in_acs_llm_try_pr_9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: apps/agent_coordination_system/lib/acs/llm
+status: proposed
+summary:
+tags:
+  - llm
+  - extraction
+  - json
+  - bug-fix
+title: Double JSON extraction in Acs.LLM.try_providers/4
+triggers: []
+updated_at: "2026-06-21T13:05:26.426167Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

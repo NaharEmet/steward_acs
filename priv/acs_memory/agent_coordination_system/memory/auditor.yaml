@@ -1,0 +1,36 @@
+content: |
+  The Acs::Memory::Auditor had `@max_concurrency 3` and `@max_retries 5`, which meant 3 concurrent workers each retrying up to 5 times with exponential backoff. This created a cascade that easily exhausted NIM's 40 requests-per-minute rate limit, especially when MiniMax was also failing (forcing all traffic to NIM).
+  
+  When both providers are failing and one is rate-limited, each retry attempt generates MORE rate limit errors, creating a positive feedback loop. With `@max_concurrency 3` and `@max_retries 5`, each memory could get retried 5 times over ~112s, blocking other memories from being processed.
+  
+  Resolution: reduce `@max_concurrency` to 2 and `@max_retries` to 3 (max 22s wait per memory). Also immediately mark rate-limited NIM errors as \"providers unavailable\" to skip retries entirely.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_high_auditor_concurrency_retries_can_overwhelm_nim
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/memory/auditor
+status: approved
+summary:
+tags:
+  - acs
+  - memory
+  - auditor
+  - nim
+  - rate-limit
+  - concurrency
+title: High Auditor concurrency + retries can overwhelm NIM's 40 RPM rate limit
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.221074Z"
+  approved_by: human
+  status: approved

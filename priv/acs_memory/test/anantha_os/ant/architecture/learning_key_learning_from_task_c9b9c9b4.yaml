@@ -1,0 +1,26 @@
+content: "1) TwoTruthArchitectureTest LLM timeout: generate nodes without explicit prompts call Client.chat_completion, which hangs with nil org_id. Add const prompt to skip LLM call. 2) ObservabilityRunnerTest timing: always use generous assertion bounds for time-based tests (diff >= 2, not >= 3). 3) ObservabilityRunnerTest data leak: always use unique org fixture with org_id filter when testing collect_recent_extractions to avoid cross-test contamination."
+created_at: "2026-06-19T14:13:42Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_key_learning_from_task_c9b9c9b4
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: test/anantha_os/ant/architecture
+status: rejected
+summary: "1) TwoTruthArchitectureTest LLM timeout: generate nodes without explicit prompts call Client.chat_completion, which hangs with nil org_id. Add const prompt to skip LLM call. 2) ObservabilityRunnerTest"
+tags:
+  - feedback
+  - learning
+title: Key learning from task c9b9c9b4
+triggers: []
+updated_at: "2026-06-20T09:30:41Z"
+verification:
+  rejected_at: "2026-06-20T09:30:41.967706Z"
+  rejected_by: "Test data + auto-generated template feedback. Scope: test/anantha_os/ant/architecture. Title starts with 'Key learning from task'."
+  status: rejected

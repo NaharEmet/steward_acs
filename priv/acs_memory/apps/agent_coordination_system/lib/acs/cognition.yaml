@@ -1,0 +1,28 @@
+content: When validating lists of strings in cognition specs (invariants, workflows, failure_modes), YAML round-trip corruption can insert non-string values. Always check `is_binary(item)` before calling `String.length/1` to avoid FunctionClauseError crashes. For helper functions that call String.length, add a `when is_binary` guard clause and a catch-all clause returning false.
+created_at: "2026-06-19T14:32:12.763591Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_guard_string_length_with_is_binary_for_l_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: apps/agent_coordination_system/lib/acs/cognition
+status: proposed
+summary:
+tags:
+  - type-safety
+  - cognition
+  - validation
+  - guard-clauses
+title: Guard String.length with is_binary for list validation
+triggers: []
+updated_at: "2026-06-19T14:32:12.763609Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

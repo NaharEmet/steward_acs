@@ -1,0 +1,39 @@
+content: |
+  The `process_crm_records_batch/2` function in `Anantha.CRM` has 6 steps. Step 3b (fire_event_extraction) must be called after Step 3 (batch_create_clusters) to extract Observations (L1.5) and Claims (L2) from Event content in the batch path. Without this, events created via the batch path never get processed by `MemoryExtractor.extract_from_event/2`, unlike the per-record path (`process_crm_record/2`) which goes through `Ingestion.Pipeline.ingest/1`.
+  
+  The implementation uses:
+  - `Task.Supervisor.start_child(Anantha.TaskSupervisor, fn -> ... end)` for fire-and-forget async workers
+  - 5 concurrent chunks to avoid overwhelming LLM rate limiters
+  - `try/rescue` around `extract_from_event` for resilience — individual event failures don't crash the worker
+  - Early-exit guard on content presence before calling the extractor
+  
+  Key: event_map and cluster_map are both keyed by entity_id, so matching pairs is done via `Map.get(cluster_map, entity_id)` during reduce.
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_batch_crm_pipeline_must_fire_event_extraction_afte
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/batch_pipeline
+status: approved
+summary:
+tags:
+  - crm
+  - batch
+  - memory_extractor
+  - event_extraction
+  - pipeline
+title: Batch CRM pipeline must fire event extraction after cluster creation
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.684432Z"
+  approved_by: human
+  status: approved

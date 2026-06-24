@@ -1,0 +1,27 @@
+content: "Three bugs cause agents to not appear in present_status: (1) ETS cache not repopulated from DB on restart - need Cache.warmup() called from Application.start with a Process.sleep(100) delay to let Repo become available, guarded by Mix.env() != :test to avoid Ecto sandbox conflicts. (2) agent not registered on acs_sleep - register in AgentStatus with purpose \"sleeping\" before entering sleep mode. (3) agent not registered on first get_present_status call - after rotating name assignment, check if agent exists and register with purpose \"active\" if not."
+created_at: "2026-06-20T16:57:52.924603Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_b94c96e9_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs.acs
+status: proposed
+summary: "Three bugs cause agents to not appear in present_status: (1) ETS cache not repopulated from DB on restart - need Cache.warmup() called from Application.start with a Process.sleep(100) delay to let Rep"
+tags:
+  - feedback
+  - learning
+title: Key learning from task b94c96e9
+triggers: []
+updated_at: "2026-06-20T16:57:52.924618Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

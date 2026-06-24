@@ -1,0 +1,27 @@
+content: "The IngestionSource schema has separate `config` and `secrets` fields. All code paths consuming IngestionSource structs MUST merge secrets into config before passing downstream. The CRM scheduler and ToolController already do this, but the Ingestion scheduler was missing this. Pattern: `Map.put(source.config || %{}, \"secrets\", source.secrets)`. When debugging \"API key not configured\" errors for HubSpot (or any secrets-backed source), always check the caller is merging secrets into config."
+created_at: "2026-06-20T12:53:46.006960Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_7e1de58f_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.ingestion
+status: proposed
+summary: "The IngestionSource schema has separate `config` and `secrets` fields. All code paths consuming IngestionSource structs MUST merge secrets into config before passing downstream. The CRM scheduler and "
+tags:
+  - feedback
+  - learning
+title: Key learning from task 7e1de58f
+triggers: []
+updated_at: "2026-06-20T12:53:46.006977Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

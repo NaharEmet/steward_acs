@@ -1,0 +1,46 @@
+content: |
+  ToolController had 20+ broken function calls calling non-existent modules, wrong names, wrong arities, and wrong return type expectations. All fixed:
+  
+  Key patterns:
+  - `Anantha.Workflows.*` → `Anantha.Core.Workflows.*` (module didn't exist)
+  - `Anantha.Core.IngestionSource.*` → `Anantha.Core.IngestionSources.*` (singular is schema, plural is context)
+  - `find_actor_by_*` → `get_actor_by_*` (wrong function name prefix)
+  - Actor lookup functions return `%Actor{} | nil`, NOT `{:ok, actor}` tuples
+  - `list_actor_messages` → `list_messages_for_actor`
+  - `list_actors/2` → `list_actors/1` or `search_actors/2` for search
+  - `trigger_workflow` uses `Anantha.Engine.Tools.ExecutionTools.trigger_workflow/1` (map arg)
+  - `get_system_reply` uses `Anantha.Engine.Orchestrator.process_message/1` (map arg)
+  - `Memory.Stats.claim_counts` → `claim_counts_by_epistemic_state`
+  - `Memory.Stats.synthesis_counts` → `count_syntheses`
+  - `Memory.Stats.hypothesis_counts` → `count_hypotheses`
+  - `ApiKeys.generate_api_key` → `Anantha.ApiKeys.generate_key`
+  - `CRM.SyncState.get_sync_state` → `get_state`
+  - `CRM.field_config` → `load_field_config`
+  - `MessageQueue.list_pending/list_all_pending` → `get_pending/0` + DB message lookup
+created_at: "2026-06-20T16:20:42.225854Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_toolcontroller_function_call_fixes_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os_web/controllers
+status: proposed
+summary:
+tags:
+  - tool_controller
+  - bugfix
+  - function_calls
+title: ToolController function call fixes
+triggers: []
+updated_at: "2026-06-20T16:20:42.225866Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

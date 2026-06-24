@@ -1,0 +1,29 @@
+content: "QueryController.string_keys_to_atoms/1 must recursively convert all nested map keys to atoms. Filter conditions like %{\"subject\" => %{\"like\" => \"hubspot:deals:%\"}} have string keys at every nesting level. If only top-level keys are converted, nested operators (like, eq, gt, etc.) remain as strings, causing apply_field_conditions/2 to silently drop them (the catch-all {_, _} clause matches instead of the specific operator clauses). This makes SQL WHERE filters silently non-functional beyond org_id filtering."
+created_at: "2026-06-20T19:52:00.304641Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_string_keys_to_atoms_must_recursively_co_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: query_controller/filter_parsing
+status: proposed
+summary:
+tags:
+  - query_controller
+  - filter_parsing
+  - string_keys_to_atoms
+  - recursive
+title: string_keys_to_atoms must recursively convert nested maps for filter conditions
+triggers: []
+updated_at: "2026-06-20T19:52:00.304652Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,35 @@
+content: |
+  Acs.MetaHarness.Generator.generate() lives in a separate OTP app (apps/agent_coordination_system) and is not compiled as part of the root anantha_os app. To trigger generation:
+  
+  1. Run from apps/agent_coordination_system directory: `mix run -e 'Acs.MetaHarness.Generator.generate()'`
+  2. The `acs_exec_command` MCP tool has a 5s timeout that's too short for mix run (~9s startup)
+  3. Use the `bash` tool directly instead of `acs_exec_command` to avoid the 5s timeout
+  4. Reports are written to apps/agent_coordination_system/metaanalysis/ as report_*.md and plan_*.md
+created_at: "2026-06-20T19:39:15.438008Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_metaharness_generator_needs_separate_mix_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/meta_harness
+status: proposed
+summary:
+tags:
+  - meta_harness
+  - generator
+  - mix_run
+  - acs
+title: MetaHarness Generator needs separate mix run from acs app directory
+triggers: []
+updated_at: "2026-06-20T19:39:15.438022Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,55 @@
+content: |
+  `Task.async_stream/3` (without supervisor) creates **linked** tasks. When a task raises an exception inside `async_stream`, the EXIT signal propagates to the caller process, crashing it. This means:
+  
+  1. The `{:exit, reason}` clause in `Enum.reduce` after `Task.async_stream` is **dead code** — it is never reached because the exit signal crashes the caller before the reduce can handle the stream result.
+  2. To safely handle errors inside `async_stream`, wrap the task body with `try/rescue`:
+  
+  ```elixir
+  |> Task.async_stream(
+    fn item ->
+      try do
+        result = some_fn(item)
+        {:ok, result}
+      rescue
+        e ->
+          Logger.warning("Error processing #{item}: #{inspect(e)}")
+          {:error, e}
+      end
+    end,
+    ...
+  )
+  ```
+  
+  The stream output for the rescued case will be `{:ok, {:error, e}}`, matching the reduce clause for `{:ok, {item, {:error, reason}}}`.
+  
+  If you need unlinked tasks, use `Task.Supervisor.async_stream_nolink/5` with a Task.Supervisor.
+  
+created_at: "2026-06-20T13:37:31.127180Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_task_async_stream_linked_tasks_propagate_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/task
+status: proposed
+summary:
+tags:
+  - elixir
+  - task
+  - async_stream
+  - exit
+  - error-handling
+title: Task.async_stream linked tasks propagate exits to caller
+triggers: []
+updated_at: "2026-06-20T13:37:31.127196Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

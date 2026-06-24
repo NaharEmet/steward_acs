@@ -1,0 +1,37 @@
+content: |
+  The ACS MCP system now implements progressive tool disclosure for tool levels. `list_tools_mcp/2` accepts an optional `requested_level` parameter (default 1), and the `tools/list` MCP endpoint extracts the `level` parameter from request params. The handle_call for `{:list_tools_mcp, agent_role, requested_level}` uses `filter_by_level(requested_level)` instead of the previously hardcoded `filter_by_level(2)`. 
+  
+  Key changes:
+  - `ToolRegistry.list_tools_mcp/1` → `list_tools_mcp/2` with `requested_level \\ 1`
+  - `Protocol` `tools/list` handler: `_params` → `params`, extracts `params["level"] || 1`
+  - `Guidance` `@tool_reference` updated to describe the 3 progressive levels clearly
+  - The `help` tool description in `acs.yaml` already accurately describes the default behavior as "only shows level 1"
+  - No YAML changes needed — the level descriptors in acs.yaml were already correct
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_progressive_tool_disclosure_implemented_in_acs_mcp
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/mcp
+status: approved
+summary:
+tags:
+  - mcp
+  - progressive-disclosure
+  - tool-levels
+  - tool-registry
+title: Progressive tool disclosure implemented in ACS MCP
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.060225Z"
+  approved_by: human
+  status: approved

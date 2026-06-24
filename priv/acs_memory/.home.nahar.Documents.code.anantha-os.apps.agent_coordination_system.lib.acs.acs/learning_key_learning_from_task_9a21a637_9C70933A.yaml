@@ -1,0 +1,27 @@
+content: "Two features added to ACS: (1) Auto-register agents on ANY tool call with agent_id at dispatch layer in call_tool/2 — new agents register via Cache.put_agent_status (ETS-only, lightweight), existing agents get touch_agent_status (ETS-only updated_at stamp). (2) Stale agent sweeper in Cache GenServer — runs every 30s via Process.send_after, removes agents inactive >60s from both ETS and DB using updated_at timestamp. Key design: touch_agent_status is ETS-only (no DB write per tool call), put_agent_status stamps updated_at automatically. Cache module needs alias Acs.Repo and import Ecto.Query for sweeper's from macro."
+created_at: "2026-06-20T19:03:02.565598Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_9a21a637_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs.acs
+status: proposed
+summary: "Two features added to ACS: (1) Auto-register agents on ANY tool call with agent_id at dispatch layer in call_tool/2 — new agents register via Cache.put_agent_status (ETS-only, lightweight), existing a"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 9a21a637
+triggers: []
+updated_at: "2026-06-20T19:03:02.565613Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

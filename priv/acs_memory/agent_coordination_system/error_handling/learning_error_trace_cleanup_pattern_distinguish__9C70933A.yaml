@@ -1,0 +1,40 @@
+content: |
+  When cleaning up ACS error traces:
+  
+  1. **ACS traces** (service=acs): Fixable in ACS codebase — e.g., nil params crash in Bridge.health_check, ToolRegistry GenServer crashes
+  2. **Anantha-side traces** (service=anantha_os): Bugs in Anantha OS codebase — e.g., CRM HubSpot auth failures, QueryController cached plan errors. ACS merely relays these errors.
+  3. **Transient network errors**: TransportError(:closed), HTTP timeouts — already handled gracefully by Bridge, no code fix needed
+  4. **Downstream crash exits**: Bandit::Pipeline exits from GenServer.call — these are effects, not root causes. The crashed server (e.g., ToolRegistry) restarts via supervision.
+  
+  Cleanup process:
+  - Ack known non-issues (transient, Anantha-side, expected 404s)
+  - For real ACS crashes: create task, investigate root cause, fix code
+  - For stale error task records from previous sessions: resolve traces, leave tasks unless they represent current work
+created_at: "2026-06-23T18:02:15.432294Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_error_trace_cleanup_pattern_distinguish__9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/error_handling
+status: proposed
+summary:
+tags:
+  - error_traces
+  - debugging
+  - acs
+  - cleanup
+title: "Error trace cleanup pattern: distinguish ACS vs Anantha-side bugs"
+triggers: []
+updated_at: "2026-06-23T18:02:15.432314Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

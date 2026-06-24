@@ -1,0 +1,27 @@
+content: Added append_pipeline/2 helper to content_builder.ex that checks pipeline_label before falling back to raw pipeline field. Pattern matches append_stage/2 convention — clean and consistent.
+created_at: "2026-06-21T15:44:35.488793Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_526c2f07_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.crm
+status: proposed
+summary: Added append_pipeline/2 helper to content_builder.ex that checks pipeline_label before falling back to raw pipeline field. Pattern matches append_stage/2 convention — clean and consistent.
+tags:
+  - feedback
+  - learning
+title: Key learning from task 526c2f07
+triggers: []
+updated_at: "2026-06-21T15:44:35.488812Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

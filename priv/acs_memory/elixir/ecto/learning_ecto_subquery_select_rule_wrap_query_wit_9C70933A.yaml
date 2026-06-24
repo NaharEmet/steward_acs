@@ -1,0 +1,46 @@
+content: |
+  In Ecto, when a subquery has a `select` clause (especially a map select like `select: %{col: val}`), it cannot be used directly as a source in `from` with another `select`. Ecto raises `Ecto.Query.CompileError: only one select expression is allowed in query`.
+  
+  Fix: wrap the subquery with `subquery/1` from `Ecto.Query`:
+  
+  ```elixir
+  sub = from s in base,
+    group_by: s.entity_id,
+    select: %{entity_id: s.entity_id, version_count: count(s.id)}
+  
+  Repo.one(
+    from s in subquery(sub),    # ← must wrap with subquery()
+      where: s.version_count == 1,
+      select: count(s.entity_id)
+  )
+  ```
+  
+  `subquery/1` is available via `import Ecto.Query` (which is standard in Phoenix projects).
+created_at: "2026-06-21T14:11:11.795848Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_ecto_subquery_select_rule_wrap_query_wit_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/ecto
+status: proposed
+summary:
+tags:
+  - ecto
+  - subquery
+  - compile-error
+  - select
+title: Ecto subquery select rule — wrap query with select in subquery()
+triggers: []
+updated_at: "2026-06-21T14:11:11.795862Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,35 @@
+content: |
+  `Anantha.CRM.process_crm_records_batch/2` now accepts optional `config` map with `:skip_llm` key. When `config[:skip_llm]` is true, the function skips `fire_event_extraction/3` and `ClaimExtractor.batch_extract_and_store/5` — both make LLM calls via LLMLedger. This prevents Task.async_stream timeouts during bulk CRM syncs with thousands of records.
+  
+  The `Anantha.CRM.SyncEngine` sets `config[:skip_llm] = true` by default via `Map.put_new/3`, so callers can override with `skip_llm: false` if LLM processing is needed.
+  
+  Non-LLM steps (event creation, snapshot creation, cluster creation, relationship extraction, identity resolution) still run as normal.
+created_at: "2026-06-20T12:53:47.275712Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_process_crm_records_batch_skip_llm_optio_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm
+status: proposed
+summary:
+tags:
+  - crm
+  - sync_engine
+  - llm
+  - batch_pipeline
+  - performance
+title: process_crm_records_batch skip_llm option prevents bulk sync timeouts
+triggers: []
+updated_at: "2026-06-20T12:53:47.275723Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

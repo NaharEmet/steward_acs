@@ -1,0 +1,28 @@
+content: "The exec_command MCP tool uses `Port.open({:spawn_executable, executable_path}, args: arg_list)` not `Port.open({:spawn, command_string})`. The `:spawn` form creates a shell and is vulnerable to shell injection. `:spawn_executable` executes the binary directly with arguments as a list, which is injection-safe. The tool also implements: command allowlist (configurable via :allowed_commands), path allowlist (:allowed_paths), shell metacharacter rejection on arguments, file size limits, and configurable timeouts."
+created_at: "2026-06-19T20:16:38Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_remote_cluster_mcp_tools_use_spawn_execu_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cluster/tools
+status: approved
+summary:
+tags:
+  - cluster
+  - tools
+  - security
+  - shell-injection
+title: Remote cluster MCP tools use spawn_executable not spawn for shell injection safety
+triggers: []
+updated_at: "2026-06-19T20:19:52Z"
+verification:
+  approved_at: "2026-06-19T20:19:52.594479Z"
+  approved_by: Critical security pattern for remote cluster tools — shell injection prevention via spawn_executable
+  status: approved

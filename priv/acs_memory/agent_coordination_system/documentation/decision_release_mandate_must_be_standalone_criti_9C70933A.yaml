@@ -1,0 +1,46 @@
+content: |
+  ## Problem
+  Agents miss calling `acs_release_work` because the instruction "ALWAYS save learnings BEFORE calling acs_release_work" is phrased as an ordering rule (save THEN release), not a standalone mandate to release. The agent reads "order matters" not "release is mandatory."
+  
+  ## Root Cause
+  The critical rule constrained the **order** of save-vs-release but assumed the agent already knew to release. When context-constrained, agents drop the second half of compound instructions. "Save BEFORE release" → agent saves → considers task complete → never releases.
+  
+  ## Fix Applied
+  1. **Split into two critical rules**: "ALWAYS release your task when done" (mandate) + "ALWAYS save learnings BEFORE releasing" (ordering)
+  2. **Quick Reference comment**: Added `⚠️ MANDATORY:` prefix to release step
+  3. **Important Rules**: Moved "Release when done" to position 2 (was buried in middle)
+  4. **agent-workflow.md Releasing Work section**: Added `⚠️ Mandatory step` banner
+  5. **Session Completion Protocol Step 4**: Added `⚠️ Never skip this step` with explanation
+  6. **Key Rules Summary**: Moved release from #5 to #1
+  
+  ## Principle
+  Mandatory completion steps must be standalone critical rules, not compound ordering constraints. If an instruction says "do X before Y", agents will do X and stop. Every mandatory step needs its own rule.
+created_at: "2026-06-23T18:16:16.245052Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: decision_release_mandate_must_be_standalone_criti_9C70933A
+importance: 5
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/documentation
+status: proposed
+summary:
+tags:
+  - info-architecture
+  - prompt-engineering
+  - critical-rules
+  - release
+title: Release mandate must be standalone critical rule, not just ordering constraint
+triggers:
+  - Agent finishes work and has a task in_progress but doesn't call acs_release_work
+updated_at: "2026-06-23T18:16:16.245071Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

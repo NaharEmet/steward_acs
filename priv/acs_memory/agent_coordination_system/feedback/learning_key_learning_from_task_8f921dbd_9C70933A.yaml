@@ -1,0 +1,27 @@
+content: mix precommit runs deps.unlock --unused, format, then test. The test suite has 2322 tests with 1 pre-existing failure in Anantha.CRM.JoinConfigTest - test expects source_fields without "company" field, but both @default_joins and default.yaml include "company". This was introduced by commit 4a7a59a8 which added "company" but didn't update the test. Compile has ~46 warnings (unused vars/aliases) but no compile errors.
+created_at: "2026-06-21T10:30:35.599859Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_8f921dbd_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: mix precommit runs deps.unlock --unused, format, then test. The test suite has 2322 tests with 1 pre-existing failure in Anantha.CRM.JoinConfigTest - test expects source_fields without "company" field
+tags:
+  - feedback
+  - learning
+title: Key learning from task 8f921dbd
+triggers: []
+updated_at: "2026-06-21T10:30:35.599874Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

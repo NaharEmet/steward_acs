@@ -1,0 +1,28 @@
+content: "`Acs.Memory.Embedding.available?/0` now auto-starts Ollama via `System.cmd(\"ollama\", [\"serve\"])` when it detects Ollama is not running. Uses `:persistent_term` to track the attempt so it only tries once per session. After starting, sleeps 3s and retries the health check. Returns false if still down after retry. The `ollama serve` is run in a fire-and-forget `Task.start` to avoid blocking the caller."
+created_at: "2026-06-19T14:27:31.989531Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_embedding_available_auto_starts_ollama_o_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: apps/agent_coordination_system/lib/acs/memory/embedding
+status: proposed
+summary:
+tags:
+  - embedding
+  - ollama
+  - auto-start
+  - available?
+title: Embedding.available? auto-starts Ollama on connection failure
+triggers: []
+updated_at: "2026-06-19T14:27:31.989541Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

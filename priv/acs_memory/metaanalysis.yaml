@@ -1,0 +1,26 @@
+content: The observability.run and meta_harness.generate mix tasks start fresh application instances each time, which means background schedulers fire during execution. Output is clean and no crashes observed.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_issue_encountered_in_task_1607f9fa
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: metaanalysis
+status: approved
+summary: The observability.run and meta_harness.generate mix tasks start fresh application instances each time, which means background schedulers fire during execution. Output is clean and no crashes observed.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 1607f9fa
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.419681Z"
+  approved_by: human
+  status: approved

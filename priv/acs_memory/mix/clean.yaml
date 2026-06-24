@@ -1,0 +1,32 @@
+content: |
+  The `mix clean --only` flag filters by environment (dev/test/prod), NOT by application name. `mix clean --only anantha_os` silently does nothing because there's no environment called "anantha_os". To force a full rebuild of the anantha_os app, use `mix clean` (without --only) or manually delete `_build/<env>/lib/anantha_os/ebin/`.
+  
+  This caused a stale BEAM cache issue where the `DotPrompt.Application` module was compiled into `anantha_os/ebin` but the `dot_prompt` app's `.app` resource file expected it in its own ebin. After full `mix clean && mix compile`, both the `dot_prompt` app starts successfully and `Anantha.Truthforge.History` (registered as `:truthforge_history`) works correctly.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_mix_clean_only_filters_by_environment_not_app_name
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: mix/clean
+status: approved
+summary:
+tags:
+  - mix
+  - clean
+  - build
+  - stale-cache
+title: mix clean --only filters by ENVIRONMENT not app name
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.458794Z"
+  approved_by: human
+  status: approved

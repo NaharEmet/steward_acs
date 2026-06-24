@@ -1,0 +1,28 @@
+content: "`build_stage_mapping/1` in hub_spot.ex must guard against nil `stage[\"id\"]` from malformed HubSpot API responses. Using `Enum.reduce` with `if stage_id = stage[\"id\"]` skips bad stages gracefully. Without this guard, `to_string(nil)` raises `Protocol.UndefinedError` at runtime, crashing the entire sync. Always guard before calling `to_string/1` on data from external APIs."
+created_at: "2026-06-11T07:35:40Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_guard_against_nil_stage_ids_in_hubspot_p_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm
+status: approved
+summary:
+tags:
+  - crm
+  - hubspot
+  - nil-guard
+  - crash-prevention
+title: Guard against nil stage IDs in HubSpot pipeline mapping
+triggers: []
+updated_at: "2026-06-11T07:35:45Z"
+verification:
+  approved_at: "2026-06-11T07:35:45.555622Z"
+  approved_by: "Approved: nil guard pattern for HubSpot pipeline stage mapping"
+  status: approved

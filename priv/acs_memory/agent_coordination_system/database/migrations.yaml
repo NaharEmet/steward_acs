@@ -1,0 +1,39 @@
+content: |
+  The combined PG migration `20260614000000_create_pg_schema.exs` consolidates all previous migrations into one adapter-guarded file (Postgres-only). 
+  
+  Key behaviors verified on live Docker PG:
+  - On a **fresh PG database** with no prior migrations, it runs cleanly — creates all 8 tables with correct columns, types, FKs, and indexes in one migration.
+  - On an **existing PG database** where old individual migrations already ran, it fails with `ERROR 42P07 (duplicate_table)` because it does not use `if_not_exists: true`.
+  - The migration is intended for new PG deployments only. For upgrades from old migrations, the old ones must be skipped (e.g., by inserting their versions into `schema_migrations` before running the combined migration).
+  - Verified tables: acs_agent_status, acs_tasks, acs_file_locks, tool_requests, acs_memories, memory_embeddings, acs_tool_operations, task_completion_feedback.
+  - schema_migrations records a single entry: `20260614000000`.
+  - No errors during migration run on a fresh database.
+  
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_combined_pg_migration_20260614000000_is__9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/database/migrations
+status: approved
+summary:
+tags:
+  - migration
+  - postgres
+  - pg_schema
+  - combined_migration
+  - verification
+title: Combined PG migration 20260614000000 is for fresh PG databases only
+triggers: []
+updated_at: "2026-06-19T14:00:09Z"
+verification:
+  approved_at: "2026-06-19T14:00:09.161332Z"
+  approved_by: human
+  status: approved

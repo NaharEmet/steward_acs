@@ -1,0 +1,27 @@
+content: "escape_newlines_in_strings/1 must escape ALL control chars (0x00-0x1F) inside JSON strings, not just \n. MiMo/NIM models embed \r, \t in reasoning text inside JSON. Added clause `when c < 0x20 and c != 0x0a` with true literal param before catch-all. Uses \uXXXX format for universal JSON compatibility. Pattern order critical: must precede generic <<c::utf8>> catch-all."
+created_at: "2026-06-21T10:19:52.298912Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_d66a447d_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs
+status: proposed
+summary: escape_newlines_in_strings/1 must escape ALL control chars (0x00-0x1F) inside JSON strings, not just \n. MiMo/NIM models embed \r, \t in reasoning text inside JSON. Added clause `when c < 0x20 and c !
+tags:
+  - feedback
+  - learning
+title: Key learning from task d66a447d
+triggers: []
+updated_at: "2026-06-21T10:19:52.298928Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

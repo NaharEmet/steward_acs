@@ -1,0 +1,27 @@
+content: ETS cache warmup from DB is essential after server restart. Cache.init/1 creates empty ETS tables but doesn't reload. Add Cache.warmup/0 called after supervisor starts via Task. Also register agents on acs_sleep and auto-register on acs_get_present_status to ensure sleeping/new agents appear in present_status.
+created_at: "2026-06-20T16:48:17.927882Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_235fa9f4_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs.acs
+status: proposed
+summary: ETS cache warmup from DB is essential after server restart. Cache.init/1 creates empty ETS tables but doesn't reload. Add Cache.warmup/0 called after supervisor starts via Task. Also register agents o
+tags:
+  - feedback
+  - learning
+title: Key learning from task 235fa9f4
+triggers: []
+updated_at: "2026-06-20T16:48:17.927900Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

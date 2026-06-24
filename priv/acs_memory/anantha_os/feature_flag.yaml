@@ -1,0 +1,27 @@
+content: In `lib/anantha_os/feature_flag.ex`, the `now/0` function (defined as `defp`) is used inside guard clauses on lines 125 and 145. Elixir guards only allow macros and built-in guard-safe expressions — regular function calls are not allowed. This causes a compilation error that blocks all Ecto tasks (migrations, compile, etc.). The fix is to either make `now/0` a macro (`defmacrop`) defined before its usage, or pre-compute the threshold outside the guard.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_now_used_in_guard_clause_in_featureflag_blocks_com
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/feature_flag
+status: approved
+summary:
+tags:
+  - compilation
+  - guard
+  - bug
+title: now() used in guard clause in FeatureFlag blocks compilation
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.105848Z"
+  approved_by: human
+  status: approved

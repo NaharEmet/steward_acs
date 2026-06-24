@@ -1,0 +1,24 @@
+content: "Batch endpoints return results in the same order as input IDs to support index mapping by ACS layer. Each item has `error: \"not_found\"` at the corresponding index if not found, allowing reliable position-based result matching."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_batch_endpoints_must_preserve_input_order_for_inde
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/query_controller
+status: approved
+summary:
+tags: []
+title: Batch endpoints must preserve input order for index mapping
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.500141Z"
+  approved_by: human
+  status: approved

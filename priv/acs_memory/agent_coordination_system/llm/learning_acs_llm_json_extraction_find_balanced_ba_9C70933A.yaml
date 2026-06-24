@@ -1,0 +1,52 @@
+content: |
+  ## Root Cause: `find_balanced/4` base case returns `""` on end-of-input
+  
+  When `find_balanced/4` reaches end-of-input (empty rest), it returns `""` instead of the accumulated `acc` string. This discards correctly parsed content, leading to double-closing-braces `}}` when fallback extraction layers reprocess incomplete results.
+  
+  ## Fix Applied
+  
+  Changed base case from `""` to `acc`:
+  
+  ```elixir
+  # Before
+  defp find_balanced(_, _, _, _), do: ""
+  
+  # After  
+  defp find_balanced(_, _, _, acc), do: acc
+  ```
+  
+  ## Secondary Issue: Redundant `extract_balanced_json` calls
+  
+  `extract_json_content/1` had no fast-path for already-valid JSON. It always ran `extract_from_markdown_blocks` (which calls `extract_balanced_json`) and then might call it again redundantly. Fixed by adding a fast-path that tries `Jason.decode` first, returning immediately if valid JSON.
+  
+  ## Key Pattern
+  
+  Any extraction function with a recursive structure should preserve accumulated content on end-of-input rather than returning empty. The accumulator already contains valid parsed material.
+created_at: "2026-06-21T11:29:49.147737Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_llm_json_extraction_find_balanced_ba_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - json-extraction
+  - llm
+  - find_balanced
+  - bug-fix
+title: "Acs.LLM JSON extraction: find_balanced base case fix"
+triggers: []
+updated_at: "2026-06-21T11:29:49.147749Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

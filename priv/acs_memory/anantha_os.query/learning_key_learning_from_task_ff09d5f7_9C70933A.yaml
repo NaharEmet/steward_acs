@@ -1,0 +1,27 @@
+content: "When debugging \"cached plan must not change result type\" errors in Ecto, the fix is adding `prepare: :unnamed` to the query operation. This forces Postgres to plan the query fresh instead of using a stale named prepared statement. File the learning for future agents encountering Postgres cached plan errors."
+created_at: "2026-06-23T07:28:08.089364Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_ff09d5f7_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.query
+status: proposed
+summary: "When debugging \"cached plan must not change result type\" errors in Ecto, the fix is adding `prepare: :unnamed` to the query operation. This forces Postgres to plan the query fresh instead of using a s"
+tags:
+  - feedback
+  - learning
+title: Key learning from task ff09d5f7
+triggers: []
+updated_at: "2026-06-23T07:28:08.089384Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

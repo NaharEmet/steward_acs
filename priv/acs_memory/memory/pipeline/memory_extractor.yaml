@@ -1,0 +1,36 @@
+content: |
+  The `MemoryExtractor` in `lib/anantha_os/memory/pipeline/memory_extractor.ex` was using `"epistemic_state" => :proposed` when creating Claim records. However, the `Claim` schema's `Ecto.Enum` only accepts: `[:extracted, :low_confidence, :verified, :contradicted, :resolved, :expired, :superseded, :hallucinated]`. The value `:proposed` is valid only for **Synthesis** and **Hypothesis** schemas, not for Claim.
+  
+  This caused ALL Layer 2 (observation-derived) claims from the memory extractor to be silently dropped — the changeset validation failed, `Core.create_claim/2` returned `{:error, changeset}`, and `Enum.reject(&is_nil/1)` swallowed the errors.
+  
+  **Rule**: When creating Claims, always use `:extracted` as the initial `epistemic_state`. Reserve `:proposed` for Synthesis/Hypothesis records only.
+  
+  **Affected locations**: Lines 363 and 582 of `memory_extractor.ex`.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: axiom_memoryextractor_epistemic_state_must_use_extracted
+importance: 5
+kind: axiom
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/pipeline/memory_extractor
+status: approved
+summary:
+tags:
+  - epistemic_state
+  - claim
+  - memory_extractor
+  - bug
+title: "MemoryExtractor epistemic_state must use :extracted not :proposed for Claims"
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.180282Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,27 @@
+content: Pipeline.create_record_from_rules_or_llm merges extraction structured_claim into rule result. When RuleExtractor returns a partial match (e.g., quantity but not item_name), the extraction's data fills gaps because extraction values take precedence in Map.merge. This prevents partial rule results from overriding complete mock/LLM data.
+created_at: "2026-06-21T10:15:22.817120Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_30e2809d_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.memory
+status: proposed
+summary: Pipeline.create_record_from_rules_or_llm merges extraction structured_claim into rule result. When RuleExtractor returns a partial match (e.g., quantity but not item_name), the extraction's data fills
+tags:
+  - feedback
+  - learning
+title: Key learning from task 30e2809d
+triggers: []
+updated_at: "2026-06-21T10:15:22.817130Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

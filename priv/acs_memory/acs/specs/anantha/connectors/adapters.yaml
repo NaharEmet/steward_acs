@@ -1,0 +1,26 @@
+content: Cognition spec YAML files under acs/specs/anantha/ require at least 2 workflows and 2 failure_modes to pass review. Index spec files under directories (e.g., live/foo/index.yaml) must have id fields ending with /index to match their file path. Use verification scripts to check YAML syntax and structural requirements after editing spec files.
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_key_learning_from_task_40fe23e3
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: acs/specs/anantha/connectors/adapters
+status: approved
+summary: Cognition spec YAML files under acs/specs/anantha/ require at least 2 workflows and 2 failure_modes to pass review. Index spec files under directories (e.g., live/foo/index.yaml) must have id fields e
+tags:
+  - feedback
+  - learning
+title: Key learning from task 40fe23e3
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.794828Z"
+  approved_by: human
+  status: approved

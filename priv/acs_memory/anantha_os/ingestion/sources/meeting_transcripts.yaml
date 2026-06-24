@@ -1,0 +1,41 @@
+content: |
+  Three new ingestion source adapters were added to support meeting transcript webhooks:
+  
+  1. **Fireflies.ai** (`fireflies.ex`): Handles both V1 (event+data wrapper with transcript) and V2 (notification-only with `meeting_id`) payloads. V2 is notification-only — transcript must be fetched via GraphQL API. Source type: `"fireflies"`.
+  
+  2. **Read.ai** (`read_ai.ex`): Handles flat JSON payloads (no wrapper) with `session_id` as primary ID. The `transcript` field is an object with `speaker_blocks` — the adapter builds a full transcript text from `speaker_blocks[].words`. Source type: `"read_ai"`.
+  
+  3. **Sales Trail** (`sales_trail.ex`): Handles both wrapper format (`{ "event": ..., "call": {...} }`) with transcripts AND the actual Push API metadata-only format (flat JSON with `callId`). The Push API is metadata-only — no transcript included. Source type: `"sales_trail"`.
+  
+  Key design: Each adapter implements `Anantha.Ingestion.Source` behaviour with `normalize/1`, `validate_config/1`, and `poll/2` (stub). They handle multiple payload shapes gracefully and extract transcript text from vendor-specific locations. Registered in `@source_adapters` map in `Anantha.Ingestion`.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_meeting_transcript_webhook_adapters_fireflies_read
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/sources/meeting_transcripts
+status: approved
+summary:
+tags:
+  - ingestion
+  - sources
+  - webhooks
+  - fireflies
+  - read_ai
+  - sales_trail
+  - meeting_transcripts
+title: "Meeting transcript webhook adapters: Fireflies, Read.ai, Sales Trail"
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.767279Z"
+  approved_by: human
+  status: approved

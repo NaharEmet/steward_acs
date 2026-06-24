@@ -1,0 +1,40 @@
+content: |
+  The `string_keys_to_atoms/1` function in `Anantha.Truthforge.Runner` uses `String.to_existing_atom/1` to convert YAML string keys to atoms. This fails for any YAML key whose atom doesn't already exist in the VM, leaving those keys as strings. Since the rest of the pipeline (evaluator, scoring) accesses fields with atom keys, the broken conversion causes all seed data to be silently lost.
+  
+  **Files affected:** `lib/anantha_os/truthforge/runner.ex` (lines 235-249)
+  
+  **Root cause:** `String.to_existing_atom/1` raises `ArgumentError` for non-existent atoms, caught by rescue which returns the raw string key. Using `String.to_atom/1` instead is safe for configuration files (not user input).
+  
+  **Related dependency:** The Evaluator's `ensure_valid_type/1` only matched on atom types, causing string `claim_type` values from YAML to always return `:unclassified`. Added a `when is_binary(type)` clause with `String.to_existing_atom` conversion.
+  
+  **Related dependency:** The Evaluator's `classify_test/1` only checked `:has_ambiguity` flag, missing `test_type` key from seed scenarios. Added string comparison for `"ambiguous"` values.
+  
+  **Structural issue:** The MemoryTesting pipeline stages (ScenarioCompiler, Fuzzer, etc.) strip unknown/custom fields from scenarios. Seed scenarios with `claim_type`, `expected_outcome` etc. lose these fields when passing through compile/fuzz/dedup/rank stages. The Runner now skips these stages when a `seed_file` is provided, using filtered seed scenarios directly for extraction and evaluation.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_truthforge_runner_string_keys_to_atoms_uses_string
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/truthforge/runner
+status: approved
+summary:
+tags:
+  - truthforge
+  - seed_loading
+  - atom_conversion
+  - bug
+title: Truthforge Runner string_keys_to_atoms uses String.to_existing_atom breaking YAML seed loading
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.141013Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,27 @@
+content: 1) Fix `find_balanced/4` base case returns `acc` not `""` to avoid losing accumulated content on unbalanced input 2) Add fast-path in `extract_json_content/1` to return already-valid JSON immediately instead of re-processing through fallback pipeline 3) Check `loader.ex` wasn't accidentally truncated by previous agents — it was missing its `defmodule` wrapper causing compile failure
+created_at: "2026-06-21T11:28:52.372578Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_fec7b1b1_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "1) Fix `find_balanced/4` base case returns `acc` not `\"\"` to avoid losing accumulated content on unbalanced input 2) Add fast-path in `extract_json_content/1` to return already-valid JSON immediately "
+tags:
+  - feedback
+  - learning
+title: Key learning from task fec7b1b1
+triggers: []
+updated_at: "2026-06-21T11:28:52.372591Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

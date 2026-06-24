@@ -1,0 +1,37 @@
+content: |
+  Background tasks started with `Task.Supervisor.start_child/3` or `Task.start/1` crash silently if the task process dies. The parent supervisor has no visibility into task failures — no log, no crash, no restart. This makes debugging pipeline failures extremely difficult.
+  
+  **Always:**
+  - Use `Task.Supervisor.async` + `Task.yield_many/2` to collect results and surface failures
+  - Attach `Process.monitor/1` to detect task exits if using `start_child`
+  - Log task results explicitly: `Logger.info("Task #{task_ref} completed: #{inspect(result)}")`
+  - For batch processing (e.g., CRM batch pipeline), wrap each task in a try/rescue and report errors
+  
+created_at: "2026-06-20T14:35:44Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_unmonitored_task_supervisor_tasks_crash__9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/tasks
+status: approved
+summary:
+tags:
+  - task
+  - supervisor
+  - monitoring
+  - silent-failure
+title: Unmonitored Task.Supervisor tasks crash silently
+triggers: []
+updated_at: "2026-06-20T14:35:50Z"
+verification:
+  approved_at: "2026-06-20T14:35:50.758743Z"
+  approved_by: Approved from agent feedback — silent Task.Supervisor crashes cost debugging hours
+  status: approved

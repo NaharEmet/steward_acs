@@ -1,0 +1,33 @@
+content: |
+  SynthesisDedup's `call_llm_equivalence_check` uses a 2-second timeout for LLM calls. This is intentional because:
+  - The dedup path is latency-tolerant — if LLM fails, we degrade to `:different` (no match)
+  - Without a short timeout, circuit breaker retries (3× with exponential backoff) can hang for 60+ seconds
+  - A 2s timeout ensures fast fallback in both test and production when LLM is unavailable
+created_at: "2026-06-20T17:24:16.399895Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_synthesisdedup_llm_timeout_must_be_short_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/memory
+status: proposed
+summary:
+tags:
+  - synthesis_dedup
+  - llm
+  - timeout
+  - degradation
+title: SynthesisDedup LLM timeout must be short for graceful degradation
+triggers: []
+updated_at: "2026-06-20T17:24:16.399900Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

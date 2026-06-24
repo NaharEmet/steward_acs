@@ -1,0 +1,39 @@
+content: |
+  The Truthforge pipeline (`mix truthforge.run`) generates scenarios via LLM by default, but each LLM call takes 30-60s on the nim provider (meta/llama-3.3-70b-instruct). With `--scenarios 3` requiring 3+ valid scenarios (some may fail validation and retry), total generation time can exceed 5-10 minutes causing timeouts.
+  
+  Use `--seed <file>` to load pre-built YAML scenarios instead. Seed file format requires:
+  - Root key `test_scenarios` containing a list of scenarios
+  - Each scenario: `id`, `messages` (list of `{actor, content}`), `hidden_truth` (`{quantity, item, date}`), `target_failure`, `noise_features`
+  - Messages must contain off-topic noise keywords matching QualityFilter regex: `haha|lol|omg|wtf|birthday|celebration|gossip|weather|football|cricket|movie|seri`
+  - Scenarios need at least one of `some|few|maybe|perhaps|probably|around|about|roughly` etc. to pass the ambiguity check
+  
+  After modifying runner.ex or related modules, a full recompile (`mix compile --force`) may be needed if stale .beam files exist.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_truthforge_pipeline_needs_seed_file_to_avoid_slow_
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: truthforge/pipeline
+status: approved
+summary:
+tags:
+  - truthforge
+  - scenario-generation
+  - seed-file
+  - llm-timeout
+  - pipeline
+title: Truthforge pipeline needs seed file to avoid slow LLM scenario generation
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.312058Z"
+  approved_by: human
+  status: approved

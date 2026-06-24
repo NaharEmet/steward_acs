@@ -1,0 +1,38 @@
+content: |
+  The Phoenix server is ALREADY running on localhost:4000. Agents MUST NOT start their own application instance for E2E testing.
+  
+  CORRECT approach: Use scripts/http_e2e_test.sh or send curl requests to POST http://localhost:4000/api/ingestion/webhook with real transcript payloads. This ensures the server captures logs, ACS data, and processes through the real HTTP pipeline.
+  
+  INCORRECT approach: Running `mix ingestion.test_e2e` which calls Application.ensure_all_started(:anantha_os) internally, bypassing the running server entirely. This means no HTTP flow, no server-side logs, no ACS data captured.
+  
+  See scripts/http_e2e_test.sh for the correct pattern — it checks the server is running first, sends webhooks via curl against localhost:4000, and queries the DB via mix run for verification.
+  
+created_by:
+  id: Ruby
+  type: agent
+failure_modes: []
+id: axiom_e2e_tests_must_use_running_phoenix_server
+importance: 5
+kind: axiom
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: ingestion/testing
+status: approved
+summary: Never run mix ingestion.test_e2e which starts its own app instance. Always test against the already-running Phoenix server via HTTP endpoints.
+tags:
+  - e2e
+  - testing
+  - server
+  - phoenix
+  - invariant
+timestamps:
+  created_at: "2026-05-17T14:22:32Z"
+  updated_at: "2026-05-17T14:24:36Z"
+title: E2E tests must use running Phoenix server
+triggers: []
+verification:
+  approved_at: "2026-05-17T14:24:36.150032Z"
+  approved_by: human
+  status: approved

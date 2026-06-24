@@ -1,0 +1,27 @@
+content: "RateLimiter used Application.get_env on every rate check — 6 private functions each reading config. Fixed by moving config to Agent start_link init with state map. Pattern: read config once in start_link/init, store in state, access via state.field in hot path functions. State changed from bare list to map with config fields."
+created_at: "2026-06-21T13:18:21.988865Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_5e1a5287_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os.llm
+status: proposed
+summary: "RateLimiter used Application.get_env on every rate check — 6 private functions each reading config. Fixed by moving config to Agent start_link init with state map. Pattern: read config once in start_l"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 5e1a5287
+triggers: []
+updated_at: "2026-06-21T13:18:21.988880Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

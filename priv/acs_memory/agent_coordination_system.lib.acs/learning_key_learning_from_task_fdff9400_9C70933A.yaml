@@ -1,0 +1,27 @@
+content: 1. `extract_balanced_json` had double `}}` - `find_balanced` already returns closing brace, don't add extra. 2. `extract_any_json` fallback returned original content when no JSON found - change to return `""` so callers can detect empty. 3. `try_extract_json` needs to guard against empty extraction before calling `Jason.decode("")`.
+created_at: "2026-06-21T11:11:37.257281Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_fdff9400_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: 1. `extract_balanced_json` had double `}}` - `find_balanced` already returns closing brace, don't add extra. 2. `extract_any_json` fallback returned original content when no JSON found - change to ret
+tags:
+  - feedback
+  - learning
+title: Key learning from task fdff9400
+triggers: []
+updated_at: "2026-06-21T11:11:37.257294Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

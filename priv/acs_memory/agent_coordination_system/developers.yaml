@@ -1,0 +1,27 @@
+content: Developer API keys are stored as SHA-256 hashes. The raw key is shown once at creation and cannot be retrieved later. Keys use `acs_dev_` prefix. The `Developers.authenticate/1` function hashes the raw key then looks it up in the database.
+created_at: "2026-06-19T20:20:50Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_developer_api_key_uses_sha_256_hash_for__9C70933A
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/developers
+status: approved
+summary:
+tags:
+  - developer
+  - api-key
+  - authentication
+title: Developer API key uses SHA-256 hash for storage
+triggers: []
+updated_at: "2026-06-19T20:21:01Z"
+verification:
+  approved_at: "2026-06-19T20:21:01.861652Z"
+  approved_by: human
+  status: approved

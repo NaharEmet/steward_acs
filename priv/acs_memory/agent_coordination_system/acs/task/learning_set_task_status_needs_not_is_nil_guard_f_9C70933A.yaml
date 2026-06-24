@@ -1,0 +1,29 @@
+content: "set_task_status pattern-matched `%AcsTask{locked_by_agent: locked_by} when locked_by != agent_id` which matched when locked_by_agent was nil (since nil != any non-nil agent_id). This caused already-released tasks to return :not_owner when set_task_status was called. Fix: add `not is_nil(locked_by)` guard so the clause only matches when there IS an owner that doesn't match."
+created_at: "2026-06-20T19:03:31.594384Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_set_task_status_needs_not_is_nil_guard_f_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acs/task
+status: proposed
+summary:
+tags:
+  - guard-clause
+  - nil-check
+  - set_task_status
+  - pattern-matching
+title: set_task_status needs not is_nil guard for locked_by_agent pattern match
+triggers: []
+updated_at: "2026-06-20T19:03:31.594394Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,29 @@
+content: "When a migration drops a table that has FOREIGN KEY constraints pointing to it from other tables (e.g., `claims.source_observation_id` → `observations.id`), the FK constraints must be dropped first using `drop constraint(:table, \"constraint_name\")` before `drop table(:referenced_table)`. PostgreSQL enforces FK references even when dropping tables — you cannot DROP TABLE if another table has a FK pointing to it. The error message is `ERROR 2BP01 (dependent_objects_still_exist)`. Always check `information_schema.table_constraints` for dependent FK constraints before dropping tables in migrations."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_dropping_tables_with_cross_table_fk_references_req
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/ecto/migrations
+status: approved
+summary:
+tags:
+  - ecto
+  - migrations
+  - postgresql
+  - foreign-keys
+  - drop-table
+title: Dropping tables with cross-table FK references requires constraint drops first
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.850032Z"
+  approved_by: human
+  status: approved

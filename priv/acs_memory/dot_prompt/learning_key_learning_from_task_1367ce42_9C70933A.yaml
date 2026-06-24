@@ -1,0 +1,27 @@
+content: "Library code must not call Application.get_env. Pattern: add opts keyword list parameter to all public functions with sensible defaults. Callers pass config at call site. Also pre-existing bug found: reraise e, __STACKTRACE__ used outside rescue context (node_execution.ex) — replaced with raise e."
+created_at: "2026-06-21T14:13:37.846740Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_1367ce42_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: dot_prompt
+status: proposed
+summary: "Library code must not call Application.get_env. Pattern: add opts keyword list parameter to all public functions with sensible defaults. Callers pass config at call site. Also pre-existing bug found: "
+tags:
+  - feedback
+  - learning
+title: Key learning from task 1367ce42
+triggers: []
+updated_at: "2026-06-21T14:13:37.846759Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

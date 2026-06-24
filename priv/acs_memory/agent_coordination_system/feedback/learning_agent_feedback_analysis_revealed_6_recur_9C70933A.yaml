@@ -1,0 +1,38 @@
+content: |
+  Analyzed all agent task feedback and found 6 recurring issue categories. Best placement for each:
+  - Ecto :map nil/synced_at gotchas → phoenix-guide.md + memory
+  - Silent Task.Supervisor crashes → elixir-guide.md + memory
+  - Cross-BEAM tool architecture → already in acs-architecture.md, memory added for auto-injection
+  - MIMO rate limit config sprawl → code comment at source + memory
+  - acs_exec_command broken → memory (warning)
+  - Org setup pre-flight → crm-ingestion.md + memory
+  
+  Key principle: guides for deep reading, memories for auto-injection via guidance packets.
+created_at: "2026-06-20T14:36:24.890808Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_agent_feedback_analysis_revealed_6_recur_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary:
+tags:
+  - feedback
+  - info-architecture
+  - placement
+  - guides
+title: Agent feedback analysis revealed 6 recurring issues — placed in guides + memories
+triggers: []
+updated_at: "2026-06-20T14:36:24.890819Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

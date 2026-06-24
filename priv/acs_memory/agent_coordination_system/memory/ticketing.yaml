@@ -1,0 +1,52 @@
+content: |
+  ## create_ticket_from_memory Tool
+  
+  ### Purpose
+  Let a memory reviewer mark a memory as a bug (set kind to "bug") and simultaneously create an ACS task (ticket) for tracking.
+  
+  ### Files Modified
+  1. `apps/agent_coordination_system/lib/acs/memory/indexer.ex` — Added `update_kind/2` function (validates against `~w(observation learning warning pattern bug decision invariant axiom)`)
+  2. `apps/agent_coordination_system/lib/acs/mcp/tools.ex` — Added `create_ticket_from_memory/1` handler + implementation function
+  3. `acs/acstools/acs.yaml` — Registered tool (level 2, knowledge category, roles: admin/dev/analyst)
+  4. `apps/agent_coordination_system/lib/acs/memory/guidance.ex` — Added to Level 2 tool listing
+  
+  ### How It Works
+  1. Looks up memory by ID (early exit if not found)
+  2. Updates memory's `kind` to "bug" in the DB via `Indexer.update_kind/2`
+  3. Re-saves the YAML file via `Loader.save/1` with updated kind + bug_metadata
+  4. Creates an ACS task with title "Bug: {memory.title}" and description containing the memory content
+  5. Returns `task_id`
+  
+  ### Parameters
+  - `memory_id` (required): ID of the memory
+  - `agent_id` (optional): Creator name (defaults to "memory_reviewer")
+  - `notes` (optional): Additional notes for the ticket
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_create_ticket_from_memory_tool_implementation
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/memory/ticketing
+status: approved
+summary: New tool create_ticket_from_memory marks a memory as kind=bug and creates an ACS task from it. Includes update_kind in indexer, handler in tools.ex, YAML definition, and guidance docs.
+tags:
+  - memory
+  - ticketing
+  - bug
+  - tool
+  - reviewer
+title: create_ticket_from_memory tool implementation
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.272735Z"
+  approved_by: human
+  status: approved

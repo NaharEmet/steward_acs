@@ -1,0 +1,27 @@
+content: "New files for llm_utils package: GUIDE.md ships with Hex package for devs working on source; SKILL.md in .opencode/skills/llm-utils/ for AI agents in monorepo. Both emphasize standalone rule — no Anantha.* or Acs.* deps — and pure functions philosophy."
+created_at: "2026-06-24T10:55:00.320604Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_3dbb5038_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_json
+status: proposed
+summary: "New files for llm_utils package: GUIDE.md ships with Hex package for devs working on source; SKILL.md in .opencode/skills/llm-utils/ for AI agents in monorepo. Both emphasize standalone rule — no Anan"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 3dbb5038
+triggers: []
+updated_at: "2026-06-24T10:55:00.320616Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

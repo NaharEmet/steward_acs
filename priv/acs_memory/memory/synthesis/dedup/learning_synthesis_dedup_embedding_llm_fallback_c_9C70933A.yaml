@@ -1,0 +1,56 @@
+content: |
+  ## Synthesis Dedup Pipeline (Phase 2)
+  
+  **Flow**: After content_hash exact dedup (Phase 1), new syntheses go through embedding-based semantic dedup before creation.
+  
+  1. **Find similar**: `SELECT id, embedding <=> $1::vector AS distance FROM syntheses WHERE org_id = $2 AND embedding IS NOT NULL AND distance < 0.3 ORDER BY distance LIMIT 1`
+  2. **High similarity (≤0.1 distance)**: Auto-strengthen — atomic `UPDATE inc reinforcement_count, supporting_claim_count`
+  3. **Medium similarity (0.1–0.3)**: LLM fallback — `check_llm_fallback/3` calls Anantha.LLM.Client.chat_completion with `provider: "nim"`, `temperature: 0.0`, `timeout: 2_000` to check semantic equivalence
+  4. **Low similarity (>0.3)**: No match — create new synthesis
+  
+  **DedupCache**: Two-tier per-org GenServer
+  - Positive: content pairs confirmed semantically equivalent — 7-day TTL
+  - Negative: content pairs confirmed different — 24h TTL
+  - Key: `SHA-256("#{byte_size(a)}|#{a}|#{byte_size(b)}|#{b}")` (length-prefixed to prevent collisions)
+  - Cleanup sweep every 6 hours via `Process.send_after`
+  
+  **Edge cases**:
+  - If embedding fails → create synthesis without embedding (graceful degradation, content_hash dedup still works)
+  - If LLM fallback fails → catch handler returns `{:ok, :different}` (create new, safe default)
+  - Cross-org isolation: all cache keys are per-org, strengthen queries include `WHERE org_id = ?`
+  - Batch embeddings per cluster, not per synthesis
+  
+  **Key files**:
+  - `lib/anantha_os/memory/synthesis_dedup.ex` — `dedup/3`, `strengthen/3`, `find_similar/2`, `check_llm_fallback/3`
+  - `lib/anantha_os/memory/dedup_cache.ex` — Two-tier GenServer with `check_match/3`, `cache_result/4`
+  - `lib/anantha_os/memory/cognition_processor.ex` — Integration in `generate_and_persist_syntheses/2`
+created_at: "2026-06-20T17:26:26.578226Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_synthesis_dedup_embedding_llm_fallback_c_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/synthesis/dedup
+status: proposed
+summary:
+tags:
+  - synthesis
+  - dedup
+  - embedding
+  - pgvector
+  - llm-fallback
+  - cache
+title: "Synthesis dedup: embedding + LLM fallback + cache design"
+triggers: []
+updated_at: "2026-06-20T17:26:26.578233Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

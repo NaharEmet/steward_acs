@@ -1,0 +1,38 @@
+content: |
+  The pipeline's `create_record_from_rules_or_llm` function tries RuleExtractor first, then falls back to the extraction's structured_claim (from mock or LLM). When RuleExtractor returns a partial result (e.g., finds quantity but not item_name because 'boxes' isn't in the regex patterns), the pipeline uses the partial rule result instead of the more complete structured_claim from the extraction.
+  
+  Fix: After rules extract data, merge the extraction's `structured_claim` into the rule result. Extraction values take precedence, so they fill gaps from partial rule matches. This ensures mock/LLM data is never lost when rules partially match.
+  
+  The merge is done in `merge_extraction_structured_claim/2`:
+  - Rule structured_claim is used as base
+  - Extraction structured_claim overlays on top (Map.merge)
+  - Result: all fields from both sources, with extraction providing the most complete data
+created_at: "2026-06-21T10:15:08.417738Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_pipeline_merge_extraction_structured_cla_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/memory/pipeline
+status: proposed
+summary:
+tags:
+  - pipeline
+  - rule_extractor
+  - structured_claim
+  - merge
+  - partial_match
+title: "Pipeline: merge extraction structured_claim into RuleExtractor result"
+triggers: []
+updated_at: "2026-06-21T10:15:08.417746Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

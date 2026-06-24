@@ -1,0 +1,28 @@
+content: Migration 20260609000003 drops claim_ontology_nodes, observation_ontology_nodes, and synthesis_ontology_nodes, replacing them with a single polymorphic entity_ontology_links table (id, entity_type, entity_id, ontology_node_id). All code referencing the old join tables must be updated to use the new table with the appropriate entity_type ('claim', 'observation', 'synthesis').
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_old_ontology_join_tables_replaced_by_entity_ontolo
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory
+status: approved
+summary:
+tags:
+  - entity_ontology_links
+  - migration
+  - join_tables
+  - data_migration
+title: Old ontology join tables replaced by entity_ontology_links
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.069896Z"
+  approved_by: human
+  status: approved

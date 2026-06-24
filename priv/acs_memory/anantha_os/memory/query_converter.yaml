@@ -1,0 +1,28 @@
+content: "The claims table has schema definitions for generated stored columns (amount_numeric, quantity_integer, direction_text, currency_text) but these were never actually created in the database via migrations. When modifying QueryConverter to support the claims table, always query structured_claim JSONB directly (e.g., structured_claim->>'direction', (structured_claim->>'amount')::numeric, structured_claim->>'item_name') instead of referencing non-existent generated columns."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_queryconverter_must_query_structured_claim_jsonb_n
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/query_converter
+status: approved
+summary:
+tags:
+  - claims
+  - query_converter
+  - jsonb
+  - generated_columns
+title: QueryConverter must query structured_claim JSONB not generated columns
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.319321Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,28 @@
+content: When checking for running processes on Linux systems, `pgrep` is often used but might not be installed on minimal environments. Always wrap `System.cmd("pgrep", ...)` in a `try-rescue` block to handle `ENOENT` or other errors gracefully. Fallback to assuming the process is not running and attempting to start it.
+created_at: "2026-06-19T15:50:17.173471Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_ollama_startup_pgrep_may_not_be_installe_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/memory
+status: proposed
+summary:
+tags:
+  - elixir
+  - system
+  - ollama
+  - pgrep
+title: "Ollama startup: pgrep may not be installed"
+triggers: []
+updated_at: "2026-06-19T15:50:17.173476Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,35 @@
+content: |
+  When using `DateTime.utc_now()` in Ecto schemas with `:utc_datetime` type (no microseconds), you MUST call `DateTime.truncate(dt, :second)` before inserting. The `:utc_datetime` type in Ecto rejects values with microsecond precision, raising `ArgumentError: :utc_datetime expects microseconds to be empty`.
+  
+  This applies to:
+  - `timestamps(type: :utc_datetime)` fields (`inserted_at`, `updated_at`)
+  - Schema fields defined as `:utc_datetime`
+  
+  Fields using `:utc_datetime_usec` accept microseconds and do not need truncation.
+created_at: "2026-06-19T16:33:27.355965Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_datetime_utc_now_needs_truncation_for_ut_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/database
+status: proposed
+summary:
+tags:
+  - ecto
+  - datetime
+  - utc_datetime
+  - microseconds
+title: "DateTime.utc_now() needs truncation for :utc_datetime Ecto types"
+triggers: []
+updated_at: "2026-06-19T16:33:27.355978Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

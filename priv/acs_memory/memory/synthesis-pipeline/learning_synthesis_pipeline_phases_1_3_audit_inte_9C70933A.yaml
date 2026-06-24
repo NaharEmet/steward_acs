@@ -1,0 +1,49 @@
+content: |
+  ## Audit: Synthesis Pipeline Phases 1-3
+  
+  All 3 phases fully implemented, tested, reviewed. Plan frontmatter updated: status=in-progress, phase=3.
+  
+  ### Test Inventory (60 passing)
+  - **cognition_processor_test.exs** — 25 tests (scheduling, scoring, supersession, state transitions, hypothesis gen, linear decay, polarity divergence)
+  - **synthesis_dedup_test.exs** — 9 tests (embedding dedup, strengthen, medium-similarity LLM fallback)
+  - **hypothesis_dedup_test.exs** — 9 tests (content-hash dedup, strengthen, cross-org isolation)
+  - **dedup_cache_test.exs** — 11 tests (positive/negative cache, expiry, cleanup, long content, cross-org isolation)
+  - **claim_clusterer_test.exs** — 9 tests (clustering, min_cluster_size, since filter)
+  - **synthesis_pipeline_integration_test.exs** — 6 tests (full cycle e2e: ingest→cluster→generate→dedup→strengthen→hypothesis→decay)
+  
+  ### Remaining
+  - **Phase 4** (Multi-Level Clustering + Entity Links): NOT started — [PENDING]
+  - **Phase 5** (Testing & Rollout): 5.1 integration test done, 5.2-5.3 [PENDING]
+  
+  ### Pre-existing failures (4, unrelated)
+  - HubSpot search_date_property bug, CRM pipeline relations (no LLM), pipeline_test extraction (no LLM)
+created_at: "2026-06-20T19:38:09.195873Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_synthesis_pipeline_phases_1_3_audit_inte_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/synthesis-pipeline
+status: proposed
+summary:
+tags:
+  - synthesis
+  - audit
+  - integration-test
+  - phase-1
+  - phase-2
+  - phase-3
+title: Synthesis pipeline Phases 1-3 audit + integration test
+triggers: []
+updated_at: "2026-06-20T19:38:09.195886Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

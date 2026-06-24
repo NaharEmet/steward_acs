@@ -1,0 +1,35 @@
+content: |
+  Stub modules in anantha_os have different retention reasons:
+  
+  1. `Anantha.MCP.LogStore` (log_store_stub.ex) - Used in tests via `Anantha.MCP.LogStore.store_log/4` calls in error_monitor_test.exs. Kept because tests rely on it.
+  
+  2. `Anantha.MCP.Tools` (tools_stub.ex) - Used by `lib/anantha_os/agent_simulation/tools.ex` which calls `Anantha.MCP.Tools.call_tool/2` for workflow simulation. Kept because agent_simulation depends on it.
+  
+  3. `Anantha.Core.CoreCompat` — **DELETED**. The CoreCompat module and its stub functions (list_cash_flows, list_inventory_movements, etc.) have been removed. All legacy table access now routes through the unified `list_claims/2` API with `claim_type` filters. The migration is complete.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_stub_module_retention_rationale
+importance: 3
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/stub_modules
+status: approved
+summary: "Stub modules retention analysis: LogStore used in tests, Tools used by agent_simulation, CoreCompat used by Core defdelegate"
+tags:
+  - stub-modules
+  - migration
+  - legacy-tables
+title: Stub module retention rationale
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.796367Z"
+  approved_by: human
+  status: approved

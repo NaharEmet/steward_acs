@@ -1,0 +1,26 @@
+content: When releasing tasks, clear agent ownership before deleting cache entries
+created_at: "2026-06-21T11:31:50.869945Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: test_hybrid_2
+importance: 5
+kind: axiom
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cache/release
+status: approved
+summary: Agent state must be cleared before cache deletion
+tags:
+  - cache
+  - concurrency
+title: Cache Release Ordering
+triggers: []
+updated_at: "2026-06-21T11:31:50.869963Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

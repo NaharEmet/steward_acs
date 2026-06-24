@@ -1,0 +1,27 @@
+content: "LLM JSON parsing: always try JsonRemedy.repair FIRST before Jason.decode for LLM responses. Providers return near-valid JSON with trailing chars. Also use non-greedy regexes in extract_any_json to avoid capturing trailing garbage."
+created_at: "2026-06-21T12:09:11.817119Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e647dadd_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "LLM JSON parsing: always try JsonRemedy.repair FIRST before Jason.decode for LLM responses. Providers return near-valid JSON with trailing chars. Also use non-greedy regexes in extract_any_json to avo"
+tags:
+  - feedback
+  - learning
+title: Key learning from task e647dadd
+triggers: []
+updated_at: "2026-06-21T12:09:11.817146Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

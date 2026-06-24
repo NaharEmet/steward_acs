@@ -1,0 +1,38 @@
+content: |
+  The Acs.LLM module (apps/agent_coordination_system/lib/acs/llm.ex) had two issues causing `:invalid_json_response` errors from the mimo (Xiaomi MiMo) provider:
+  
+  1. **`supports_json_mode: false`** for mimo - Without `response_format: {type: "json_object"}` in the request, the MIMO v2.5 reasoning model returns free-form text with thinking blocks rather than strict JSON. Fixed by setting `supports_json_mode: true` (line 20), matching the app-level provider config in `Anantha.LLM.Providers.Mimo`.
+  
+  2. **Missing `<thinking>` tag handling** - MIMO v2.5 is a reasoning model that wraps its thinking in `<thinking>...</thinking>` tags. The `extract_json_content/1` function only handled markdown code fences and balanced brackets, but not reasoning tags. Fixed by adding `strip_thinking_tags/1` which uses regex `~r/<thinking>[\s\S]*?<\/thinking>/i` to strip these blocks before JSON extraction.
+  
+  The fallback chain: after the fix, if MIMO fails, minimax (HTTP 429 - rate limited) and nim are tried next. Currently only MIMO has a configured API key in ACS.
+  
+created_at: "2026-06-20T09:46:00.431771Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_mimo_provider_in_acs_llm_fixed_enabled_j_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm/mimo
+status: proposed
+summary:
+tags:
+  - mimo
+  - llm
+  - acs
+  - json-extraction
+  - reasoning-model
+title: "Mimo provider in Acs.LLM fixed: enabled JSON mode and added thinking tag stripping"
+triggers: []
+updated_at: "2026-06-20T09:46:00.431793Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

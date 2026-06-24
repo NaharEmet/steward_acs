@@ -1,0 +1,42 @@
+content: |
+  When implementing webhook endpoints that require provider-specific secrets (e.g., HMAC-SHA256 signing keys for Fireflies.ai, Read.ai), the secret storage strategy must account for multi-tenancy:
+  
+  1. **Org-level secrets (primary)**: Store provider secrets in `org.settings["meeting_webhooks"]` as a nested map. This allows each org to configure their own webhook integration credentials independently.
+  
+  2. **App config fallback**: Use `Application.get_env(:anantha_os, :webhook_secrets)` as a fallback for development or single-tenant deployments. The controller checks org settings first, then app config.
+  
+  3. **URL design**: Include `org_id` in the webhook URL path (`POST /api/ingestion/webhook/:org_id/:provider`) so the controller can look up the correct org's settings without relying on query params or body parsing.
+  
+  4. **Provider validation**: Always validate provider values against a known allowlist (`@known_providers ~w(fireflies read_ai sales_trail)`) before converting to atoms, preventing atom table exhaustion attacks from tampered input.
+  
+  This pattern was implemented for meeting transcript webhook providers (Fireflies.ai, Read.ai, Sales Trail) in AnanthaOS. The `MeetingWebhookController` resolves secrets via `get_org_webhook_secret/2` → `get_app_config_secret/1`, and the admin settings LiveView persists to org settings with correct URL generation.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_webhook_secret_storage_use_org_settings_with_app_c
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/webhook_security
+status: approved
+summary:
+tags:
+  - webhook
+  - secret-storage
+  - multi-tenancy
+  - hmac
+  - security
+  - meeting-transcripts
+title: "Webhook secret storage: use org settings with app config fallback"
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.323894Z"
+  approved_by: human
+  status: approved

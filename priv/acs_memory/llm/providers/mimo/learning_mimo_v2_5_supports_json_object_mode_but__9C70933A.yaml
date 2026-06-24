@@ -1,0 +1,43 @@
+content: |
+  The Xiaomi MiMo v2.5 API (OpenAI-compatible) supports `response_format: {"type": "json_object"}` (JSON mode) but does NOT support native `json_schema` constrained decoding (`response_format: {"type": "json_schema", "json_schema": {...}}`).
+  
+  This is confirmed by:
+  1. Agno library MiMo provider: `supports_native_structured_outputs: bool = False`, with `use_json_mode=True` as the workaround
+  2. modelcompare.dev: structured output score 0/50 for JSON-schema-constrained decoding
+  3. The `mimo-api` TypeScript SDK: shows examples of `response_format: { type: "json_object" }` working
+  
+  To get reliable JSON output:
+  - Use `response_format: {"type": "json_object"}` in the request body
+  - Include a system/user message instructing the model to output JSON
+  - The existing Anantha codebase already handles this correctly in `client.ex` via `maybe_add_json_mode/2`
+  
+  **Source:** `agno-agi/agno/libs/agno/agno/models/xiaomi/mimo.py:L15-L20`
+created_at: "2026-06-20T11:46:36.099652Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_mimo_v2_5_supports_json_object_mode_but__9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: llm/providers/mimo
+status: proposed
+summary:
+tags:
+  - mimo
+  - xiaomi
+  - json_mode
+  - structured_output
+  - llm
+title: MiMo-v2.5 supports json_object mode but NOT json_schema structured output
+triggers: []
+updated_at: "2026-06-20T11:46:36.099672Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

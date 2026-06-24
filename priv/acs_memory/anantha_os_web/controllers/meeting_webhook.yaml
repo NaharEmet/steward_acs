@@ -1,0 +1,31 @@
+content: "The MeetingWebhookController handles dedicated webhook endpoints for meeting transcript providers (Fireflies.ai, Read.ai, Sales Trail). It maps providers to ingestion source types, verifies HMAC-SHA256 signatures (configurable via app env), and delegates to WebhookHandler.handle_async/3. Secrets are configured under `:anantha_os, :webhook_secrets` as either a map or keyword list with atom keys (`:fireflies`, `:read_ai`, `:sales_trail`). When no secret is configured, signature verification is skipped with a warning log. Providers without signatures (like Sales Trail) are skipped entirely using a nil header marker in the `@provider_signature_headers` map."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_meetingwebhookcontroller_structure_for_transcript_
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/controllers/meeting_webhook
+status: approved
+summary:
+tags:
+  - meeting_webhook
+  - controller
+  - fireflies
+  - read_ai
+  - sales_trail
+  - hmac
+  - signature_verification
+title: MeetingWebhookController structure for transcript providers
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.333945Z"
+  approved_by: human
+  status: approved

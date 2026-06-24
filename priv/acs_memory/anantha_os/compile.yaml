@@ -1,0 +1,35 @@
+content: |
+  Full `mix compile` (460 .ex files) succeeds with exit code 0 but has 4 warnings:
+  1. Unused `org_id` variable in `Anantha.Core.Records.create_record/2`
+  2. Unused default args on private `persist_observations!/4` in MemoryExtractor
+  3. Unused default args on private `persist_claims_dedup!/6` in MemoryExtractor
+  4. Unused default args on private `extract_claims_from_content/7` in MemoryExtractor
+  
+  With `--warnings-as-errors`, exit code is 1 (fails).
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_mix_compile_shows_4_warnings_0_errors
+importance: 2
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/compile
+status: approved
+summary:
+tags:
+  - compile
+  - warnings
+  - assessment
+title: mix compile shows 4 warnings, 0 errors
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.497831Z"
+  approved_by: human
+  status: approved

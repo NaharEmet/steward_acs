@@ -1,0 +1,28 @@
+content: "In Elixir 1.19, `OptionParser.parse!/2` with `strict:` option returns `{parsed, rest}` (2-tuple), not `{parsed, rest, invalid}` (3-tuple). This is because `parse!/2` raises on invalid switches, so the invalid list never needs to be returned. Pattern matching must use `{parsed, _}` instead of `{parsed, _, _}`."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_optionparser_parse_2_with_strict_returns_2_tuple_i
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/option_parser
+status: approved
+summary:
+tags:
+  - elixir
+  - option_parser
+  - parse!
+  - pattern_match
+title: "OptionParser.parse!/2 with strict: returns 2-tuple in Elixir 1.19"
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.924437Z"
+  approved_by: human
+  status: approved

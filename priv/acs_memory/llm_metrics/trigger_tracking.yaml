@@ -1,0 +1,28 @@
+content: "The extraction pipeline (ExtractionWorker) now threads trigger_type: \"process\" and trigger_id: message.id through all child LLM calls (observation extraction, claim extraction, entity extraction, classifier). The orchestrator path already threaded trigger_type: \"user_message\" with message ID. Now ALL LLM calls have trigger context — either from user-facing flows or from background processes. The \"LLM Calls by Trigger\" dashboard section will populate with real data once the extraction worker processes messages."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_system_process_trigger_threading
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: llm_metrics/trigger_tracking
+status: approved
+summary:
+tags:
+  - trigger_type
+  - trigger_id
+  - extraction_worker
+  - process
+title: System Process Trigger Threading
+triggers: []
+updated_at: "2026-06-19T14:00:05Z"
+verification:
+  approved_at: "2026-06-19T14:00:05.883759Z"
+  approved_by: human
+  status: approved

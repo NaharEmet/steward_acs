@@ -1,0 +1,43 @@
+content: |
+  Migration `20260609000004` migrated observations to claims and dropped the `observations` table.
+  
+  The `Anantha.Core.Observation` Ecto schema (`lib/anantha_os/core/observation.ex`) was deleted — it is dead code that referenced the dropped `observations` table.
+  
+  **Do NOT recreate this module** — observations were migrated to the `claims` table. All observation data now lives in `Anantha.Core.Claim`.
+  
+  **Affected priv scripts** (not compiled, but will fail if run):
+  - `priv/repo/seed_memory.exs` — queries `Anantha.Core.Observation`
+  - `priv/repo/trigger_extraction.exs` — queries `Anantha.Core.Observation`
+  - `priv/analyze_pipeline.exs` — aliases `Anantha.Core.Observation`
+  
+  These need updating if someone runs them manually.
+  
+created_at: "2026-06-20T13:37:47.322457Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_anantha_core_observation_schema_is_dead__9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/core
+status: proposed
+summary:
+tags:
+  - observation
+  - claim
+  - migration
+  - dead-code
+  - schema
+title: Anantha.Core.Observation schema is dead code, table dropped
+triggers: []
+updated_at: "2026-06-20T13:37:47.322465Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

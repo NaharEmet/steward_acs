@@ -1,0 +1,34 @@
+content: |
+  The Sales Trail ingestion source adapter (`Anantha.Ingestion.Sources.SalesTrail`) now handles two payload shapes:
+  1. **Legacy transcript-bearing format** (with `"call"` wrapper or flat) — kept unchanged in `normalize_call_payload/1`
+  2. **Actual Sales Trail Push API metadata-only format** (detected by presence of `"callId"`) — handled in `normalize_metadata_payload/1`
+  
+  The dispatch is in `normalize/1` using an early `Map.has_key?(raw_payload, "callId")` check, which ensures backward compatibility. The metadata-only payload generates a descriptive content string since no transcript is provided. The `external_timestamp` is parsed from ISO8601 `startTime` using the `parse_iso8601/1` helper.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_sales_trail_adapter_detects_payload_shape_by_calli
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/ingestion/sources/sales_trail
+status: approved
+summary:
+tags:
+  - sales_trail
+  - ingestion
+  - payload-shape-detection
+  - webhook
+title: Sales Trail adapter detects payload shape by "callId" key presence
+triggers: []
+updated_at: "2026-06-19T13:59:59Z"
+verification:
+  approved_at: "2026-06-19T13:59:59.840439Z"
+  approved_by: human
+  status: approved

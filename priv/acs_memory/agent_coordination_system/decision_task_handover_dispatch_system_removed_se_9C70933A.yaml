@@ -1,0 +1,41 @@
+content: |
+  The task handover dispatch system has been fully removed. Key changes:
+  
+  1. **Removed sleeping agent dispatch** from ACS state machine — agents no longer sleep waiting for tasks
+  2. **Removed hand-off mode** — agents no longer dispatch tasks to sleeping agents
+  3. **self-claim is now the default** — all agents use `claim: true` on `acs_create_work`
+  4. **User-directed delegation is the exception** — creating tasks for others only when user explicitly directs, omitting `claim: true`
+  5. **Deprecated commands**: `dispatch.md`, `sleep.md`, `pending.md` — all marked with `disable-model-invocation: true`
+  6. **Updated 6 agent files** to use `claim: true` in their registration patterns
+  7. **Removed `acs_sleep`/`acs_wake`** from agent-workflow.md tool reference
+  
+  The rule is now simple: you create it, you claim it. Always.
+created_at: "2026-06-23T18:11:10.272282Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: decision_task_handover_dispatch_system_removed_se_9C70933A
+importance: 5
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system
+status: proposed
+summary: Removed task handover dispatch, sleeping agent wake/sleep cycle, and hand-off mode. Self-claim is now universal default.
+tags:
+  - acs
+  - handover
+  - dispatch
+  - self-claim
+  - sleep
+title: Task handover dispatch system removed - self-claim is now default
+triggers: []
+updated_at: "2026-06-23T18:11:10.272302Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

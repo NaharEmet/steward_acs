@@ -1,0 +1,27 @@
+content: "ACS test patterns used for multi-developer features: (1) Developer auth tests use `Application.put_env(:steward_acs, :auth_strategies, [Acs.Mcp.Plugs.Strategies.Developer])` to override strategies. (2) Cluster tests override `:cluster_name` app env. (3) Cluster handlers test commands like `ls -la /tmp` and use explicit output capture assertions. (4) LogRepo tests define `@valid_attrs` maps with `Ecto.UUID.generate`. (5) SQLite limitation: ALTER TABLE + CREATE INDEX in same DDL transaction causes \"database disk image is malformed\" — use `@disable_ddl_transaction true`."
+created_at: "2026-06-19T20:16:38Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_acs_test_patterns_for_multi_developer_fe_9C70933A
+importance: 2
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/testing
+status: approved
+summary:
+tags:
+  - acs
+  - testing
+  - patterns
+title: ACS test patterns for multi-developer features
+triggers: []
+updated_at: "2026-06-19T20:19:52Z"
+verification:
+  approved_at: "2026-06-19T20:19:52.628939Z"
+  approved_by: Test patterns for multi-developer ACS features
+  status: approved

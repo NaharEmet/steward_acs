@@ -1,0 +1,36 @@
+content: |
+  When auditing ACS error traces, use these criteria to determine if an error task is stale:
+  - No active traces in last 7+ days → stale, can be closed
+  - Count = 1 (initial occurrence) with no recurrence → likely one-off
+  - If trace is from HubSpot CRM and no HubSpot API key configured → not a code bug
+  - If trace is LLM timeout with no provider configured → expected dev behavior
+  - Always cross-reference with acs_list_error_traces (not just acs_list_tasks) to see current activity
+  - Set error tasks to 'done' when they're stale, don't create work items for them
+created_at: "2026-06-23T07:37:02.192472Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: pattern_error_trace_stale_detection_criteria_9C70933A
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/error-tracing
+status: proposed
+summary:
+tags:
+  - acs
+  - error-tracing
+  - task-management
+  - staleness
+title: Error trace stale detection criteria
+triggers: []
+updated_at: "2026-06-23T07:37:02.192483Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,36 @@
+content: |
+  In `QueryController.string_keys_to_atoms/1` (line 995-1009), non-`$`-prefixed keys are converted using `String.to_existing_atom/1`. This raises ArgumentError if the atom hasn't been created yet in the VM.
+  
+  Common filter operator keys like :like, :eq, :in may or may not exist as atoms depending on what modules have been loaded.
+  
+  Should use `String.to_atom/1` (safe since keys come from the known Query Spec schema, not user-controlled), or use `String.to_existing_atom/1` with a rescue fallback.
+  
+  File: `lib/anantha_os_web/controllers/query_controller.ex`, lines 1000-1006.
+created_at: "2026-06-21T19:24:45.604884Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_string_keys_to_atoms_fragile_uses_string_9C70933A
+importance: 2
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/controllers/query_controller
+status: proposed
+summary:
+tags:
+  - query
+  - atoms
+  - fragile
+  - bug
+title: string_keys_to_atoms fragile — uses String.to_existing_atom/1 with no graceful fallback
+triggers: []
+updated_at: "2026-06-21T19:24:45.604895Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

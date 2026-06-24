@@ -1,0 +1,28 @@
+content: The claims table is a LOGICAL unification. Physical separation (sharding by claim_family, dedicated vector store, graph DB) is permitted without changing the logical model. Design for this possibility from the start. Current implementation assumes single-table works at expected volumes; if transactional workloads compete with semantic retrieval, shard by claim_family.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_claims_first_memory_unification_claims_table_is_a_
+importance: 4
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: plans/memory-unification
+status: approved
+summary:
+tags:
+  - architecture
+  - claims
+  - unification
+  - scalability
+title: Claims-first memory unification claims table is a logical (not physical) unification
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.916645Z"
+  approved_by: human
+  status: approved

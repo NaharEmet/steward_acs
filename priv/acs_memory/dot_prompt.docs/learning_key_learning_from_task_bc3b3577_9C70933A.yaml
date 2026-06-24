@@ -1,0 +1,27 @@
+content: dot_prompt is a git submodule — docs changes are safe, code changes should go upstream. When running tests in the submodule, test artifacts (github_poller_meta.json) may be modified. Submodule commits need to be done inside lib/dot_prompt/, then parent repo sees new HEAD.
+created_at: "2026-06-24T10:55:24.848294Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_bc3b3577_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: dot_prompt.docs
+status: proposed
+summary: dot_prompt is a git submodule — docs changes are safe, code changes should go upstream. When running tests in the submodule, test artifacts (github_poller_meta.json) may be modified. Submodule commits
+tags:
+  - feedback
+  - learning
+title: Key learning from task bc3b3577
+triggers: []
+updated_at: "2026-06-24T10:55:24.848311Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

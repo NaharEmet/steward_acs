@@ -1,0 +1,64 @@
+content: |
+  ## Complete Synthesis Pipeline Implementation
+  
+  All 5 phases of the adaptive synthesis grouping plan are implemented, tested, and reviewed.
+  
+  ### Architecture Summary
+  - **Scheduling**: 1h interval via Process.send_after, skip-if-running guard, since-filter with 30d sliding window
+  - **Synthesis dedup**: Embedding cosine similarity + LLM fallback + DedupCache. Matches strengthen existing instead of creating duplicates.
+  - **Hypothesis dedup**: Content-hash exact dedup with atomic strengthen.
+  - **Linear decay**: GREATEST(0, 1-age/90) in transition_synthesis_states. Stale marking at effective_score < 0.1 (7-day grace).
+  - **Multi-level clustering**: 3 types — topic, company (grouped by company_id), cross-company (same predicate across 2+ companies).
+  - **Entity linking**: LayerRelationships (type: "references") from syntheses to source companies/actors.
+  - **Company filter**: list_current_syntheses(org_id, company_id: x) via LayerRelationships join.
+  
+  ### Test Coverage (71 dedicated tests, all passing)
+  - cognition_processor_test.exs (25) — scheduling, scoring, supersession, state transitions, hypothesis gen, linear decay, polarity divergence
+  - synthesis_dedup_test.exs (9) — embedding dedup, strengthen, LLM fallback
+  - hypothesis_dedup_test.exs (9) — content-hash dedup, strengthen, cross-org isolation
+  - dedup_cache_test.exs (11) — positive/negative cache, expiry, cleanup
+  - claim_clusterer_test.exs (9) — clustering, min_cluster_size, since filter
+  - synthesis_cluster_builder_test.exs (10) — topic/company/cross-company clusters, since filter, min size, entity context
+  - synthesis_pipeline_integration_test.exs (7) — full cycle e2e, decay sweep, varying ages
+  
+  ### Precommit: 2323 tests, 4 pre-existing failures, 0 regressions
+  - 4 pre-existing: HubSpot search_date_property bug, 3x LLM not configured
+  
+  ### Key Fixes Learned
+  - LayerRelationship FK must be cleaned in test teardown before Org deletion
+  - Build entity linking into BOTH create and strengthen paths
+  - Pass org_id explicitly to cluster builder functions
+  - Add org_id scoping to LayerRelationship joins
+  - Linear decay used `assert_in_delta` for temporal_relevance due to SQL floating point
+created_at: "2026-06-21T10:07:34.660166Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_adaptive_synthesis_pipeline_all_5_phases_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory/synthesis-pipeline
+status: proposed
+summary:
+tags:
+  - synthesis
+  - complete
+  - pipeline
+  - phase-1
+  - phase-2
+  - phase-3
+  - phase-4
+  - phase-5
+title: Adaptive synthesis pipeline — all 5 phases complete
+triggers: []
+updated_at: "2026-06-21T10:07:34.660175Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

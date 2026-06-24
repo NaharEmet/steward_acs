@@ -1,0 +1,38 @@
+content: |
+  The hex package was renamed from `:anantha_llm_utils` to `:llm_utils` on 2026-06-24. 
+  Changes:
+  - `lib/anantha_json/mix.exs`: app name, package name, description, URLs updated
+  - `apps/agent_coordination_system/mix.exs`: dep updated
+  - `lib/anantha_json/README.md`: title and install instructions updated
+  - `apps/agent_coordination_system/lib/acs/llm.ex`: comment updated
+  - Module names (AnanthaJson.*) remain unchanged, only hex package name changed
+  
+  The `doc/` generated files still reference old name but will be regenerated on next `mix docs`.
+created_at: "2026-06-24T09:08:46.319943Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_hex_package_llm_utils_renamed_from_anant_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_json
+status: proposed
+summary:
+tags:
+  - hex
+  - package
+  - rename
+  - llm_utils
+title: "Hex package :llm_utils renamed from :anantha_llm_utils"
+triggers: []
+updated_at: "2026-06-24T09:08:46.319956Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

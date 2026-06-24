@@ -1,0 +1,27 @@
+content: "Replaced DB-backed API key lookups with static :service_api_key config for internal ACS-to-Anantha auth. All ACS tools (crm_handlers, org_setup_handlers, bridge, anantha_extension) now use config :steward_acs, :service_api_key instead of the old [:anantha, :api_key] pattern. The EnsureApiKey plug checks service key first (no DB lookup), then falls back to DB-backed keys. Pre-existing ACS compile error in lib/acs.ex:156 (undefined variable task) unrelated to this change."
+created_at: "2026-06-21T14:20:26.694485Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_c0d72f0e_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.config
+status: proposed
+summary: "Replaced DB-backed API key lookups with static :service_api_key config for internal ACS-to-Anantha auth. All ACS tools (crm_handlers, org_setup_handlers, bridge, anantha_extension) now use config :age"
+tags:
+  - feedback
+  - learning
+title: Key learning from task c0d72f0e
+triggers: []
+updated_at: "2026-06-21T14:20:26.694501Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

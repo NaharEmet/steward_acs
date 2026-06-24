@@ -1,0 +1,29 @@
+content: The analyst workflow guide at `.opencode/guides/analyst-workflow.md` is the primary reference for the 9 analyst MCP tools (ant_search_memory, ant_get_synthesis, ant_get_claim, ant_get_observation, ant_get_source_excerpt, ant_get_entity, ant_execute_query, ant_export_dataset, ant_drilldown). All are level 2, category `analyst`, use POST method, and require org_id. The guide covers tool reference tables, four analysis workflows (search-first, query-based, entity-centric, provenance traversal), full dataset schemas for syntheses/claims/observations/ontology_nodes, three worked examples, anti-patterns, and related guide links.
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_analyst_workflow_guide_primary_reference_for_memor
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: opencode/guides/analyst-workflow
+status: approved
+summary:
+tags:
+  - analyst
+  - guide
+  - workflow
+  - memory-retrieval
+  - query-analytics
+title: Analyst workflow guide — primary reference for memory retrieval tools
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.584057Z"
+  approved_by: human
+  status: approved

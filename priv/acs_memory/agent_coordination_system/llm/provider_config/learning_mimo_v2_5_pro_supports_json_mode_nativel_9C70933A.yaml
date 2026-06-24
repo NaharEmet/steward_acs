@@ -1,0 +1,29 @@
+content: "MiMo-V2.5-Pro (via Xiaomimimo API at token-plan-sgp.xiaomimimo.com) natively supports JSON mode structured outputs via response_format: {type: \"json_object\"} in OpenAI-compatible format. All major API providers hosting MiMo-V2.5-Pro support this. Setting supports_json_mode: false was incorrect — model DOES support it. The earlier :invalid_json_response error was likely caused by other factors (thinking param conflict, prompt format, or model version), not JSON mode incompatibility."
+created_at: "2026-06-20T19:01:33.951790Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_mimo_v2_5_pro_supports_json_mode_nativel_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm/provider_config
+status: proposed
+summary:
+tags:
+  - mimo
+  - json_mode
+  - llm
+  - provider_config
+title: MiMo-V2.5-Pro supports JSON mode natively
+triggers: []
+updated_at: "2026-06-20T19:01:33.951806Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

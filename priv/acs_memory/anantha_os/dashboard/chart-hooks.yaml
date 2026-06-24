@@ -1,0 +1,54 @@
+content: |
+  When a parent container has `phx-update="ignore"`, LiveView DOM patching will NOT update `data-*` attributes on elements within that container — even if the child elements are targeted by JS hooks. This causes hooks that read `this.el.dataset` in their `updated()` callback to always see stale data.
+  
+  **Root cause for blank charts on Ingestion Dashboard:**
+  The charts container `<div>` had `phx-update="ignore"` to prevent chart flickering. But this also prevented the `data-chart-data` attribute from being updated by LiveView. The ChartMonitor JS hook always read the initial all-zero data.
+  
+  **Fix:**
+  1. Remove `phx-update="ignore"` from the container div to allow `data-chart-data` updates
+  2. Add a canvas re-render guard in the hook's `updated()` callback that detects when LiveView DOM patching replaces canvas elements (orphaning the Chart.js instance) and recreates them before updating
+  
+  **Canvas re-render guard pattern:**
+  ```javascript
+  updated() {
+    const memoryCanvas = this.el.querySelector('#memory-chart');
+    if (this.charts.memory && memoryCanvas !== this.charts.memory.canvas) {
+      this.charts.memory.destroy();
+      delete this.charts.memory;
+    }
+    // ... same for other charts
+    if (!this.charts.memory || !this.charts.process || !this.charts.runQueue) {
+      this.initCharts();
+    }
+    this.updateCharts();
+  }
+  ```
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_phx_update_ignore_prevents_data_attribute_updates_
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/dashboard/chart-hooks
+status: approved
+summary:
+tags:
+  - phoenix-liveview
+  - chart.js
+  - phx-update
+  - js-hooks
+  - dashboard
+title: phx-update='ignore' prevents data attribute updates in LiveView
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.868366Z"
+  approved_by: human
+  status: approved

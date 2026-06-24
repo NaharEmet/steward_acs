@@ -1,0 +1,41 @@
+content: |
+  Never use `String.to_atom/1` directly on user-supplied input. Atoms are never garbage collected in the BEAM VM, so an attacker can exhaust the atom table by sending many unique strings. Always use `String.to_existing_atom/1` when the atom is expected to already exist (e.g., known schema fields), or implement a safe `to_atom/1` helper that validates input first before creating new atoms. The recommended pattern:
+  
+  ```elixir
+  defp to_atom(binary) when is_binary(binary) do
+    String.to_existing_atom(binary)
+  rescue
+    ArgumentError -> String.to_atom(binary)
+  end
+  ```
+  
+  This pattern prefers existing atoms and only creates new ones as a last resort.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_string_to_atom_1_on_user_input_creates_atom_exhaus
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: elixir/security/atom-exhaustion
+status: approved
+summary:
+tags:
+  - elixir
+  - security
+  - atoms
+  - dos
+  - philosophy
+title: String.to_atom/1 on user input creates atom exhaustion DoS risk
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.010476Z"
+  approved_by: human
+  status: approved

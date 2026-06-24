@@ -1,0 +1,30 @@
+content: "The `string_keys_to_atoms/1` function in `query_controller.ex` must recursively convert ALL nested map keys to atoms, not just top-level keys. Filter conditions like `%{\"subject\" => %{\"like\" => \"hubspot:deals:%\"}}` become `%{subject: %{\"like\" => \"value\"}}` with inner key `\"like\"` still a string. `apply_field_conditions` pattern-matches on `{:like, value}` (atom key) but gets `{\"like\" => value}` (string key), so the catch-all `{_, _}` silently drops conditions — making all query filters silently no-op except org_id. The fix: add recursive `string_keys_to_atoms(value)` calls in both map reduce clauses, and a list clause that maps over lists."
+created_at: "2026-06-20T19:55:55.501370Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_string_keys_to_atoms_must_recurse_into_n_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/query/controller
+status: proposed
+summary:
+tags:
+  - query
+  - filters
+  - bug
+  - string-to-atoms
+  - recursive
+title: string_keys_to_atoms must recurse into nested maps in query_controller
+triggers: []
+updated_at: "2026-06-20T19:55:55.501381Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

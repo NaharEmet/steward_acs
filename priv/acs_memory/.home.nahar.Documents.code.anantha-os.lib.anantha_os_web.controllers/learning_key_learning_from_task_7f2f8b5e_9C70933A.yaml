@@ -1,0 +1,27 @@
+content: "Three bugs were fixed in tool_controller.ex: (1) list_memory_records was calling list_claims(org_id) without the limit option, loading all claims into memory and causing DB timeouts — now passes limit: limit as opts. (2) crm_list_sources, list_contacts, and list_memory_records were returning Ecto schema structs directly through json(), which crashes because schemas don't implement Jason.Encoder — fixed by converting to maps with explicit field selection before serialization, plus added sanitize_config/1 to strip sensitive fields. (3) crm_get_scheduler_status was pattern matching on {:ok, status} but Anantha.CRM.Scheduler.status() returns the map directly (not wrapped in :ok tuple) — confirmed by checking scheduler.ex handle_call(:get_status) which returns %{...} directly."
+created_at: "2026-06-21T11:11:01.212515Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_7f2f8b5e_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.lib.anantha_os_web.controllers
+status: proposed
+summary: "Three bugs were fixed in tool_controller.ex: (1) list_memory_records was calling list_claims(org_id) without the limit option, loading all claims into memory and causing DB timeouts — now passes limit"
+tags:
+  - feedback
+  - learning
+title: Key learning from task 7f2f8b5e
+triggers: []
+updated_at: "2026-06-21T11:11:01.212532Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

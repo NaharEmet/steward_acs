@@ -1,0 +1,36 @@
+content: |
+  When migrating from per-type tables to a unified claims table, the correct order is:
+  1. First: switch all reads/writes to the claims table
+  2. Second: update all tests to use claims
+  3. Third: remove Core delegations and old code
+  4. Fourth: verify no remaining test failures
+  5. Fifth: drop old tables
+  Doing it out of order causes cascading test failures that must be fixed all at once.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: axiom_drop_old_tables_last_in_migration_order
+importance: 5
+kind: axiom
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/memory/claims
+status: approved
+summary:
+tags:
+  - claims
+  - migration
+  - database
+  - order-of-operations
+title: Drop old tables last in migration order
+triggers: []
+updated_at: "2026-06-19T14:00:00Z"
+verification:
+  approved_at: "2026-06-19T14:00:00.082041Z"
+  approved_by: human
+  status: approved

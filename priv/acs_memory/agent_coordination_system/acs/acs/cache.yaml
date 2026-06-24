@@ -1,0 +1,33 @@
+content: |
+  In the ACS Cache module (`Acs.Acs.Cache`), every public function must call `ensure_table/1` on its target table before performing an ETS operation (`:ets.insert`, `:ets.tab2list`, `:ets.delete`, etc.). Missing this guard causes crashes at startup if a function is called before `ensure_tables/0` has run.
+  
+  All functions follow this pattern except `get_all_agent_statuses/0` which was missing the guard. The function name is `ensure_table/1` (not `ensure_table_safe`).
+  
+created_at: "2026-06-19T14:00:08Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_always_call_ensure_table_before_ets_operations
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acs/acs/cache
+status: approved
+summary:
+tags:
+  - pattern
+  - ets
+  - startup
+  - guard
+  - cache
+title: Always call ensure_table before ETS operations
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.924662Z"
+  approved_by: human
+  status: approved

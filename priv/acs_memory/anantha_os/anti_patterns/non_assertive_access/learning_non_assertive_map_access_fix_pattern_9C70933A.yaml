@@ -1,0 +1,52 @@
+content: |
+  ## Fix: Non-assertive map access (map[:key] → map.key or fetch)
+  
+  **Problem:** `Application.get_env/2` returns `nil` when no config, then `[:key]` crashes with confusing `KeyError on nil`. Also `args[:key]` silently returns nil for required keys.
+  
+  **Files fixed:**
+  - `vault.ex` line 26: Replaced `Application.get_env(:anantha_os, __MODULE__)[:key]` with `Application.fetch_env/2` + `Keyword.fetch/2` + descriptive raise on missing config
+  - `tool_registry.ex` lines 268-270: Replaced `args[:key]` (silent nil) with `args.key` (raises KeyError) for required fields, `Map.get(args, :events)` for optional field
+  
+  **Pattern:**
+  ```elixir
+  # For config at boundary
+  case Application.fetch_env(:app, __MODULE__) do
+    {:ok, config} -> Keyword.fetch!(config, :key)
+    :error -> raise "No config for #{__MODULE__}"
+  end
+  
+  # For required map keys — use dot access
+  args.key  # raises KeyError if missing — fail fast!
+  
+  # For optional map keys — use Map.get/3
+  Map.get(args, :events, [])
+  ```
+created_at: "2026-06-21T13:18:00.909715Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_non_assertive_map_access_fix_pattern_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/anti_patterns/non_assertive_access
+status: proposed
+summary:
+tags:
+  - anti-pattern
+  - map-access
+  - fail-fast
+  - vault
+  - tool-registry
+title: Non-assertive map access fix pattern
+triggers: []
+updated_at: "2026-06-21T13:18:00.909727Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

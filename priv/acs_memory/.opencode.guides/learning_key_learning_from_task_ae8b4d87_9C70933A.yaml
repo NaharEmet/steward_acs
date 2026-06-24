@@ -1,0 +1,27 @@
+content: "Analyzed all agent feedback from 7 tasks. 6 recurring issue categories identified. Fixed by placing instructions in 2 layers: guides (for deep reading) + memories (for auto-injection via guidance packets). Updated phoenix-guide.md (Ecto gotchas), elixir-guide.md (silent Task crashes), crm-ingestion.md (pre-flight checklist), rate_limiter.ex (config source comment). Saved 6 approved memories + 1 learning about the approach itself."
+created_at: "2026-06-20T14:36:39.341075Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_ae8b4d87_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .opencode.guides
+status: proposed
+summary: "Analyzed all agent feedback from 7 tasks. 6 recurring issue categories identified. Fixed by placing instructions in 2 layers: guides (for deep reading) + memories (for auto-injection via guidance pack"
+tags:
+  - feedback
+  - learning
+title: Key learning from task ae8b4d87
+triggers: []
+updated_at: "2026-06-20T14:36:39.341094Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

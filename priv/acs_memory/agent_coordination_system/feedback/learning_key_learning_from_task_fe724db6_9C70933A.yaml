@@ -1,0 +1,27 @@
+content: 1. Org setup tools need to go through HTTP to Anantha Phoenix (cross-BEAM), not direct module calls. OrgSetupHandlers and CRMHandlers both use Req POST with ANANTHA_API_KEY Bearer auth. 2. SyncState synced_at blocks first-sync detection - must use Map.drop to remove key, setting to nil doesn't persist through Ecto. 3. Batch processing pipeline (process_crm_records_batch) has unhandled exceptions that are caught by rescue in sync_engine - root cause unknown, needs investigation of sub-steps (IngestionCRMRecord.new, CrmEntitySnapshots, events, clusters, claims). 4. Background Task.Supervisor tasks crash silently - no monitoring.
+created_at: "2026-06-20T11:26:44.309864Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_fe724db6_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: 1. Org setup tools need to go through HTTP to Anantha Phoenix (cross-BEAM), not direct module calls. OrgSetupHandlers and CRMHandlers both use Req POST with ANANTHA_API_KEY Bearer auth. 2. SyncState s
+tags:
+  - feedback
+  - learning
+title: Key learning from task fe724db6
+triggers: []
+updated_at: "2026-06-20T11:26:44.309870Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

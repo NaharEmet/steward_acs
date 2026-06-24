@@ -1,0 +1,34 @@
+content: |
+  The `Cache.put_agent_status/2` function stores agent status maps directly in ETS without merging defaults. Any code path that calls it directly (bypassing `Acs.Acs.put_agent_status/2`) must include `:current_task_id`, `:application`, and `:component` keys — otherwise `get_present_status/0` crashes with `KeyError` when accessing missing keys.
+  
+  The `Acs.Acs.put_agent_status/2` function safely merges defaults via `Map.merge/2`, but tools.ex:482 was calling `Cache.put_agent_status` directly with only `%{purpose: "active"}`, causing the crash.
+  
+  **Rule**: Always use `Acs.Acs.put_agent_status/2` (which merges defaults) instead of `Cache.put_agent_status` directly unless you explicitly need to bypass defaults and understand the full schema contract.
+created_at: "2026-06-20T19:50:06.780585Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_cache_put_agent_status_must_include_all__9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cache
+status: proposed
+summary:
+tags:
+  - agent-status
+  - bug
+  - cache
+  - key-error
+title: Cache.put_agent_status must include all default keys
+triggers: []
+updated_at: "2026-06-20T19:50:06.780601Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

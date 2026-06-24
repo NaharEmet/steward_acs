@@ -1,0 +1,42 @@
+content: |
+  Phoenix JSON body parser produces string-keyed params (e.g. `"org_id"`), but controllers with `resolve_params/2` checked with atom keys (`:org_id`). This caused `params[:org_id]` to always be nil, returning "Missing" errors for all API calls.
+  
+  **Root cause**: `resolve_params/2` iterated over required atom keys but looked them up directly in the params map without converting to string.
+  
+  **Fix**: Updated `resolve_params/2` in both `QueryController` and `ToolController` to:
+  1. Check `params[k] || params[Atom.to_string(k)]` for each required key
+  2. Return an atom-keyed map for consistent caller access
+  
+  **Related bug**: `Integer.parse/2` crashed when JSON parsed numeric values (e.g. `"limit": 5` becomes integer 5, not string "5"). Fixed by adding a `to_limit/3` helper that converts to string first via `to_string/1`.
+  
+  **Lesson**: Always account for JSON body parsing producing string keys and typed values (integers not strings) in Phoenix controllers.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_query_params_atom_string_key_mismatch_in_phoenix_c
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os_web/controllers
+status: approved
+summary:
+tags:
+  - phoenix
+  - query-controller
+  - params
+  - atom-keys
+  - string-keys
+  - integer-parse
+title: Query params atom/string key mismatch in Phoenix controllers
+triggers: []
+updated_at: "2026-06-19T14:00:01Z"
+verification:
+  approved_at: "2026-06-19T14:00:01.329090Z"
+  approved_by: human
+  status: approved

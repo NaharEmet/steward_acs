@@ -1,0 +1,27 @@
+content: "Non-assertive map access using Access behaviour (map[:key]) silently returns nil for missing keys. For required keys: use dot access (map.key) or pattern matching to fail fast. For config loading: use Application.fetch_env/2 + Keyword.fetch/2 with descriptive raise messages instead of Application.get_env/2 + [:key] which crashes with confusing KeyError on nil."
+created_at: "2026-06-21T13:18:20.439974Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e785b62a_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os
+status: proposed
+summary: "Non-assertive map access using Access behaviour (map[:key]) silently returns nil for missing keys. For required keys: use dot access (map.key) or pattern matching to fail fast. For config loading: use"
+tags:
+  - feedback
+  - learning
+title: Key learning from task e785b62a
+triggers: []
+updated_at: "2026-06-21T13:18:20.439988Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

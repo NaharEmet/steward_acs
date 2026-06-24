@@ -1,0 +1,36 @@
+content: |
+  SQLite's `datetime()` function returns space-separated format (`"2026-06-23 12:00:00"`). When comparing with ISO8601 strings (`"2026-06-23T12:00:00.000Z"`), TEXT comparison fails at position 10 because 'T' (84) > ' ' (32). This caused MetaHarness Analyzer to return zero data.
+  
+  **Fix**: Two-pronged approach:
+  1. **Analyzer**: Wrap `created_at` column refs in `datetime()` — e.g., `WHERE datetime(created_at) >= datetime('...')` — so SQLite normalizes both sides before comparing.
+  2. **OperationLogger**: Store timestamps in space-separated SQLite-native format using `Calendar.strftime("%Y-%m-%d %H:%M:%S")` instead of `DateTime.to_iso8601/1`.
+  
+  **Scope**: `apps/agent_coordination_system/lib/acs/meta_harness/`
+created_at: "2026-06-23T07:28:20.252582Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_sqlite_datetime_comparison_fails_with_is_9C70933A
+importance: 4
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: apps/agent_coordination_system/lib/acs/meta_harness
+status: proposed
+summary:
+tags:
+  - sqlite
+  - datetime
+  - iso8601
+  - meta-harness
+title: SQLite datetime comparison fails with ISO8601 strings
+triggers: []
+updated_at: "2026-06-23T07:28:20.252592Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

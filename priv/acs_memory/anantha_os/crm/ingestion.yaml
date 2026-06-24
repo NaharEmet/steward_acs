@@ -1,0 +1,28 @@
+content: "The `IngestionCRMRecord` struct is placed inside `raw_metadata` in the pipeline payload, which gets serialized to JSON when stored in the event's payload (a `:map` Ecto type). The struct must derive `Jason.Encoder` to be serializable. Without it, `Jason.encode!` crashes when the pipeline's `maybe_store_large_content` function or Ecto's JSON serialization tries to encode the payload."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_ingestioncrmrecord_needs_derive_jason_encoder
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os/crm/ingestion
+status: approved
+summary:
+tags:
+  - jason
+  - serialization
+  - ingestion_crm_record
+  - pipeline
+title: IngestionCRMRecord needs @derive Jason.Encoder
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.827213Z"
+  approved_by: human
+  status: approved

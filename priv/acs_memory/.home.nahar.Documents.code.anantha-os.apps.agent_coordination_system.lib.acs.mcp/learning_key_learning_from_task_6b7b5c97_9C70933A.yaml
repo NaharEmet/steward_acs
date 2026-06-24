@@ -1,0 +1,27 @@
+content: "Dispatch_map in tools.ex follows consistent pattern for OrgSetup tools: 'tool_name' => &OrgSetupHandlers.call_tool('tool_name', &1). New tools just need one line added matching this pattern."
+created_at: "2026-06-21T15:16:02.906154Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_6b7b5c97_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs.mcp
+status: proposed
+summary: "Dispatch_map in tools.ex follows consistent pattern for OrgSetup tools: 'tool_name' => &OrgSetupHandlers.call_tool('tool_name', &1). New tools just need one line added matching this pattern."
+tags:
+  - feedback
+  - learning
+title: Key learning from task 6b7b5c97
+triggers: []
+updated_at: "2026-06-21T15:16:02.906370Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

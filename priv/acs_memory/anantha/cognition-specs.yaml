@@ -1,0 +1,27 @@
+content: When asked to create cognition specs for ANT compiler sub-modules (deadlock_detector, error_reporter, output_generator, parser, prompt_generator, registry_resolver, validator, workflow_expander) and Engine modules (awds_executor, awds_loader, dynamic_graph_updater, memory_snapshot_tracker, rbac, unmatched_routing, visualizer, workflow_trigger, message_queue) plus ant/registry/node_store, I found these 16 files already existed in the repo from a prior agent session. Check git status or git ls-files first before creating new spec files to avoid duplicate work.
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_cognition_specs_for_ant_compiler_sub_modules_and_e
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/cognition-specs
+status: approved
+summary:
+tags:
+  - cognition
+  - specs
+  - duplicate-detection
+title: Cognition specs for ANT compiler sub-modules and Engine modules already existed
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.415885Z"
+  approved_by: human
+  status: approved

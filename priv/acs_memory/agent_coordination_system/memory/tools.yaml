@@ -1,0 +1,28 @@
+content: "The `create_ticket_from_memory` tool follows a three-step pattern: (1) update the memory's kind to \"bug\" in the SQLite index via `update_kind/2`, (2) re-save the memory via `Loader.save()` to persist the kind change to the YAML file, and (3) create an ACS task from the memory content. This pattern mirrors `set_memory_status` and `create_task_from_error_trace`. The implementation requires changes across four files: indexer.ex (new `update_kind` function), tools.ex (tool_def, handler, action_summary, implementation), acs.yaml (tool definition), and guidance.ex (tool reference listing)."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_create_ticket_from_memory_tool_pattern
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/memory/tools
+status: approved
+summary:
+tags:
+  - pattern
+  - create_ticket_from_memory
+  - memory
+  - tools
+title: create_ticket_from_memory tool pattern
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.292014Z"
+  approved_by: human
+  status: approved

@@ -1,0 +1,35 @@
+content: |
+  NimbleCSV.RFC4180's `parse_string/1` and `parse_stream/1` strip the first row (header) by default via the `skip_headers: true` option. This means:
+  
+  1. `NimbleCSV.RFC4180.parse_string(content)` returns ONLY data rows, not including the header
+  2. To also get the header, pass `skip_headers: false`: `NimbleCSV.RFC4180.parse_string(content, skip_headers: false)`
+  3. Common bug: calling `parse_string` and splitting into `[headers | data_rows]` fails because headers are already stripped — the first "headers" are actually the first data row
+  4. Fix: Read the first line separately with `File.read!/1` + `String.split(content, "\n", parts: 2)`, then parse the header line with `skip_headers: false`, and parse data rows normally (with skip_headers: true, the default)
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_nimblecsv_rfc4180_strips_headers_by_default_use_sk
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: csv_parsing/nimble_csv
+status: approved
+summary:
+tags:
+  - nimble_csv
+  - csv_parsing
+  - skip_headers
+  - header_stripping
+title: "NimbleCSV.RFC4180 strips headers by default — use skip_headers: false for header parsing"
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.528692Z"
+  approved_by: human
+  status: approved

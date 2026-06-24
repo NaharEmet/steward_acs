@@ -1,0 +1,27 @@
+content: "elixirc_paths: [\"lib\"] recursively compiles ALL .ex files under lib/, including vendored deps from submodules (lib/foo/deps/**/*.ex). When path dependencies live under lib/, their source gets compiled twice and their vendored build artifacts cause cryptic errors (e.g., credo looking for .credo.exs, makeup looking for JS files). Fix: use explicit per-directory paths instead of \"lib\" catch-all. Pass individual .ex files for root-level modules — Mix.Utils.extract_files accepts both files and dirs."
+created_at: "2026-06-24T11:50:38.366382Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_e3aabde1_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "elixirc_paths: [\"lib\"] recursively compiles ALL .ex files under lib/, including vendored deps from submodules (lib/foo/deps/**/*.ex). When path dependencies live under lib/, their source gets compiled"
+tags:
+  - feedback
+  - learning
+title: Key learning from task e3aabde1
+triggers: []
+updated_at: "2026-06-24T11:50:38.366411Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

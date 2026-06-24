@@ -1,0 +1,33 @@
+content: In Phoenix LiveView, `pushEvent` from JavaScript dispatches to `handle_event/3`, NOT `handle_info/2`. Using `handle_info` for server-side polling responses silently drops every event — the client never gets a reply and the socket assign never updates. Always use `handle_event` for JS-initiated events (via `pushEvent` or `handle` in hooks).
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: warning_liveview_pushevent_goes_to_handle_event_not_handle
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix_liveview/events
+status: approved
+summary: pushEvent dispatches to handle_event, not handle_info
+tags:
+  - phoenix
+  - liveview
+  - hooks
+  - pushevent
+  - handle_event
+  - handle_info
+title: LiveView pushEvent goes to handle_event not handle_info
+triggers:
+  - pushEvent in JS hook
+  - handle_info for LiveView events
+  - JS hook polling not working
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.763144Z"
+  approved_by: human
+  status: approved

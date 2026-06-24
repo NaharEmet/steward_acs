@@ -1,0 +1,27 @@
+content: When adding `batch_handle_updates` parameter `config`, need to propagate it from the caller AND add it to the function signature. Private functions with `\\ %{}` defaults that are always called with explicit args trigger compiler warnings - remove defaults. Use `_old_stage_info` prefix for unused destructured vars.
+created_at: "2026-06-23T15:10:14.446810Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_fede5997_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: priv.repo.migrations
+status: proposed
+summary: When adding `batch_handle_updates` parameter `config`, need to propagate it from the caller AND add it to the function signature. Private functions with `\\ %{}` defaults that are always called with e
+tags:
+  - feedback
+  - learning
+title: Key learning from task fede5997
+triggers: []
+updated_at: "2026-06-23T15:10:14.446827Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

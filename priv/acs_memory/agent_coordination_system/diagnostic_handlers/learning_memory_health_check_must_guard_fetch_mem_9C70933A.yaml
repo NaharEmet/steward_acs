@@ -1,0 +1,31 @@
+content: |
+  memory_health_check/1 in diagnostic_handlers.ex calls extension_module().fetch_memory_stats(org_id) and immediately calls Map.get on the result. When the Anantha API returns a non-map (e.g., a list, error tuple, or nil), this raises BadMapError. The rescue block catches the error but the GenServer still crashes.
+  
+  Fix pattern: Add an is_map guard immediately after the fetch. If the response is not a map, return a degraded health response with an error message instead of crashing. Extract the Map.get-heavy logic into a separate do_memory_health_check/3 helper.
+created_at: "2026-06-21T10:09:14.744944Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_memory_health_check_must_guard_fetch_mem_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/diagnostic_handlers
+status: proposed
+summary:
+tags:
+  - badmap-error
+  - type-guard
+  - fail-gracefully
+title: memory_health_check must guard fetch_memory_stats response with is_map
+triggers: []
+updated_at: "2026-06-21T10:09:14.744954Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

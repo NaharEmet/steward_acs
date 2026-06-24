@@ -1,0 +1,44 @@
+content: |
+  DotPrompt library code should accept config via opts keyword parameters rather than calling Application.get_env directly. This allows callers to configure the library differently per-consumer.
+  
+  Pattern:
+  - Functions accept `opts \\ []` parameter
+  - Use `Keyword.get(opts, :key) || Application.get_env(:app, :key)` for backward-compatible fallback
+  - In GenServer init/1, read from opts first, fall back to Application.get_env
+  - Thread opts through the compiler Context struct (stored as context.opts)
+  
+  Files updated:
+  - helpers.ex: prompts_dir/1 accepts opts, load_prompt_file_with_meta/4 accepts opts
+  - dot_prompt.ex: list_prompts/1, list_collections/1, schema/3 accept opts and pass through
+  - ast.ex: is_collection?/3 and resolve_collection_path/3 accept opts, called with context.opts
+  - collection.ex: expand/7 accepts opts
+  - version_tracker.ex: init/1 reads prompts_dir from opts
+  - github_poller.ex: init/1 reads config from opts, update_prompt_file/3 uses state.prompts_dir
+created_at: "2026-06-21T14:04:08.398458Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_dotprompt_library_config_opts_pattern_ov_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: dot_prompt/configuration
+status: proposed
+summary:
+tags:
+  - dot_prompt
+  - configuration
+  - opts-pattern
+  - anti-pattern
+title: "DotPrompt library config: opts pattern over Application.get_env"
+triggers: []
+updated_at: "2026-06-21T14:04:08.398508Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

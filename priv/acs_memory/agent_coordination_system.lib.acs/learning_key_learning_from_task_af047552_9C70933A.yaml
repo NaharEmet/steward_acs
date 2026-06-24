@@ -1,0 +1,27 @@
+content: "ETS agent status maps can be partial (e.g. `%{purpose: \"active\"}` from heartbeat registrations). Always use `Map.get/2` instead of dot notation for fields that may be absent — `current_task_id`, `application`, `component`. Dot notation raises `KeyError` when the key doesn't exist."
+created_at: "2026-06-20T19:49:34.223239Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_af047552_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: "ETS agent status maps can be partial (e.g. `%{purpose: \"active\"}` from heartbeat registrations). Always use `Map.get/2` instead of dot notation for fields that may be absent — `current_task_id`, `appl"
+tags:
+  - feedback
+  - learning
+title: Key learning from task af047552
+triggers: []
+updated_at: "2026-06-20T19:49:34.223262Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,30 @@
+content: "acs.ex: release_task/2 used Repo.get (no lock) inside a transaction, creating a check-then-act race. In PostgreSQL READ COMMITTED, concurrent transactions could see stale data and overwrite another agent's claim. Fix: use Repo.get!(AcsTask, task_id, lock: \\"FOR UPDATE\\"). Also added Ecto.NoResultsError rescue for idempotent nil return. Applies to SQLite dev where serialized writes mask the bug."
+created_at: "2026-06-20T19:04:33.818463Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_release_task_missing_for_update_causes_r_9C70933A
+importance: 5
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system
+status: proposed
+summary:
+tags:
+  - acs
+  - release_work
+  - race_condition
+  - for_update
+  - ecto
+title: release_task missing FOR UPDATE causes race condition
+triggers: []
+updated_at: "2026-06-20T19:04:33.818479Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

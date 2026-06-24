@@ -1,0 +1,24 @@
+content: "Ecto.UUID.encode/1 is undefined in this Elixir/Ecto version. When converting a 16-byte binary UUID to a standard UUID string with hyphens, use manual bit syntax: `<<a::64, b::32, c::32, d::32, e::96>> = v` then `:io_lib.format(\"~16.16.0b-~8.8.0b-~8.8.0b-~8.8.0b-~24.24.0b\", [a, b, c, d, e]) |> IO.iodata_to_binary()`."
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: observation_ecto_uuid_encode_is_not_available_use_manual_bit_f
+importance: 4
+kind: observation
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: uuid_handling
+status: approved
+summary:
+tags: []
+title: Ecto.UUID.encode is not available - use manual bit formatting instead
+triggers: []
+updated_at: "2026-06-19T14:00:08Z"
+verification:
+  approved_at: "2026-06-19T14:00:08.447889Z"
+  approved_by: human
+  status: approved

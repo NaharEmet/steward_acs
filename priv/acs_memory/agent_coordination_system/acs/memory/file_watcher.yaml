@@ -1,0 +1,38 @@
+content: |
+  When a GenServer has long-running async work (e.g., file sync) that blocks event processing via a boolean flag (e.g., `in_sync`), always add a `pending` flag so that events arriving during the work window are not silently dropped. On completion, check the pending flag and immediately re-trigger the work.
+  
+  This pattern applies broadly to any GenServer with debounced/scheduled work where new events could arrive while processing:
+  
+  1. Set `pending: false` in init state
+  2. When an event arrives while busy, set `pending: true` instead of dropping
+  3. When work starts, reset `pending: false`
+  4. When work completes, if `pending`, self-send the trigger message immediately
+  
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: pattern_filewatcher_pending_flag_pattern_for_data_loss_pre
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/acs/memory/file_watcher
+status: approved
+summary:
+tags:
+  - pattern
+  - gen-server
+  - data-loss
+  - file-watcher
+  - debounce
+title: FileWatcher pending flag pattern for data loss prevention
+triggers: []
+updated_at: "2026-06-19T13:59:57Z"
+verification:
+  approved_at: "2026-06-19T13:59:57.827587Z"
+  approved_by: human
+  status: approved

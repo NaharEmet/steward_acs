@@ -1,0 +1,28 @@
+content: "LLM providers in Acs.LLM can be disabled via config without removing their API key. The `:disabled_llm_providers` app env config takes a list of provider ID strings (e.g., `[\"minimax\"]`). The `provider_enabled?/1` helper checks this list. Both `evaluate_with_providers/2` and `providers_configured?/0` respect the disabled list — if a provider is disabled, it's treated as if it's not configured. The config is set from `DISABLED_LLM_PROVIDERS` env var (comma-separated) in runtime.exs."
+created_at: "2026-06-19T19:53:38Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_disabled_llm_providers_config_approach_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  marked_at: "2026-06-19T19:53:30.598095Z"
+  reason: Replaced by enabled_llm_providers whitelist approach
+scope_path: apps/agent_coordination_system/lib/acs/llm.ex
+status: approved
+summary:
+tags:
+  - llm
+  - provider
+  - configuration
+  - disabled
+title: Disabled LLM providers config approach
+triggers: []
+updated_at: "2026-06-21T15:06:01Z"
+verification:
+  approved_at: "2026-06-21T15:06:01.665265Z"
+  approved_by: "Valid config approach describing :disabled_llm_providers env config pattern. Still accurate. Approved from stale."
+  status: approved

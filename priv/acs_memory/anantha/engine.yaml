@@ -1,0 +1,28 @@
+content: "Engine cognition specs should track module purpose, invariants (derived from @moduledoc and function contracts), workflows (from main function signatures), failure_modes (from error tuple returns), and constraints. The engine/orchestrator modules have a clear delegation hierarchy pattern: Orchestrator delegates to PlannerIntegration, ToolCoordinator, IRConverter, WorkflowNaming, and MessageHandler — each of which has a focused responsibility."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_engine_module_cognition_spec_structure
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/engine
+status: approved
+summary:
+tags:
+  - engine
+  - cognition
+  - specs
+  - orchestrator
+title: Engine module cognition spec structure
+triggers: []
+updated_at: "2026-06-19T13:59:58Z"
+verification:
+  approved_at: "2026-06-19T13:59:58.446489Z"
+  approved_by: human
+  status: approved

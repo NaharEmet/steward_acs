@@ -1,0 +1,58 @@
+content: |
+  ## Critical Issues Found During Org Setup
+  
+  ### 1. SyncState Race Condition
+  `Anantha.CRM.SyncState.update_cursor/4` and `update_metadata/4` both use a non-atomic read-modify-write pattern:
+  1. `find_source` queries DB for the IngestionSource
+  2. Read config, modify sync_state
+  3. `update_source` writes back the entire config
+  
+  When multiple types sync in parallel (via `Task.async_stream` in `sync/3`), the reads and writes race:
+  - Process A reads source (sees types X, Y)
+  - Process B reads source (sees types X, Y)
+  - Process A writes (adds type A's cursor)
+  - Process B writes (overwrites with stale read — loses type A's cursor!)
+  
+  **Fix needed**: Use `Repo.transaction` with pessimistic locking (`lock: "FOR UPDATE"`) or optimistic locking version field.
+  
+  ### 2. Batch Pipeline Bottleneck
+  `process_crm_records_batch/2` calls `LLMLedger.request` per record for claim extraction. For 4994 contacts with 50/chunk = 100 chunks at max_concurrency=5, that's 20 waves. Each wave can take up to 60s (Task.async_stream timeout) if LLM calls are slow.
+  
+  **Mitigations possible**: Increase `max_concurrency` in sync_engine, reduce chunk size, skip claim extraction for bulk CRM sync, or add LLM call timeouts.
+  
+  ### 3. Emails/Tasks Search API 400
+  `fetch_page_search_api` returns 400 for emails and tasks but direct curl calls work. Root cause unknown — possibly stale Req connection state or internal Ecto DB issue within the sync flow. Only repro when called from within `sync_object_type` flow (not direct calls).
+  
+  ### Workaround for Reliable Sync
+  - Run syncs **serially** (one type at a time) to avoid race condition
+  - Use longer timeout (10+ minutes) to allow batch pipeline to complete
+  - Configure Logger level to :warning to reduce noise
+created_at: "2026-06-20T12:47:39.414665Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_syncstate_thread_safety_and_batch_pipeli_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/onboarding
+status: proposed
+summary: SyncState.update_cursor/update_metadata have read-modify-write race condition when multiple types sync in parallel. Batch pipeline takes 1-2min for 4994 contacts due to LLM claim extraction.
+tags:
+  - crm-sync
+  - sync-state
+  - race-condition
+  - batch-pipeline
+  - bug
+title: SyncState thread-safety and batch pipeline bottlenecks
+triggers: []
+updated_at: "2026-06-20T12:47:39.414676Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

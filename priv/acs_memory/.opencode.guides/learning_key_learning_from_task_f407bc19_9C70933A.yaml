@@ -1,0 +1,27 @@
+content: "1) `acs_create_work` now defaults to self-claim — use `claim: true` to go directly to in_progress. 2) Sleeping agent dispatch mode removed — agents no longer sleep/wake via ACS. 3) Hand-off mode removed — agents own tasks from creation to release. 4) User-directed delegation is the only exception (omit claim:true and let user assign). 5) dispatch.md, sleep.md, pending.md commands deprecated with disable-model-invocation. 6) All agent instruction files updated to use claim:true pattern."
+created_at: "2026-06-23T18:12:55.552729Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_f407bc19_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .opencode.guides
+status: proposed
+summary: "1) `acs_create_work` now defaults to self-claim — use `claim: true` to go directly to in_progress. 2) Sleeping agent dispatch mode removed — agents no longer sleep/wake via ACS. 3) Hand-off mode remov"
+tags:
+  - feedback
+  - learning
+title: Key learning from task f407bc19
+triggers: []
+updated_at: "2026-06-23T18:12:55.552743Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

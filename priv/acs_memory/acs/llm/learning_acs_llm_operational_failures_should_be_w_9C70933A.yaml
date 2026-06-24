@@ -1,0 +1,31 @@
+content: "When all LLM providers are unavailable (rate-limited or down), Acs.LLM.try_providers logs \"All providers failed\" and Acs.Memory.Auditor logs \"Max retries exceeded\". These are expected operational conditions — not code bugs. They were logged at Logger.error, generating unnecessary error traces. Downgraded both to Logger.warning. General principle: use error level for bugs/surprises, warning for expected operational failures."
+created_at: "2026-06-20T10:28:56.338424Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_llm_operational_failures_should_be_w_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: acs/llm
+status: proposed
+summary:
+tags:
+  - acs
+  - llm
+  - auditor
+  - log_level
+  - error_trace
+  - operational
+title: ACS LLM operational failures should be warnings not errors
+triggers: []
+updated_at: "2026-06-20T10:28:56.338433Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

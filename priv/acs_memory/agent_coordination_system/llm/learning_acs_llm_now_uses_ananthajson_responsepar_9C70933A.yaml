@@ -1,0 +1,38 @@
+content: |
+  `Acs.LLM.try_extract_json/1` and `Acs.LLM.extract_json_content/1` now use `AnanthaJson.ResponseParser.parse/1` instead of the manual 3-attempt cascade (Jason.decode → escape_newlines_in_strings → JsonAdapter.decode). The `escape_newlines_in_strings/1` function and all its private helper clauses were removed since `JsonRemedy` (used internally by ResponseParser) handles unescaped newlines in JSON strings automatically.
+  
+  Key behaviors preserved:
+  - `<thinking>...</thinking>` tag stripping (ACS-specific, done before calling ResponseParser)
+  - Markdown code fence extraction (handled by JsonRemedy ContentCleaning Layer 1)
+  - Text-before-JSON extraction (handled by MultipleJsonDetector preprocessing)
+  - Unescaped newlines/control chars (handled by JsonRemedy syntax normalization)
+  - Return shape: `try_extract_json` returns `{:ok, map} | :error`, `extract_json_content` returns `{:ok, map} | :error`
+created_at: "2026-06-24T11:43:04.464684Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_acs_llm_now_uses_ananthajson_responsepar_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/llm
+status: proposed
+summary:
+tags:
+  - acs
+  - llm
+  - json
+  - response_parser
+  - refactor
+title: Acs.LLM now uses AnanthaJson.ResponseParser instead of manual JSON parsing
+triggers: []
+updated_at: "2026-06-24T11:43:04.464695Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

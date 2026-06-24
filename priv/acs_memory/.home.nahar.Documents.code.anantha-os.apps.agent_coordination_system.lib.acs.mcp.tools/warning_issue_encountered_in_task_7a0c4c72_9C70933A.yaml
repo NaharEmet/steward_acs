@@ -1,0 +1,27 @@
+content: Existing task was still in progress from previous session. Created duplicate by accident - had to clean up.
+created_at: "2026-06-21T10:09:19.599410Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_issue_encountered_in_task_7a0c4c72_9C70933A
+importance: 3
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: .home.nahar.Documents.code.anantha-os.apps.agent_coordination_system.lib.acs.mcp.tools
+status: proposed
+summary: Existing task was still in progress from previous session. Created duplicate by accident - had to clean up.
+tags:
+  - feedback
+  - warning
+title: Issue encountered in task 7a0c4c72
+triggers: []
+updated_at: "2026-06-21T10:09:19.599423Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

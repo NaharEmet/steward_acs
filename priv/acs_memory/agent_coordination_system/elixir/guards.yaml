@@ -1,0 +1,28 @@
+content: "In Elixir, guard clauses cannot use the Access syntax (e.g., `when result[\"valid\"] == true`) because it relies on a remote function call (`Access.get/2`). Use pattern matching instead: `when %{\"valid\" => true} = result` or match directly in the function head with `{:ok, %{\"valid\" => true} = result}`."
+created_at: "2026-06-19T13:59:57Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_guard_clauses_cannot_use_access_syntax_like_result
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/elixir/guards
+status: approved
+summary:
+tags:
+  - elixir
+  - guard-clauses
+  - pattern-matching
+  - compile-error
+title: Guard clauses cannot use Access syntax like result["key"]
+triggers: []
+updated_at: "2026-06-19T13:59:57Z"
+verification:
+  approved_at: "2026-06-19T13:59:57.980062Z"
+  approved_by: human
+  status: approved

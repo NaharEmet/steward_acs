@@ -1,0 +1,37 @@
+content: |
+  When `org_setup_discover_pipelines` returns warnings about multiple pipelines of the same object type (e.g., "Multiple deal pipelines detected: Sales Pipeline, Custom Deal Pipeline"), the agent MUST present these to the user and ask clarifying questions before proceeding. Example questions:
+  
+  - For multiple deal pipelines: "Your HubSpot has multiple deal pipelines (e.g., Sales Pipeline, Custom Pipeline). Which should we import data from? All, or a specific one?"
+  - For multiple ticket pipelines: similar question for ticket pipelines
+  
+  Record the user's decision about which pipelines to use. This can be passed to a coder agent later for pipeline filtering configuration. Do NOT silently proceed with ambiguous pipeline configurations — the user needs to decide.
+  
+  If no warnings (status: "discovered", warnings: []), proceed normally — pipeline data is stored in DB and claims will be pipeline-provenanced automatically.
+  
+created_at: "2026-06-21T15:36:42Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: warning_handle_pipeline_warnings_ask_user_clarif_9C70933A
+importance: 4
+kind: warning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: approved
+summary:
+tags:
+  - org-setup
+  - pipeline-discovery
+  - user-questions
+title: Handle Pipeline Warnings — Ask User Clarifying Questions
+triggers: []
+updated_at: "2026-06-21T15:36:46Z"
+verification:
+  approved_at: "2026-06-21T15:36:46.482851Z"
+  approved_by: Approved — critical for org-setup agents to handle pipeline ambiguity correctly
+  status: approved

@@ -1,0 +1,38 @@
+content: |
+  When `org_setup_discover_pipelines` returns a warning about multiple deal pipelines (or multiple ticket pipelines), do NOT immediately ask the user which to include. First, check which pipelines actually have active deals/tickets by querying the synced data or the CRM API.
+  
+  For HubSpot: fetch deal counts per pipeline using the search API with a pipeline filter. Only present pipelines that have active records to the user. This avoids overwhelming them with empty or discontinued pipelines.
+  
+  If no deals have been synced yet (0 records), you can either:
+  1. Run a quick HubSpot API call to count deals per pipeline (GET /crm/v3/objects/deals with pipeline property grouping)
+  2. Default to "all pipelines" and let the user trim later
+  
+  Only ask the user about pipeline selection when there are genuinely multiple active pipelines with data.
+created_at: "2026-06-21T18:52:34.189069Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_check_deal_counts_per_pipeline_before_as_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: org-setup
+status: proposed
+summary:
+tags:
+  - org-setup
+  - pipelines
+  - crm
+  - discovery
+title: Check deal counts per pipeline before asking user which pipelines to use
+triggers: []
+updated_at: "2026-06-21T18:52:34.189078Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

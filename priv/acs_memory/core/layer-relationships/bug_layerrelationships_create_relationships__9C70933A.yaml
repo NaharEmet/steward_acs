@@ -1,0 +1,39 @@
+content: |
+  ## Bug: `LayerRelationships.create_relationships_batch` KeyError on `:metadata`
+  
+  ### Root Cause
+  `layer_relationships.ex:103` used `spec.metadata || %{}` to access metadata from relationship specs. Callers pass plain maps that often lack a `:metadata` key. `map.key` raises `KeyError` on missing keys.
+  
+  ### Fix
+  Changed to `Map.get(spec, :metadata, %{})` — safely defaults to `%{}` when key absent.
+  
+  ### Impact
+  This bug silently broke `derived_from` relationships between claims and records. Claims were created successfully (stored_claims committed before relationship step), but the relationships step crashed, leaving orphan claims with no provenance link to their parent Record.
+created_at: "2026-06-22T07:10:47.123076Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: bug_layerrelationships_create_relationships__9C70933A
+importance: 3
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: core/layer-relationships
+status: proposed
+summary:
+tags:
+  - bug
+  - layer-relationships
+  - metadata
+  - crash
+title: "LayerRelationships.create_relationships_batch crashes on missing :metadata key"
+triggers: []
+updated_at: "2026-06-22T07:10:47.123092Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

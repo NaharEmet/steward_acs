@@ -1,0 +1,29 @@
+content: "Running all 2250+ tests via `mix test` in this codebase causes ~740 cascade failures. Root cause: test processes spawn `Task.Supervised`/`Task` processes that use Ecto connections without proper `Ecto.Adapters.SQL.Sandbox.allow()` calls. When parent test process exits while spawned task holds a connection, the DB pool connection is orphaned. All subsequent tests in the same sandbox fail with `could not lookup Ecto repo`. Fix: ensure all tests that spawn async work use `Ecto.Adapters.SQL.Sandbox.allow(Repo, self(), task_pid)` before the task accesses the DB. Individual test groups pass when run separately (31 groups verified, 0 failures each)."
+created_at: "2026-06-19T14:29:09.575455Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: learning_mix_precommit_cascade_failures_test_infr_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: phoenix/testing
+status: proposed
+summary:
+tags:
+  - testing
+  - ecto
+  - sandbox
+  - precommit
+  - task
+title: "mix precommit cascade failures: test infrastructure root cause"
+triggers: []
+updated_at: "2026-06-19T14:29:09.575463Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,37 @@
+content: |
+  ExtractionWorker has two trigger paths since task 0251e5d2 re-added the periodic timer:
+  
+  1. Event-driven (default path): InboundPipeline/Ingestion.Pipeline call trigger_org(org_id) when a new message arrives → immediate async extraction.
+  2. Periodic timer (every `interval` ms, default 5 min): handle_info(:run_periodic) queries Message table for orgs with unprocessed messages, calls trigger_org/1 for each. Reschedules itself.
+  
+  The periodic timer was previously removed in commit 1aa11de8 when extraction was made purely event-driven. Re-adding it provides a safety net for missed triggers and keeps the dashboard stale indicator accurate (worker may be idle but is checking regularly).
+  
+  Timer is set via Process.send_after(self(), :run_periodic, interval) in init/1 and rescheduled in the handler.
+created_at: "2026-06-21T14:46:32.747563Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_extractionworker_event_driven_periodic_9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/pipeline/extraction_worker
+status: proposed
+summary:
+tags:
+  - extraction_worker
+  - periodic_timer
+  - stale_dashboard
+  - event_driven
+title: "ExtractionWorker: event-driven + periodic"
+triggers: []
+updated_at: "2026-06-21T14:46:32.747571Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

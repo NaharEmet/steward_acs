@@ -1,0 +1,27 @@
+content: "When modifying Req.post calls that talk to external APIs, always verify that auth headers, timeouts, and body params (like temperature) are preserved. The shared lib refactor dropped the Authorization header causing 401 errors. Pattern: check call_provider for API key lookup + do_call_provider for headers/receive_timeout + build_request_body for temperature/suppress_thinking."
+created_at: "2026-06-21T12:56:22.297748Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_113a0f0b_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system.lib.acs
+status: proposed
+summary: When modifying Req.post calls that talk to external APIs, always verify that auth headers, timeouts, and body params (like temperature) are preserved. The shared lib refactor dropped the Authorization
+tags:
+  - feedback
+  - learning
+title: Key learning from task 113a0f0b
+triggers: []
+updated_at: "2026-06-21T12:56:22.297756Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

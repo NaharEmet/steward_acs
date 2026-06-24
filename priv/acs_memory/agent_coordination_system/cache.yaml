@@ -1,0 +1,27 @@
+content: Wrap release operations in a transactional cleanup pattern to ensure atomic state changes.
+created_at: "2026-06-14T10:48:59.674840Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: guidance_test_pattern
+importance: 3
+kind: pattern
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/cache
+status: approved
+summary: Use transactional cleanup wrapper for release operations
+tags:
+  - cache
+  - pattern
+title: Transactional Cleanup Pattern
+triggers:
+  - release operations
+updated_at: "2026-06-14T10:48:59.674846Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

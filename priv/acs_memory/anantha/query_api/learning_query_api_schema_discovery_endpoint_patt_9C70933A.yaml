@@ -1,0 +1,29 @@
+content: Schema discovery endpoint POST /api/query/describe accepts optional `dataset` param. Without dataset, lists all dataset schemas via DatasetRegistry.list_datasets/0 + DatasetRegistry.describe/1. With dataset, returns single schema. Uses existing analytics.query permission and same auth pattern as other query endpoints. Both ACS tools (list_datasets, describe_dataset) map to same endpoint.
+created_at: "2026-06-21T19:40:21.484238Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_query_api_schema_discovery_endpoint_patt_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha/query_api
+status: proposed
+summary:
+tags:
+  - query
+  - schema
+  - discovery
+  - api
+title: "Query API: schema discovery endpoint pattern"
+triggers: []
+updated_at: "2026-06-21T19:40:21.484248Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

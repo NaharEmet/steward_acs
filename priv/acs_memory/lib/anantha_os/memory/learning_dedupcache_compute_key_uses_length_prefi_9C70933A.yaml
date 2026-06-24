@@ -1,0 +1,29 @@
+content: "DedupCache's `compute_key/2` uses length-prefixed encoding (`#{byte_size(a)}|#{a}|#{byte_size(b)}|#{b}`) before SHA-256 hashing. This prevents collision attacks where \"ab\"+\"cd\" and \"abc\"+\"d\" would produce the same hash with simple concatenation. The positive cache now also uses TTL (7 days) to prevent unbounded growth, matching the negative cache pattern (24h TTL)."
+created_at: "2026-06-20T17:24:17.894711Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_dedupcache_compute_key_uses_length_prefi_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/memory
+status: proposed
+summary:
+tags:
+  - dedup_cache
+  - key
+  - collision
+  - ttl
+title: DedupCache compute_key uses length-prefixed encoding to prevent collisions
+triggers: []
+updated_at: "2026-06-20T17:24:17.894718Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

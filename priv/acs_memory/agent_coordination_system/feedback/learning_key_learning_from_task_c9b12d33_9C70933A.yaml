@@ -1,0 +1,27 @@
+content: "Hex.pm user \"nahar\" (nahar emet, naharemete@gmail.com, github:NaharEmet) has 3 published packages: dot_prompt v1.0.5 (232 downloads, Apache-2.0), anantha_llm_utils v0.1.0 (0 downloads, MIT), llm_utils v0.1.0 (0 downloads, MIT). Both llm_utils and anantha_llm_utils were published very recently (Jun 24, 2026). To retire a package: `mix hex.retire PACKAGE VERSION REASON --message \"...\"`. Reasons: renamed, deprecated, security, invalid, other. To revert/unpublish: `mix hex.publish --revert VERSION` (only within 1hr for existing versions, 24hrs for new packages). Hex.pm is immutable by design — packages cannot be deleted normally, only retired."
+created_at: "2026-06-24T09:44:37.145300Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_c9b12d33_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: agent_coordination_system/feedback
+status: proposed
+summary: "Hex.pm user \"nahar\" (nahar emet, naharemete@gmail.com, github:NaharEmet) has 3 published packages: dot_prompt v1.0.5 (232 downloads, Apache-2.0), anantha_llm_utils v0.1.0 (0 downloads, MIT), llm_utils"
+tags:
+  - feedback
+  - learning
+title: Key learning from task c9b12d33
+triggers: []
+updated_at: "2026-06-24T09:44:37.145312Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

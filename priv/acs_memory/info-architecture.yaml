@@ -1,0 +1,51 @@
+content: |
+  ## Analyst Agent Info Architecture
+  
+  ### Key Decisions
+  
+  1. **Tool discovery names**: The agent prompt must use `list_categories()` and `list_tools(category: "analyst")` — NOT `mcp_list_categories`/`mcp_list_tools`. The `mcp_` prefix was removed from the ACS MCP tool definitions but the old names persisted in prompts.
+  
+  2. **Permission scoping for analyst agents**: A read-only analyst agent does not need `"curl *": "allow"`. Restrict to `"curl http://localhost:*": "allow"` for local API testing only. Broad curl access is a security concern for read-only agents.
+  
+  3. **org_id must appear in both reference docs AND code examples**: When all tools in a category require a common parameter (`org_id`), it must be present in:
+     - The tool reference table's Required Params column
+     - Every code example that calls those tools
+     - Anti-pattern warnings
+     Omitting it from any of these teaches the anti-pattern by example.
+  
+  4. **Documentation consistency protocol**: When a parameter is documented as required in prose and anti-patterns, it must also appear in the tool reference table and all code examples. Inconsistency between these three locations confuses agents.
+  
+  5. **Alphabetical ordering in READING.md**: Table entries in READING.md should be alphabetically sorted for easy scanning. Append-only additions are an anti-pattern.
+  
+  6. **Provenance diagram completeness**: When a domain model has a relationship (e.g., Observations → OntologyNode) that is documented in tool descriptions, it must also appear in the visual diagram. The diagram and the tool descriptions must agree.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes:
+  - If tool names change again, prompts must be updated to match
+  - If curl access is needed for remote APIs, the localhost restriction must be relaxed
+id: learning_analyst_agent_info_architecture_tool_discovery_nam
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: info-architecture
+status: approved
+summary:
+tags:
+  - info-architecture
+  - analyst-agent
+  - documentation
+  - permissions
+  - tool-discovery
+title: "Analyst agent info architecture: tool discovery names, permissions, documentation alignment"
+triggers: []
+updated_at: "2026-06-19T14:00:03Z"
+verification:
+  approved_at: "2026-06-19T14:00:03.307831Z"
+  approved_by: human
+  status: approved

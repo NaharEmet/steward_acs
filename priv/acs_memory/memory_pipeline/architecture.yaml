@@ -1,0 +1,46 @@
+content: |
+  The memory extraction pipeline is restructured into three distinct layers:
+  
+  1. **Layer 0 — Records via Code (deterministic)**: Pure code extraction using heuristic parsers (regex/pattern matching). No LLM at this layer. Produces `record` tuples (cash_flow, inventory_movement, sentiment). Extraction_method: "rule".
+  
+  2. **Layer 1 — Records → Claims via LLM (single-shot)**: Each record is passed to a single LLM call that produces a structured `claim` with fields (claim_family, claim_type, confidence, payload, supporting_excerpts). The existing `ClaimExtractor` is refactored but kept.
+  
+  3. **Layer 2 — Higher-Order via Batched Agents (batched LLM)**: Observations, Synthesis, and Claim Relations are produced by a single `BatchingEngine` with pluggable processor modules. Processors batch buffer records/claims and fire LLM calls in configurable batches. Per-org, demand-started with a global count cap.
+  
+  Key invariants:
+  - No LLM at Layer 0 (pure code, deterministic)
+  - One LLM call per record at Layer 1 (not zero-shot from raw text)
+  - Batched LLM calls at Layer 2 (not per-item)
+  - Each layer produces immutable output consumed by the next layer
+  - pipeline_links table tracks all transitions with idempotency keys
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: decision_3_layer_memory_pipeline_architecture
+importance: 5
+kind: decision
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: memory_pipeline/architecture
+status: approved
+summary:
+tags:
+  - memory-pipeline
+  - architecture
+  - 3-layer
+  - code-first
+  - records
+  - claims
+  - batching
+title: 3-layer memory pipeline architecture
+triggers: []
+updated_at: "2026-06-19T14:00:06Z"
+verification:
+  approved_at: "2026-06-19T14:00:06.227021Z"
+  approved_by: human
+  status: approved

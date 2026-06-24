@@ -1,0 +1,27 @@
+content: "The skip_llm flag in SyncEngine (set to true by default) incorrectly skips ClaimExtractor.batch_extract_and_store which is purely rule-based (no LLM). The fix: move batch_extract_and_store outside the skip_llm gate so it always runs during CRM syncs. Only fire_event_extraction should remain gated since it calls MemoryExtractor (LLM-based)."
+created_at: "2026-06-20T19:42:34.722440Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_d73249c5_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: anantha_os
+status: proposed
+summary: "The skip_llm flag in SyncEngine (set to true by default) incorrectly skips ClaimExtractor.batch_extract_and_store which is purely rule-based (no LLM). The fix: move batch_extract_and_store outside the"
+tags:
+  - feedback
+  - learning
+title: Key learning from task d73249c5
+triggers: []
+updated_at: "2026-06-20T19:42:34.722455Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,37 @@
+content: |
+  When migrating a raw string prompt to a DotPrompt `.prompt` file:
+  
+  1. Create the prompt file in `prompts/` with `init do ... end init` block declaring params with `@param_name: type -> doc` syntax
+  2. Reference params as `@param_name` in the body — these get injected at render time
+  3. Use `response do ... end response` block with JSON describing field types — the compiler auto-derives a schema and replaces `{response_contract}` in the body
+  4. The `DotPrompt.render/3` function takes (name_without_ext, params_map, runtime_map) and returns `{:ok, %DotPrompt.Result{prompt: rendered_string}}`
+  5. Always keep a `fallback_*` function that produces the raw string in case DotPrompt render fails
+  6. The `response` block must be closed with `end response` (not just `end`)
+  7. Params are atom keys matching `@param_name` declarations (e.g., `%{memory_entry: json_string}` for `@memory_entry`)
+created_at: "2026-06-20T19:12:05.237377Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_dotprompt_migration_pattern_for_raw_stri_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: prompts/dot_prompt
+status: proposed
+summary:
+tags:
+  - dot_prompt
+  - migration
+  - prompt_templates
+title: DotPrompt migration pattern for raw string prompts
+triggers: []
+updated_at: "2026-06-20T19:12:05.237390Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

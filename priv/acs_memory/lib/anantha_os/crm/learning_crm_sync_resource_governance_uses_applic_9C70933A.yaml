@@ -1,0 +1,42 @@
+content: |
+  CRM sync now uses a two-layer resource governance system:
+  
+  1. **Configurable limits** via `Application.get_env(:anantha_os, :crm)` with defaults in `config/config.exs` and env var overrides in `config/runtime.exs` (ANANTHA_CRM_* env vars).
+  
+  2. **Memory Resource Governor** (`Anantha.ResourceGovernor`) checks Erlang VM memory before sync operations proceed. Thresholds: <70% normal, 70-85% reduce batches, 85-95% backoff, >95% refuse work.
+  
+  Key patterns:
+  - Use `Application.compile_env` for module attributes (compile-time)
+  - Use `Application.get_env` inside functions (runtime)
+  - Governor is stateless library module, not a GenServer
+  - All defaults match existing hardcoded values exactly
+  - `merge_crm_config/1` helper in `Anantha.CRM` merges app config into per-sync config map
+created_at: "2026-06-21T18:16:48.912050Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_sync_resource_governance_uses_applic_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: lib/anantha_os/crm
+status: proposed
+summary:
+tags:
+  - crm
+  - resource_governor
+  - memory
+  - config
+  - sync
+title: CRM sync resource governance uses Application.get_env for runtime config
+triggers: []
+updated_at: "2026-06-21T18:16:48.912059Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

@@ -1,0 +1,27 @@
+content: Used replaceAll for both PascalCase and snake_case patterns in YAML file — two separate replaceAll calls handled all occurrences cleanly.
+created_at: "2026-06-21T15:59:17.870410Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_key_learning_from_task_3d7c6ee2_9C70933A
+importance: 3
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: docs.deployment
+status: proposed
+summary: Used replaceAll for both PascalCase and snake_case patterns in YAML file — two separate replaceAll calls handled all occurrences cleanly.
+tags:
+  - feedback
+  - learning
+title: Key learning from task 3d7c6ee2
+triggers: []
+updated_at: "2026-06-21T15:59:17.870419Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed

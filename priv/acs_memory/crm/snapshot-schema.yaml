@@ -1,0 +1,40 @@
+content: |
+  In `CrmEntitySnapshot` schema, `previous_snapshot_id` uses `belongs_to :previous_snapshot, __MODULE__, define_field: false` but has NO explicit `field :previous_snapshot_id, :binary_id` declaration. This means the field does not exist in the Ecto schema at all. It is also absent from the `cast/3` allowed list. Any value passed (e.g., from `crm.ex:839`) is silently dropped during `cast`. The chain link is never persisted.
+  
+  The established project pattern (see `IngestionAuditLog`) is:
+  ```elixir
+  belongs_to :org, Anantha.Core.Org, type: :binary_id, define_field: false
+  field :org_id, :binary_id  # explicit field declaration
+  # and then include :org_id in cast list
+  ```
+  
+  Fix: add `field :previous_snapshot_id, :binary_id` to the schema and `:previous_snapshot_id` to the cast list.
+  
+created_at: "2026-06-19T13:59:58Z"
+created_by:
+  id: unknown
+  type: agent
+failure_modes: []
+id: bug_crmentitysnapshot_previous_snapshot_id_cannot_be_p
+importance: 5
+kind: bug
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/snapshot-schema
+status: approved
+summary:
+tags:
+  - crm
+  - snapshot
+  - schema
+  - data-integrity
+  - previous_snapshot_id
+title: CrmEntitySnapshot previous_snapshot_id cannot be persisted
+triggers: []
+updated_at: "2026-06-19T14:00:02Z"
+verification:
+  approved_at: "2026-06-19T14:00:02.483533Z"
+  approved_by: human
+  status: approved

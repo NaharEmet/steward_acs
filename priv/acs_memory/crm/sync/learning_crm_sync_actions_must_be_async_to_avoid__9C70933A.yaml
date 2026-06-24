@@ -1,0 +1,35 @@
+content: |
+  CRM sync actions (crm_sync, crm_sync_object_type) in ToolController sync 11 HubSpot object types sequentially. Each HubSpot API call has 30s timeout → total sync takes up to 5.5 minutes. Bandit default request timeout is 15s, causing connection kill → 500 error.
+  
+  Fix: Use `Task.Supervisor.start_child(Anantha.TaskSupervisor, fn -> ... end)` pattern to run sync in background task. Return 202 Accepted immediately. Log results/errors in background task.
+  
+  Same pattern found in ToolController.trigger_extraction/2. Both crm_sync and crm_sync_object_type must use this async pattern.
+created_at: "2026-06-20T10:24:57.864772Z"
+created_by:
+  cluster: default
+  id: unknown
+  type: developer
+failure_modes: []
+id: learning_crm_sync_actions_must_be_async_to_avoid__9C70933A
+importance: 4
+kind: learning
+related_memories: []
+revalidation:
+  interval_days: 30
+  last_checked_at:
+scope_path: crm/sync
+status: proposed
+summary:
+tags:
+  - crm
+  - sync
+  - async
+  - timeout
+  - tool_controller
+title: CRM sync actions must be async to avoid HTTP timeout
+triggers: []
+updated_at: "2026-06-20T10:24:57.864784Z"
+verification:
+  approved_at:
+  approved_by:
+  status: proposed
