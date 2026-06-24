@@ -12,5 +12,5 @@ config :steward_acs, Acs.Repo,
 # Print only warnings and errors during test
 config :logger, level: :warning
 
-# No MCP server during tests
-config :steward_acs, Acs.MCP.Server, enabled: false
+# No MCP server during tests — transport kept for compile_env consistency
+config :steward_acs, Acs.MCP.Server, enabled: false, transport: :http
