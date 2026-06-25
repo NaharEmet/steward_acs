@@ -1,5 +1,5 @@
 content: |
-  `Acs.LLM.try_extract_json/1` and `Acs.LLM.extract_json_content/1` now use `AnanthaJson.ResponseParser.parse/1` instead of the manual 3-attempt cascade (Jason.decode → escape_newlines_in_strings → JsonAdapter.decode). The `escape_newlines_in_strings/1` function and all its private helper clauses were removed since `JsonRemedy` (used internally by ResponseParser) handles unescaped newlines in JSON strings automatically.
+  `Acs.LLM.try_extract_json/1` and `Acs.LLM.extract_json_content/1` now use `LLMUtils.ResponseParser.parse/1` instead of the manual 3-attempt cascade (Jason.decode → escape_newlines_in_strings → JsonAdapter.decode). The `escape_newlines_in_strings/1` function and all its private helper clauses were removed since `JsonRemedy` (used internally by ResponseParser) handles unescaped newlines in JSON strings automatically.
   
   Key behaviors preserved:
   - `<thinking>...</thinking>` tag stripping (ACS-specific, done before calling ResponseParser)
@@ -29,7 +29,7 @@ tags:
   - json
   - response_parser
   - refactor
-title: Acs.LLM now uses AnanthaJson.ResponseParser instead of manual JSON parsing
+title: Acs.LLM now uses LLMUtils.ResponseParser instead of manual JSON parsing
 triggers: []
 updated_at: "2026-06-24T11:43:04.464695Z"
 verification:
