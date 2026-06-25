@@ -2,52 +2,18 @@ defmodule Acs.LLM do
   @moduledoc """
   LLM wrapper for Memory Auditor evaluations.
 
-  Uses direct Req.post/1 calls with OpenAI-compatible API format.
-  Iterates through all enabled LLM providers in priority order until one succeeds.
-  Evaluates proposed memories for quality, noise, contradictions, and title quality.
+  Uses shared `LLMUtils.Client` for HTTP calls, provider configs, rate limiting,
+  circuit breaking, and response normalization.
+  Keeps evaluation-specific logic: prompt building, provider iteration, contradiction detection.
   """
 
   require Logger
 
   alias LLMUtils.ResponseParser
 
-  # Provider definitions — all available providers for memory evaluation.
-  # Add new providers by adding an entry here.
-  @providers %{
-    "nim" => %{
-      api_key_env: "NIM_API_KEY",
-      config_key: :nvidia_nim_api_key,
-      base_url: "https://integrate.api.nvidia.com/v1",
-      model: "meta/llama-3.3-70b-instruct",
-      supports_json_mode: false,
-      max_tokens: nil,
-      rate_limit: 40,
-      rate_window_ms: 60_000
-    },
-    "mimo" => %{
-      api_key_env: "MIMO_API_KEY",
-      config_key: :mimo_api_key,
-      base_url: "https://token-plan-sgp.xiaomimimo.com/v1",
-      model: "mimo-v2.5",
-      supports_json_mode: true,
-      suppress_thinking: true,
-      max_tokens: 4096,
-      rate_limit: 40,
-      rate_window_ms: 60_000
-    },
-    "minimax" => %{
-      api_key_env: "MINIMAX_API_KEY",
-      config_key: :minimax_api_key,
-      base_url: "https://api.minimax.io/v1",
-      model: "minimax-m2.7",
-      supports_json_mode: true,
-      max_tokens: nil,
-      rate_limit: 40,
-      rate_window_ms: 60_000
-    }
-  }
+  # Provider priority order for evaluations
+  @provider_priority ["nim", "mimo", "minimax"]
 
-  # Number of approved memories to include for contradiction detection
   @max_context_memories 5
 
   @doc """
@@ -75,18 +41,16 @@ defmodule Acs.LLM do
   """
   @spec evaluate_memory(String.t(), map()) :: {:ok, map()} | {:error, atom() | String.t()}
   def evaluate_memory(memory_id, memory) when is_map(memory) do
-    # Guard: validate required fields at boundary
     with {:ok, _} <- validate_required_fields(memory) do
       do_evaluate(memory_id, memory)
     end
   end
 
   def evaluate_memory(memory_id, invalid) do
-    {:error,
-     {:invalid_input, "memory_id #{memory_id}: memory must be a map, got: #{inspect(invalid)}"}}
+    {:error, {:invalid_input, "memory_id #{memory_id}: memory must be a map, got: #{inspect(invalid)}"}}
   end
 
-  # Backward compatibility - deprecated, use evaluate_memory/2
+  # Backward compatibility — deprecated, use evaluate_memory/2
   def evaluate_memory(memory) when is_map(memory) do
     evaluate_memory("unknown", memory)
   end
@@ -95,7 +59,8 @@ defmodule Acs.LLM do
     {:error, {:invalid_input, "memory must be a map, got: #{inspect(invalid)}"}}
   end
 
-  # Validate required fields early - fail fast with descriptive errors
+  # ── Validation ────────────────────────────────────────────────────────
+
   defp validate_required_fields(memory) do
     required = [:title, :content, :kind, :scope_path]
 
@@ -114,7 +79,8 @@ defmodule Acs.LLM do
     end
   end
 
-  # Core evaluation logic with provider iteration and retries
+  # ── Core evaluation logic ───────────────────────────────────────────
+
   defp do_evaluate(memory_id, memory) do
     prompt = build_evaluation_prompt(memory, fetch_approved_memories_for_context(memory.scope_path))
 
@@ -127,6 +93,10 @@ defmodule Acs.LLM do
     end
   end
 
+  # ── Provider iteration ──────────────────────────────────────────────
+  # Tries providers in priority order until one succeeds.
+  # Uses LLMUtils.Client for the actual HTTP call.
+
   defp try_providers(memory_id, providers, prompt) do
     try_providers(memory_id, providers, prompt, [])
   end
@@ -136,152 +106,86 @@ defmodule Acs.LLM do
   end
 
   defp try_providers(memory_id, [provider_id | rest], prompt, errors) do
-    config = @providers[provider_id]
-    Logger.info("[Acs.LLM] Trying provider: #{provider_id} with model #{config.model}")
+    Logger.info("[Acs.LLM] Trying provider: #{provider_id}")
 
-    case call_provider(provider_id, config, prompt) do
+    case call_provider(provider_id, prompt) do
       {:ok, evaluation} -> {:ok, evaluation}
-      {:error, reason} -> handle_failure(memory_id, provider_id, rest, prompt, errors, reason)
-    end
-  end
-
-  defp handle_failure(memory_id, provider_id, rest, prompt, errors, reason) do
-    Logger.warning("[Acs.LLM] Provider #{provider_id} failed: #{inspect(reason)}")
-    try_providers(memory_id, rest, prompt, [{provider_id, reason} | errors])
-  end
-
-  defp call_provider(provider_id, config, prompt) do
-    api_key =
-      Application.get_env(:steward_acs, config.config_key) ||
-        System.get_env(config.api_key_env)
-
-    if is_nil(api_key) or api_key == "" do
-      {:error, :missing_api_key}
-    else
-      case check_rate_limit(provider_id, config) do
-        :rate_limited ->
-          Logger.warning("[Acs.LLM] Rate limited on #{provider_id}, waiting...")
-          Process.sleep(1000)
-          {:error, :rate_limited}
-
-        :ok ->
-          do_call_provider(config, prompt, api_key)
-      end
-    end
-  end
-
-  defp do_call_provider(config, prompt, api_key) do
-    body = build_request_body(config, prompt)
-
-    Logger.info("[Acs.LLM] Calling #{config.base_url} with model #{config.model}")
-
-    case Req.post(
-      url: "#{config.base_url}/chat/completions",
-      json: body,
-      headers: [{"Authorization", "Bearer #{api_key}"}],
-      receive_timeout: 30_000
-    ) do
-      {:ok, %{status: 200, body: response_body}} ->
-        extract_json_from_message(response_body)
-
-      {:ok, %{status: status, body: response_body}} ->
-        Logger.warning("[Acs.LLM] Provider returned status #{status}")
-        {:error, {:http_error, status, response_body}}
-
       {:error, reason} ->
-        Logger.error("[Acs.LLM] Provider request failed: #{inspect(reason)}")
-        {:error, reason}
+        Logger.warning("[Acs.LLM] Provider #{provider_id} failed: #{inspect(reason)}")
+        try_providers(memory_id, rest, prompt, [{provider_id, reason} | errors])
     end
   end
 
-  defp build_request_body(config, prompt) do
-    messages = [
-      %{role: "user", content: prompt}
-    ]
+  # ── Provider call ────────────────────────────────────────────────────
+  # Uses LLMUtils.Client with options for metrics, rate limiting, logging.
 
-    base = %{
-      model: config.model,
-      messages: messages,
-      temperature: 0.0,
-      max_tokens: config.max_tokens
-    }
+  defp call_provider(provider_id, prompt) do
+    config = LLMUtils.Providers.get(provider_id)
 
-    body =
-      if config.supports_json_mode do
-        Map.put(base, :response_format, %{type: "json_object"})
-      else
-        base
-      end
-
-    if config[:suppress_thinking] do
-      Map.put(body, :thinking, %{type: "disabled"})
+    if is_nil(config) do
+      {:error, :unknown_provider}
     else
-      body
+      api_key = resolve_api_key(provider_id)
+
+      messages = [%{role: "user", content: prompt}]
+
+      opts = [
+        model: config.default_model,
+        api_key: api_key,
+        json_mode: config.supports_json_mode,
+        suppress_thinking: Map.get(config, :suppress_thinking, false),
+        max_tokens: 4096,
+        temperature: 0.0,
+        enable_rate_limiter: true,
+        enable_circuit_breaker: false,
+        enable_metrics: true,
+        enable_logging: true
+      ]
+
+      case LLMUtils.Client.chat_completion(messages, provider_id, opts) do
+        {:ok, %{content: content}} ->
+          extract_evaluation(content)
+
+        {:ok, response} ->
+          Logger.warning("[Acs.LLM] Unexpected response format from #{provider_id}: #{inspect(response)}")
+          {:error, :unexpected_response_format}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 
-  defp extract_json_from_message(message) do
-    choices = message["choices"] || message[:choices] || []
+  # ── API key resolution ───────────────────────────────────────────────
+  # Checks Application config first (set in runtime.exs), then system env.
 
-    case choices do
-      [first_choice | _] ->
-        message_content = first_choice["message"] || first_choice[:message] || %{}
-        content = message_content["content"] || message_content[:content] || ""
-        reasoning = first_choice["reasoning"] || first_choice[:reasoning] || ""
-
-        case {content, reasoning} do
-          {content, _} when is_binary(content) and content != "" ->
-            case try_extract_json(content) do
-              {:ok, _} = success -> success
-              :error ->
-                # If content extraction fails, try reasoning content
-                try_reasoning_content(reasoning)
-            end
-
-          {_, reasoning} when is_binary(reasoning) and reasoning != "" ->
-            try_reasoning_content(reasoning)
-
-          _ ->
-            Logger.warning("[Acs.LLM] Empty response - message keys: #{inspect(Map.keys(message))}")
-            {:error, :empty_response}
-        end
-
-      _ ->
-        Logger.warning("[Acs.LLM] No choices in response")
-        {:error, :no_choices}
-    end
+  defp resolve_api_key(provider_id) do
+    Application.get_env(:steward_acs, :"#{provider_id}_api_key") ||
+      System.get_env(LLMUtils.Provider.env_key(provider_id))
   end
 
-  defp try_reasoning_content(nil), do: {:error, :empty_response}
+  # ── Evaluation extraction ────────────────────────────────────────────
 
-  defp try_reasoning_content(reasoning) do
-    case try_extract_json(reasoning) do
-      {:ok, _} = success -> success
-      :error -> {:error, :invalid_json_response}
-    end
+  defp extract_evaluation(content) when is_map(content) do
+    {:ok, content}
   end
 
-  # ── JSON extraction and decoding ──────────────────────────────────────
-
-  defp try_extract_json(nil), do: :error
-
-  defp try_extract_json(text) do
-    text
+  defp extract_evaluation(content) when is_binary(content) do
+    content
     |> String.trim()
     |> strip_thinking_tags()
     |> ResponseParser.parse()
     |> case do
       {:ok, _} = success -> success
-      _ -> :error
+      {:error, _} -> {:error, :invalid_json_response}
     end
   end
 
+  defp extract_evaluation(_), do: {:error, :invalid_json_response}
+
+  # ── Public JSON extraction (backward compat, used in tests) ──────────
+
   @doc false
-  # Extract valid JSON from LLM response content that may have markdown code fence wrapping
-  # or thinking tags. Reasoning models (MiMo v2.5) often wrap output in <thinking>...</thinking>
-  # blocks followed by the actual JSON response.
-  #
-  # Uses the shared LLMUtils.ResponseParser from the :llm_utils library.
   def extract_json_content(nil), do: :error
 
   def extract_json_content(content) when is_binary(content) do
@@ -297,76 +201,37 @@ defmodule Acs.LLM do
 
   def extract_json_content(_), do: :error
 
-  # Strip <thinking>...</thinking> blocks from reasoning model output.
-  # MiMo v2.5 and similar reasoning models wrap their reasoning in these tags.
-  # This is ACS-specific — the shared ResponseParser doesn't strip thinking tags.
+  # ── Thinking tag stripping ──────────────────────────────────────────
+  # Reasoning model responses may include <thinking>...</thinking> blocks.
+  # The shared LLMUtils.Client strips these from HTTP responses, but
+  # we also strip from raw content as a safety net.
+
   defp strip_thinking_tags(content) do
     String.replace(content, ~r/<thinking>[\s\S]*?<\/thinking>/i, "")
     |> String.trim()
   end
 
-  # Generic rate limiter using per-provider ETS tables
-  defp check_rate_limit(provider_id, config) do
-    table_name = :"#{provider_id}_rate_tracker"
-    ensure_rate_table(table_name)
+  # ── Provider filtering ──────────────────────────────────────────────
+  # Checks which providers are enabled (whitelist) and have valid API keys.
 
-    now = System.monotonic_time(:millisecond)
-    cutoff = now - config.rate_window_ms
-
-    :ets.select_delete(table_name, [{{:_, :"$1"}, [{:<, :"$1", cutoff}], [true, []]}])
-
-    timestamps =
-      :ets.select(table_name, [{{:_, :"$1"}, [{:>, :"$1", cutoff}], [:"$1"]}])
-
-    if length(timestamps) >= config.rate_limit do
-      :rate_limited
-    else
-      :ets.insert(table_name, {make_ref(), now})
-      :ok
-    end
+  defp get_enabled_providers do
+    @provider_priority
+    |> Enum.filter(&provider_enabled?/1)
+    |> Enum.filter(&has_valid_api_key?/1)
   end
 
-  defp ensure_rate_table(table_name) do
-    case :ets.info(table_name, :name) do
-      :undefined ->
-        try do
-          :ets.new(table_name, [:set, :public, :named_table])
-        rescue
-          ArgumentError -> :ok
-        end
-
-      _ ->
-        :ok
-    end
-  end
-
-  # Check if a provider is enabled (whitelist-based).
-  # If enabled list is empty, all providers are considered enabled.
   defp provider_enabled?(provider_id) do
     enabled = Application.get_env(:steward_acs, :enabled_llm_providers, [])
     enabled == [] or provider_id in enabled
   end
 
-  # Check if a provider is enabled (whitelist-based)
-  defp get_enabled_providers do
-    @providers
-    |> Map.keys()
-    |> Enum.filter(&provider_enabled?/1)
-    |> Enum.filter(fn id ->
-      config = @providers[id]
-
-      api_key =
-        Application.get_env(:steward_acs, config.config_key) ||
-          System.get_env(config.api_key_env)
-
-      is_binary(api_key) and api_key != ""
-    end)
+  defp has_valid_api_key?(provider_id) do
+    api_key = resolve_api_key(provider_id)
+    is_binary(api_key) and api_key != ""
   end
 
-  # Fetch up to 5 approved memories from the same scope for contradiction detection
-  #
-  # Indexer.list_memories/1 returns a flat list (Repo.all/2 result), not an {:ok, list} tuple,
-  # so we handle the list directly with a guard for unexpected types.
+  # ── Context fetch ────────────────────────────────────────────────────
+
   defp fetch_approved_memories_for_context(scope_path) when is_binary(scope_path) do
     memories =
       Acs.Memory.Indexer.list_memories(
@@ -384,7 +249,8 @@ defmodule Acs.LLM do
 
   defp fetch_approved_memories_for_context(_), do: []
 
-  # Build evaluation prompt with JSON wrappers for injection protection
+  # ── Evaluation prompt ────────────────────────────────────────────────
+
   defp build_evaluation_prompt(memory, context_memories) do
     memory_json =
       Jason.encode!(%{
@@ -409,5 +275,4 @@ defmodule Acs.LLM do
     For recommendation, you MUST use exactly one of: "approve", "reject", or "human_review".
     """
   end
-
 end
