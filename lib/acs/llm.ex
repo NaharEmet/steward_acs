@@ -9,7 +9,7 @@ defmodule Acs.LLM do
 
   require Logger
 
-  alias AnanthaJson.ResponseParser
+  alias LLMUtils.ResponseParser
 
   # Provider definitions — all available providers for memory evaluation.
   # Add new providers by adding an entry here.
@@ -281,7 +281,7 @@ defmodule Acs.LLM do
   # or thinking tags. Reasoning models (MiMo v2.5) often wrap output in <thinking>...</thinking>
   # blocks followed by the actual JSON response.
   #
-  # Uses the shared AnanthaJson.ResponseParser from the :llm_utils library.
+  # Uses the shared LLMUtils.ResponseParser from the :llm_utils library.
   def extract_json_content(nil), do: :error
 
   def extract_json_content(content) when is_binary(content) do
