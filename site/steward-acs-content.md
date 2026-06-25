@@ -307,7 +307,7 @@ The name "Steward" comes from the Old English *stigweard* — "one who manages a
 | PubSub         | Phoenix PubSub 2.2               | Agent wake/sleep notifications       |
 | Caching        | ETS (Erlang Term Storage)        | In-memory, fast lookups             |
 | LLM client     | Req 0.5 + ReqLLM 1.0            | HTTP client for LLM providers        |
-| LLM utils      | llm_utils (AnanthaJson)          | JSON-based LLM interaction           |
+| LLM utils      | llm_utils (LLMUtils.*)          | JSON-based LLM interaction           |
 | YAML parsing   | yaml_elixir 2.9                  | Tool definitions                     |
 | File watching  | file_system 1.0                  | Memory file watcher                  |
 | JS bundler     | esbuild 0.21.5                   | Asset compilation                    |
