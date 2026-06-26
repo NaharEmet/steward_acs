@@ -1,0 +1,111 @@
+services:
+  steward_acs:
+    image: naharemete/steward_acs:latest
+    container_name: steward_acs
+    restart: unless-stopped
+
+    ports:
+      - "4001:4001"
+
+    environment:
+      # === General ===
+      MIX_ENV: prod
+      ACS_CLUSTER_NAME: default
+      ACS_DEVELOPER_NAME: unknown
+      AUDITOR_INTERVAL: 30000
+
+      # === Database (SQLite — default) ===
+      DATABASE_PATH: /app/priv/acs.sqlite
+
+      # === Database (PostgreSQL — uncomment and fill to use instead) ===
+      # DATABASE_URL: ecto://postgres:postgres@db:5432/acs_prod
+      # PGUSER: postgres
+      # PGPASSWORD: postgres
+      # PGHOST: db
+      # PGPORT: "5432"
+      # PGDATABASE: acs_prod
+      # POOL_SIZE: "10"
+
+      # === LLM Providers ===
+      # Comma-separated list of providers to activate
+      ENABLED_LLM_PROVIDERS: "mimo,nim"
+
+      # API keys for each enabled provider
+      MIMO_API_KEY: ""
+      NIM_API_KEY: ""
+      # MINIMAX_API_KEY: ""
+
+      # === Embeddings ===
+      # Ollama with nomic-embed-text enables semantic search.
+      # Falls back to SQLite FTS if Ollama is unavailable or this is left empty.
+      # OLLAMA_URL: http://ollama:11434
+
+      # === Anantha integration (optional) ===
+      # ENCRYPTION_KEY: ""
+      # ANANTHA_API_KEY: ""
+
+    volumes:
+      # Single volume persists both SQLite DB and memory YAML files
+      - acs_data:/app/priv
+
+      # Mount tool directories (optional, for MCP tool loading)
+      # - /path/to/anantha/tools:/app/anantha/acstools
+      # - /path/to/acs/tools:/app/acs/acstools
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Uncomment to enable Ollama for semantic embeddings:
+    # depends_on:
+    #   ollama:
+    #     condition: service_started
+
+  # === Ollama (optional — for semantic embeddings) ===
+  # Uncomment to enable. Falls back to SQLite FTS when disabled.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   restart: unless-stopped
+  #   entrypoint: ["/bin/sh", "-c"]
+  #   command:
+  #     - |
+  #       ollama serve &
+  #       sleep 3
+  #       ollama pull nomic-embed-text
+  #       wait
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   ports:
+  #     - "11434:11434"
+  #   healthcheck:
+  #     test: ["CMD", "ollama", "list"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 10
+  #     start_period: 30s
+
+  # === PostgreSQL (optional — uncomment to use) ===
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: steward_acs_db
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: acs_prod
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+volumes:
+  acs_data:
+  # ollama_data:
+  # postgres_data:
