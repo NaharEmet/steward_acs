@@ -1,7 +1,7 @@
 # ============================================================
 # Stage 1: Build
 # ============================================================
-FROM hexpm/elixir:1.17.3-erlang-27.2.1-alpine-3.21 AS build
+FROM hexpm/elixir:1.17.3-erlang-26.2.5.21-alpine-3.22.5 AS build
 
 # Install build dependencies
 RUN apk add --no-cache build-base git nodejs npm
@@ -43,7 +43,7 @@ RUN apk add --no-cache libstdc++ ncurses-libs openssl bash ca-certificates
 WORKDIR /app
 
 # Copy release from build stage
-COPY --from=build /app/_build/prod/rel/steward_acs ./
+COPY --from=build /app/_build/shared/rel/steward_acs ./
 
 EXPOSE 4000
 EXPOSE 4001

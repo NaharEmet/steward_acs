@@ -13,9 +13,9 @@ defmodule Acs.MixProject do
       aliases: aliases(),
       preferred_cli_env: [test: :test],
       releases: [
-        acs: [
+        steward_acs: [
           include_executables_for: [:unix],
-          steps: [:assemble, &copy_env/2]
+          steps: [:assemble, &copy_env/1]
         ]
       ]
     ]
@@ -46,7 +46,7 @@ defmodule Acs.MixProject do
       {:req, "~> 0.5.0"},
       {:req_llm, ">= 1.0.0"},
       llm_utils_dep,
-      {:dotenvy, "~> 1.0", only: [:dev, :test], override: true},
+      {:dotenvy, "~> 1.0", override: true},
       {:yaml_elixir, "~> 2.9"},
       {:bandit, "~> 1.5"},
       {:phoenix, "~> 1.8.3"},
@@ -55,6 +55,7 @@ defmodule Acs.MixProject do
       {:phoenix_html, "~> 4.1"},
       {:file_system, "~> 1.0", override: true},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
+      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
@@ -64,12 +65,13 @@ defmodule Acs.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       setup: ["deps.get", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate", "test"]
+      test: ["ecto.create --quiet", "ecto.migrate", "test"],
+      "assets.deploy": ["esbuild steward_acs --minify", "phx.digest"]
     ]
   end
 
   # Copy .env file to release
-  defp copy_env(release, _) do
+  defp copy_env(release) do
     env_src = Path.join(release.path, "../../.env")
     env_dst = Path.join(release.path, ".env")
 
