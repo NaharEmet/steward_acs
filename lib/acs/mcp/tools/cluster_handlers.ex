@@ -2,35 +2,10 @@ defmodule Acs.MCP.Tools.ClusterHandlers do
   @moduledoc """
   Cluster filesystem tool handlers for the ACS MCP gateway.
 
-  Provides exec_command, read_file, write_file, and read_dir
-  using Port-based spawn_executable for safe command execution
-  (no shell injection).
+  Provides read_file, write_file, and read_dir.
   """
 
   require Logger
-
-  @doc """
-  Executes a shell command safely via spawn_executable.
-
-  Args: %{"command" => cmd, "args" => [args], "cwd" => dir, "timeout" => ms}
-  """
-  def exec_command(args) do
-    command = args["command"]
-    cmd_args = if is_list(args["args"]), do: args["args"], else: []
-    cwd = args["cwd"] || "/tmp"
-    timeout = args["timeout"] || 30_000
-
-    cond do
-      is_nil(command) or command == "" ->
-        {:error, "Missing 'command' argument"}
-
-      not is_binary(cwd) or not File.dir?(cwd) ->
-        {:error, "Working directory does not exist: #{inspect(cwd)}"}
-
-      true ->
-        do_exec(command, cmd_args, cwd, timeout)
-    end
-  end
 
   @doc """
   Reads a file from the cluster filesystem.
@@ -123,56 +98,6 @@ defmodule Acs.MCP.Tools.ClusterHandlers do
         {:error, reason} ->
           {:error, "Failed to list directory: #{reason}"}
       end
-    end
-  end
-
-  defp do_exec(command, args, cwd, timeout) do
-    executable_path = System.find_executable(command)
-
-    if is_nil(executable_path) do
-      {:error, "Command '#{command}' not found in PATH"}
-    else
-      try do
-        port =
-          Port.open({:spawn_executable, executable_path}, [
-            :binary,
-            :exit_status,
-            :stderr_to_stdout,
-            {:args, args},
-            {:cd, cwd}
-          ])
-
-        collect_output(port, "", timeout)
-      rescue
-        e in ArgumentError ->
-          {:error, "Failed to execute command: #{inspect(e)}"}
-
-        e in ErlangError ->
-          {:error, "Port error: #{inspect(e.original)}"}
-      end
-    end
-  end
-
-  defp collect_output(port, acc, timeout) do
-    receive do
-      {^port, {:data, data}} ->
-        collect_output(port, acc <> data, timeout)
-
-      {^port, {:exit_status, status}} ->
-        safe_close(port)
-        {:ok, %{status: status, output: acc}}
-    after
-      timeout ->
-        safe_close(port)
-        {:error, "Command timed out after #{timeout}ms"}
-    end
-  end
-
-  defp safe_close(port) do
-    try do
-      Port.close(port)
-    rescue
-      ArgumentError -> :ok
     end
   end
 end

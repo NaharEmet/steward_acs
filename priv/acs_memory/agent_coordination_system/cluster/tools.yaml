@@ -1,4 +1,4 @@
-content: "The exec_command MCP tool uses `Port.open({:spawn_executable, executable_path}, args: arg_list)` not `Port.open({:spawn, command_string})`. The `:spawn` form creates a shell and is vulnerable to shell injection. `:spawn_executable` executes the binary directly with arguments as a list, which is injection-safe. The tool also implements: command allowlist (configurable via :allowed_commands), path allowlist (:allowed_paths), shell metacharacter rejection on arguments, file size limits, and configurable timeouts."
+content: Cluster filesystem tools (read_file, write_file, read_dir) use File module operations with path allowlisting to prevent directory traversal.
 created_at: "2026-06-19T20:16:38Z"
 created_by:
   id: unknown
@@ -12,17 +12,16 @@ revalidation:
   interval_days: 30
   last_checked_at:
 scope_path: agent_coordination_system/cluster/tools
-status: approved
-summary:
+status: parse_error
+summary: Cluster filesystem tools use File module operations with path allowlisting to prevent directory traversal.
 tags:
   - cluster
   - tools
   - security
-  - shell-injection
-title: Remote cluster MCP tools use spawn_executable not spawn for shell injection safety
+title: Cluster filesystem tools use path allowlisting for security
 triggers: []
-updated_at: "2026-06-19T20:19:52Z"
+updated_at: 2026-06-26
 verification:
   approved_at: "2026-06-19T20:19:52.594479Z"
-  approved_by: Critical security pattern for remote cluster tools — shell injection prevention via spawn_executable
-  status: approved
+  approved_by: exec_command disabled - learning updated
+  status: stale

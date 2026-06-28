@@ -5,86 +5,15 @@ defmodule Acs.MCP.Tools.ClusterHandlersTest do
 
   setup do
     # Store original config
-    orig_commands = Application.get_env(:steward_acs, :allowed_commands)
     orig_paths = Application.get_env(:steward_acs, :allowed_paths)
 
     on_exit(fn ->
-      # Restore original config
-      if orig_commands,
-        do: Application.put_env(:steward_acs, :allowed_commands, orig_commands),
-        else: Application.delete_env(:steward_acs, :allowed_commands)
-
       if orig_paths,
         do: Application.put_env(:steward_acs, :allowed_paths, orig_paths),
         else: Application.delete_env(:steward_acs, :allowed_paths)
     end)
 
     :ok
-  end
-
-  describe "exec_command/1" do
-    test "rejects missing command" do
-      assert {:error, "Missing required parameter: 'command'"} = ClusterHandlers.exec_command(%{})
-    end
-
-    test "rejects disallowed command" do
-      Application.put_env(:steward_acs, :allowed_commands, ["echo", "ls"])
-      assert {:error, msg} = ClusterHandlers.exec_command(%{"command" => "rm"})
-      assert msg =~ "not in allowed list"
-    end
-
-    test "rejects disallowed working directory" do
-      Application.put_env(:steward_acs, :allowed_commands, ["echo"])
-      Application.put_env(:steward_acs, :allowed_paths, ["/tmp"])
-      assert {:error, msg} = ClusterHandlers.exec_command(%{"command" => "echo", "cwd" => "/etc"})
-      assert msg =~ "not in allowed paths"
-    end
-
-    test "rejects arguments with shell metacharacters" do
-      Application.put_env(:steward_acs, :allowed_commands, ["echo"])
-      Application.put_env(:steward_acs, :allowed_paths, ["/tmp"])
-      assert {:error, msg} = ClusterHandlers.exec_command(%{
-        "command" => "echo", "args" => ["hello; rm -rf /"], "cwd" => "/tmp"
-      })
-      assert msg =~ "shell metacharacters"
-    end
-
-    test "executes allowed command and returns output" do
-      Application.put_env(:steward_acs, :allowed_commands, ~w(echo ls cat))
-      Application.put_env(:steward_acs, :allowed_paths, ["/tmp"])
-
-      assert {:ok, result} = ClusterHandlers.exec_command(%{
-        "command" => "echo",
-        "args" => ["hello world"],
-        "cwd" => "/tmp"
-      })
-      assert result.stdout =~ "hello world"
-      assert result.exit_code == 0
-    end
-
-    test "returns error for unknown command" do
-      Application.put_env(:steward_acs, :allowed_commands, ~w(nonexistent_cmd_xyz))
-      Application.put_env(:steward_acs, :allowed_paths, ["/tmp"])
-      assert {:error, msg} = ClusterHandlers.exec_command(%{
-        "command" => "nonexistent_cmd_xyz",
-        "args" => [],
-        "cwd" => "/tmp"
-      })
-      assert msg =~ "not found in PATH" or msg =~ "no such file"
-    end
-
-    test "captures multi-line output" do
-      Application.put_env(:steward_acs, :allowed_commands, ~w(ls))
-      Application.put_env(:steward_acs, :allowed_paths, ["/tmp"])
-
-      assert {:ok, result} = ClusterHandlers.exec_command(%{
-        "command" => "ls",
-        "args" => ["-la", "/tmp"],
-        "cwd" => "/tmp"
-      })
-      assert String.contains?(result.stdout, "total") or String.length(result.stdout) > 0
-      assert result.exit_code == 0
-    end
   end
 
   describe "read_file/1" do

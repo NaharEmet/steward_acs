@@ -39,7 +39,7 @@ defmodule Mix.Tasks.Acs.MetaHarness.PruneReports do
   end
 
   defp parse_args!(args) do
-    {parsed, _, invalid} =
+    {parsed, _} =
       OptionParser.parse!(args,
         strict: [
           days: :integer,
@@ -47,10 +47,6 @@ defmodule Mix.Tasks.Acs.MetaHarness.PruneReports do
           path: :string
         ]
       )
-
-    if invalid != [] do
-      Mix.raise("Invalid options: #{Enum.join(invalid, ", ")}")
-    end
 
     %{
       days: Keyword.get(parsed, :days, @default_retention_days),
