@@ -163,11 +163,11 @@ defmodule Acs.MCP.ToolRegistry do
           "ToolRegistry initialized with #{map_size(new_state.tools)} tools across #{length(new_state.apps)} apps"
         )
 
-        {:ok, new_state}
+        {:ok, add_core_tools(new_state)}
 
       {:error, reason, new_state} ->
         Logger.warning("ToolRegistry initialized with partial load: #{reason}")
-        {:ok, new_state}
+        {:ok, add_core_tools(new_state)}
     end
   end
 
@@ -184,7 +184,7 @@ defmodule Acs.MCP.ToolRegistry do
 
   @impl true
   def handle_call({:list_tools_mcp, agent_role}, _from, state) do
-    result =
+    yaml_tools =
       state.tools
       |> Map.values()
       |> filter_by_role(agent_role)
@@ -192,7 +192,12 @@ defmodule Acs.MCP.ToolRegistry do
         Map.take(tool, ["name", "description", "inputSchema"])
       end)
 
-    {:reply, result, state}
+    core_tools =
+      Acs.MCP.Tools.list_tools()
+      |> Enum.filter(fn tool -> Acs.MCP.CoreToolRoles.authorized?(tool["name"], agent_role) end)
+      |> Enum.reject(fn tool -> Map.has_key?(state.tools, tool["name"]) end)
+
+    {:reply, yaml_tools ++ core_tools, state}
   end
 
   @impl true
@@ -202,7 +207,16 @@ defmodule Acs.MCP.ToolRegistry do
     result =
       case tool do
         nil ->
-          {:error, "Unknown tool: #{name}"}
+          if Acs.MCP.Tools.has_tool?(name) do
+            if Acs.MCP.CoreToolRoles.authorized?(name, agent_role) do
+              :ok
+            else
+              {:error,
+               "Role '#{agent_role}' is not authorized to use tool '#{name}'"}
+            end
+          else
+            {:error, "Unknown tool: #{name}"}
+          end
 
         _ ->
           with :ok <- check_role(tool, name, agent_role),
@@ -287,11 +301,16 @@ defmodule Acs.MCP.ToolRegistry do
 
         case tool_def do
           nil ->
-            {:reply, {:error, "Unknown tool: #{name}"}, state}
+            if Acs.MCP.Tools.has_tool?(name) do
+              result = safe_execute(fn -> Acs.MCP.Tools.call_tool(name, args) end)
+              {:reply, result, state}
+            else
+              {:reply, {:error, "Unknown tool: #{name}"}, state}
+            end
 
           _ ->
             start_time = System.monotonic_time(:millisecond)
-            result = execute_tool(tool_def, args, state)
+            result = safe_execute(fn -> execute_tool(tool_def, args, state) end)
             latency_ms = System.monotonic_time(:millisecond) - start_time
 
             # Extract agent_id and execution_id from args for telemetry
@@ -560,6 +579,18 @@ defmodule Acs.MCP.ToolRegistry do
     end
   end
 
+  defp safe_execute(fun) do
+    fun.()
+  rescue
+    e ->
+      Logger.error("ToolRegistry tool crash: #{Exception.message(e)}")
+      {:error, "Tool execution failed"}
+  catch
+    :exit, reason ->
+      Logger.error("ToolRegistry tool exit: #{inspect(reason)}")
+      {:error, "Tool execution failed"}
+  end
+
   defp execute_tool(tool_def, args, state) do
     name = tool_def["name"]
 
@@ -813,5 +844,34 @@ defmodule Acs.MCP.ToolRegistry do
       execution_id,
       tool_discovered: true
     )
+  end
+
+  # Core tools registered at startup (survives restarts)
+  defp add_core_tools(state) do
+    ask_def = %{
+      "name" => "ask",
+      "description" => "Ask a natural language question about the knowledge base. Searches memories, documents, and agent status for relevant information.",
+      "inputSchema" => %{
+        "type" => "object",
+        "properties" => %{
+          "question" => %{"type" => "string", "description" => "Natural language question to ask"},
+          "kind" => %{"type" => "string", "description" => "Filter by memory kind (optional)"},
+          "team" => %{"type" => "string", "description" => "Filter by team (optional)"},
+          "project" => %{"type" => "string", "description" => "Filter by project (optional)"}
+        },
+        "required" => ["question"]
+      },
+      "category" => "knowledge",
+      "roles" => ["admin", "collaborator"],
+      "level" => "normal"
+    }
+
+    if Map.has_key?(state.tools, "ask") do
+      state
+    else
+      tools = Map.put(state.tools, "ask", ask_def)
+      by_category = Map.update(state.by_category, "knowledge", [ask_def], &[ask_def | &1])
+      %{state | tools: tools, by_category: by_category}
+    end
   end
 end

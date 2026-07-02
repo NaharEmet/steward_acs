@@ -13,7 +13,7 @@ defmodule Acs.Cognition.Entry do
   """
 
   defstruct [
-    :app,                # string — "anantha" — per-app isolation
+    :app,                # string — app name (e.g., "anantha") — per-app isolation
     :id,                 # string — "engine/orchestrator" (unique within app scope)
     :status,             # string — see status lifecycle above
     :title,              # string — human-readable label
@@ -35,7 +35,16 @@ defmodule Acs.Cognition.Entry do
     :proposed_by,        # string — agent name
     :approved_by,        # string — user name
     :created_at,         # string — ISO 8601
-    :updated_at          # string — ISO 8601
+    :updated_at,         # string — ISO 8601
+    :document_type,      # string — "policy"|"process"|"guideline"|"reference"|"spec" (nil = legacy spec)
+    :content,            # string — markdown body for document-type entries
+    :team,               # string — team scope (ABAC)
+    :project,            # string — project scope (ABAC)
+    :visibility,         # string — "team"|"project"|"org" (ABAC, default "org")
+    :source,             # string — origin of the document (file path, URL, etc.)
+    :editing_by,         # string — agent currently editing (presence signal, not a lock)
+    :editing_since,      # string — ISO 8601 when editing started
+    :content_hash        # string — SHA-256 of content for last-write-wins conflict detection
   ]
 
   @type t :: %__MODULE__{
@@ -61,7 +70,16 @@ defmodule Acs.Cognition.Entry do
     proposed_by: String.t() | nil,
     approved_by: String.t() | nil,
     created_at: String.t() | nil,
-    updated_at: String.t() | nil
+    updated_at: String.t() | nil,
+    document_type: String.t() | nil,
+    content: String.t() | nil,
+    team: String.t() | nil,
+    project: String.t() | nil,
+    visibility: String.t() | nil,
+    source: String.t() | nil,
+    editing_by: String.t() | nil,
+    editing_since: String.t() | nil,
+    content_hash: String.t() | nil
   }
 
   @valid_statuses ~w(proposed under_review approved deprecated contradicted runtime_divergent historical rejected)
@@ -100,7 +118,16 @@ defmodule Acs.Cognition.Entry do
       proposed_by: map["proposed_by"],
       approved_by: map["approved_by"],
       created_at: map["created_at"] || now,
-      updated_at: now
+      updated_at: now,
+      document_type: map["document_type"],
+      content: map["content"],
+      team: map["team"],
+      project: map["project"],
+      visibility: map["visibility"] || "org",
+      source: map["source"],
+      editing_by: map["editing_by"],
+      editing_since: map["editing_since"],
+      content_hash: map["content_hash"]
     })
   end
 
@@ -132,17 +159,62 @@ defmodule Acs.Cognition.Entry do
       "proposed_by" => entry.proposed_by,
       "approved_by" => entry.approved_by,
       "created_at" => entry.created_at,
-      "updated_at" => entry.updated_at
+      "updated_at" => entry.updated_at,
+      "document_type" => entry.document_type,
+      "content" => entry.content,
+      "team" => entry.team,
+      "project" => entry.project,
+      "visibility" => entry.visibility,
+      "source" => entry.source,
+      "editing_by" => entry.editing_by,
+      "editing_since" => entry.editing_since,
+      "content_hash" => entry.content_hash
     }
     |> remove_nils()
     |> remove_empty_lists()
   end
 
+  @valid_document_types ~w(policy process guideline reference spec)
+
   @doc """
   Validate an Entry struct.
   Returns :ok or {:error, [reason_strings]}.
+
+  Dual-mode validation:
+  - Legacy spec mode (document_type nil): requires purpose, invariants, workflows, failure_modes
+  - Document mode (document_type present): requires document_type, title, content (max 5 paragraphs)
   """
   def validate(%__MODULE__{} = entry) do
+    if entry.document_type do
+      validate_document(entry)
+    else
+      validate_spec(entry)
+    end
+  end
+
+  defp validate_document(entry) do
+    errors = []
+
+    errors = if is_nil(entry.app) or entry.app == "", do: ["app is required"] ++ errors, else: errors
+    errors = if is_nil(entry.id) or entry.id == "", do: ["id is required"] ++ errors, else: errors
+    errors = if is_nil(entry.title) or entry.title == "", do: ["title is required"] ++ errors, else: errors
+
+    errors = if entry.document_type not in @valid_document_types do
+      ["invalid document_type: #{entry.document_type}. Must be one of: #{Enum.join(@valid_document_types, ", ")}"] ++ errors
+    else
+      errors
+    end
+
+    errors = if is_nil(entry.content) or entry.content == "" do
+      ["content is required for documents"] ++ errors
+    else
+      errors
+    end
+
+    if errors == [], do: :ok, else: {:error, Enum.reverse(errors)}
+  end
+
+  defp validate_spec(entry) do
     errors = []
 
     errors = if is_nil(entry.app) or entry.app == "", do: ["app is required"] ++ errors, else: errors
@@ -336,7 +408,8 @@ defmodule Acs.Cognition.Entry do
 
   @doc """
   Generate a file path for a spec given app and module path.
-  e.g., app="anantha", path="engine/orchestrator" → "anantha/engine/orchestrator.yaml"
+  e.g., app="anantha", path="engine/orchestrator" → "anantha/engine/orchestrator.yaml".
+  The app name is arbitrary and serves as a namespace for per-app configuration isolation.
   """
   def spec_filename(app, path) do
     Path.join([app, "#{path}.yaml"])

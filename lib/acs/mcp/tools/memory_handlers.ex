@@ -34,11 +34,13 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     importance = args["importance"] || 3
     summary = args["summary"]
     failure_modes = args["failure_modes"] || []
+    team = args["team"]
+    project = args["project"]
+    visibility = args["visibility"] || "org"
 
     memory_map = %{
       "id" => Acs.Memory.generate_id(%{"kind" => kind, "title" => title}),
       "kind" => kind,
-      "status" => "proposed",
       "title" => title,
       "summary" => summary,
       "content" => content,
@@ -51,7 +53,10 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
         "type" => "developer",
         "id" => Acs.Cluster.developer_name(),
         "cluster" => Acs.Cluster.current()
-      }
+      },
+      "team" => team,
+      "project" => project,
+      "visibility" => visibility
     }
 
     case Acs.Memory.validate(memory_map) do
@@ -69,7 +74,10 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       kind: args["kind"],
       status: args["status"],
       scope_path: args["scope_path"],
-      limit: args["limit"] || 50
+      limit: args["limit"] || 50,
+      allowed_teams: args["_auth_allowed_teams"],
+      allowed_projects: args["_auth_allowed_projects"],
+      agent_role: args["_auth_role"]
     ]
 
     memories = Acs.Memory.Search.list(opts)
@@ -98,7 +106,10 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     opts = [
       scope_path: args["scope"],
       kind: args["kind"],
-      limit: args["limit"] || 20
+      limit: args["limit"] || 20,
+      allowed_teams: args["_auth_allowed_teams"],
+      allowed_projects: args["_auth_allowed_projects"],
+      agent_role: args["_auth_role"]
     ]
 
     memories = Acs.Memory.Search.search(query, opts)
@@ -199,19 +210,28 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
   def generate_guidance_packet(args) do
     scope_path = args["scope_path"] || args["scope"]
     task_id = args["task_id"]
+    mode = String.to_atom(args["mode"] || "mcp")
+    allowed_teams = args["_auth_allowed_teams"]
+    allowed_projects = args["_auth_allowed_projects"]
 
     packet =
       cond do
         task_id && task_id != "" ->
-          Acs.Memory.Guidance.for_task(task_id, tier: :full)
+          Acs.Memory.Guidance.for_task(task_id, tier: :full, mode: mode)
 
         scope_path && scope_path != "" ->
-          Acs.Memory.Guidance.generate(scope_path, tier: :full)
+          Acs.Memory.Guidance.generate(scope_path,
+            tier: :full,
+            mode: mode,
+            allowed_teams: allowed_teams,
+            allowed_projects: allowed_projects
+          )
 
         true ->
           %{
             scope: nil,
             tier: :full,
+            mode: mode,
             critical_axioms: [],
             warnings: [],
             relevant_patterns: [],
@@ -280,16 +300,19 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     end
   end
 
-  # Store embedding for future semantic dedup checks
   defp store_memory_embedding(%Acs.Memory{} = memory) do
-    retrieval_text = Acs.Memory.Embedding.memory_to_retrieval_text(memory)
+    if memory.kind in Acs.Memory.embeddable_kinds() do
+      retrieval_text = Acs.Memory.Embedding.memory_to_retrieval_text(memory)
 
-    case Acs.Memory.Embedding.embed_text(retrieval_text) do
-      {:ok, embedding} ->
-        Acs.Memory.VectorIndex.upsert_embedding(memory.id, embedding)
+      case Acs.Memory.Embedding.embed_text(retrieval_text) do
+        {:ok, embedding} ->
+          Acs.Memory.VectorIndex.upsert_embedding(memory.id, embedding)
 
-      {:error, reason} ->
-        Logger.warning("[Tools] Could not store embedding for #{memory.id}: #{reason}")
+        {:error, reason} ->
+          Logger.warning("[Tools] Could not store embedding for #{memory.id}: #{reason}")
+      end
+    else
+      Logger.debug("[Tools] Skipping embedding for non-embeddable kind: #{memory.kind}")
     end
 
     :ok
@@ -318,9 +341,9 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
           {:ok,
            %{
              id: memory.id,
-             status: "proposed",
+             status: memory.status,
              conflict_flags: conflict_flags,
-             message: "Memory created, pending approval"
+             message: "Memory saved with status: #{memory.status}"
            }}
 
         {:error, reason} ->

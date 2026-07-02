@@ -133,7 +133,7 @@ defmodule Acs.Memory.GuidanceTest do
 
       assert String.contains?(packet.maintenance_instructions, "set_memory_status")
       assert String.contains?(packet.maintenance_instructions, "save_memory")
-      assert String.contains?(packet.maintenance_instructions, "cognition_propose")
+      assert String.contains?(packet.maintenance_instructions, "document_propose")
     end
   end
 

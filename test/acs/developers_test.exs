@@ -9,7 +9,7 @@ defmodule Acs.DevelopersTest do
       assert String.starts_with?(raw_key, "acs_dev_")
       assert byte_size(raw_key) == 8 + 64  # prefix (acs_dev_) + hex
       assert dev.developer_name == "test-user"
-      assert dev.role == "admin"
+      assert dev.role == "collaborator"
       assert dev.active == true
     end
 
@@ -35,7 +35,7 @@ defmodule Acs.DevelopersTest do
 
   describe "authenticate/1" do
     test "returns role and cluster on valid key" do
-      {:ok, %{key: raw_key}} = Developers.generate_key("auth-test", cluster: "staging")
+      {:ok, %{key: raw_key}} = Developers.generate_key("auth-test", role: "admin", cluster: "staging")
       assert {:ok, %{role: "admin", cluster: "staging"}} = Developers.authenticate(raw_key)
     end
 

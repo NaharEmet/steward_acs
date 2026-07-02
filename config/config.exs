@@ -1,5 +1,12 @@
 import Config
 
+config :cors_plug,
+  origin: ["*"],
+  max_age: 86_400,
+  methods: ["GET", "POST", "PATCH", "OPTIONS"],
+  headers: ["content-type", "authorization", "x-requested-with", "x-mcp-session-id", "x-log-ingest-key"],
+  expose: ["x-mcp-session-id"]
+
 config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
 
 config :steward_acs,
@@ -14,10 +21,27 @@ config :steward_acs, AcsWeb.Endpoint,
     formats: [html: AcsWeb.ErrorHTML, json: AcsWeb.ErrorJSON],
     layout: false
   ],
-  live_view: [signing_salt: "acs_placeholder"],
+  pubsub_server: AcsWeb.PubSub,
   code_reloader: false
 
 config :phoenix, :json_library, Jason
+
+
+config :steward_acs, dev_routes: false
+
+compile_session_salt =
+  System.get_env("COOKIE_SIGNING_SALT") ||
+    case System.get_env("SECRET_KEY_BASE") do
+      nil -> "acs_cookie_session_v1"
+      secret ->
+        :crypto.hash(:sha256, secret <> "cookie")
+        |> Base.url_encode64(padding: false)
+        |> binary_part(0, 16)
+    end
+
+config :steward_acs,
+  :session_signing_salt,
+  compile_session_salt
 
 config :steward_acs, AcsWeb.PubSub, name: AcsWeb.PubSub
 

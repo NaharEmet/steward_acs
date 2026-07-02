@@ -4,11 +4,35 @@ defmodule AcsWeb do
   as controllers, components, channels, and liveviews.
   """
 
+  def static_paths, do: ~w(assets)
+
   def router do
     quote do
       use Phoenix.Router, helpers: false
-      import Phoenix.Component
+
+      import Plug.Conn
+      import Phoenix.Controller
       import Phoenix.LiveView.Router
+    end
+  end
+
+  def controller do
+    quote do
+      use Phoenix.Controller, formats: [:html]
+
+      import Plug.Conn
+      use Gettext, backend: AcsWeb.Gettext
+
+      unquote(verified_routes())
+    end
+  end
+
+  def verified_routes do
+    quote do
+      use Phoenix.VerifiedRoutes,
+        endpoint: AcsWeb.Endpoint,
+        router: AcsWeb.Router,
+        statics: AcsWeb.static_paths()
     end
   end
 
@@ -31,26 +55,21 @@ defmodule AcsWeb do
   def html do
     quote do
       use Phoenix.Component
-      use Phoenix.VerifiedRoutes,
-        endpoint: AcsWeb.Endpoint,
-        router: AcsWeb.Router
 
-      import Phoenix.Controller,
-        only: [get_csrf_token: 0]
-
-      import AcsWeb.CoreComponents
+      unquote(verified_routes())
       unquote(html_helpers())
     end
   end
 
   defp html_helpers do
     quote do
-      # HTML escaping functionality
       import Phoenix.HTML
-      # Core UI components
       import AcsWeb.CoreComponents
-      # CSRF token for meta tags (delegated to Plug.CSRFProtection)
-      import Phoenix.Controller, only: [get_csrf_token: 0]
+
+      import Phoenix.Controller,
+        only: [get_csrf_token: 0, view_module: 1]
+
+      alias Phoenix.LiveView.JS
     end
   end
 

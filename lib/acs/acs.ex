@@ -273,27 +273,47 @@ defmodule Acs.Acs do
   end
 
   @doc """
-  Lists organizations from the Anantha root app via HTTP bridge.
-  Returns [] if Anantha is unavailable or not configured.
+  Lists organizations from configured external apps via HTTP bridge.
+  Returns [] if no apps are configured or unavailable.
+
+  Specify an app name to target a specific app, or omit to try the first configured app.
   """
-  def list_orgs do
-    config = Application.get_env(:steward_acs, :anantha, [])
-    base_url = config[:base_url] || "http://localhost:4000"
-    api_key = config[:api_key] || ""
+  def list_orgs(app_name \\ nil) do
+    apps = Acs.Apps.Config.list_apps()
 
-    headers = [
-      {"authorization", "Bearer #{api_key}"},
-      {"content-type", "application/json"},
-      {"accept", "application/json"}
-    ]
+    target =
+      if app_name do
+        apps[app_name]
+      else
+        apps |> Map.values() |> List.first()
+      end
 
-    case Req.request(method: :post, url: base_url <> "/api/tools/list_orgs", headers: headers, json: %{}, receive_timeout: 15_000) do
-      {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
-        Map.get(body, "orgs", [])
-
-      _ ->
-        Logger.warning("[Acs.Acs] list_orgs request failed")
+    case target do
+      nil ->
         []
+
+      config ->
+        base_url = Keyword.get(config, :base_url)
+        api_key = Keyword.get(config, :api_key, "")
+
+        if base_url do
+          headers = [
+            {"authorization", "Bearer #{api_key}"},
+            {"content-type", "application/json"},
+            {"accept", "application/json"}
+          ]
+
+          case Req.request(method: :post, url: base_url <> "/api/tools/list_orgs", headers: headers, json: %{}, receive_timeout: 15_000) do
+            {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
+              Map.get(body, "orgs", [])
+
+            _ ->
+              Logger.warning("[Acs.Acs] list_orgs request failed for app=#{app_name}")
+              []
+          end
+        else
+          []
+        end
     end
   end
 

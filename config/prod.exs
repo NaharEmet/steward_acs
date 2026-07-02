@@ -1,7 +1,14 @@
 import Config
 
-config :steward_acs, :repo_adapter, Ecto.Adapters.Postgres
+repo_adapter =
+  case System.get_env("REPO_ADAPTER", "postgres") do
+    "sqlite" -> Ecto.Adapters.SQLite3
+    _ -> Ecto.Adapters.Postgres
+  end
 
+config :steward_acs, :repo_adapter, repo_adapter
+
+# Individual PG settings are fallbacks when DATABASE_URL is not set at runtime.
 config :steward_acs, Acs.Repo,
   username: System.get_env("PGUSER", "postgres"),
   password: System.get_env("PGPASSWORD", "postgres"),
@@ -13,7 +20,18 @@ config :steward_acs, Acs.Repo,
 
 config :steward_acs, AcsWeb.Endpoint,
   url: [host: "localhost"],
-  cache_static_manifest: "priv/static/cache_manifest.json"
+  http: [port: String.to_integer(System.get_env("PORT", "4001"))],
+  server: true,
+  cache_static_manifest: "priv/static/cache_manifest.json",
+  force_ssl: [rewrite_on: [:x_forwarded_proto], hsts: true]
+
+config :steward_acs, :admin_emails, []
+
+config :steward_acs, :allowed_paths, ["/tmp", "/app"]
+config :steward_acs, :allowed_commands, ~w(echo ls cat)
+config :steward_acs, :mcp_auth_local_fallback, false
+config :steward_acs, :log_ingest_key, System.get_env("LOG_INGEST_KEY", "")
+config :steward_acs, :http_sleep_max_ms, 300_000
 
 config :steward_acs, Acs.MCP.Server,
   enabled: true,
@@ -24,5 +42,6 @@ config :logger, level: :info
 config :steward_acs, Acs.MCP.ToolLoader,
   tools_paths: [
     System.get_env("ANANTHA_TOOLS_PATH", "/app/anantha/acstools/"),
+    System.get_env("EXTERNAL_TOOLS_PATH"),
     System.get_env("ACS_TOOLS_PATH", "/app/acs/acstools/")
   ]

@@ -1,0 +1,8 @@
+{$DOMAIN} {
+    reverse_proxy {$ACS_URL}
+
+    header /mcp/sse {
+        Cache-Control "no-cache"
+        X-Accel-Buffering "no"
+    }
+}

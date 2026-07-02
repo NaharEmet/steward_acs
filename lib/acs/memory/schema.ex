@@ -30,6 +30,9 @@ defmodule Acs.Memory.Schema do
     field :parse_error, :string
     field :file_path, :string
     field :auditor_flags, :string
+    field :team, :string
+    field :project, :string
+    field :visibility, :string, default: "org"
     timestamps(type: :utc_datetime, inserted_at: :created_at)
   end
 
@@ -39,9 +42,9 @@ defmodule Acs.Memory.Schema do
                     :importance, :tags_json, :triggers_json, :failure_modes_json,
                     :related_memories_json, :verification_json, :revalidation_json,
                     :created_by_json, :created_by_agent, :parse_error, :file_path,
-                    :auditor_flags])
+                    :auditor_flags, :team, :project, :visibility])
     |> validate_required([:id, :kind, :title, :content, :scope_path])
-    |> validate_inclusion(:kind, ~w(observation learning warning pattern bug decision invariant axiom))
+    |> validate_inclusion(:kind, ~w(observation learning warning pattern bug decision invariant axiom context status work_note activity))
     |> validate_inclusion(:status, ~w(proposed approved rejected stale deprecated archived parse_error))
   end
 end

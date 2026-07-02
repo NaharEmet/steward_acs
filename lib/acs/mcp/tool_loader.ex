@@ -368,6 +368,7 @@ defmodule Acs.MCP.ToolLoader do
         "handler" => tool["handler"],
         "params" => params,
         "permissions" => tool["permissions"],
+        "roles" => tool["roles"],
         "timeout" => tool["timeout"],
         "response_transform" => tool["response_transform"],
         "_app_meta" => %{

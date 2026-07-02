@@ -1,7 +1,6 @@
 import Config
 
 # Load .env file at runtime for all environments
-# Must happen before any OTP apps start for ENCRYPTION_KEY
 if File.exists?(".env") do
   File.read!(".env")
   |> String.split("\n")
@@ -20,38 +19,180 @@ if File.exists?(".env") do
   end)
 end
 
-# Auditor polling interval (default: 30 seconds)
+secret_key_base =
+  System.get_env("SECRET_KEY_BASE") ||
+    if config_env() == :prod do
+      raise "SECRET_KEY_BASE environment variable is required in production. " <>
+              "Generate one with: mix phx.gen.secret"
+    else
+      :crypto.strong_rand_bytes(64) |> Base.encode64()
+    end
+
+signing_salt =
+  System.get_env("SESSION_SIGNING_SALT") ||
+    :crypto.hash(:sha256, secret_key_base) |> Base.url_encode64(padding: false) |> binary_part(0, 16)
+
+cookie_signing_salt =
+  System.get_env("COOKIE_SIGNING_SALT") ||
+    :crypto.hash(:sha256, signing_salt <> "cookie") |> Base.url_encode64(padding: false) |> binary_part(0, 16)
+
+config :steward_acs, AcsWeb.Endpoint,
+  secret_key_base: secret_key_base,
+  live_view: [signing_salt: signing_salt]
+
+config :steward_acs, :session_signing_salt, cookie_signing_salt
+
 config :steward_acs, :auditor_interval,
   System.get_env("AUDITOR_INTERVAL", "30000") |> String.to_integer()
 
-# If DATABASE_URL is set, configure connection
 if System.get_env("DATABASE_URL") do
   config :steward_acs, Acs.Repo,
     url: System.get_env("DATABASE_URL"),
     pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))
 end
 
-# MIMO API key — primary LLM provider for memory evaluation
-config :steward_acs, :mimo_api_key, System.get_env("MIMO_API_KEY", "")
+if config_env() == :prod do
+  cond do
+    System.get_env("DATABASE_PATH") ->
+      :ok
 
-# Enabled LLM providers — whitelist of provider IDs to use.
-# If empty or not set, all providers with configured API keys are tried.
-# Example: ENABLED_LLM_PROVIDERS=mimo  (only MIMO)
-#          ENABLED_LLM_PROVIDERS=mimo,minimax  (MIMO + MiniMax)
+    url = System.get_env("DATABASE_URL") ->
+      if String.contains?(url, "://postgres:postgres@") do
+        raise "DATABASE_URL must not use the default postgres password in production"
+      end
+
+    System.get_env("PGPASSWORD", "postgres") == "postgres" ->
+      raise "PGPASSWORD must not be the default 'postgres' in production"
+
+    true ->
+      raise "DATABASE_URL or DATABASE_PATH must be set in production"
+  end
+
+  if System.get_env("MCP_API_KEY", "") == "" do
+    raise "MCP_API_KEY environment variable is required in production"
+  end
+end
+
+if System.get_env("DATABASE_PATH") do
+  config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
+  config :steward_acs, Acs.Repo,
+    database: System.get_env("DATABASE_PATH"),
+    pool_size: String.to_integer(System.get_env("POOL_SIZE", "5"))
+end
+
+if System.get_env("BRIDGE_ALLOWED_HOSTS") do
+  config :steward_acs, :bridge_allowed_hosts,
+    System.get_env("BRIDGE_ALLOWED_HOSTS")
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+end
+
+config :steward_acs, :mcp_api_key, System.get_env("MCP_API_KEY", "")
+config :steward_acs, :service_api_key, System.get_env("SERVICE_API_KEY", "")
+
+if log_ingest_key = System.get_env("LOG_INGEST_KEY") do
+  config :steward_acs, :log_ingest_key, log_ingest_key
+end
+
+if System.get_env("MCP_AUTH_LOCAL_FALLBACK") do
+  config :steward_acs, :mcp_auth_local_fallback, System.get_env("MCP_AUTH_LOCAL_FALLBACK") == "true"
+end
+
+if System.get_env("OAUTH_BEARER_ENABLED") == "true" do
+  config :steward_acs, :auth_strategies, [
+    Acs.MCP.Plugs.Strategies.Developer,
+    Acs.MCP.Plugs.Strategies.OAuthBearer,
+    Acs.MCP.Plugs.Strategies.Default
+  ]
+end
+
+if System.get_env("HTTP_SLEEP_MAX_MS") do
+  config :steward_acs, :http_sleep_max_ms, String.to_integer(System.get_env("HTTP_SLEEP_MAX_MS"))
+end
+
+if admin_emails_env = System.get_env("ACS_ADMIN_EMAILS") do
+  admin_emails =
+    admin_emails_env
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+
+  config :steward_acs, :admin_emails, admin_emails
+end
+
+if System.get_env("ALLOWED_PATHS") do
+  config :steward_acs, :allowed_paths,
+    System.get_env("ALLOWED_PATHS")
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+end
+
+if System.get_env("ALLOWED_COMMANDS") do
+  config :steward_acs, :allowed_commands,
+    System.get_env("ALLOWED_COMMANDS")
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+end
+
+config :steward_acs, :nim_api_key, System.get_env("NIM_API_KEY", "")
+config :steward_acs, :mimo_api_key, System.get_env("MIMO_API_KEY", "")
+config :steward_acs, :minimax_api_key, System.get_env("MINIMAX_API_KEY", "")
+config :steward_acs, :openai_api_key, System.get_env("OPENAI_API_KEY", "")
+config :steward_acs, :openai_base_url, System.get_env("OPENAI_BASE_URL", "")
+config :steward_acs, :openai_model, System.get_env("OPENAI_MODEL", "")
+
 config :steward_acs,
        :enabled_llm_providers,
        System.get_env("ENABLED_LLM_PROVIDERS", "")
        |> String.split(",", trim: true)
        |> Enum.map(&String.trim/1)
 
-# Ollama URL for local embedding generation
 config :steward_acs, Acs.Memory.Embedding,
   ollama_url: System.get_env("OLLAMA_URL", "http://localhost:11434")
 
-# Cluster identity — scopes all ACS operations
 config :steward_acs, :cluster_name, System.get_env("ACS_CLUSTER_NAME", "default")
 
-# Developer identity — used to tag memory creation
 config :steward_acs,
        :developer_name,
        System.get_env("ACS_DEVELOPER_NAME", "unknown")
+
+config :steward_acs, :memory_store, System.get_env("MEMORY_STORE", "yaml")
+
+if obsidian_path = System.get_env("OBSIDIAN_VAULT_PATH") do
+  config :steward_acs, :obsidian_vault_path, obsidian_path
+end
+
+config :steward_acs, :basic_auth,
+  username: System.get_env("ACS_USERNAME", "admin"),
+  password: System.get_env("ACS_PASSWORD", "admin")
+
+if config_env() == :prod and System.get_env("ACS_PASSWORD", "admin") == "admin" do
+  raise "ACS_PASSWORD must not be the default 'admin' in production"
+end
+
+if config_env() == :prod do
+  host =
+    case System.get_env("PHX_HOST") do
+      nil -> System.get_env("DOMAIN")
+      "" -> System.get_env("DOMAIN")
+      value -> value
+    end
+
+  if is_nil(host) or host == "" do
+    raise "PHX_HOST or DOMAIN environment variable is required in production"
+  end
+
+  config :steward_acs, AcsWeb.Endpoint,
+    url: [host: host, port: 443, scheme: "https"],
+    check_origin: ["https://#{host}", "http://#{host}"]
+end
+
+if origins = System.get_env("CORS_ORIGINS") do
+  config :cors_plug,
+    origin:
+      origins
+      |> String.split(",", trim: true)
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+end

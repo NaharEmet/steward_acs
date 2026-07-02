@@ -34,7 +34,9 @@ defmodule Acs.Developers do
           end
         end)
 
-        {:ok, %{role: dev_key.role, cluster: dev_key.cluster}}
+        {:ok, %{role: dev_key.role, cluster: dev_key.cluster, developer_name: dev_key.developer_name,
+                allowed_teams: decode_json(dev_key.allowed_teams_json),
+                allowed_projects: decode_json(dev_key.allowed_projects_json)}}
     end
   end
 
@@ -47,8 +49,10 @@ defmodule Acs.Developers do
   Key format: `acs_dev_<64-char-hex-random>`
   """
   def generate_key(name, opts \\ []) do
-    role = Keyword.get(opts, :role, "admin")
+    role = Keyword.get(opts, :role, "collaborator")
     cluster = Keyword.get(opts, :cluster, "default")
+    allowed_teams = Keyword.get(opts, :allowed_teams)
+    allowed_projects = Keyword.get(opts, :allowed_projects)
 
     raw_key = generate_raw_key()
     hash = hash_key(raw_key)
@@ -60,8 +64,10 @@ defmodule Acs.Developers do
            key_prefix: prefix,
            developer_name: name,
            role: role,
-           cluster: cluster,
-           active: true
+            cluster: cluster,
+            active: true,
+            allowed_teams_json: encode_json(allowed_teams),
+            allowed_projects_json: encode_json(allowed_projects)
          })
          |> Repo.insert() do
       {:ok, dev} ->
@@ -106,5 +112,16 @@ defmodule Acs.Developers do
 
   defp generate_raw_key do
     @key_prefix <> (:crypto.strong_rand_bytes(32) |> Base.encode16(case: :lower))
+  end
+
+  defp encode_json(nil), do: nil
+  defp encode_json(list) when is_list(list), do: Jason.encode!(list)
+
+  defp decode_json(nil), do: nil
+  defp decode_json(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, list} when is_list(list) -> list
+      _ -> nil
+    end
   end
 end

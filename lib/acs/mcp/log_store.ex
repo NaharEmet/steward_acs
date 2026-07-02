@@ -17,7 +17,7 @@ defmodule Acs.MCP.LogStore do
   use GenServer
   require Logger
 
-  @table_name :anantha_log_store
+  @table_name :mcp_log_store
   @default_limit 100
   @max_logs 5_000
   @max_log_age_seconds 300

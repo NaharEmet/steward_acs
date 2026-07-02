@@ -15,7 +15,8 @@ defmodule Acs.MixProject do
       releases: [
         steward_acs: [
           include_executables_for: [:unix],
-          steps: [:assemble, &copy_env/1]
+          steps: [:assemble],
+          validate_compile_env: false
         ]
       ]
     ]
@@ -24,7 +25,7 @@ defmodule Acs.MixProject do
   def application do
     [
       mod: {Acs.Application, []},
-      extra_applications: [:logger]
+      extra_applications: [:logger, :runtime_tools]
     ]
   end
 
@@ -32,6 +33,7 @@ defmodule Acs.MixProject do
   defp elixirc_paths(_), do: ["lib"]
 
   defp deps do
+    # External app dependency: anantha_json if available as sibling project
     llm_utils_dep = if File.dir?("../../lib/anantha_json") do
       {:llm_utils, path: "../../lib/anantha_json", override: true}
     else
@@ -53,10 +55,12 @@ defmodule Acs.MixProject do
       {:phoenix_pubsub, "~> 2.2"},
       {:phoenix_live_view, "~> 1.1"},
       {:phoenix_html, "~> 4.1"},
+      {:gettext, "~> 0.26"},
       {:file_system, "~> 1.0", override: true},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
-      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:esbuild, "~> 0.8", runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:cors_plug, "~> 3.0"}
     ]
   end
 
@@ -68,17 +72,5 @@ defmodule Acs.MixProject do
       test: ["ecto.create --quiet", "ecto.migrate", "test"],
       "assets.deploy": ["esbuild steward_acs --minify", "phx.digest"]
     ]
-  end
-
-  # Copy .env file to release
-  defp copy_env(release) do
-    env_src = Path.join(release.path, "../../.env")
-    env_dst = Path.join(release.path, ".env")
-
-    if File.exists?(env_src) do
-      File.cp!(env_src, env_dst)
-    end
-
-    release
   end
 end

@@ -9,11 +9,18 @@ defmodule Acs.Application do
   require Logger
 
   @impl true
+  def stop(_state) do
+    Acs.MetaHarness.OperationLogger.flush()
+    :ok
+  end
+
+  @impl true
   def start(_type, _args) do
-    # Load .env file for API keys
-    Dotenvy.source!(Path.expand("../../.env", __DIR__))
+    env_path = System.get_env("ENV_PATH") || Path.expand("../../.env", __DIR__)
+    if File.exists?(env_path), do: Dotenvy.source!(env_path)
 
     children = [
+      Acs.Apps.Config,
       Acs.Repo,
       Acs.MetaHarness.OperationLogger,
       Acs.MetaHarness.Scheduler,
@@ -22,6 +29,7 @@ defmodule Acs.Application do
       Acs.Memory.Auditor,
       Acs.Acs.SleepRegistry,
       Acs.MCP.ToolRegistry,
+      Acs.MCP.SSESessionManager,
       Acs.MCP.LogStore,
       Acs.MCP.ErrorTrace,
       Acs.LogAnalyzer,
@@ -33,7 +41,7 @@ defmodule Acs.Application do
     # Only start file watcher and retention sweeper in non-test environments
     # to avoid background tasks conflicting with Ecto sandbox connections.
     children =
-      if Mix.env() != :test do
+      if Application.get_env(:steward_acs, :start_background_workers, true) do
         [Acs.Memory.FileWatcher, {Acs.Log.RetentionSweeper, []} | children]
       else
         children
@@ -70,7 +78,7 @@ defmodule Acs.Application do
 
     # Warmup ACS ETS cache from database after startup.
     # Only runs in non-test to avoid Ecto sandbox conflicts with background DB queries.
-    if Mix.env() != :test do
+    if Application.get_env(:steward_acs, :start_background_workers, true) do
       Task.start(fn ->
         Process.sleep(100)
         Acs.Acs.Cache.warmup()

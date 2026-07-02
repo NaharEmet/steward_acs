@@ -40,10 +40,10 @@ defmodule Acs.Developers.DeveloperApiKeyTest do
       end
     end
 
-    test "defaults to admin role and default cluster" do
+    test "defaults to collaborator role and default cluster" do
       changeset = DeveloperApiKey.changeset(%DeveloperApiKey{}, %{key_hash: "hash", developer_name: "default-test"})
       assert changeset.valid?
-      assert get_field(changeset, :role) == "admin"
+      assert get_field(changeset, :role) == "collaborator"
     end
   end
 end

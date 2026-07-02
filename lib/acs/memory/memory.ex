@@ -7,9 +7,14 @@ defmodule Acs.Memory do
   validation, and serialization.
   """
 
-  @kind_types ~w(observation learning warning pattern bug decision invariant axiom)
+  @kind_types ~w(observation learning warning pattern bug decision invariant axiom
+                 context status work_note activity)
   @status_types ~w(proposed approved rejected stale deprecated archived parse_error)
   @valid_verification_statuses ~w(proposed approved rejected)
+
+  @auditable_kinds ~w(observation learning warning pattern bug decision invariant axiom)
+  @embeddable_kinds ~w(observation learning warning pattern bug decision invariant axiom
+                       work_note)
 
   @slug_cleanup_regex ~r/[^a-z0-9]+/
 
@@ -17,6 +22,7 @@ defmodule Acs.Memory do
     :id, :kind, :status, :title, :summary, :content,
     :scope_path, :importance, :tags, :triggers, :failure_modes,
     :related_memories, :verification, :revalidation, :created_by,
+    :team, :project, :visibility,
     :created_at, :updated_at
   ]
 
@@ -36,6 +42,9 @@ defmodule Acs.Memory do
     verification: map(),
     revalidation: map(),
     created_by: map(),
+    team: String.t() | nil,
+    project: String.t() | nil,
+    visibility: String.t(),
     created_at: String.t(),
     updated_at: String.t()
   }
@@ -44,10 +53,13 @@ defmodule Acs.Memory do
   Creates a new Memory struct from validated attributes.
   """
   def new(attrs \\ %{}) do
+    kind = attrs["kind"] || "observation"
+    default_status = if kind in @auditable_kinds, do: "proposed", else: "approved"
+
     struct(__MODULE__, %{
       id: attrs["id"] || generate_id(attrs),
-      kind: attrs["kind"] || "observation",
-      status: attrs["status"] || "proposed",
+      kind: kind,
+      status: attrs["status"] || default_status,
       title: attrs["title"] || "",
       summary: attrs["summary"],
       content: attrs["content"] || "",
@@ -70,6 +82,9 @@ defmodule Acs.Memory do
         "type" => "agent",
         "id" => "unknown"
       },
+      team: attrs["team"],
+      project: attrs["project"],
+      visibility: attrs["visibility"] || "org",
       created_at: attrs["created_at"] || get_in(attrs, ["timestamps", "created_at"]) || DateTime.utc_now() |> DateTime.to_iso8601(),
       updated_at: attrs["updated_at"] || get_in(attrs, ["timestamps", "updated_at"]) || DateTime.utc_now() |> DateTime.to_iso8601()
     })
@@ -101,6 +116,24 @@ defmodule Acs.Memory do
 
     errors = if is_nil(memory_map["scope_path"]) or memory_map["scope_path"] == "",
       do: ["Missing required field: scope_path" | errors], else: errors
+
+    errors =
+      case memory_map["scope_path"] do
+        sp when is_binary(sp) ->
+          cond do
+            String.contains?(sp, "..") ->
+              ["scope_path must not contain '..'" | errors]
+
+            String.starts_with?(sp, "/") ->
+              ["scope_path must be a relative path" | errors]
+
+            true ->
+              errors
+          end
+
+        _ ->
+          errors
+      end
 
     errors = cond do
       is_nil(memory_map["importance"]) -> ["Missing required field: importance" | errors]
@@ -138,6 +171,9 @@ defmodule Acs.Memory do
       "verification" => memory.verification,
       "revalidation" => memory.revalidation,
       "created_by" => memory.created_by,
+      "team" => memory.team,
+      "project" => memory.project,
+      "visibility" => memory.visibility,
       "created_at" => memory.created_at,
       "updated_at" => memory.updated_at
     }
@@ -147,11 +183,15 @@ defmodule Acs.Memory do
   Derives scope_path from a file path.
   e.g., "priv/acs_memory/agent_coordination_system/cache/invalidation.yaml"
   → "agent_coordination_system/cache/invalidation"
+  e.g., "vault/team/project/memory_id.md"
+  → "team/project/memory_id"
   """
   def derive_scope_from_path(file_path) do
     path = file_path
       |> String.replace_prefix("priv/acs_memory/", "")
       |> String.replace_suffix(".yaml", "")
+      |> String.replace_suffix(".yml", "")
+      |> String.replace_suffix(".md", "")
     path
   end
 
@@ -179,4 +219,8 @@ defmodule Acs.Memory do
   def kind_types, do: @kind_types
   @doc false
   def status_types, do: @status_types
+  @doc false
+  def auditable_kinds, do: @auditable_kinds
+  @doc false
+  def embeddable_kinds, do: @embeddable_kinds
 end

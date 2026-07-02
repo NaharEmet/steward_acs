@@ -30,9 +30,16 @@ defmodule Acs.Memory.HybridSearch do
   def search(query, opts \\ []) when is_binary(query) do
     limit = Keyword.get(opts, :limit, @default_limit)
     scope = Keyword.get(opts, :scope, nil)
+    team_filter = Keyword.get(opts, :team_filter)
+    project_filter = Keyword.get(opts, :project_filter)
 
     query_embedding = get_query_embedding(query)
-    lexical_results = Indexer.search(query, scope: scope, limit: limit * 2)
+    lexical_opts =
+      opts
+      |> Keyword.put(:limit, limit * 2)
+      |> maybe_put_scope_path(scope)
+
+    lexical_results = Indexer.search(query, lexical_opts)
 
     all_memory_ids = lexical_results |> Enum.map(& &1.id) |> Enum.uniq()
 
@@ -44,7 +51,7 @@ defmodule Acs.Memory.HybridSearch do
         semantic = Map.get(semantic_scores, memory.id, 0.0)
         lexical = compute_lexical_score(memory, query)
         scope_score = compute_scope_score(memory.scope_path, scope)
-        meta = compute_metadata_score(memory)
+        meta = compute_metadata_score(memory, team_filter: team_filter, project_filter: project_filter)
 
         total =
           0.4 * semantic +
@@ -132,7 +139,7 @@ defmodule Acs.Memory.HybridSearch do
     end
   end
 
-  defp compute_metadata_score(memory) do
+  defp compute_metadata_score(memory, opts) do
     importance_score = memory.importance / 5.0
 
     status_score =
@@ -143,6 +150,23 @@ defmodule Acs.Memory.HybridSearch do
         _ -> 0.5
       end
 
-    0.6 * importance_score + 0.4 * status_score
+    team_bonus = compute_team_project_bonus(memory, opts)
+
+    0.6 * importance_score + 0.4 * status_score + team_bonus
   end
+
+  defp compute_team_project_bonus(memory, opts) do
+    team_filter = Keyword.get(opts, :team_filter)
+    project_filter = Keyword.get(opts, :project_filter)
+
+    cond do
+      team_filter && memory.team == team_filter -> 0.05
+      project_filter && memory.project == project_filter -> 0.05
+      memory.team || memory.project -> 0.02
+      true -> 0.0
+    end
+  end
+
+  defp maybe_put_scope_path(opts, nil), do: opts
+  defp maybe_put_scope_path(opts, scope), do: Keyword.put(opts, :scope_path, scope)
 end

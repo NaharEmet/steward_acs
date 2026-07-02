@@ -1,0 +1,117 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: steward_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    environment:
+      DOMAIN: "${DOMAIN:?Set DOMAIN to your domain}"
+      ACS_URL: "http://steward_acs:4001"
+    depends_on:
+      steward_acs:
+        condition: service_healthy
+
+  steward_acs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: release
+      args:
+        REPO_ADAPTER: postgres
+        SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
+        COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT:-}"
+    image: naharemete/steward_acs:latest
+    container_name: steward_acs
+    restart: unless-stopped
+    # No public port — Caddy is the only public entrypoint
+    expose:
+      - "4001"
+    environment:
+      MIX_ENV: prod
+      PORT: "4001"
+      PHX_HOST: "${PHX_HOST:-}"
+      DOMAIN: "${DOMAIN:?Set DOMAIN to your domain}"
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
+      DATABASE_URL: "ecto://${DB_USER:-postgres}:${DB_PASSWORD:?Set DB_PASSWORD}@db:5432/${DB_NAME:-acs_prod}"
+      POOL_SIZE: "10"
+      ACS_CLUSTER_NAME: "${ACS_CLUSTER_NAME:-default}"
+      ACS_DEVELOPER_NAME: "${ACS_DEVELOPER_NAME:-unknown}"
+      ACS_USERNAME: "${ACS_USERNAME:-admin}"
+      ACS_PASSWORD: "${ACS_PASSWORD:?Set ACS_PASSWORD}"
+      MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
+      SERVICE_API_KEY: "${SERVICE_API_KEY:?Set SERVICE_API_KEY}"
+      LOG_INGEST_KEY: "${LOG_INGEST_KEY:-}"
+      MEMORY_STORE: "${MEMORY_STORE:-yaml}"
+      OBSIDIAN_VAULT_PATH: "${OBSIDIAN_VAULT_PATH:-}"
+      ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-}"
+      MIMO_API_KEY: "${MIMO_API_KEY:-}"
+      NIM_API_KEY: "${NIM_API_KEY:-}"
+      MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-}"
+      OLLAMA_URL: "${OLLAMA_URL:-}"
+      CORS_ORIGINS: "${CORS_ORIGINS:-}"
+      BRIDGE_ALLOWED_HOSTS: "${BRIDGE_ALLOWED_HOSTS:-}"
+    volumes:
+      - acs_data:/app/priv
+      # Uncomment for Obsidian vault sync:
+      # - obsidian_vault:/obsidian:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/mcp/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  db:
+    image: postgres:16-alpine
+    container_name: steward_acs_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${DB_USER:-postgres}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD}"
+      POSTGRES_DB: "${DB_NAME:-acs_prod}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    shm_size: 128mb
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # === Syncthing (optional — sync Obsidian vault to server) ===
+  # syncthing:
+  #   image: syncthing/syncthing:latest
+  #   container_name: steward_syncthing
+  #   hostname: steward_acs
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8384:8384"
+  #     - "22000:22000"
+  #     - "21027:21027/udp"
+  #   volumes:
+  #     - syncthing_config:/var/syncthing/config
+  #     - obsidian_vault:/var/syncthing/vault
+  #   environment:
+  #     STGUIAPIKEY: "${STGUIAPIKEY:-}"
+
+volumes:
+  acs_data:
+  caddy_data:
+  postgres_data:
+  # obsidian_vault:
+  # syncthing_config:

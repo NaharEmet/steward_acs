@@ -23,11 +23,17 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   require Logger
 
   def acs_query(%{"sql" => sql, "purpose" => purpose}) do
-    Logger.info("[acs_query] purpose: #{purpose || "unknown"}, sql: #{String.slice(sql, 0, 100)}")
+    case validate_read_only_sql(sql) do
+      :ok ->
+        Logger.info("[acs_query] purpose: #{purpose || "unknown"}, sql: #{String.slice(sql, 0, 100)}")
 
-    case run_sql_query(sql) do
-      {:ok, results} -> {:ok, %{row_count: length(results), results: results}}
-      {:error, reason} -> {:error, "Query failed: #{reason}"}
+        case run_sql_query(sql) do
+          {:ok, results} -> {:ok, %{row_count: length(results), results: results}}
+          {:error, reason} -> {:error, "Query failed: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -196,7 +202,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
 
       {:ok,
        %{
-         health: %{status: "error", score: 0, message: "Invalid response from Anantha API"},
+         health: %{status: "error", score: 0, message: "Invalid response from extension API"},
          flow: %{incoming: 0, processing: 0, stalled: 0, completed: 0},
          throughput: %{
            per_minute: nil,
@@ -305,6 +311,48 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
       {:error, e} ->
         {:error, inspect(e)}
     end
+  end
+
+  @blocked_sql_keywords ~w(
+    insert update delete drop alter create replace truncate attach detach
+    pragma vacuum reindex grant revoke merge call execute
+  )
+
+  defp validate_read_only_sql(sql) when is_binary(sql) do
+    trimmed = String.trim(sql)
+
+    cond do
+      trimmed == "" ->
+        {:error, "Empty SQL query"}
+
+      String.contains?(trimmed, ";") ->
+        {:error, "Multiple SQL statements are not allowed"}
+
+      not allowed_sql_prefix?(trimmed) ->
+        {:error, "Only SELECT, WITH, and EXPLAIN queries are allowed"}
+
+      contains_blocked_sql_keyword?(trimmed) ->
+        {:error, "Write or DDL operations are not allowed"}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_read_only_sql(_), do: {:error, "SQL must be a string"}
+
+  defp allowed_sql_prefix?(sql) do
+    normalized = String.downcase(sql)
+
+    Enum.any?(~w(select with explain), fn prefix ->
+      String.starts_with?(normalized, prefix)
+    end)
+  end
+
+  defp contains_blocked_sql_keyword?(sql) do
+    Enum.any?(@blocked_sql_keywords, fn keyword ->
+      Regex.match?(~r/\b#{keyword}\b/i, sql)
+    end)
   end
 
   defp check_acs_service do
@@ -650,8 +698,8 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   defp extension_module do
     Application.get_env(
       :steward_acs,
-      :anantha_extension,
-      Acs.MCP.Tools.AnanthaExtension.Default
+      :app_extension,
+      Acs.MCP.Tools.AppExtension.Default
     )
   end
 end

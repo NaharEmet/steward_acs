@@ -12,7 +12,7 @@ defmodule Acs.LLM do
   alias LLMUtils.ResponseParser
 
   # Provider priority order for evaluations
-  @provider_priority ["nim", "mimo", "minimax"]
+  @provider_priority ["nim", "mimo", "minimax", "openai"]
 
   @max_context_memories 5
 
@@ -129,8 +129,15 @@ defmodule Acs.LLM do
 
       messages = [%{role: "user", content: prompt}]
 
+      model =
+        provider_overrides(provider_id, :model) ||
+          config.default_model
+
+      base_url =
+        provider_overrides(provider_id, :base_url)
+
       opts = [
-        model: config.default_model,
+        model: model,
         api_key: api_key,
         json_mode: config.supports_json_mode,
         suppress_thinking: Map.get(config, :suppress_thinking, false),
@@ -141,6 +148,8 @@ defmodule Acs.LLM do
         enable_metrics: true,
         enable_logging: true
       ]
+
+      opts = if base_url, do: Keyword.put(opts, :base_url, base_url), else: opts
 
       case LLMUtils.Client.chat_completion(messages, provider_id, opts) do
         {:ok, %{content: content}} ->
@@ -155,6 +164,17 @@ defmodule Acs.LLM do
       end
     end
   end
+
+  # Allow OpenAI-compatible providers to override base_url and model via env vars.
+  # OPENAI_BASE_URL — override the API endpoint (e.g., http://localhost:8000/v1)
+  # OPENAI_MODEL   — override the model name (e.g., gpt-4o-mini, local-model)
+  defp provider_overrides("openai", :base_url),
+    do: System.get_env("OPENAI_BASE_URL") || Application.get_env(:steward_acs, :openai_base_url)
+
+  defp provider_overrides("openai", :model),
+    do: System.get_env("OPENAI_MODEL") || Application.get_env(:steward_acs, :openai_model)
+
+  defp provider_overrides(_, _), do: nil
 
   # ── API key resolution ───────────────────────────────────────────────
   # Checks Application config first (set in runtime.exs), then system env.

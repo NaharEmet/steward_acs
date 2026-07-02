@@ -41,6 +41,9 @@ defmodule Acs.MCP.Tools.DynamicTools do
       not is_map_key(args, "name") or not is_binary(args["name"]) or args["name"] == "" ->
         {:error, "Missing required field: 'name' must be a non-empty string"}
 
+      not valid_tool_name?(args["name"]) ->
+        {:error, "Invalid tool name: use only letters, numbers, underscores, and hyphens"}
+
       not is_map_key(args, "description") or not is_binary(args["description"]) ->
         {:error, "Missing required field: 'description' must be a string"}
 
@@ -57,8 +60,36 @@ defmodule Acs.MCP.Tools.DynamicTools do
       is_map_key(args, "permissions") and Enum.any?(args["permissions"], fn p -> not is_binary(p) end) ->
         {:error, "'permissions' must be a list of strings"}
 
+      (url_error = endpoint_url_error(args)) != nil ->
+        {:error, url_error}
+
       true ->
         :ok
+    end
+  end
+
+  defp endpoint_url_error(args) do
+    cond do
+      is_map_key(args, "base_url") and is_binary(args["base_url"]) and args["base_url"] != "" ->
+        case Acs.MCP.UrlSafety.validate_outbound_url(args["base_url"]) do
+          :ok -> nil
+          {:error, reason} -> "Invalid base_url: #{reason}"
+        end
+
+      is_map_key(args, "endpoint") and is_binary(args["endpoint"]) and args["endpoint"] != "" ->
+        endpoint = args["endpoint"]
+
+        if String.starts_with?(endpoint, "http://") or String.starts_with?(endpoint, "https://") do
+          case Acs.MCP.UrlSafety.validate_outbound_url(endpoint) do
+            :ok -> nil
+            {:error, reason} -> "Invalid endpoint URL: #{reason}"
+          end
+        else
+          nil
+        end
+
+      true ->
+        nil
     end
   end
 
@@ -72,6 +103,12 @@ defmodule Acs.MCP.Tools.DynamicTools do
       not is_binary(args["endpoint"]) or
       args["endpoint"] == ""
   end
+
+  defp valid_tool_name?(name) when is_binary(name) do
+    Regex.match?(~r/^[a-zA-Z0-9_-]+$/, name)
+  end
+
+  defp valid_tool_name?(_), do: false
 
   defp build_yaml(args) do
     tool_name = args["name"]

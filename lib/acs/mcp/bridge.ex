@@ -10,13 +10,13 @@ defmodule Acs.MCP.Bridge do
 
   @default_timeout 30_000
 
-  @session_table :anantha_sessions
+  @session_table :mcp_sessions
   @session_ttl_ms 300_000  # 5 minutes
 
   defp ensure_session_table do
     case :ets.info(@session_table, :name) do
       :undefined ->
-        :ets.new(@session_table, [:set, :named_table, :public, read_concurrency: true, write_concurrency: true])
+        :ets.new(@session_table, [:set, :named_table, :protected, read_concurrency: true, write_concurrency: true])
       _ -> :ok
     end
   end
@@ -44,52 +44,59 @@ defmodule Acs.MCP.Bridge do
         {:error, reason}
 
       args ->
-        api_key = args["api_key"]
-
         url = build_url(base_url, endpoint)
-        timeout = tool_def["timeout"] || @default_timeout
 
-        Logger.info("Bridge: calling #{method} #{url} for tool '#{tool_name}'")
-
-        # Build request options
-        headers = build_headers(args)
-        req_opts = [
-          url: url,
-          method: String.downcase(method),
-          headers: headers,
-          timeout: timeout
-        ]
-
-        # Add body for POST/PUT/PATCH, query params for GET/DELETE
-        req_opts =
-          case String.upcase(method) do
-            m when m in ["POST", "PUT", "PATCH"] ->
-              _body = build_body(tool_def, args)
-              Keyword.put(req_opts, :json, _body)
-
-            _ ->
-              _query = build_query(tool_def, args)
-              Keyword.put(req_opts, :params, _query)
-          end
-
-        # Make the request
-        case request_with_opts(req_opts) do
-          {:ok, %{status: status, body: body}} when status in 200..299 ->
-            result = format_response(body, tool_name)
-            result = maybe_transform_response(result, tool_def)
-            # Handle session creation for ant_authenticate
-            result = maybe_store_session(tool_name, result, api_key)
-            {:ok, result}
-
-          {:ok, %{status: status, body: body}} ->
-            error_msg = format_error_body(body)
-            Logger.warning("Bridge: tool '#{tool_name}' returned HTTP #{status}: #{error_msg}")
-            {:error, "HTTP #{status}: #{error_msg}"}
+        case Acs.MCP.UrlSafety.validate_outbound_url(url) do
+          :ok ->
+            do_http_call(tool_def, args, url, method, tool_name)
 
           {:error, reason} ->
-            Logger.error("Bridge: tool '#{tool_name}' HTTP error: #{inspect(reason)}")
-            {:error, "HTTP request failed: #{inspect(reason)}"}
+            {:error, reason}
         end
+    end
+  end
+
+  defp do_http_call(tool_def, args, url, method, tool_name) do
+    api_key = args["api_key"]
+    app_config = resolve_app_config(tool_def["base_url"])
+    timeout = tool_def["timeout"] || app_config[:timeout_ms] || @default_timeout
+
+    Logger.info("Bridge: calling #{method} #{url} for tool '#{tool_name}'")
+
+    headers = build_headers(args, app_config)
+    req_opts = [
+      url: url,
+      method: String.downcase(method),
+      headers: headers,
+      timeout: timeout
+    ]
+
+    req_opts =
+      case String.upcase(method) do
+        m when m in ["POST", "PUT", "PATCH"] ->
+          _body = build_body(tool_def, args)
+          Keyword.put(req_opts, :json, _body)
+
+        _ ->
+          _query = build_query(tool_def, args)
+          Keyword.put(req_opts, :params, _query)
+      end
+
+    case request_with_opts(req_opts) do
+      {:ok, %{status: status, body: body}} when status in 200..299 ->
+        result = format_response(body, tool_name)
+        result = maybe_transform_response(result, tool_def)
+        result = maybe_store_session(tool_name, result, api_key)
+        {:ok, result}
+
+      {:ok, %{status: status, body: body}} ->
+        error_msg = format_error_body(body)
+        Logger.warning("Bridge: tool '#{tool_name}' returned HTTP #{status}: #{error_msg}")
+        {:error, "HTTP #{status}: #{error_msg}"}
+
+      {:error, reason} ->
+        Logger.error("Bridge: tool '#{tool_name}' HTTP error: #{inspect(reason)}")
+        {:error, "HTTP request failed: #{inspect(reason)}"}
     end
   end
 
@@ -98,12 +105,18 @@ defmodule Acs.MCP.Bridge do
   Returns `{:ok, map}` or `{:error, reason}`.
   """
   def health_check(base_url) do
-    case request_with_opts(url: base_url, method: "get", timeout: 5_000) do
-      {:ok, %{status: s, body: b}} when s in 200..399 ->
-        {:ok, %{status: s, body: b, reachable: true}}
+    case Acs.MCP.UrlSafety.validate_outbound_url(base_url) do
+      :ok ->
+        case request_with_opts(url: base_url, method: "get", timeout: 5_000) do
+          {:ok, %{status: s, body: b}} when s in 200..399 ->
+            {:ok, %{status: s, body: b, reachable: true}}
 
-      {:ok, %{status: s}} ->
-        {:ok, %{status: s, reachable: true}}
+          {:ok, %{status: s}} ->
+            {:ok, %{status: s, reachable: true}}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
 
       {:error, reason} ->
         {:error, reason}
@@ -191,31 +204,54 @@ defmodule Acs.MCP.Bridge do
     build_body(tool_def, args)
   end
 
-  defp build_headers(args) do
+  defp build_headers(args, app_config \\ []) do
     headers = [{"content-type", "application/json"}]
 
-    # 1. If the caller explicitly provided an api_key, use it
-    headers =
+    header_name = app_config[:auth_header_name] || "authorization"
+    header_scheme = app_config[:auth_header_scheme] || "Bearer"
+
+    auth_value =
       case args["api_key"] do
         key when is_binary(key) and key != "" ->
-          [{"authorization", "Bearer #{key}"} | headers]
+          auth_header_value(key, header_scheme)
 
         _ ->
-          # 2. Use the configured service API key for internal auth
-          service_api_key =
-            Application.get_env(:steward_acs, :service_api_key, "dev-service-key")
+          service_api_key = Application.get_env(:steward_acs, :service_api_key)
 
           case service_api_key do
             key when is_binary(key) and key != "" ->
-              [{"authorization", "Bearer #{key}"} | headers]
+              auth_header_value(key, header_scheme)
 
             _ ->
-              headers
+              nil
           end
       end
 
-    headers
+    if auth_value do
+      [{header_name, auth_value} | headers]
+    else
+      headers
+    end
   end
+
+  defp auth_header_value(key, ""), do: key
+  defp auth_header_value(key, scheme), do: "#{scheme} #{key}"
+
+  defp resolve_app_config(base_url) when is_binary(base_url) do
+    matched =
+      Acs.Apps.Config.list_apps()
+      |> Enum.find(fn {_name, config} ->
+        configured_url = Keyword.get(config, :base_url)
+        configured_url && base_url == configured_url
+      end)
+
+    case matched do
+      {_name, config} -> config
+      nil -> []
+    end
+  end
+
+  defp resolve_app_config(nil), do: []
 
   defp request_with_opts(opts) do
     req = Req.new(Keyword.drop(opts, [:url, :method, :json, :params, :timeout]))

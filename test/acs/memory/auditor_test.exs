@@ -30,10 +30,10 @@ defmodule Acs.Memory.AuditorTest do
       invalid_memory = %{"title" => "Only Title"}
 
       result = LLM.evaluate_memory(invalid_memory)
-      assert {:error, {:missing_fields, missing}} = result
-      assert "content" in missing
-      assert "kind" in missing
-      assert "scope_path" in missing
+      assert {:error, {:missing_required_fields, missing}} = result
+      assert :content in missing
+      assert :kind in missing
+      assert :scope_path in missing
     end
 
     test "rejects non-map input" do

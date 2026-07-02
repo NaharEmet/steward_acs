@@ -103,7 +103,7 @@ defmodule Acs.Memory.ToolGuidance do
         }
       ],
       compressed_knowledge:
-        "ACS tools: 6 categories. acs_core (Level 1-3): claim_work, release_work, create_work, lock_file, unlock_file, get_present_status, get_locked_files, list_tasks, sleep, wake, submit_task_feedback, help, get_logs, list_orgs, list_categories, list_tools, refresh_tools, list_error_traces, ack_error_trace, resolve_error_trace, create_task_from_error_trace, time. knowledge (Level 1-2): save_memory, list_memories, search_memories, set_memory_status, generate_guidance_packet. cognition (Level 1-2): cognition_get, cognition_search, cognition_list, cognition_list_undocumented, cognition_propose, cognition_approve, cognition_reject. diagnostic (Level 1): config_lookup, connection_diagnostic, find_similar_code, memory_health_check. crm (Level 1-2): crm_sync, crm_sync_object_type, crm_get_sync_state, crm_list_sources, crm_get_scheduler_status, crm_get_field_config, crm_trigger_scheduler. acs (Level 3): write_tool."
+        "ACS tools: 6 categories. acs_core (Level 1-3): claim_work, release_work, create_work, lock_file, unlock_file, get_present_status, get_locked_files, list_tasks, sleep, wake, submit_task_feedback, help, get_logs, list_orgs, list_categories, list_tools, refresh_tools, list_error_traces, ack_error_trace, resolve_error_trace, create_task_from_error_trace, time. knowledge (Level 1-2): save_memory, list_memories, search_memories, set_memory_status, generate_guidance_packet, ask. cognition (Level 1-2): document_get, document_search, document_list, document_list_undocumented, document_propose, document_approve, document_reject. diagnostic (Level 1): config_lookup, connection_diagnostic, find_similar_code, memory_health_check. crm (Level 1-2): crm_sync, crm_sync_object_type, crm_get_sync_state, crm_list_sources, crm_get_scheduler_status, crm_get_field_config, crm_trigger_scheduler. acs (Level 3): write_tool."
     },
     "agent_coordination_system/tools/core" => %{
       critical_axioms: [
@@ -282,28 +282,28 @@ defmodule Acs.Memory.ToolGuidance do
     "agent_coordination_system/tools/cognition" => %{
       critical_axioms: [
         %{
-          id: "toolguidance_cognition_axiom_1",
+          id: "toolguidance_document_axiom_1",
           title: "Specs document WHY a module exists",
           summary:
             "Cognition specs document WHY a module exists — its purpose, invariants, workflows, failure modes, and constraints.",
           importance: 5
         },
         %{
-          id: "toolguidance_cognition_axiom_2",
+          id: "toolguidance_document_axiom_2",
           title: "Every module should have a spec",
           summary:
-            "Every module should have a spec. Use cognition_list_undocumented() to find modules missing specs.",
+            "Every module should have a spec. Use document_list_undocumented() to find modules missing specs.",
           importance: 4
         },
         %{
-          id: "toolguidance_cognition_axiom_3",
+          id: "toolguidance_document_axiom_3",
           title: "Ask the user when code and spec disagree",
           summary:
             "When code and spec disagree: ASK THE USER. Never assume which one is wrong.",
           importance: 5
         },
         %{
-          id: "toolguidance_cognition_axiom_4",
+          id: "toolguidance_document_axiom_4",
           title: "Specs have versions",
           summary:
             "Specs have versions. Approving a spec increments the version and recomputes the spec_hash.",
@@ -312,14 +312,14 @@ defmodule Acs.Memory.ToolGuidance do
       ],
       warnings: [
         %{
-          id: "toolguidance_cognition_warning_1",
+          id: "toolguidance_document_warning_1",
           title: "Do not skip proposing specs for new modules",
           summary:
             "Do not skip proposing specs for new modules. Documentation debt accrues exponentially.",
           importance: 4
         },
         %{
-          id: "toolguidance_cognition_warning_2",
+          id: "toolguidance_document_warning_2",
           title: "Wrong invariants are worse than no spec",
           summary:
             "Proposing a spec with wrong invariants is worse than no spec — it misleads future agents.",
@@ -328,14 +328,14 @@ defmodule Acs.Memory.ToolGuidance do
       ],
       relevant_patterns: [
         %{
-          id: "toolguidance_cognition_pattern_1",
+          id: "toolguidance_document_pattern_1",
           title: "Check undocumented after implementing",
           summary:
-            "After implementing a module: use cognition_list_undocumented() to check if it needs a spec → cognition_propose() to document it.",
+            "After implementing a module: use document_list_undocumented() to check if it needs a spec → document_propose() to document it.",
           importance: 4
         },
         %{
-          id: "toolguidance_cognition_pattern_2",
+          id: "toolguidance_document_pattern_2",
           title: "Standard spec quality checklist",
           summary:
             "Standard spec quality check: purpose (why), invariants (what must hold), workflows (how), failure_modes (what breaks), constraints (non-goals), tags (search).",
@@ -343,7 +343,7 @@ defmodule Acs.Memory.ToolGuidance do
         }
       ],
       compressed_knowledge:
-        "Cognition tools: cognition_get (read spec), cognition_search (find specs), cognition_list (browse), cognition_list_undocumented (find gaps), cognition_propose (create), cognition_approve/reject (review). Every module needs a spec. When code ≠ spec, ask user."
+        "Cognition tools: document_get (read spec), document_search (find specs), document_list (browse), document_list_undocumented (find gaps), document_propose (create), document_approve/reject (review). Every module needs a spec. When code ≠ spec, ask user."
     },
     "agent_coordination_system/tools/diagnostic" => %{
       critical_axioms: [

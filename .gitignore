@@ -8,4 +8,10 @@ erl_crash.dump
 *.beam
 /config/*.secret.exs
 .elixir_ls/
-.env
+
+# ACS generated files (local, not committed)
+steward.env
+steward.docker-compose.yml
+AGENTS_ACS.md
+var/
+acs_data/

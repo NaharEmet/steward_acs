@@ -11,6 +11,13 @@ defmodule Acs.Memory.Guidance do
   - warnings: max 3 entries
   - relevant_patterns: max 5 entries
   - compressed_knowledge: max 500 tokens (approximate)
+
+  ## Delivery Tiers
+  - `:claim` — Compact packet delivered at task claim time
+    Includes: axioms, warnings, maintenance, tool_reference, document_*, workflow_basics
+  - `:full` — Complete packet delivered on explicit request
+    Includes: all of :claim + patterns, knowledge, file_locking_protocol,
+    memory_protocol, error_response_protocol, sleep_wake_protocol, agent_identity
   """
 
   @critical_axioms_max 5
@@ -22,7 +29,7 @@ defmodule Acs.Memory.Guidance do
   If you find any of the above items are incorrect or outdated while working:
   1. Mark old items as stale: use set_memory_status(memory_id: "...", status: "stale", notes: "reason")
   2. Save a corrected version: use save_memory(kind: "...", title: "...", content: "...", scope_path: "...")
-  3. For outdated cognition specs: use cognition_propose(app, path, updated_attrs) with corrected invariants
+  3. For outdated cognition specs: use document_propose(app, path, updated_attrs) with corrected invariants
   """
 
   @tool_reference """
@@ -37,11 +44,11 @@ defmodule Acs.Memory.Guidance do
   - **Level 1**: Core workflow tools — `claim_work`, `release_work`,
     `create_work`, `lock_file`, `unlock_file`, `get_present_status`, `get_locked_files`,
     `list_tasks`, `sleep`, `wake`, `submit_task_feedback`, `help`, `save_memory`,
-    `list_memories`, `search_memories`, `generate_guidance_packet`, `cognition_get`,
-    `cognition_search`, `cognition_list`, `cognition_list_undocumented`, and all `ant_*` tools
+    `list_memories`, `search_memories`, `generate_guidance_packet`, `document_get`,
+    `document_search`, `document_list`, `document_list_undocumented`, and all `ant_*` tools
   - **Level 2**: `get_logs`, `list_categories`, `list_tools`,
-    `refresh_tools`, `list_orgs`, `set_memory_status`, `cognition_propose`, `cognition_approve`,
-    `cognition_reject`, plus Ant Dev tools like `get_system_reply`, `trigger_workflow`, etc.
+    `refresh_tools`, `list_orgs`, `set_memory_status`, `document_propose`, `document_approve`,
+    `document_reject`, plus Ant Dev tools like `get_system_reply`, `trigger_workflow`, etc.
   - **Level 3**: `list_error_traces`, `ack_error_trace`,
     `resolve_error_trace`, `create_task_from_error_trace`, `time`, `trigger_extraction_worker`,
     `get_message`
@@ -66,14 +73,14 @@ defmodule Acs.Memory.Guidance do
     call it — it will execute.
   """
 
-  @cognition_instructions """
+  @document_instructions """
   ## Cognition Spec System
 
   Cognition specs document WHY modules exist, what invariants must hold, how they work, and what can go wrong.
 
   ### When to Propose a Spec
 
-  - **After completing implementation of any new module**: Always propose a cognition spec using `cognition_propose(app, path, attrs)` unless one already exists
+  - **After completing implementation of any new module**: Always propose a cognition spec using `document_propose(app, path, attrs)` unless one already exists
   - **When modules change**: Update the corresponding spec to reflect new behavior
   - **Before approving a spec**: Review invariants, workflows, failure_modes carefully
 
@@ -92,18 +99,18 @@ defmodule Acs.Memory.Guidance do
 
   | Tool | Level | Behavior |
   |------|-------|----------|
-  | `cognition_get` | 1 | Get full spec by app + path |
-  | `cognition_search` | 1 | Full-text search across specs |
-  | `cognition_list` | 1 | List all specs, optionally filtered |
-  | `cognition_list_undocumented` | 1 | Find modules without specs |
-  | `cognition_propose` | 2 | Create/update spec (status="proposed") |
-  | `cognition_approve` | 2 | Set status="approved" |
-  | `cognition_reject` | 2 | Set status="under_review" |
+  | `document_get` | 1 | Get full spec by app + path |
+  | `document_search` | 1 | Full-text search across specs |
+  | `document_list` | 1 | List all specs, optionally filtered |
+  | `document_list_undocumented` | 1 | Find modules without specs |
+  | `document_propose` | 2 | Create/update spec (status="proposed") |
+  | `document_approve` | 2 | Set status="approved" |
+  | `document_reject` | 2 | Set status="under_review" |
 
   > Note: Level 2+ tools require explicit access. Call directly by name to use them.
   """
 
-  @cognition_mismatch_protocol """
+  @document_mismatch_protocol """
   ## Code vs. Spec Mismatch Protocol
 
   When working on a module that has an existing cognition spec, you may discover the code behavior differs from what the spec documents.
@@ -117,7 +124,7 @@ defmodule Acs.Memory.Guidance do
      - Which one needs to change?
   3. **ASK THE USER** — Present the mismatch:
      ```
-     ⚠️ COGNITION MISMATCH: [module_name]
+     COGNITION MISMATCH: [module_name]
      
      Spec says: [what spec documents]
      Code does: [what code actually does]
@@ -133,12 +140,139 @@ defmodule Acs.Memory.Guidance do
   **Important**: Never assume the spec is wrong or that the code is wrong. Ask the user.
   """
 
+  @workflow_basics """
+  ## Next Steps
+
+  After claiming this task:
+
+  1. **LOCK FILES** — `acs_lock_file(agent_id, task_id, file_path)` before each edit
+  2. **DO THE WORK** — Write code, run tests, research
+  3. **SAVE LEARNINGS** — `acs_save_memory(kind: "learning", ...)` before release
+  4. **UNLOCK FILES** — `acs_unlock_file(agent_id, file_path: file_path)` when done editing
+  5. **RELEASE** — `acs_release_work(agent_id, task_id)`
+  6. **FEEDBACK** — `acs_submit_task_feedback(task_id, agent_id, learned_for_agents: "...")`
+
+  If no tasks available: `acs_sleep(agent_id: "YourAgentName")`
+  """
+
+  @file_locking_protocol """
+  ## Next Steps (after locking this file)
+
+  - Edit the file
+  - When done: `acs_unlock_file(agent_id, file_path: file_path)` or `acs_unlock_file(agent_id, task_id: task_id)`
+  - 10-minute auto-release if you go silent
+  - `acs_get_locked_files()` to see all locked files
+  """
+
+  @memory_protocol """
+  ## Next Steps (during this task)
+
+  - When you discover something useful: `acs_save_memory(kind: "learning", title: "...", content: "...", scope_path: "...")`
+  - Memory kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom
+  - Save when: you found a pattern, encountered a pitfall, made a decision
+  - Don't save: temporary state, obvious things, one-off events
+  """
+
+  @error_response_protocol """
+  ## Next Steps (if you encounter errors)
+
+  1. Try to resolve it
+  2. If persistent:
+     - `acs_list_error_traces()` — check if known
+     - `acs_ack_error_trace(trace_id)` — mark as investigating
+  3. Fix it
+  4. `acs_resolve_error_trace(trace_id)` — mark as resolved
+
+  Debugging: `get_logs(level: "error", limit: 50)` → `memory_health_check()` → `connection_diagnostic()`
+  """
+
+  @sleep_wake_protocol """
+  ## Next Steps (when no tasks available)
+
+  - `acs_sleep(agent_id: "MyAgent", timeout: 300)` — wait for tasks
+  - You'll be woken when a task is dispatched to you
+  - `acs_wake(agent_id: "MyAgent")` — cancel sleep manually
+  - Release any active tasks before sleeping
+  """
+
+  @agent_identity """
+  ## Agent Identity
+
+  - Your agent_id persists across sessions
+  - Multiple agents can work simultaneously
+  - `acs_get_present_status()` to see who's working
+  """
+
+  @knowledge_workflow """
+  ## Organizational Workflow
+
+  This project uses structured workflows to maintain consistency:
+
+  1. **Claim work** before editing files — ensures no conflicts
+  2. **Lock files** before each edit — prevents simultaneous modifications
+  3. **Save learnings** when you discover something useful — helps future agents
+  4. **Unlock files** when done editing — frees the file for others
+  5. **Release work** when task is complete — signals completion
+  6. **Provide feedback** to help future agents — improves the system
+
+  Follow these patterns to maintain consistency with the team.
+  """
+
+  @knowledge_file_locking """
+  ## File Locking
+
+  - Only one agent should edit a file at a time
+  - Check for conflicts before starting
+  - Release locks when done (10-minute auto-release if silent)
+  - Use: get_locked_files() to check current locks
+  """
+
+  @knowledge_memory """
+  ## Knowledge Memory
+
+  Save learnings when you discover:
+  - Patterns that others should follow
+  - Pitfalls others should avoid
+  - Decisions that should be documented
+
+  Memory kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom
+
+  Use: save_memory() to persist knowledge
+  """
+
+  @knowledge_error """
+  ## Error Handling
+
+  When encountering errors:
+  1. Check if it's a known error pattern — use list_error_traces()
+  2. If persistent, escalate debugging — use get_logs() then connection_diagnostic()
+  3. Document what you learned — use save_memory()
+  """
+
+  @knowledge_sleep """
+  ## Task Availability
+
+  When no tasks are available, wait for new assignments.
+  Release any active tasks before switching focus.
+  Use: sleep() to wait, wake() to cancel
+  """
+
+  @knowledge_identity """
+  ## Agent Identity
+
+  Multiple agents can work simultaneously.
+  Each agent has a unique identifier that persists across sessions.
+  Use: get_present_status() to see who's working
+  """
+
   @doc """
   Generates a guidance packet for a given scope_path.
 
   ## Options
   - `tier`: `:full` (default) - includes all categories including patterns and knowledge
             `:claim` - only high-importance (>= 4) axioms and warnings, no patterns/knowledge
+  - `mode`: `:mcp` (default) - includes MCP tool references for coding agents
+            `:knowledge` - strips tool references, for Claude Chat/ChatGPT consumption
 
   Returns a map with:
   - :scope - the scope path
@@ -149,15 +283,27 @@ defmodule Acs.Memory.Guidance do
   - :compressed_knowledge - condensed knowledge string
   - :maintenance_instructions - instructions for flagging outdated items
   - :tool_reference - guidance on using help, list_tools, and get_logs
+  - :document_instructions - cognition spec system instructions
+  - :document_mismatch_protocol - how to handle code vs spec disagreements
+  - :workflow_basics - standard agent workflow (claim tier and above)
+  - :file_locking_protocol - file locking rules (full tier only)
+  - :memory_protocol - knowledge memory protocol (full tier only)
+  - :error_response_protocol - error handling (full tier only)
+  - :sleep_wake_protocol - sleep/wake behavior (full tier only)
+  - :agent_identity - agent identification (full tier only)
   """
   def generate(scope_path, opts \\ []) do
     tier = Keyword.get(opts, :tier, :full)
+    mode = Keyword.get(opts, :mode, :mcp)
+    allowed_teams = Keyword.get(opts, :allowed_teams)
+    allowed_projects = Keyword.get(opts, :allowed_projects)
+
+    search_opts = [{:scope_path, scope_path}, {:status, "approved"}]
+    search_opts = if allowed_teams, do: search_opts ++ [allowed_teams: allowed_teams], else: search_opts
+    search_opts = if allowed_projects, do: search_opts ++ [allowed_projects: allowed_projects], else: search_opts
 
     scope_memories =
-      Acs.Memory.Search.list(
-        scope_path: scope_path,
-        status: "approved"
-      )
+      Acs.Memory.Search.list(search_opts)
 
     sorted = Enum.sort_by(scope_memories, & &1.importance, :desc)
 
@@ -166,32 +312,90 @@ defmodule Acs.Memory.Guidance do
 
     case tier do
       :claim ->
-        %{
-          scope: scope_path,
-          tier: :claim,
-          critical_axioms: merge_items(extract_axioms(sorted, min_importance: 4), tool_guidance, :critical_axioms, @critical_axioms_max),
-          warnings: merge_items(extract_warnings(sorted, min_importance: 4), tool_guidance, :warnings, @warnings_max),
-          relevant_patterns: [],
-          compressed_knowledge: "",
-          maintenance_instructions: @maintenance_instructions,
-          tool_reference: @tool_reference,
-          cognition_instructions: @cognition_instructions,
-          cognition_mismatch_protocol: @cognition_mismatch_protocol
-        }
+        if mode == :knowledge do
+          %{
+            scope: scope_path,
+            tier: :claim,
+            mode: :knowledge,
+            critical_axioms: merge_items(extract_axioms(sorted, min_importance: 4), tool_guidance, :critical_axioms, @critical_axioms_max),
+            warnings: merge_items(extract_warnings(sorted, min_importance: 4), tool_guidance, :warnings, @warnings_max),
+            relevant_patterns: [],
+            compressed_knowledge: "",
+            maintenance_instructions: @maintenance_instructions,
+            tool_reference: "",
+            document_instructions: @document_instructions,
+            document_mismatch_protocol: @document_mismatch_protocol,
+            workflow_basics: @knowledge_workflow,
+            file_locking_protocol: @knowledge_file_locking,
+            memory_protocol: @knowledge_memory,
+            error_response_protocol: @knowledge_error,
+            sleep_wake_protocol: @knowledge_sleep,
+            agent_identity: @knowledge_identity
+          }
+        else
+          %{
+            scope: scope_path,
+            tier: :claim,
+            mode: :mcp,
+            critical_axioms: merge_items(extract_axioms(sorted, min_importance: 4), tool_guidance, :critical_axioms, @critical_axioms_max),
+            warnings: merge_items(extract_warnings(sorted, min_importance: 4), tool_guidance, :warnings, @warnings_max),
+            relevant_patterns: [],
+            compressed_knowledge: "",
+            maintenance_instructions: @maintenance_instructions,
+            tool_reference: @tool_reference,
+            document_instructions: @document_instructions,
+            document_mismatch_protocol: @document_mismatch_protocol,
+            workflow_basics: @workflow_basics,
+            file_locking_protocol: @file_locking_protocol,
+            memory_protocol: @memory_protocol,
+            error_response_protocol: @error_response_protocol,
+            sleep_wake_protocol: @sleep_wake_protocol,
+            agent_identity: @agent_identity
+          }
+        end
 
       :full ->
-        %{
-          scope: scope_path,
-          tier: :full,
-          critical_axioms: merge_items(extract_axioms(sorted), tool_guidance, :critical_axioms, @critical_axioms_max),
-          warnings: merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
-          relevant_patterns: merge_items(extract_patterns(sorted), tool_guidance, :relevant_patterns, @patterns_max),
-          compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
-          maintenance_instructions: @maintenance_instructions,
-          tool_reference: @tool_reference,
-          cognition_instructions: @cognition_instructions,
-          cognition_mismatch_protocol: @cognition_mismatch_protocol
-        }
+        if mode == :knowledge do
+          %{
+            scope: scope_path,
+            tier: :full,
+            mode: :knowledge,
+            critical_axioms: merge_items(extract_axioms(sorted), tool_guidance, :critical_axioms, @critical_axioms_max),
+            warnings: merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
+            relevant_patterns: merge_items(extract_patterns(sorted), tool_guidance, :relevant_patterns, @patterns_max),
+            compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
+            maintenance_instructions: @maintenance_instructions,
+            tool_reference: "",
+            document_instructions: @document_instructions,
+            document_mismatch_protocol: @document_mismatch_protocol,
+            workflow_basics: @knowledge_workflow,
+            file_locking_protocol: @knowledge_file_locking,
+            memory_protocol: @knowledge_memory,
+            error_response_protocol: @knowledge_error,
+            sleep_wake_protocol: @knowledge_sleep,
+            agent_identity: @knowledge_identity
+          }
+        else
+          %{
+            scope: scope_path,
+            tier: :full,
+            mode: :mcp,
+            critical_axioms: merge_items(extract_axioms(sorted), tool_guidance, :critical_axioms, @critical_axioms_max),
+            warnings: merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
+            relevant_patterns: merge_items(extract_patterns(sorted), tool_guidance, :relevant_patterns, @patterns_max),
+            compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
+            maintenance_instructions: @maintenance_instructions,
+            tool_reference: @tool_reference,
+            document_instructions: @document_instructions,
+            document_mismatch_protocol: @document_mismatch_protocol,
+            workflow_basics: @workflow_basics,
+            file_locking_protocol: @file_locking_protocol,
+            memory_protocol: @memory_protocol,
+            error_response_protocol: @error_response_protocol,
+            sleep_wake_protocol: @sleep_wake_protocol,
+            agent_identity: @agent_identity
+          }
+        end
     end
   end
 
@@ -201,27 +405,59 @@ defmodule Acs.Memory.Guidance do
 
   ## Options
   - `tier`: `:full` (default) or `:claim`
+  - `mode`: `:mcp` (default) or `:knowledge`
   """
   def for_task(task_id, opts \\ []) do
     tier = Keyword.get(opts, :tier, :full)
+    mode = Keyword.get(opts, :mode, :mcp)
 
     task = Acs.Acs.get_task(task_id)
 
     case task do
       nil ->
-        %{
-          scope: nil,
-          tier: tier,
-          critical_axioms: [],
-          warnings: [],
-          relevant_patterns: [],
-          compressed_knowledge: "",
-          maintenance_instructions: @maintenance_instructions,
-          tool_reference: @tool_reference,
-          cognition_instructions: @cognition_instructions,
-          cognition_mismatch_protocol: @cognition_mismatch_protocol,
-          scope_category: nil
-        }
+        if mode == :knowledge do
+          %{
+            scope: nil,
+            tier: tier,
+            mode: :knowledge,
+            critical_axioms: [],
+            warnings: [],
+            relevant_patterns: [],
+            compressed_knowledge: "",
+            maintenance_instructions: @maintenance_instructions,
+            tool_reference: "",
+            document_instructions: @document_instructions,
+            document_mismatch_protocol: @document_mismatch_protocol,
+            workflow_basics: @knowledge_workflow,
+            file_locking_protocol: @knowledge_file_locking,
+            memory_protocol: @knowledge_memory,
+            error_response_protocol: @knowledge_error,
+            sleep_wake_protocol: @knowledge_sleep,
+            agent_identity: @knowledge_identity,
+            scope_category: nil
+          }
+        else
+          %{
+            scope: nil,
+            tier: tier,
+            mode: :mcp,
+            critical_axioms: [],
+            warnings: [],
+            relevant_patterns: [],
+            compressed_knowledge: "",
+            maintenance_instructions: @maintenance_instructions,
+            tool_reference: @tool_reference,
+            document_instructions: @document_instructions,
+            document_mismatch_protocol: @document_mismatch_protocol,
+            workflow_basics: @workflow_basics,
+            file_locking_protocol: @file_locking_protocol,
+            memory_protocol: @memory_protocol,
+            error_response_protocol: @error_response_protocol,
+            sleep_wake_protocol: @sleep_wake_protocol,
+            agent_identity: @agent_identity,
+            scope_category: nil
+          }
+        end
 
       task when is_map(task) ->
         task_map = if is_struct(task), do: Map.from_struct(task), else: task
@@ -231,7 +467,7 @@ defmodule Acs.Memory.Guidance do
           |> List.first()
           |> scope_from_path()
 
-        guidance = generate(scope_path, tier: tier)
+        guidance = generate(scope_path, tier: tier, mode: mode)
         Map.put(guidance, :scope_category, scope_path)
     end
   end

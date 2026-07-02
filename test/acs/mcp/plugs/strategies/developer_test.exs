@@ -16,7 +16,7 @@ defmodule Acs.MCP.Plugs.Strategies.DeveloperTest do
 
   describe "authenticate/2" do
     test "authenticates with valid developer key" do
-      {:ok, %{key: raw_key}} = Developers.generate_key("strategy-test", cluster: "dev")
+      {:ok, %{key: raw_key}} = Developers.generate_key("strategy-test", role: "admin", cluster: "dev")
       conn = build_conn()
       # Developer strategy maps cluster to org_id
       assert {:ok, %{role: "admin", org_id: "dev"}} = Developer.authenticate(raw_key, conn)

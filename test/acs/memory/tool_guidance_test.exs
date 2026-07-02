@@ -123,14 +123,14 @@ defmodule Acs.Memory.ToolGuidanceTest do
 
       assert Map.has_key?(packet, :maintenance_instructions)
       assert Map.has_key?(packet, :tool_reference)
-      assert Map.has_key?(packet, :cognition_instructions)
-      assert Map.has_key?(packet, :cognition_mismatch_protocol)
+      assert Map.has_key?(packet, :document_instructions)
+      assert Map.has_key?(packet, :document_mismatch_protocol)
       assert is_binary(packet.maintenance_instructions)
       assert String.length(packet.maintenance_instructions) > 0
       assert String.contains?(packet.maintenance_instructions, "set_memory_status")
       assert is_binary(packet.tool_reference)
-      assert is_binary(packet.cognition_instructions)
-      assert is_binary(packet.cognition_mismatch_protocol)
+      assert is_binary(packet.document_instructions)
+      assert is_binary(packet.document_mismatch_protocol)
     end
 
     test "merges axioms from both memories and hardcoded guidance" do
@@ -160,8 +160,8 @@ defmodule Acs.Memory.ToolGuidanceTest do
 
       assert Map.has_key?(packet, :maintenance_instructions)
       assert Map.has_key?(packet, :tool_reference)
-      assert Map.has_key?(packet, :cognition_instructions)
-      assert Map.has_key?(packet, :cognition_mismatch_protocol)
+      assert Map.has_key?(packet, :document_instructions)
+      assert Map.has_key?(packet, :document_mismatch_protocol)
       assert is_binary(packet.maintenance_instructions)
     end
   end

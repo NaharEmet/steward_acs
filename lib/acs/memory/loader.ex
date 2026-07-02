@@ -1,34 +1,47 @@
 defmodule Acs.Memory.Loader do
   @moduledoc """
-  Loads and validates YAML memory files from priv/acs_memory/.
+  Loads and validates memory files from the canonical store.
+
+  Supports YAML (.yaml) and Markdown+frontmatter (.md) formats.
+  Write format is governed by the MEMORY_STORE env var.
+  Supports Obsidian vaults via OBSIDIAN_VAULT_PATH.
 
   Abstracts the filesystem representation of the memory store.
   All memory operations go through the Loader to validate
-  before writing to YAML files.
+  before writing to files.
   """
 
   require Logger
 
-  @memory_dir "priv/acs_memory"
-
   @doc """
   Returns the full path to the memory directory.
+
+  If OBSIDIAN_VAULT_PATH is set, uses that (supports Obsidian vault
+  synced via Syncthing/git/NAS/bind-mount). Otherwise falls back to
+  the built-in priv/acs_memory/ directory inside the app.
   """
   def memory_dir do
-    Path.join(Application.app_dir(:steward_acs), @memory_dir)
+    obsidian_path = Application.get_env(:steward_acs, :obsidian_vault_path)
+
+    if is_binary(obsidian_path) and obsidian_path != "" do
+      obsidian_path
+    else
+      Path.join(Application.app_dir(:steward_acs), "priv/acs_memory")
+    end
   end
 
   @doc """
-  Lists all memory YAML files in the store, optionally filtered by scope.
+  Lists all memory files in the store, optionally filtered by scope.
+  Supports .yaml, .yml, and .md extensions.
   Returns a list of file paths.
   """
   def list_files(scope_path \\ nil) do
-    pattern = Path.join(memory_dir(), "**/*.yaml")
+    pattern = Path.join(memory_dir(), "**/*.{yaml,yml,md}")
 
     files =
       pattern
       |> Path.wildcard()
-      |> Enum.filter(&yaml_file?/1)
+      |> Enum.filter(&memory_file?/1)
       |> Enum.filter(&relevant_file?/1)
 
     case scope_path do
@@ -44,51 +57,77 @@ defmodule Acs.Memory.Loader do
     end
   end
 
-  # Filter to only include files with a .yaml or .YAML extension.
-  # Path.wildcard only matches lowercase .yaml, but this ensures
-  # any non-YAML files in the directory are excluded.
-  defp yaml_file?(path) do
-    ext = Path.extname(path)
-    ext == ".yaml" or ext == ".YAML"
+  # Accept .yaml, .YAML, .yml, .YML, .md, .MD extensions.
+  defp memory_file?(path) do
+    ext = path |> Path.extname() |> String.downcase()
+    ext in [".yaml", ".yml", ".md"]
   end
 
-  # Exclude files from deps/, quarantine/, and test_app/ directories to prevent:
-  # - Picking up YAML files from dependencies
-  # - Re-processing files already moved to a quarantine subdirectory
-  # - Test lifecycle files from test_app/ that get copied into _build/
-  # NOTE: /test/ NOT excluded here because _build/test/ matches and
-  # would exclude ALL memory files during test runs.
+  # Exclude build artifact copies of test fixtures, not intentional test paths.
   defp relevant_file?(file_path) do
     not String.contains?(file_path, "deps/") and
       not String.contains?(file_path, "/quarantine/") and
-      not String.contains?(file_path, "/test_app/")
+      not String.contains?(file_path, "/.obsidian/") and
+      not (String.contains?(file_path, "_build/") and String.contains?(file_path, "/test_app/"))
   end
 
   @doc """
-  Loads a single YAML memory file and returns {:ok, %Acs.Memory{}}
-  or {:error, reason}.
+  Loads a single memory file (YAML or Markdown+frontmatter) and returns
+  {:ok, %Acs.Memory{}} or {:error, reason}.
   """
   def load_file(file_path) do
-    case YamlElixir.read_from_file(file_path) do
-      {:ok, memory_map} when is_map(memory_map) ->
-        case Acs.Memory.validate(memory_map) do
-          :ok ->
-            memory = Acs.Memory.new(memory_map)
-            {:ok, memory}
+    ext = file_path |> Path.extname() |> String.downcase()
 
-          {:error, reasons} ->
-            {:error, "Validation failed for #{file_path}: #{Enum.join(reasons, "; ")}"}
-        end
-
-      {:ok, _} ->
-        {:error, "Invalid YAML structure in #{file_path}: expected a map"}
-
-      {:error, reason} ->
-        {:error, "YAML parse error in #{file_path}: #{inspect(reason)}"}
+    case ext do
+      ".md" -> load_markdown_file(file_path)
+      _ -> load_yaml_file(file_path)
     end
   rescue
     e ->
       {:error, "Failed to load #{file_path}: #{inspect(e)}"}
+  end
+
+  # Parse a .md file: split frontmatter from body, then validate.
+  defp load_markdown_file(file_path) do
+    case File.read(file_path) do
+      {:ok, content} ->
+        case Acs.Memory.Frontmatter.split(content) do
+          {:ok, frontmatter, body} ->
+            memory_map = Map.put(frontmatter, "content", body)
+            validate_and_build(memory_map, file_path)
+
+          {:error, reason} ->
+            {:error, "Frontmatter parse error in #{file_path}: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, "Cannot read #{file_path}: #{inspect(reason)}"}
+    end
+  end
+
+  # Parse a .yaml/.yml file: pure YAML.
+  defp load_yaml_file(file_path) do
+    case YamlElixir.read_from_file(file_path) do
+      {:ok, memory_map} when is_map(memory_map) ->
+        validate_and_build(memory_map, file_path)
+
+      {:ok, _} ->
+        {:error, "Invalid structure in #{file_path}: expected a map"}
+
+      {:error, reason} ->
+        {:error, "Parse error in #{file_path}: #{inspect(reason)}"}
+    end
+  end
+
+  defp validate_and_build(memory_map, file_path) do
+    case Acs.Memory.validate(memory_map) do
+      :ok ->
+        memory = Acs.Memory.new(memory_map)
+        {:ok, memory}
+
+      {:error, reasons} ->
+        {:error, "Validation failed for #{file_path}: #{Enum.join(reasons, "; ")}"}
+    end
   end
 
   @doc """
@@ -197,20 +236,55 @@ defmodule Acs.Memory.Loader do
   end
 
   defp do_quarantine_existing_file(file_path) do
+    ext = file_path |> Path.extname() |> String.downcase()
+
+    case ext do
+      ".md" -> quarantine_markdown_file(file_path)
+      _ -> quarantine_yaml_file(file_path)
+    end
+  end
+
+  defp quarantine_markdown_file(file_path) do
+    case File.read(file_path) do
+      {:ok, content} ->
+        case Acs.Memory.Frontmatter.split(content) do
+          {:ok, frontmatter, body} ->
+            if Map.get(frontmatter, "status") == "parse_error" do
+              Logger.warning(
+                "[Memory.Loader] Skipping quarantine for #{file_path} — already has parse_error status"
+              )
+              :ok
+            else
+              updated = Map.put(frontmatter, "status", "parse_error")
+              markdown = Acs.Memory.Frontmatter.serialize(updated, body)
+              File.write!(file_path, markdown)
+              Logger.warning("[Memory.Loader] Quarantined #{file_path} with parse_error status")
+              :ok
+            end
+
+          {:error, reason} ->
+            quarantine_malformed_file(file_path, reason)
+            {:error, "Cannot quarantine malformed frontmatter: #{file_path}"}
+        end
+
+      {:error, reason} ->
+        Logger.warning(
+          "[Memory.Loader] Cannot quarantine unreadable file #{file_path}: #{inspect(reason)}"
+        )
+        :ok
+    end
+  end
+
+  defp quarantine_yaml_file(file_path) do
     case YamlElixir.read_from_file(file_path) do
       {:ok, memory_map} when is_map(memory_map) ->
-        # Guard: if already quarantined, skip the write to avoid infinite loops
         if Map.get(memory_map, "status") == "parse_error" do
           Logger.warning(
             "[Memory.Loader] Skipping quarantine for #{file_path} — already has parse_error status"
           )
-
           :ok
         else
-          # Set the error status
           updated_map = Map.put(memory_map, "status", "parse_error")
-
-          # Write back
           write_yaml_file(file_path, updated_map)
           Logger.warning("[Memory.Loader] Quarantined #{file_path} with parse_error status")
           :ok
@@ -220,16 +294,17 @@ defmodule Acs.Memory.Loader do
         {:error, "Cannot quarantine: file does not contain a valid memory map"}
 
       {:error, reason} ->
-        # Truly malformed YAML - can't parse, can't quarantine.
-        # Move the file to quarantine subdirectory to prevent repeated errors.
         quarantine_malformed_file(file_path, reason)
         {:error, "Cannot quarantine malformed YAML: #{file_path}"}
     end
   end
 
   @doc """
-  Saves a Memory struct to a YAML file in the appropriate location.
-  Returns :ok or {:error, reason}.
+  Saves a Memory struct to a file in the appropriate location.
+
+  Write format is governed by MEMORY_STORE env var:
+  - "obsidian" → Markdown with YAML frontmatter (.md)
+  - default ("yaml") → pure YAML (.yaml) — legacy behaviour
   """
   def save(%Acs.Memory{} = memory) do
     file_path = memory_to_path(memory)
@@ -237,14 +312,45 @@ defmodule Acs.Memory.Loader do
     # Ensure directory exists
     Path.dirname(file_path) |> File.mkdir_p!()
 
+    ext = Path.extname(file_path)
     yaml_map = Acs.Memory.to_yaml_map(memory)
-    write_yaml_file(file_path, yaml_map)
 
-    Logger.info("[Memory.Loader] Saved memory: #{memory.id} -> #{file_path}")
-    :ok
+    result =
+      if String.downcase(ext) == ".md" do
+        # Obsidian mode: write frontmatter + content body as markdown
+        content = Map.get(yaml_map, "content", "") || ""
+        frontmatter = Map.delete(yaml_map, "content")
+        markdown = Acs.Memory.Frontmatter.serialize(frontmatter, content)
+        write_file_atomically(file_path, markdown)
+      else
+        write_yaml_file(file_path, yaml_map)
+      end
+
+    case result do
+      :ok ->
+        Logger.info("[Memory.Loader] Saved memory: #{memory.id} -> #{file_path}")
+        :ok
+
+      {:error, reason} ->
+        {:error, "Failed to save memory: #{inspect(reason)}"}
+    end
   rescue
     e ->
       {:error, "Failed to save memory: #{inspect(e)}"}
+  end
+
+  defp write_file_atomically(file_path, content) do
+    tmp_path = file_path <> ".tmp"
+
+    try do
+      File.write!(tmp_path, content)
+      File.rename!(tmp_path, file_path)
+      :ok
+    rescue
+      e ->
+        _ = File.rm(tmp_path)
+        {:error, inspect(e)}
+    end
   end
 
   # Move a malformed YAML file to a quarantine subdirectory instead of deleting.
@@ -262,18 +368,16 @@ defmodule Acs.Memory.Loader do
   end
 
   defp do_quarantine_file(file_path, reason) do
-    # Use fixed quarantine directory at memory root (like Cognition.Loader does).
-    # This prevents deeply nested quarantine/ directories.
     quarantine_dir = Path.join(memory_dir(), "quarantine")
     File.mkdir_p!(quarantine_dir)
 
-    # Generate unique name with timestamp to avoid conflicts.
-    # Preserve location context by flattening the relative path into the filename.
-    # e.g., "lib/anantha_os/core/claims.ex.yaml" -> "lib__anantha_os__core__claims.ex_TIMESTAMP.yaml"
     timestamp = DateTime.utc_now() |> DateTime.to_unix()
     relative_path = Path.relative_to(file_path, memory_dir())
     flat_name = String.replace(relative_path, "/", "__")
+    # Strip both .yaml and .md suffixes for the flattened name
     flat_name = String.replace_suffix(flat_name, ".yaml", "")
+    flat_name = String.replace_suffix(flat_name, ".yml", "")
+    flat_name = String.replace_suffix(flat_name, ".md", "")
     quarantine_name = "#{flat_name}_#{timestamp}.yaml"
     quarantine_path = Path.join(quarantine_dir, quarantine_name)
 
@@ -438,22 +542,37 @@ defmodule Acs.Memory.Loader do
   @doc """
   Converts a Memory struct to its expected file path based on scope_path and id.
 
-  Each memory gets its own file at `scope_path/id.yaml` to prevent
-  multiple memories with the same scope from overwriting each other.
+  Extension is determined by the active MEMORY_STORE config:
+  - "obsidian" → .md
+  - default ("yaml") → .yaml
 
   For map input, `scope_path` and `id` are required.
   """
   def memory_to_path(%Acs.Memory{} = memory) do
-    # scope_path: "agent_coordination_system/cache/invalidation"
-    # id: "abc123"
-    # → path: priv/acs_memory/agent_coordination_system/cache/invalidation/abc123.yaml
-    Path.join([memory_dir(), memory.scope_path, memory.id <> ".yaml"])
+    ext = store_extension()
+    Path.join([memory_dir(), safe_scope_path(memory.scope_path), memory.id <> ext])
   end
 
   def memory_to_path(attrs) when is_map(attrs) do
     scope_path = Map.get(attrs, "scope_path", "unknown")
     id = Map.get(attrs, "id", "unknown")
-    Path.join([memory_dir(), scope_path, id <> ".yaml"])
+    ext = store_extension()
+    Path.join([memory_dir(), safe_scope_path(scope_path), id <> ext])
+  end
+
+  defp safe_scope_path(scope_path) when is_binary(scope_path) do
+    if String.contains?(scope_path, "..") or String.starts_with?(scope_path, "/") do
+      raise ArgumentError, "invalid scope_path: #{inspect(scope_path)}"
+    else
+      scope_path
+    end
+  end
+
+  defp store_extension do
+    case Application.get_env(:steward_acs, :memory_store, "yaml") do
+      "obsidian" -> ".md"
+      _ -> ".yaml"
+    end
   end
 
   @doc """

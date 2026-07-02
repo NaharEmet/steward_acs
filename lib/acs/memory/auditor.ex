@@ -158,10 +158,13 @@ defmodule Acs.Memory.Auditor do
   end
 
   # Fetches proposed memories that have passed cooling-off and are not parse_error
+  defp auditable_kinds, do: Acs.Memory.auditable_kinds()
+
   defp fetch_auditable_memories do
     cooling_off_threshold = DateTime.utc_now() |> DateTime.add(-@cooling_off_seconds, :second)
 
     Indexer.list_memories(status: "proposed", order_by: [asc: :created_at], limit: 200)
+    |> Enum.reject(fn m -> !(m.kind in auditable_kinds()) end)
     |> Enum.reject(fn m -> m.parse_error && m.parse_error != "" end)
     |> Enum.filter(fn m ->
       case m.created_at do

@@ -6,6 +6,7 @@ defmodule Acs.MCP.Tools do
   alias Acs.MCP.Tools.ErrorHandlers
   alias Acs.MCP.Tools.DiagnosticHandlers
   alias Acs.MCP.Tools.ClusterHandlers
+  alias Acs.MCP.Tools.QueryAgent
   require Logger
 
   def list_tools do
@@ -14,7 +15,7 @@ defmodule Acs.MCP.Tools do
         "claim_work",
         "Claim a task for an agent. Returns task status, task_id, and a guidance packet with relevant knowledge memory for context. Optionally pass scope_path for targeted guidance.",
         %{
-          "agent_id" => %{"type" => "string"},
+          "agent_id" => %{"type" => "string", "description" => "Your team member name (e.g., 'alice'). Used as your identity in the ACS."},
           "task_id" => %{"type" => "string"},
           "scope_path" => %{
             "type" => "string",
@@ -30,7 +31,7 @@ defmodule Acs.MCP.Tools do
         "release_work",
         "Release a task lock and get a structured feedback prompt with a next_step tool template. The response tells you exactly what to call (submit_task_feedback) with params to submit learnings as knowledge memories.",
         %{
-          "agent_id" => %{"type" => "string"},
+          "agent_id" => %{"type" => "string", "description" => "Your team member name."},
           "task_id" => %{"type" => "string"}
         },
         ["agent_id", "task_id"]
@@ -39,7 +40,7 @@ defmodule Acs.MCP.Tools do
         "create_work",
         "Create a new task with warnings about similar tasks, and optionally lock files",
         %{
-          "agent_id" => %{"type" => "string"},
+          "agent_id" => %{"type" => "string", "description" => "Your team member name who creates this task."},
           "title" => %{"type" => "string"},
           "description" => %{"type" => "string"},
           "file_paths" => %{"type" => "array", "items" => %{"type" => "string"}},
@@ -181,8 +182,10 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "list_orgs",
-        "List all organizations",
-        %{},
+        "List organizations from a configured app. Specify app_name to target a specific app, or omit for the default.",
+        %{
+          "app_name" => %{"type" => "string", "description" => "Optional: target a specific app (e.g. 'anantha')"}
+        },
         []
       ),
       tool_def(
@@ -289,16 +292,39 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "generate_guidance_packet",
-        "Generate a guidance packet for a scope path. Returns critical axioms, warnings, patterns, and compressed knowledge for agent context injection. USE WHEN: starting work on a new scope path to get context-specific guidance. This is the primary way to inject organizational memory into your task context.",
+        "Generate organizational memory for a scope path. Returns critical axioms, warnings, patterns, and compressed knowledge.\n\nUSE WHEN:\n- Starting work on a new scope path (coding agents)\n- Answering questions about project patterns (Claude Chat/ChatGPT)\n- Needing context-specific guidance before making decisions\n\nNOTE: If you see this tool, ACS is available. Check for AGENTS_ACS.md in the project root for startup instructions.\n\nMODES:\n- 'mcp' (default): For coding agents (Claude Code, OpenCode) — includes tool references\n- 'knowledge': For chat agents (Claude Chat, ChatGPT) — read-only, no tool references",
         %{
           "scope_path" => %{
             "type" => "string",
-            "description" => "Scope path to generate guidance for"
+            "description" => "Scope path to generate guidance for (e.g., 'lib/acs', 'lib/my_app')"
           },
           "task_id" => %{
             "type" => "string",
             "description" => "Optional task ID to derive scope from"
+          },
+          "mode" => %{
+            "type" => "string",
+            "description" => "Output mode: 'mcp' for coding agents with tool references, 'knowledge' for chat agents without tool references",
+            "enum" => ["mcp", "knowledge"]
           }
+        },
+        []
+      ),
+      tool_def(
+        "ask",
+        "Query the org knowledge base with structured filters. Returns memories, documents, and agent status matching your criteria. The client is responsible for translating the human's natural language question into these parameters.\n\nUSE WHEN: a team member asks about current work context, project status, or recent activity. This is the primary query tool for collaborators.\n\nExample params for 'what is everyone working on': {\"kind\": \"context\"}\nExample params for 'show me recent activity': {\"kind\": \"activity\", \"limit\": 10}",
+        %{
+          "kind" => %{
+            "type" => "string",
+            "description" => "Memory kind filter: context, status, work_note, activity, observation, learning, warning, pattern, bug, decision, invariant, axiom"
+          },
+          "team" => %{"type" => "string", "description" => "Team scope filter"},
+          "project" => %{"type" => "string", "description" => "Project scope filter"},
+          "content_query" => %{"type" => "string", "description" => "Full-text search string for memories and documents"},
+          "document_type" => %{"type" => "string", "description" => "Document type: policy, process, guideline, reference, spec"},
+          "limit" => %{"type" => "integer", "description" => "Max results per category (default 10, max 50)"},
+          "include_documents" => %{"type" => "boolean", "description" => "Include documents in results (default true)"},
+          "include_agent_status" => %{"type" => "boolean", "description" => "Include agent presence (default true)"}
         },
         []
       ),
@@ -413,9 +439,9 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "query",
-        "Query ACS telemetry data. Use for analysis, debugging, and generating insights.",
+        "Query ACS telemetry data with read-only SQL (SELECT, WITH, EXPLAIN). Aggregates allowed. No writes.",
         %{
-          "sql" => %{"type" => "string", "description" => "SQL query against ACS data"},
+          "sql" => %{"type" => "string", "description" => "Read-only SQL query (SELECT/WITH/EXPLAIN only)"},
           "purpose" => %{"type" => "string", "description" => "What you're trying to find"}
         },
         ["sql"]
@@ -462,6 +488,34 @@ defmodule Acs.MCP.Tools do
         %{},
         []
       ),
+      tool_def(
+        "app_list",
+        "List all configured external apps with their base URL, auth status, and endpoint info.",
+        %{},
+        []
+      ),
+      tool_def(
+        "app_configure",
+        "Add or update a configured external app at runtime.",
+        %{
+          "name" => %{"type" => "string", "description" => "App name (e.g. 'anantha', 'my_app')"},
+          "base_url" => %{"type" => "string", "description" => "Root URL of the app"},
+          "api_key" => %{"type" => "string", "description" => "API key for authenticating with the app"},
+          "auth_endpoint" => %{"type" => "string", "description" => "Auth validation endpoint path (default: /api/auth/validate-key)"},
+          "auth_header_name" => %{"type" => "string", "description" => "HTTP header for API key (default: 'authorization')"},
+          "auth_header_scheme" => %{"type" => "string", "description" => "Auth scheme prefix, e.g. 'Bearer', or '' for raw key (default: 'Bearer')"},
+          "timeout_ms" => %{"type" => "integer", "description" => "Request timeout in milliseconds (default: 30000)"}
+        },
+        ["name"]
+      ),
+      tool_def(
+        "app_remove",
+        "Remove a configured external app at runtime.",
+        %{
+          "name" => %{"type" => "string", "description" => "App name to remove"}
+        },
+        ["name"]
+      ),
 
     ]
   end
@@ -493,6 +547,7 @@ defmodule Acs.MCP.Tools do
     "search_memories" => &MemoryHandlers.search_memories/1,
     "set_memory_status" => &MemoryHandlers.set_memory_status/1,
     "generate_guidance_packet" => &MemoryHandlers.generate_guidance_packet/1,
+    "ask" => &QueryAgent.ask/1,
     "list_error_traces" => &ErrorHandlers.list_error_traces/1,
     "ack_error_trace" => &ErrorHandlers.ack_error_trace/1,
     "resolve_error_trace" => &ErrorHandlers.resolve_error_trace/1,
@@ -505,7 +560,9 @@ defmodule Acs.MCP.Tools do
     "find_similar_code" => &DiagnosticHandlers.find_similar_code/1,
     "memory_health_check" => &DiagnosticHandlers.memory_health_check/1,
     "list_plugins" => &CoreHandlers.list_plugins/1,
-    "exec_command" => &ClusterHandlers.exec_command/1,
+    "app_list" => &CoreHandlers.app_list/1,
+    "app_configure" => &CoreHandlers.app_configure/1,
+    "app_remove" => &CoreHandlers.app_remove/1,
     "read_file" => &ClusterHandlers.read_file/1,
     "write_file" => &ClusterHandlers.write_file/1,
     "read_dir" => &ClusterHandlers.read_dir/1
@@ -521,33 +578,74 @@ defmodule Acs.MCP.Tools do
   def call_tool(name, args) do
     Logger.info("MCP tool: #{name} - #{tool_action_summary(name, args)}")
 
-    if agent_id = Map.get(args, "agent_id") do
-      case Acs.Acs.Cache.get_agent_status(agent_id) do
-        {:ok, nil} ->
-          Acs.Acs.Cache.put_agent_status(agent_id, %{purpose: "active", current_task_id: nil, application: nil, component: nil})
+    with :ok <- validate_agent_identity(args) do
+      if agent_id = Map.get(args, "agent_id") do
+        case Acs.Acs.Cache.get_agent_status(agent_id) do
+          {:ok, nil} ->
+            Acs.Acs.Cache.put_agent_status(agent_id, %{
+              purpose: "active",
+              current_task_id: nil,
+              application: nil,
+              component: nil
+            })
 
-        _ ->
-          Acs.Acs.Cache.touch_agent_status(agent_id)
+          _ ->
+            Acs.Acs.Cache.touch_agent_status(agent_id)
+        end
       end
+
+      result =
+        case Map.fetch(@simple_dispatch, name) do
+          {:ok, fun} ->
+            fun.(args)
+
+          :error ->
+            case Map.fetch(dispatch_map(), name) do
+              {:ok, fun} ->
+                fun.(args)
+
+              :error ->
+                {:error, "Unknown tool: #{name}"}
+            end
+        end
+
+      Logger.info("MCP tool response: #{name} - #{tool_response_summary(name, result)}")
+      result
     end
+  end
 
-    result =
-      case Map.fetch(@simple_dispatch, name) do
-        {:ok, fun} ->
-          fun.(args)
+  defp validate_agent_identity(args) do
+    requested = Map.get(args, "agent_id")
+    auth_identity = Map.get(args, "_auth_agent_id")
+    auth_role = Map.get(args, "_auth_role")
 
-        :error ->
-          case Map.fetch(dispatch_map(), name) do
-            {:ok, fun} ->
-              fun.(args)
+    cond do
+      is_nil(requested) ->
+        :ok
 
-            :error ->
-              {:error, "Unknown tool: #{name}"}
-          end
-      end
+      auth_role == "admin" ->
+        :ok
 
-    Logger.info("MCP tool response: #{name} - #{tool_response_summary(name, result)}")
-    result
+      is_nil(auth_identity) or auth_identity == "" ->
+        {:error, "Authenticated agent identity is required"}
+
+      normalize_agent_id(requested) == normalize_agent_id(auth_identity) ->
+        :ok
+
+      true ->
+        {:error,
+         "agent_id '#{requested}' does not match authenticated identity '#{auth_identity}'"}
+    end
+  end
+
+  defp normalize_agent_id(id) when is_binary(id), do: String.downcase(String.trim(id))
+
+  @doc """
+  Returns true if the given tool name is registered in the core dispatch.
+  Used by ToolRegistry.authorize_tool as a fallback for tools not in YAML definitions.
+  """
+  def has_tool?(name) do
+    Map.has_key?(@simple_dispatch, name) or Map.has_key?(dispatch_map(), name)
   end
 
   defp tool_response_summary(_name, {:ok, result}) when is_map(result) do
@@ -601,8 +699,17 @@ defmodule Acs.MCP.Tools do
   defp tool_action_summary("get_logs", args),
     do: "get logs (mode=#{Map.get(args, "mode", "list")}, filters: #{map_size(args)} params)"
 
-  defp tool_action_summary("list_orgs", _args),
-    do: "list all orgs"
+  defp tool_action_summary("list_orgs", args),
+    do: "list orgs for app=#{Map.get(args, "app_name", "default")}"
+
+  defp tool_action_summary("app_list", _args),
+    do: "list configured apps"
+
+  defp tool_action_summary("app_configure", %{"name" => name}),
+    do: "configure app: #{name}"
+
+  defp tool_action_summary("app_remove", %{"name" => name}),
+    do: "remove app: #{name}"
 
   defp tool_action_summary("time", %{"action" => "get"}),
     do: "get time info"
@@ -659,9 +766,6 @@ defmodule Acs.MCP.Tools do
     do: "submit feedback for task=#{task_id}"
 
   # Cluster tools
-  defp tool_action_summary("exec_command", %{"command" => cmd}),
-    do: "exec: #{cmd}"
-
   defp tool_action_summary("read_file", %{"path" => path}),
     do: "read: #{path}"
 
@@ -671,7 +775,6 @@ defmodule Acs.MCP.Tools do
   defp tool_action_summary("read_dir", %{"path" => path}),
     do: "ls: #{path}"
 
-  defp tool_action_summary("exec_command", _args), do: "exec command"
   defp tool_action_summary("read_file", _args), do: "read file"
   defp tool_action_summary("write_file", _args), do: "write file"
   defp tool_action_summary("read_dir", _args), do: "list dir"

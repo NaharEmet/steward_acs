@@ -18,26 +18,143 @@ defmodule Acs.MCP.HTTPServer do
 
   require Logger
 
+  @max_log_batch 500
+  @max_body_size 2_000_000
+  @default_http_sleep_max_ms 300_000
+
+  plug(CORSPlug)
   plug(:match)
+  plug(Acs.MCP.Plugs.RateLimit)
   plug(Acs.MCP.Plugs.MCPAuth)
-  plug(Plug.Parsers, parsers: [:json], json_decoder: Jason)
+  plug(Plug.Parsers, parsers: [:json], json_decoder: Jason, length: @max_body_size)
   plug(:dispatch)
 
-  # MCP Endpoints
-  post "/mcp/v1/messages" do
+  # MCP SSE endpoint — establishes a Server-Sent Events stream per MCP Streamable HTTP
+  get "/mcp/sse" do
     conn = fetch_query_params(conn)
-    session_id = conn.query_params["session_id"] || generate_session_id()
+    session_id = generate_sse_session_id()
 
-    Logger.debug("MCP HTTP: received body_params=#{inspect(conn.body_params)}")
+    conn =
+      conn
+      |> put_resp_header("content-type", "text/event-stream")
+      |> put_resp_header("cache-control", "no-cache")
+      |> put_resp_header("x-accel-buffering", "no")
+      |> send_chunked(200)
+
+    {:ok, conn} =
+      chunk(
+        conn,
+        "event: endpoint\ndata: /mcp/messages?session_id=#{session_id}\n\n"
+      )
+
+    :ok = Acs.MCP.SSESessionManager.register(session_id, self())
+
+    sse_loop(conn, session_id)
+  end
+
+  # MCP Streamable HTTP messages endpoint — receives JSON-RPC and responds via SSE
+  post "/mcp/messages" do
+    conn = fetch_query_params(conn)
+    session_id = conn.query_params["session_id"]
+
+    unless session_id && Acs.MCP.SSESessionManager.alive?(session_id) do
+      conn
+      |> put_resp_content_type("application/json")
+      |> send_resp(400, Jason.encode!(%{error: "Invalid or missing session_id"}))
+      |> halt()
+    end
 
     case conn.body_params do
       %{} = params ->
         agent_role = conn.assigns[:agent_role] || "admin"
         agent_org_id = conn.assigns[:agent_org_id]
         agent_permissions = conn.assigns[:agent_permissions]
+        agent_allowed_teams = conn.assigns[:agent_allowed_teams]
+        agent_allowed_projects = conn.assigns[:agent_allowed_projects]
+        agent_identity = conn.assigns[:agent_identity]
 
-        case Protocol.handle_message(params, agent_role, agent_org_id, agent_permissions) do
+        case Protocol.handle_message(
+               params,
+               agent_role,
+               agent_org_id,
+               agent_permissions,
+               agent_allowed_teams,
+               agent_allowed_projects,
+               agent_identity
+             ) do
           {:sleep, id, agent_id, timeout} ->
+            timeout = cap_sleep_timeout(timeout)
+
+            Logger.info("MCP SSE: agent #{agent_id} sleeping (timeout=#{inspect(timeout)})")
+
+            Task.start(fn ->
+              result = Acs.MCP.Tools.CoreHandlers.sleep_and_wait(agent_id, timeout)
+
+              response =
+                case result do
+                  {:ok, data} ->
+                    Protocol.success_response(id, %{
+                      "content" => [
+                        %{"type" => "text", "text" => Jason.encode!(data, pretty: true)}
+                      ]
+                    })
+
+                  {:error, _reason} ->
+                    Protocol.success_response(id, %{
+                      "content" => [%{"type" => "text", "text" => "Error during sleep"}],
+                      "isError" => true
+                    })
+                end
+
+              Acs.MCP.SSESessionManager.send_response(session_id, response)
+            end)
+
+            conn |> send_resp(202, "")
+
+          {:ok, response} ->
+            Logger.debug("MCP SSE: response=#{inspect(response)}")
+            Acs.MCP.SSESessionManager.send_response(session_id, response)
+            conn |> send_resp(202, "")
+
+          {:error, reason} ->
+            error = Protocol.error_response(nil, -32700, "Parse error", reason)
+            Acs.MCP.SSESessionManager.send_response(session_id, error)
+            conn |> send_resp(202, "")
+        end
+
+      _ ->
+        conn |> send_resp(400, ~s({"error": "Invalid JSON"}))
+    end
+  end
+
+  # MCP Endpoints
+  post "/mcp/v1/messages" do
+    conn = fetch_query_params(conn)
+    session_id = conn.query_params["session_id"] || generate_session_id()
+
+    Logger.debug("MCP HTTP: received request on #{conn.request_path}")
+
+    case conn.body_params do
+      %{} = params ->
+        agent_role = conn.assigns[:agent_role] || "admin"
+        agent_org_id = conn.assigns[:agent_org_id]
+        agent_permissions = conn.assigns[:agent_permissions]
+        agent_allowed_teams = conn.assigns[:agent_allowed_teams]
+        agent_allowed_projects = conn.assigns[:agent_allowed_projects]
+        agent_identity = conn.assigns[:agent_identity]
+
+        case Protocol.handle_message(
+               params,
+               agent_role,
+               agent_org_id,
+               agent_permissions,
+               agent_allowed_teams,
+               agent_allowed_projects,
+               agent_identity
+             ) do
+          {:sleep, id, agent_id, timeout} ->
+            timeout = cap_sleep_timeout(timeout)
+
             Logger.info(
               "MCP HTTP: agent #{agent_id} sleeping (long-poll, timeout=#{inspect(timeout)})"
             )
@@ -53,9 +170,9 @@ defmodule Acs.MCP.HTTPServer do
                     ]
                   })
 
-                {:error, reason} ->
+                {:error, _reason} ->
                   Protocol.success_response(id, %{
-                    "content" => [%{"type" => "text", "text" => "Error: #{inspect(reason)}"}],
+                    "content" => [%{"type" => "text", "text" => "Error during sleep"}],
                     "isError" => true
                   })
               end
@@ -92,14 +209,18 @@ defmodule Acs.MCP.HTTPServer do
 
     case body do
       %{"logs" => logs} when is_list(logs) ->
-        # Batch mode: store multiple log entries
-        results = Enum.map(logs, &process_log_entry/1)
+        if length(logs) > @max_log_batch do
+          conn
+          |> put_resp_content_type("application/json")
+          |> send_resp(413, Jason.encode!(%{error: "Batch too large (max #{@max_log_batch})"}))
+        else
+          results = Enum.map(logs, &process_log_entry/1)
+          success_count = Enum.count(results, &(&1 == :ok))
 
-        success_count = Enum.count(results, &(&1 == :ok))
-
-        conn
-        |> put_resp_content_type("application/json")
-        |> send_resp(200, Jason.encode!(%{status: "ok", stored: success_count, total: length(logs)}))
+          conn
+          |> put_resp_content_type("application/json")
+          |> send_resp(200, Jason.encode!(%{status: "ok", stored: success_count, total: length(logs)}))
+        end
 
       %{} = log_entry when map_size(log_entry) > 0 ->
         case process_log_entry(log_entry) do
@@ -108,10 +229,10 @@ defmodule Acs.MCP.HTTPServer do
             |> put_resp_content_type("application/json")
             |> send_resp(200, Jason.encode!(%{status: "ok"}))
 
-          {:error, reason} ->
+          {:error, _reason} ->
             conn
             |> put_resp_content_type("application/json")
-            |> send_resp(500, Jason.encode!(%{status: "error", reason: inspect(reason)}))
+            |> send_resp(500, Jason.encode!(%{status: "error", reason: "Failed to store log entry"}))
         end
 
       _ ->
@@ -124,10 +245,34 @@ defmodule Acs.MCP.HTTPServer do
   # Log query endpoint for external services
   get "/api/logs" do
     conn = fetch_query_params(conn)
+
+    unless conn.assigns[:agent_role] in ~w(admin service) do
+      conn
+      |> put_resp_content_type("application/json")
+      |> send_resp(403, Jason.encode!(%{error: "Access denied: log query requires admin or service role"}))
+      |> halt()
+    end
+
     params = conn.query_params
 
     opts = []
-    opts = if params["level"], do: Keyword.put(opts, :level, String.to_existing_atom(params["level"])), else: opts
+
+    opts =
+      case params["level"] do
+        nil ->
+          opts
+
+        level ->
+          case parse_log_level(level) do
+            {:ok, atom} -> Keyword.put(opts, :level, atom)
+
+            :error ->
+              conn
+              |> put_resp_content_type("application/json")
+              |> send_resp(400, Jason.encode!(%{error: "Invalid level: must be one of debug, info, warning, error"}))
+              |> halt()
+          end
+      end
 
     opts =
       if params["limit"] do
@@ -172,6 +317,13 @@ defmodule Acs.MCP.HTTPServer do
   get "/api/logs/context/:id" do
     conn = fetch_query_params(conn)
 
+    unless conn.assigns[:agent_role] in ~w(admin service) do
+      conn
+      |> put_resp_content_type("application/json")
+      |> send_resp(403, Jason.encode!(%{error: "Access denied: log query requires admin or service role"}))
+      |> halt()
+    end
+
     entry_id =
       case Integer.parse(id) do
         {n, ""} -> n
@@ -205,9 +357,25 @@ defmodule Acs.MCP.HTTPServer do
 
   # Health check
   get "/mcp/health" do
+    db_ok =
+      case Ecto.Adapters.SQL.query(Acs.Repo, "SELECT 1", []) do
+        {:ok, _} -> true
+        _ -> false
+      end
+
+    status = if db_ok, do: "healthy", else: "degraded"
+    http_status = if db_ok, do: 200, else: 503
+
     conn
     |> put_resp_content_type("application/json")
-    |> send_resp(200, Jason.encode!(%{status: "healthy", timestamp: DateTime.utc_now()}))
+    |> send_resp(
+      http_status,
+      Jason.encode!(%{
+        status: status,
+        database: db_ok,
+        timestamp: DateTime.utc_now()
+      })
+    )
   end
 
   # Task API for external apps
@@ -227,10 +395,10 @@ defmodule Acs.MCP.HTTPServer do
             |> put_resp_content_type("application/json")
             |> send_resp(201, Jason.encode!(%{status: "created_with_warning", task_id: task.id, task: task, similar_tasks: similar}))
 
-          {:error, reason} ->
+          {:error, _reason} ->
             conn
             |> put_resp_content_type("application/json")
-            |> send_resp(400, Jason.encode!(%{status: "error", reason: inspect(reason)}))
+            |> send_resp(400, Jason.encode!(%{status: "error", reason: "Failed to create task"}))
         end
 
       _ ->
@@ -252,10 +420,11 @@ defmodule Acs.MCP.HTTPServer do
 
       {:error, reason} ->
         status = if reason == :task_not_found, do: 404, else: 400
+        message = if reason == :task_not_found, do: "Task not found", else: "Failed to update task"
 
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(status, Jason.encode!(%{status: "error", reason: inspect(reason)}))
+        |> send_resp(status, Jason.encode!(%{status: "error", reason: message}))
     end
   end
 
@@ -266,6 +435,48 @@ defmodule Acs.MCP.HTTPServer do
 
   defp generate_session_id do
     "http_#{System.system_time(:millisecond)}_#{:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)}"
+  end
+
+  defp generate_sse_session_id do
+    "sse_#{System.system_time(:millisecond)}_#{:crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)}"
+  end
+
+  defp sse_loop(conn, session_id) do
+    receive do
+      {:send_response, response} ->
+        case chunk(conn, "event: message\ndata: #{Jason.encode!(response)}\n\n") do
+          {:ok, conn} -> sse_loop(conn, session_id)
+          {:error, _reason} -> handle_sse_close(session_id)
+        end
+
+      {:send_event, event, data} ->
+        case chunk(conn, "event: #{event}\ndata: #{data}\n\n") do
+          {:ok, conn} -> sse_loop(conn, session_id)
+          {:error, _reason} -> handle_sse_close(session_id)
+        end
+
+      :close ->
+        handle_sse_close(session_id)
+    after
+      30_000 ->
+        case chunk(conn, ": heartbeat\n\n") do
+          {:ok, conn} -> sse_loop(conn, session_id)
+          {:error, _reason} -> handle_sse_close(session_id)
+        end
+    end
+  end
+
+  defp handle_sse_close(session_id) do
+    Acs.MCP.SSESessionManager.unregister(session_id)
+    :closed
+  end
+
+  defp cap_sleep_timeout(:infinity), do: http_sleep_max_ms()
+  defp cap_sleep_timeout(timeout) when is_integer(timeout) and timeout > 0, do: min(timeout, http_sleep_max_ms())
+  defp cap_sleep_timeout(_), do: http_sleep_max_ms()
+
+  defp http_sleep_max_ms do
+    Application.get_env(:steward_acs, :http_sleep_max_ms, @default_http_sleep_max_ms)
   end
 
   defp process_log_entry(log_entry) do
@@ -346,15 +557,12 @@ defmodule Acs.MCP.HTTPServer do
 
   defp parse_log_level(level) when is_binary(level) do
     case String.downcase(level) do
-      "debug" -> :debug
-      "info" -> :info
-      "warn" -> :warning
-      "warning" -> :warning
-      "error" -> :error
-      _ -> :info
+      "debug" -> {:ok, :debug}
+      "info" -> {:ok, :info}
+      "warn" -> {:ok, :warning}
+      "warning" -> {:ok, :warning}
+      "error" -> {:ok, :error}
+      _ -> :error
     end
   end
-
-  defp parse_log_level(level) when is_atom(level), do: level
-  defp parse_log_level(_), do: :info
 end

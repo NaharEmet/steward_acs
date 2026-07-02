@@ -14,18 +14,20 @@ defmodule Acs.Developers.DeveloperApiKey do
     field :key_hash, :string
     field :key_prefix, :string
     field :developer_name, :string
-    field :role, :string, default: "admin"
+    field :role, :string, default: "collaborator"
     field :cluster, :string, default: "default"
     field :active, :boolean, default: true
     field :last_used_at, :utc_datetime
+    field :allowed_teams_json, :string
+    field :allowed_projects_json, :string
     timestamps(type: :utc_datetime)
   end
 
   def changeset(key, attrs) do
     key
-    |> cast(attrs, [:key_hash, :key_prefix, :developer_name, :role, :cluster, :active, :last_used_at])
+    |> cast(attrs, [:key_hash, :key_prefix, :developer_name, :role, :cluster, :active, :last_used_at, :allowed_teams_json, :allowed_projects_json])
     |> validate_required([:key_hash, :developer_name])
-    |> validate_inclusion(:role, ~w(admin service reader))
+    |> validate_inclusion(:role, ~w(admin service reader collaborator))
     |> validate_length(:developer_name, min: 1, max: 100)
   end
 end

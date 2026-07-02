@@ -310,6 +310,8 @@ defmodule Acs.Memory.Embedding do
     end
   end
 
+  defp embeddable_kinds, do: Acs.Memory.embeddable_kinds()
+
   defp do_ensure_embeddings do
     import Ecto.Query
     alias Acs.Repo
@@ -353,6 +355,7 @@ defmodule Acs.Memory.Embedding do
         end
       end)
       |> Enum.reject(fn m -> m.status in ~w(parse_error rejected) end)
+      |> Enum.reject(fn m -> !(m.kind in embeddable_kinds()) end)
 
     batch_size = 10
     {embedded_count, failed_count} = embed_in_batches(memories_to_embed, batch_size, 0, 0)

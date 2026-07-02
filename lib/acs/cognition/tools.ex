@@ -1,19 +1,19 @@
 defmodule Acs.Cognition.Tools do
   @moduledoc """
-  MCP tool dispatchers for the Cognition Spec System.
+  MCP tool dispatchers for the Cognition Spec / Document System.
 
-  Implements 7 cognition tools that wrap the Cognition API
+  Implements 7 tools that wrap the Cognition API
   (Entry, Loader, Search) and expose them as MCP-callable tools.
 
   ## Tools
 
-    - `cognition_get` — Load a single spec entry by app and path
-    - `cognition_search` — Search spec entries by query text
-    - `cognition_propose` — Create or update a spec entry (set status to proposed)
-    - `cognition_approve` — Approve a proposed spec entry
-    - `cognition_reject` — Soft-reject a spec entry (reverts to under_review)
-    - `cognition_list` — List spec entries, optionally filtered by app or status
-    - `cognition_list_undocumented` — Find modules without specs
+    - `document_get` — Load a single entry by app and path
+    - `document_search` — Search entries by query text
+    - `document_propose` — Create or update an entry (set status to proposed)
+    - `document_approve` — Approve a proposed entry
+    - `document_reject` — Soft-reject an entry (reverts to under_review)
+    - `document_list` — List entries, optionally filtered by app or status
+    - `document_list_undocumented` — Find modules without entries
   """
 
   alias Acs.Cognition.Entry
@@ -22,7 +22,7 @@ defmodule Acs.Cognition.Tools do
 
   require Logger
 
-  @allowed_fields ~w(title purpose invariants workflows failure_modes state_machine constraints input output expected_transformation tags references verification_status)
+  @allowed_fields ~w(title purpose invariants workflows failure_modes state_machine constraints input output expected_transformation tags references verification_status document_type content team project visibility source)
 
   @doc """
   Dispatch a cognition tool by name with the given args map.
@@ -34,6 +34,13 @@ defmodule Acs.Cognition.Tools do
 
     result =
       case name do
+        "document_get" -> cognition_get(args)
+        "document_search" -> cognition_search(args)
+        "document_propose" -> cognition_propose(args)
+        "document_approve" -> cognition_approve(args)
+        "document_reject" -> cognition_reject(args)
+        "document_list" -> cognition_list(args)
+        "document_list_undocumented" -> cognition_list_undocumented(args)
         "cognition_get" -> cognition_get(args)
         "cognition_search" -> cognition_search(args)
         "cognition_propose" -> cognition_propose(args)

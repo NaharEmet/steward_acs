@@ -3,7 +3,7 @@ defmodule Acs.Cognition.Loader do
   File I/O for cognition spec YAML files.
 
   Specs are stored as YAML files in `<specs_root>/<app>/<path>.yaml` where:
-  - `<app>` is the application name (e.g., "anantha")
+  - `<app>` is the application name (e.g., "anantha", "my_app")
   - `<path>` is the underscored module path (e.g., "engine/orchestrator")
 
   Malformed YAML files are moved to `<specs_root>/quarantine/` for manual review.
@@ -44,10 +44,10 @@ defmodule Acs.Cognition.Loader do
   @doc """
   Get the full file path for a spec given app and module path.
   """
-  def file_path(app, path) do
+  def file_path(app, path, ext \\ ".yaml") do
     app = validate_path_segment!(app)
     path = validate_path_segment!(path)
-    Path.join([specs_path(), app, "#{path}.yaml"])
+    Path.join([specs_path(), app, "#{path}#{ext}"])
   end
 
   defp validate_path_segment!(segment) do
@@ -98,6 +98,31 @@ defmodule Acs.Cognition.Loader do
   Load a spec from a specific file path. Returns `{:ok, %Entry{}}` or `{:error, reason}`.
   """
   def load_file(file_path) do
+    ext = Path.extname(file_path) |> String.downcase()
+
+    case ext do
+      ".md" -> load_markdown_file(file_path)
+      _ -> load_yaml_file(file_path)
+    end
+  rescue
+    e in [FunctionClauseError] ->
+      {:error, :load_error, "Invalid spec content: #{Exception.message(e)}"}
+  end
+
+  defp load_markdown_file(file_path) do
+    case Acs.Memory.Frontmatter.split(file_path) do
+      {:ok, frontmatter, body} ->
+        map = Map.put(frontmatter, "content", body)
+        entry = Acs.Cognition.Entry.from_map(map)
+        {:ok, entry}
+
+      {:error, reason} ->
+        quarantine_file(file_path, "Frontmatter parse error: #{reason}")
+        {:error, :parse_error, reason}
+    end
+  end
+
+  defp load_yaml_file(file_path) do
     case YamlElixir.read_from_file(file_path) do
       {:ok, map} when is_map(map) ->
         entry = Acs.Cognition.Entry.from_map(map)
@@ -110,9 +135,6 @@ defmodule Acs.Cognition.Loader do
       {:error, reason} ->
         {:error, :parse_error, reason}
     end
-  rescue
-    e in [FunctionClauseError] ->
-      {:error, :load_error, "Invalid spec content: #{Exception.message(e)}"}
   end
 
   @doc """
@@ -120,25 +142,35 @@ defmodule Acs.Cognition.Loader do
   Returns `:ok` or `{:error, reason}`.
   """
   def save(%Acs.Cognition.Entry{} = entry) do
-    file = file_path(entry.app, entry.id)
+    ext = if entry.document_type && Application.get_env(:steward_acs, :memory_store) == "obsidian",
+      do: ".md", else: ".yaml"
+    file = file_path(entry.app, entry.id, ext)
     File.mkdir_p!(Path.dirname(file))
 
     case Acs.Cognition.Entry.validate(entry) do
       :ok ->
-        map = Acs.Cognition.Entry.to_map(entry)
-        yaml = encode_yaml(map)
-
-        try do
-          File.write!(file, yaml)
-          Logger.info("Saved cognition spec: #{file}")
-          :ok
-        rescue
-          e -> {:error, "Write failed: #{Exception.message(e)}"}
-        end
+        content = to_file_content(entry, ext)
+        File.write!(file, content)
+        Logger.info("Saved cognition entry: #{file}")
+        :ok
 
       {:error, reasons} ->
         {:error, "Validation failed: #{Enum.join(reasons, "; ")}"}
     end
+  rescue
+    e -> {:error, "Write failed: #{Exception.message(e)}"}
+  end
+
+  defp to_file_content(entry, ".md") do
+    map = Acs.Cognition.Entry.to_map(entry)
+    body = Map.get(map, "content", "") || ""
+    frontmatter = Map.drop(map, ["content"])
+    Acs.Memory.Frontmatter.serialize(frontmatter, body)
+  end
+
+  defp to_file_content(entry, _ext) do
+    map = Acs.Cognition.Entry.to_map(entry)
+    encode_yaml(map)
   end
 
   @doc """
@@ -262,12 +294,14 @@ defmodule Acs.Cognition.Loader do
   defp list_in_dir(dir, app) do
     yaml_pattern = Path.join(dir, "**/*.yaml")
     yml_pattern = Path.join(dir, "**/*.yml")
+    md_pattern = Path.join(dir, "**/*.md")
 
-    (Path.wildcard(yaml_pattern) ++ Path.wildcard(yml_pattern))
+    (Path.wildcard(yaml_pattern) ++ Path.wildcard(yml_pattern) ++ Path.wildcard(md_pattern))
     |> Enum.map(fn file ->
       relative = Path.relative_to(file, Path.join(specs_path(), app))
-      path = Path.rootname(relative)
-      %{app: app, path: path, file_path: file, relative_path: relative}
+      ext = Path.extname(relative)
+      path = relative |> String.replace_suffix(ext, "")
+      %{app: app, path: path, file_path: file, relative_path: relative, ext: ext}
     end)
   end
 

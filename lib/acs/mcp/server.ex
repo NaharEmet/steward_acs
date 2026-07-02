@@ -33,13 +33,6 @@ defmodule Acs.MCP.Server do
 
   require Logger
 
-  @config Application.compile_env(:steward_acs, __MODULE__, [])
-
-  @transport Keyword.get(@config, :transport, :stdio)
-  @enabled Keyword.get(@config, :enabled, false)
-  @http_port Keyword.get(@config, :http_port, 4001)
-  @http_host Keyword.get(@config, :http_host, "0.0.0.0")
-
   def start_link(opts \\ []) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -82,17 +75,21 @@ defmodule Acs.MCP.Server do
   Returns the configured transport mode.
   """
   def get_transport_mode do
-    @transport
+    Keyword.get(config(), :transport, :stdio)
   end
 
   @doc """
   Returns true if MCP server is enabled.
   """
   def enabled? do
-    @enabled
+    Keyword.get(config(), :enabled, false)
   end
 
   # --- Private Functions ---
+
+  defp config do
+    Application.get_env(:steward_acs, __MODULE__, [])
+  end
 
   defp build_children(:stdio, _opts) do
     [
@@ -120,11 +117,11 @@ defmodule Acs.MCP.Server do
   end
 
   defp get_http_port do
-    @http_port
+    Keyword.get(config(), :http_port, 4001)
   end
 
   defp get_http_host do
-    @http_host
+    Keyword.get(config(), :http_host, "0.0.0.0")
   end
 
   defp parse_ip("0.0.0.0"), do: {0, 0, 0, 0}

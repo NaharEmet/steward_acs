@@ -1,65 +1,90 @@
-# ============================================================
-# Stage 1: Build
-# ============================================================
-FROM hexpm/elixir:1.17.3-erlang-26.2.5.21-alpine-3.22.5 AS build
+# syntax=docker/dockerfile:1
 
-# Install build dependencies
-RUN apk add --no-cache build-base git nodejs npm
+# --- Dev image (local docker-compose.yml) ---
+FROM elixir:1.17-alpine AS dev
+
+RUN apk add --no-cache build-base git curl sqlite-dev
 
 WORKDIR /app
 
-# Install hex + rebar
-RUN mix local.hex --force && \
-    mix local.rebar --force
-
-# Cache deps layer
 COPY mix.exs mix.lock ./
-COPY config/ ./config/
+RUN mix local.hex --force && mix local.rebar --force
+RUN mix deps.get
+RUN mix deps.compile
+
+COPY config config
+COPY lib lib
+COPY priv priv
+COPY assets assets
+
+RUN mix compile
+
+ENV MIX_ENV=dev
+EXPOSE 4001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -f "http://localhost:${PORT:-4001}/mcp/health" || exit 1
+
+CMD ["sh", "-c", "mix ecto.migrate && mix phx.server"]
+
+# --- Release build ---
+FROM elixir:1.17-alpine AS build
+
+RUN apk add --no-cache build-base git sqlite-dev
+
+WORKDIR /app
+
+ENV MIX_ENV=prod
+
+ARG REPO_ADAPTER=postgres
+ENV REPO_ADAPTER=${REPO_ADAPTER}
+
+ARG SECRET_KEY_BASE=build_time_secret_key_base_not_used_at_runtime
+ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
+
+ARG COOKIE_SIGNING_SALT
+ENV COOKIE_SIGNING_SALT=${COOKIE_SIGNING_SALT}
+
+COPY mix.exs mix.lock ./
+RUN mix local.hex --force && mix local.rebar --force
 RUN mix deps.get --only prod
 RUN mix deps.compile
 
-# Copy source
-COPY lib/ ./lib/
-COPY priv/ ./priv/
-COPY assets/ ./assets/
+COPY config config
+COPY lib lib
+COPY priv priv
+COPY assets assets
 
-# Compile
-ENV MIX_ENV=prod
-RUN mix compile
+RUN if [ -z "$COOKIE_SIGNING_SALT" ]; then \
+      export COOKIE_SIGNING_SALT=$(printf '%s' "$SECRET_KEY_BASE" | sha256sum | awk '{print $1}' | cut -c1-16); \
+    fi && \
+    mix compile && \
+    mix assets.deploy && \
+    mix release
 
-# Build assets
-RUN mix assets.deploy
+# --- Production runtime ---
+FROM alpine:3.19 AS release
 
-# Build release
-RUN mix release
+RUN apk add --no-cache libstdc++ openssl ncurses-libs curl sqlite-libs bash libgcc
 
-# ============================================================
-# Stage 2: Runtime
-# ============================================================
-FROM alpine:3.21 AS app
-
-RUN apk add --no-cache libstdc++ ncurses-libs openssl bash ca-certificates
+RUN addgroup -S acs && adduser -S acs -G acs
 
 WORKDIR /app
 
-# Copy release from build stage
 COPY --from=build /app/_build/shared/rel/steward_acs ./
+COPY docker/entrypoint.sh /entrypoint.sh
 
-EXPOSE 4000
+RUN chmod +x /entrypoint.sh && chown -R acs:acs /app
+
+USER acs
+
+ENV HOME=/app \
+    MIX_ENV=prod \
+    PORT=4001
+
 EXPOSE 4001
 
-ENV MIX_ENV=prod
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -f "http://localhost:${PORT}/mcp/health" || exit 1
 
-# Default to SQLite (PostgreSQL requires PG* env vars)
-ENV DATABASE_PATH=/app/data/acs.sqlite
-ENV ACS_CLUSTER_NAME=default
-ENV AUDITOR_INTERVAL=30000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:4000/health || exit 1
-
-# Create data directory
-RUN mkdir -p /app/data
-
-CMD ["bin/steward_acs", "start"]
+ENTRYPOINT ["/entrypoint.sh"]

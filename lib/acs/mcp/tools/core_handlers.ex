@@ -100,28 +100,45 @@ defmodule Acs.MCP.Tools.CoreHandlers do
                  guidance_missing: "(optional) What guidance was needed but not provided?"
                }
              },
-             cognition_reminder: %{
+             document_reminder: %{
                prompt:
-                 "For each module you worked on, check if it has a cognition spec. If not, call cognition_propose to document it. Use cognition_list_undocumented() to find modules missing specs.",
+                 "For each module you worked on, check if it has a cognition spec. If not, call document_propose to document it. Use document_list_undocumented() to find modules missing specs.",
                actions: [
                  %{
-                   tool: "cognition_list_undocumented",
+                   tool: "document_list_undocumented",
                    description: "Find modules without specs"
                  },
                  %{
-                   tool: "cognition_propose",
-                   description: "Document any undocumented modules",
-                   params: %{
-                     app: "anantha",
-                     path: "module_path",
-                     title: "Module name",
-                     purpose: "Why this module exists",
+                    tool: "document_propose",
+                    description: "Document any undocumented modules",
+                    params: %{
+                      app: "<app_name>",
+                      path: "module_path",
+                      title: "Module name",
+                      purpose: "Why this module exists",
                      invariants: ["truth1", "truth2"],
                      workflows: ["expected execution"],
                      failure_modes: ["known failure scenario"],
                      constraints: ["non-goals"],
                      tags: ["category"]
                    }
+                 }
+               ]
+             },
+             error_response_protocol: %{
+               prompt: "If you encountered errors during this task, use the error trace tools to document them:",
+               actions: [
+                 %{
+                   tool: "list_error_traces",
+                   description: "Check for known error traces"
+                 },
+                 %{
+                   tool: "ack_error_trace",
+                   description: "Mark an error as being investigated"
+                 },
+                 %{
+                   tool: "resolve_error_trace",
+                   description: "Mark an error as resolved"
                  }
                ]
              }
@@ -166,8 +183,19 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   def acs_lock_file(%{"agent_id" => agent_id, "task_id" => task_id, "file_path" => file_path}) do
     case Acs.lock_file(file_path, agent_id, task_id) do
-      {:ok, _} = ok ->
-        ok
+      {:ok, result} ->
+        # Add file locking protocol guidance to the response
+        guidance = Map.get(result, :guidance, %{})
+        file_locking_protocol = """
+        ## File Locking Protocol
+
+        - **AFTER editing**: `acs_unlock_file(agent_id, file_path: "#{file_path}")` when done
+        - **10-minute auto-release** if agent goes silent
+        - Call `acs_get_locked_files()` to see all locked files
+        """
+
+        final_guidance = if guidance == %{}, do: %{}, else: Map.put(guidance, :file_locking_protocol, file_locking_protocol)
+        {:ok, Map.put(result, :guidance, final_guidance)}
 
       {:error, :file_locked_by_other} ->
         {:ok, %{status: "busy", message: "File already locked by another agent"}}
@@ -404,28 +432,78 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     end
   end
 
-  def list_orgs(_args) do
-    orgs = Acs.Acs.list_orgs()
+  def list_orgs(args) do
+    app_name = Map.get(args, "app_name")
+    orgs = Acs.Acs.list_orgs(app_name)
     records = Enum.map(orgs, fn o -> %{id: o["id"], name: o["name"], settings: o["settings"], inserted_at: o["inserted_at"]} end)
     {:ok, %{orgs: records, count: length(records)}}
   end
 
-  def acs_time(%{"action" => "get"}) do
-    offset = Acs.Acs.get_time_offset()
-    system_time = DateTime.utc_now()
-    adjusted_time = Acs.Acs.adjusted_now()
-
-    {:ok,
-     %{
-       time_offset: offset,
-       system_time: system_time,
-       adjusted_time: adjusted_time
-     }}
+  def app_list(_args) do
+    apps = Acs.Apps.Config.list_apps()
+    entries =
+      Enum.map(apps, fn {name, config} ->
+        %{
+          name: name,
+          base_url: Keyword.get(config, :base_url),
+          has_api_key: not is_nil(Keyword.get(config, :api_key)),
+          auth_endpoint: Keyword.get(config, :auth_endpoint),
+          auth_header_name: Keyword.get(config, :auth_header_name) || "authorization",
+          auth_header_scheme: Keyword.get(config, :auth_header_scheme) || "Bearer",
+          timeout_ms: Keyword.get(config, :timeout_ms) || 30_000
+        }
+      end)
+    {:ok, %{apps: entries, count: length(entries)}}
   end
 
-  def acs_time(%{"action" => "set", "seconds" => seconds}) when is_integer(seconds) do
-    Acs.Acs.set_time_offset(seconds)
-    {:ok, %{status: "ok", message: "Time offset set to #{seconds} seconds"}}
+  def app_configure(args) do
+    name = Map.get(args, "name")
+    base_url = Map.get(args, "base_url")
+    api_key = Map.get(args, "api_key")
+    auth_endpoint = Map.get(args, "auth_endpoint")
+    auth_header_name = Map.get(args, "auth_header_name")
+    auth_header_scheme = Map.get(args, "auth_header_scheme")
+    timeout_ms = Map.get(args, "timeout_ms")
+
+    config =
+      []
+      |> then(fn c -> if base_url, do: Keyword.put(c, :base_url, base_url), else: c end)
+      |> then(fn c -> if api_key, do: Keyword.put(c, :api_key, api_key), else: c end)
+      |> then(fn c -> if auth_endpoint, do: Keyword.put(c, :auth_endpoint, auth_endpoint), else: c end)
+      |> then(fn c -> if auth_header_name, do: Keyword.put(c, :auth_header_name, auth_header_name), else: c end)
+      |> then(fn c -> if auth_header_scheme, do: Keyword.put(c, :auth_header_scheme, auth_header_scheme), else: c end)
+      |> then(fn c -> if timeout_ms, do: Keyword.put(c, :timeout_ms, timeout_ms), else: c end)
+
+    Acs.Apps.Config.configure_app(name, config)
+    {:ok, %{status: "ok", app: name}}
+  end
+
+  def app_remove(args) do
+    name = Map.get(args, "name")
+    Acs.Apps.Config.remove_app(name)
+    {:ok, %{status: "ok", app: name}}
+  end
+
+  def acs_time(%{"action" => "get"} = args) do
+    with :ok <- authorize_time_read(args) do
+      offset = Acs.Acs.get_time_offset()
+      system_time = DateTime.utc_now()
+      adjusted_time = Acs.Acs.adjusted_now()
+
+      {:ok,
+       %{
+         time_offset: offset,
+         system_time: system_time,
+         adjusted_time: adjusted_time
+       }}
+    end
+  end
+
+  def acs_time(%{"action" => "set", "seconds" => seconds} = args) when is_integer(seconds) do
+    with :ok <- authorize_time_write(args) do
+      Acs.Acs.set_time_offset(seconds)
+      {:ok, %{status: "ok", message: "Time offset set to #{seconds} seconds"}}
+    end
   end
 
   def acs_time(%{"action" => "set"} = args) do
@@ -440,6 +518,26 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   def acs_time(%{"action" => action}) do
     {:error, "Unknown action '#{action}'. Use 'get' or 'set'."}
+  end
+
+  defp authorize_time_read(args) do
+    role = Map.get(args, "_auth_role", "admin")
+
+    if role in ["admin", "service", "collaborator"] do
+      :ok
+    else
+      {:error, "Role '#{role}' is not authorized to read ACS time"}
+    end
+  end
+
+  defp authorize_time_write(args) do
+    role = Map.get(args, "_auth_role", "admin")
+
+    if role in ["admin", "service"] do
+      :ok
+    else
+      {:error, "Only admin or service roles may set ACS time offset"}
+    end
   end
 
   def list_plugins(_args) do

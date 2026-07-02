@@ -29,6 +29,12 @@
             </button>
           </div>
           <span class="port-badge">Port 4001</span>
+          <%= if assigns[:current_user] do %>
+            <span class="text-dim" style="font-size: 0.72rem;"><%= @current_user.email %></span>
+            <.link href={~p"/users/log_out"} method="delete" class="btn btn-ghost" style="padding: 6px 14px; font-size: 0.72rem;">
+              Log out
+            </.link>
+          <% end %>
         </div>
       </div>
     </header>

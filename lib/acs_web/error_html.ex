@@ -1,7 +1,8 @@
 defmodule AcsWeb.ErrorHTML do
-  use Phoenix.Endpoint, otp_app: :steward_acs
+  @moduledoc false
+  use AcsWeb, :html
 
   def render(template, _assigns) do
-    "Error: #{template}"
+    Phoenix.Controller.status_message_from_template(template)
   end
 end

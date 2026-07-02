@@ -69,7 +69,10 @@ defmodule Acs.Cognition.ToolsTest do
 
   describe "cognition_search" do
     test "finds matching specs" do
-      propose_spec(%{"purpose" => "Special search target module"})
+      propose_spec(%{
+        "purpose" =>
+          "Special search target module that indexes cognition specs for full-text retrieval in ACS"
+      })
 
       assert {:ok, results} =
                Acs.Cognition.Tools.call_tool("cognition_search", %{"query" => "Special search target"})
@@ -77,7 +80,7 @@ defmodule Acs.Cognition.ToolsTest do
       assert length(results) >= 1
 
       result_purposes = Enum.map(results, & &1["purpose"])
-      assert "Special search target module" in result_purposes
+      assert Enum.any?(result_purposes, &String.contains?(&1, "Special search target"))
     end
 
     test "returns empty for no matches" do

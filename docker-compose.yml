@@ -1,0 +1,38 @@
+services:
+  steward_acs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    image: steward_acs:local
+    container_name: steward_acs
+    restart: unless-stopped
+    ports:
+      - "4001:4001"
+    environment:
+      MIX_ENV: dev
+      PORT: "4001"
+      SECRET_KEY_BASE: "dev-secret-key-base-change-me-dev-secret-key-base-change-me-dev-secret-key-base"
+      ACS_CLUSTER_NAME: default
+      DATABASE_PATH: /app/priv/acs.sqlite
+      ENABLED_LLM_PROVIDERS: ""
+      # Dashboard credentials (basic auth, single-tenant mode):
+      ACS_USERNAME: admin
+      ACS_PASSWORD: admin
+
+      # Uncomment for Obsidian vault sync:
+      # MEMORY_STORE: obsidian
+      # OBSIDIAN_VAULT_PATH: /obsidian
+    volumes:
+      # Uncomment to mount Obsidian vault:
+      # - /path/to/your/vault:/obsidian:ro
+      - acs_data:/app/priv
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/mcp/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  acs_data:

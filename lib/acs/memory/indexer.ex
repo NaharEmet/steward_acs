@@ -14,7 +14,7 @@ defmodule Acs.Memory.Indexer do
   require Logger
 
   @doc """
-  Syncs all YAML memory files into the SQLite index.
+  Syncs all memory files into the SQLite index.
   Returns {:ok, count, quarantined} where count is number of synced
   memories and quarantined is list of error tuples.
   """
@@ -36,6 +36,29 @@ defmodule Acs.Memory.Indexer do
 
     Logger.info("[Memory.Indexer] Synced #{count} memories, #{length(quarantined)} quarantined")
     {:ok, count, quarantined}
+  end
+
+  @doc """
+  Upserts a single memory file on disk into the SQLite index.
+  Used by the FileWatcher for incremental updates (instead of full sync_all).
+
+  Returns:
+  - `:skip` — file unchanged (sha256 match in future, or file doesn't exist)
+  - `{:ok, memory}` — upserted successfully
+  - `{:error, reason}` — failed to load or index
+  """
+  def upsert_memory_file(file_path) do
+    case Acs.Memory.Loader.load_file(file_path) do
+      {:ok, memory} ->
+        case upsert_memory(memory) do
+          {:ok, _} -> {:ok, memory}
+          {:error, reason} -> {:error, reason}
+        end
+
+      {:error, reason} ->
+        Logger.warning("[Memory.Indexer] Cannot index #{file_path}: #{reason}")
+        {:error, reason}
+    end
   end
 
   @doc """
@@ -62,7 +85,10 @@ defmodule Acs.Memory.Indexer do
       created_by_agent: get_in(memory.created_by, ["id"]),
       file_path: Acs.Memory.Loader.memory_to_path(memory),
       created_at: parse_datetime(memory.created_at),
-      updated_at: parse_datetime(memory.updated_at)
+      updated_at: parse_datetime(memory.updated_at),
+      team: memory.team,
+      project: memory.project,
+      visibility: memory.visibility
     }
 
     result =
@@ -173,12 +199,9 @@ defmodule Acs.Memory.Indexer do
       else
         query
       end
-    query = if opts[:scope_path] do
-      from m in query, where: like(m.scope_path, ^"#{opts[:scope_path]}%")
-    else
-      query
-    end
+    query = apply_scope_path_filter(query, opts[:scope_path])
     query = if opts[:limit], do: from(m in query, limit: ^opts[:limit]), else: query
+    query = build_abac_filter(query, opts)
 
     Repo.all(query)
   end
@@ -246,11 +269,7 @@ defmodule Acs.Memory.Indexer do
              like(m.summary, ^search_term),
       order_by: [desc: m.importance, desc: m.updated_at]
 
-    search_query = if opts[:scope_path] do
-      from m in search_query, where: like(m.scope_path, ^"#{opts[:scope_path]}%")
-    else
-      search_query
-    end
+    search_query = apply_scope_path_filter(search_query, opts[:scope_path])
 
     search_query = if opts[:kind] do
       from m in search_query, where: m.kind == ^opts[:kind]
@@ -274,6 +293,7 @@ defmodule Acs.Memory.Indexer do
     else
       from m in search_query, limit: 50
     end
+    search_query = build_abac_filter(search_query, opts)
 
     Repo.all(search_query)
   end
@@ -323,6 +343,61 @@ defmodule Acs.Memory.Indexer do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt
       _ -> DateTime.utc_now()
+    end
+  end
+
+  defp apply_scope_path_filter(query, nil), do: query
+
+  defp apply_scope_path_filter(query, scope_path) when is_binary(scope_path) do
+    import Ecto.Query
+
+    if String.contains?(scope_path, ["%", "_"]) do
+      from m in query, where: m.scope_path == ^scope_path
+    else
+      from m in query, where: like(m.scope_path, ^"#{scope_path}%")
+    end
+  end
+
+  defp build_abac_filter(query, opts) do
+    import Ecto.Query
+
+    allowed_teams = opts[:allowed_teams] || []
+    allowed_projects = opts[:allowed_projects] || []
+    role = opts[:agent_role]
+
+    has_teams = is_list(allowed_teams) and allowed_teams != []
+    has_projects = is_list(allowed_projects) and allowed_projects != []
+    restricted_role? = role in ~w(collaborator reader)
+
+    cond do
+      has_teams and has_projects ->
+        from m in query,
+          where: fragment(
+            "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?)) OR (? = 'project' AND ? IN (?))",
+            m.visibility, m.visibility, m.team, ^allowed_teams,
+            m.visibility, m.project, ^allowed_projects
+          )
+
+      has_teams ->
+        from m in query,
+          where: fragment(
+            "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?))",
+            m.visibility, m.visibility, m.team, ^allowed_teams
+          )
+
+      has_projects ->
+        from m in query,
+          where: fragment(
+            "COALESCE(?, 'org') = 'org' OR (? = 'project' AND ? IN (?))",
+            m.visibility, m.visibility, m.project, ^allowed_projects
+          )
+
+      restricted_role? ->
+        from m in query,
+          where: fragment("COALESCE(?, 'org') = 'org'", m.visibility)
+
+      true ->
+        query
     end
   end
 
