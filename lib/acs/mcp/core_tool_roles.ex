@@ -16,7 +16,9 @@ defmodule Acs.MCP.CoreToolRoles do
     list_orgs
     app_configure
     app_remove
+    read_file
     write_file
+    read_dir
     write_tool
     set_memory_status
     ack_error_trace
@@ -43,8 +45,6 @@ defmodule Acs.MCP.CoreToolRoles do
     generate_guidance_packet
     ask
     list_error_traces
-    read_file
-    read_dir
     list_plugins
     app_list
   )

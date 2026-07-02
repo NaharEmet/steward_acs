@@ -58,6 +58,9 @@ services:
       OLLAMA_URL: "${OLLAMA_URL:-}"
       CORS_ORIGINS: "${CORS_ORIGINS:-}"
       BRIDGE_ALLOWED_HOSTS: "${BRIDGE_ALLOWED_HOSTS:-}"
+
+      # Meta-harness analysis (disabled by default)
+      META_HARNESS_ENABLED: "${META_HARNESS_ENABLED:-false}"
     volumes:
       - acs_data:/app/priv
       # Uncomment for Obsidian vault sync:

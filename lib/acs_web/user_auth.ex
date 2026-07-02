@@ -66,12 +66,23 @@ defmodule AcsWeb.UserAuth do
   defp maybe_store_return_to(conn), do: conn
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
+    IO.puts("")
+    IO.puts("=== on_mount(:ensure_authenticated) ===")
+    IO.puts("Session keys: #{inspect(Map.keys(session))}")
+    IO.puts("Session has user_token: #{inspect(Map.has_key?(session, "user_token"))}")
+    IO.puts("Session user_token: #{inspect(session["user_token"])}")
+    IO.puts("Socket endpoint: #{inspect(socket.endpoint)}")
+    IO.puts("URI: #{inspect(socket.host_uri)}")
+
     socket =
       assign_new(socket, :current_user, fn ->
-        if user_token = session[@session_key] do
+        if user_token = session["user_token"] do
           Accounts.get_user_by_session_token(user_token)
         end
       end)
+
+    IO.puts("current_user: #{inspect(socket.assigns.current_user)}")
+    IO.puts("=== end on_mount ===\n")
 
     if socket.assigns.current_user do
       {:cont, socket}
@@ -84,7 +95,7 @@ defmodule AcsWeb.UserAuth do
   def on_mount(:redirect_if_authenticated, _params, session, socket) do
     socket =
       assign_new(socket, :current_user, fn ->
-        if user_token = session[@session_key] do
+        if user_token = session["user_token"] do
           Accounts.get_user_by_session_token(user_token)
         end
       end)

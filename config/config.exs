@@ -1,7 +1,14 @@
 import Config
 
+cors_origins =
+  case System.get_env("CORS_ORIGINS") do
+    nil -> ["http://localhost:4001"]
+    "" -> ["http://localhost:4001"]
+    origins -> origins |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
+  end
+
 config :cors_plug,
-  origin: ["*"],
+  origin: cors_origins,
   max_age: 86_400,
   methods: ["GET", "POST", "PATCH", "OPTIONS"],
   headers: ["content-type", "authorization", "x-requested-with", "x-mcp-session-id", "x-log-ingest-key"],
@@ -30,18 +37,24 @@ config :phoenix, :json_library, Jason
 config :steward_acs, dev_routes: false
 
 compile_session_salt =
-  System.get_env("COOKIE_SIGNING_SALT") ||
-    case System.get_env("SECRET_KEY_BASE") do
-      nil -> "acs_cookie_session_v1"
-      secret ->
-        :crypto.hash(:sha256, secret <> "cookie")
-        |> Base.url_encode64(padding: false)
-        |> binary_part(0, 16)
-    end
+  cond do
+    salt = System.get_env("COOKIE_SIGNING_SALT") ->
+      salt
+
+    secret = System.get_env("SECRET_KEY_BASE") ->
+      :crypto.hash(:sha256, secret <> "cookie")
+      |> Base.url_encode64(padding: false)
+      |> binary_part(0, 16)
+
+    true ->
+      "acs_cookie_session_v1"
+  end
 
 config :steward_acs,
   :session_signing_salt,
   compile_session_salt
+
+config :steward_acs, :session_validity_in_days, 7
 
 config :steward_acs, AcsWeb.PubSub, name: AcsWeb.PubSub
 

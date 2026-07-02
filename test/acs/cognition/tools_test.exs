@@ -235,6 +235,78 @@ defmodule Acs.Cognition.ToolsTest do
     end
   end
 
+  describe "ABAC enforcement" do
+    test "collaborator cannot read team-scoped spec" do
+      propose_spec(%{
+        "visibility" => "team",
+        "team" => "platform",
+        "path" => "scoped/module"
+      })
+
+      auth = %{
+        "_auth_role" => "collaborator",
+        "_auth_allowed_teams" => ["sales"]
+      }
+
+      assert {:ok, nil} =
+               Acs.Cognition.Tools.call_tool("cognition_get", %{
+                 "app" => "test",
+                 "path" => "scoped/module"
+               }
+               |> Map.merge(auth))
+    end
+
+    test "collaborator with matching team can read team-scoped spec" do
+      propose_spec(%{
+        "visibility" => "team",
+        "team" => "platform",
+        "path" => "scoped/readable"
+      })
+
+      auth = %{
+        "_auth_role" => "collaborator",
+        "_auth_allowed_teams" => ["platform"]
+      }
+
+      assert {:ok, entry} =
+               Acs.Cognition.Tools.call_tool("cognition_get", %{
+                 "app" => "test",
+                 "path" => "scoped/readable"
+               }
+               |> Map.merge(auth))
+
+      assert entry["team"] == "platform"
+    end
+
+    test "collaborator cannot propose team-scoped spec for another team" do
+      auth = %{
+        "_auth_role" => "collaborator",
+        "_auth_allowed_teams" => ["platform"]
+      }
+
+      assert {:error, reason} =
+               Acs.Cognition.Tools.call_tool(
+                 "cognition_propose",
+                 Map.merge(
+                   %{
+                     "app" => "test",
+                     "path" => "scoped/forbidden",
+                     "title" => "Forbidden Spec",
+                     "purpose" => "Should not be writable by this collaborator",
+                     "invariants" => ["one"],
+                     "workflows" => ["one"],
+                     "failure_modes" => ["one"],
+                     "visibility" => "team",
+                     "team" => "sales"
+                   },
+                   auth
+                 )
+               )
+
+      assert reason =~ "Not authorized"
+    end
+  end
+
   describe "call_tool/2 with unknown tool" do
     test "returns error for unknown tool" do
       assert {:error, _} = Acs.Cognition.Tools.call_tool("cognition_unknown", %{})

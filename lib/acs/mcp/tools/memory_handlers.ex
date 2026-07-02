@@ -25,6 +25,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
   require Logger
 
   def save_memory(args) do
+    ctx = Acs.Abac.from_args(args)
     kind = args["kind"]
     title = args["title"]
     content = args["content"]
@@ -59,13 +60,22 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       "visibility" => visibility
     }
 
-    case Acs.Memory.validate(memory_map) do
-      :ok ->
-        memory = Acs.Memory.new(memory_map)
-        do_save_with_validation(memory, memory_map)
+    memory_map =
+      case Acs.Abac.memory_status_for_write(ctx, memory_map) do
+        nil -> memory_map
+        status -> Map.put(memory_map, "status", status)
+      end
 
-      {:error, reasons} ->
+    with :ok <- Acs.Abac.validate_write(ctx, memory_map),
+         :ok <- Acs.Memory.validate(memory_map) do
+      memory = Acs.Memory.new(memory_map)
+      do_save_with_validation(memory, memory_map)
+    else
+      {:error, reasons} when is_list(reasons) ->
         {:error, "Validation failed: #{Enum.join(reasons, "; ")}"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -213,6 +223,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     mode = String.to_atom(args["mode"] || "mcp")
     allowed_teams = args["_auth_allowed_teams"]
     allowed_projects = args["_auth_allowed_projects"]
+    agent_role = args["_auth_role"]
 
     packet =
       cond do
@@ -224,7 +235,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
             tier: :full,
             mode: mode,
             allowed_teams: allowed_teams,
-            allowed_projects: allowed_projects
+            allowed_projects: allowed_projects,
+            agent_role: agent_role
           )
 
         true ->

@@ -98,7 +98,7 @@ defmodule Acs.MCP.Tools.QueryAgent do
             end
         end
 
-      {:document_results, filter_documents_abac(entries, abac_opts)}
+      {:document_results, Acs.Abac.filter(entries, Acs.Abac.from_keyword(abac_opts))}
     end
   end
 
@@ -213,53 +213,6 @@ defmodule Acs.MCP.Tools.QueryAgent do
     |> maybe_put(:allowed_projects, args["_auth_allowed_projects"])
     |> maybe_put(:agent_role, args["_auth_role"])
   end
-
-  defp filter_documents_abac(entries, abac_opts) do
-    allowed_teams = Keyword.get(abac_opts, :allowed_teams) || []
-    allowed_projects = Keyword.get(abac_opts, :allowed_projects) || []
-    role = Keyword.get(abac_opts, :agent_role)
-
-    has_teams = is_list(allowed_teams) and allowed_teams != []
-    has_projects = is_list(allowed_projects) and allowed_projects != []
-    restricted_role? = role in ~w(collaborator reader)
-
-    Enum.filter(entries, fn entry ->
-      visibility = entry_visibility(entry)
-      team = entry_team(entry)
-      project = entry_project(entry)
-
-      cond do
-        has_teams and has_projects ->
-          visibility in [nil, "org"] or
-            (visibility == "team" and team in allowed_teams) or
-            (visibility == "project" and project in allowed_projects)
-
-        has_teams ->
-          visibility in [nil, "org"] or (visibility == "team" and team in allowed_teams)
-
-        has_projects ->
-          visibility in [nil, "org"] or (visibility == "project" and project in allowed_projects)
-
-        restricted_role? ->
-          visibility in [nil, "org"]
-
-        true ->
-          true
-      end
-    end)
-  end
-
-  defp entry_visibility(%Acs.Cognition.Entry{visibility: v}), do: v || "org"
-  defp entry_visibility(map) when is_map(map), do: Map.get(map, :visibility) || Map.get(map, "visibility") || "org"
-  defp entry_visibility(_), do: "org"
-
-  defp entry_team(%Acs.Cognition.Entry{team: t}), do: t
-  defp entry_team(map) when is_map(map), do: Map.get(map, :team) || Map.get(map, "team")
-  defp entry_team(_), do: nil
-
-  defp entry_project(%Acs.Cognition.Entry{project: p}), do: p
-  defp entry_project(map) when is_map(map), do: Map.get(map, :project) || Map.get(map, "project")
-  defp entry_project(_), do: nil
 
   defp clamp_limit(nil), do: @default_limit
   defp clamp_limit(n) when is_integer(n) and n > @max_limit, do: @max_limit

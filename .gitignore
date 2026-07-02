@@ -9,9 +9,23 @@ erl_crash.dump
 /config/*.secret.exs
 .elixir_ls/
 
+# Environment files (local secrets, never committed)
+.env*
+!.env.example
+
 # ACS generated files (local, not committed)
 steward.env
 steward.docker-compose.yml
-AGENTS_ACS.md
+AGENTS_STEWARD.md
 var/
 acs_data/
+
+# Metaanalysis artifacts (auto-generated)
+metaanalysis/
+
+# Test artifacts
+priv/acs_memory/test_app/
+priv/acs_time_offset.txt
+
+# Personal ACS memory paths
+priv/acs_memory/home/

@@ -4,8 +4,8 @@ defmodule Mix.Tasks.Acs.Cognition.Scan do
 
   Usage:
       mix acs.cognition.scan                          # Scan ACS app
-      mix acs.cognition.scan --app anantha             # Specify app name
-      mix acs.cognition.scan --app anantha --dir ../.. # Custom lib dir
+      mix acs.cognition.scan --app my_app             # Specify app name
+      mix acs.cognition.scan --app my_app --dir ../.. # Custom lib dir
 
   This scans lib/ directories for .ex files, compares against existing
   cognition specs, and outputs a summary of undocumented modules.

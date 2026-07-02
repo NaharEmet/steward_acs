@@ -297,10 +297,12 @@ defmodule Acs.Memory.Guidance do
     mode = Keyword.get(opts, :mode, :mcp)
     allowed_teams = Keyword.get(opts, :allowed_teams)
     allowed_projects = Keyword.get(opts, :allowed_projects)
+    agent_role = Keyword.get(opts, :agent_role)
 
     search_opts = [{:scope_path, scope_path}, {:status, "approved"}]
     search_opts = if allowed_teams, do: search_opts ++ [allowed_teams: allowed_teams], else: search_opts
     search_opts = if allowed_projects, do: search_opts ++ [allowed_projects: allowed_projects], else: search_opts
+    search_opts = if agent_role, do: search_opts ++ [agent_role: agent_role], else: search_opts
 
     scope_memories =
       Acs.Memory.Search.list(search_opts)

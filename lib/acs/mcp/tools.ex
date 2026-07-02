@@ -184,7 +184,7 @@ defmodule Acs.MCP.Tools do
         "list_orgs",
         "List organizations from a configured app. Specify app_name to target a specific app, or omit for the default.",
         %{
-          "app_name" => %{"type" => "string", "description" => "Optional: target a specific app (e.g. 'anantha')"}
+          "app_name" => %{"type" => "string", "description" => "Optional: target a specific app (e.g. 'my_app')"}
         },
         []
       ),
@@ -498,7 +498,7 @@ defmodule Acs.MCP.Tools do
         "app_configure",
         "Add or update a configured external app at runtime.",
         %{
-          "name" => %{"type" => "string", "description" => "App name (e.g. 'anantha', 'my_app')"},
+          "name" => %{"type" => "string", "description" => "App name (e.g. 'my_app')"},
           "base_url" => %{"type" => "string", "description" => "Root URL of the app"},
           "api_key" => %{"type" => "string", "description" => "API key for authenticating with the app"},
           "auth_endpoint" => %{"type" => "string", "description" => "Auth validation endpoint path (default: /api/auth/validate-key)"},

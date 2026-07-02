@@ -39,7 +39,7 @@ defmodule Mix.Tasks.Acs.MetaHarness.PruneReports do
   end
 
   defp parse_args!(args) do
-    {parsed, _, invalid} =
+    {parsed, _rest, invalid} =
       OptionParser.parse!(args,
         strict: [
           days: :integer,

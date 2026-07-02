@@ -3,7 +3,7 @@ defmodule Acs.Cognition.Loader do
   File I/O for cognition spec YAML files.
 
   Specs are stored as YAML files in `<specs_root>/<app>/<path>.yaml` where:
-  - `<app>` is the application name (e.g., "anantha", "my_app")
+  - `<app>` is the application name (e.g., "my_app")
   - `<path>` is the underscored module path (e.g., "engine/orchestrator")
 
   Malformed YAML files are moved to `<specs_root>/quarantine/` for manual review.
@@ -34,8 +34,8 @@ defmodule Acs.Cognition.Loader do
   Convert a module atom to a spec path string.
 
   ## Examples
-      iex> Acs.Cognition.Loader.module_to_path(Anantha.Engine.Orchestrator)
-      "anantha/engine/orchestrator"
+      iex> Acs.Cognition.Loader.module_to_path(MyApp.Engine.Orchestrator)
+      "my_app/engine/orchestrator"
   """
   def module_to_path(module) when is_atom(module) do
     module |> Module.split() |> Enum.map(&Macro.underscore/1) |> Enum.join("/")

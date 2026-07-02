@@ -19,20 +19,20 @@ defmodule Acs.Apps.Config do
   MCP tools for runtime CRUD: `app_list`, `app_configure`, `app_remove`.
 
   Example `.env`:
-      CONFIGURED_APPS=anantha
-      APP_ANANTHA_URL=http://localhost:4000
-      APP_ANANTHA_API_KEY=sk_...
-      APP_ANANTHA_AUTH_HEADER_NAME=x-api-key
-      APP_ANANTHA_AUTH_HEADER_SCHEME=
-      APP_ANANTHA_TIMEOUT_MS=15000
+      CONFIGURED_APPS=my_app
+      APP_MY_APP_URL=http://localhost:4000
+      APP_MY_APP_API_KEY=sk_...
+      APP_MY_APP_AUTH_HEADER_NAME=x-api-key
+      APP_MY_APP_AUTH_HEADER_SCHEME=
+      APP_MY_APP_TIMEOUT_MS=15000
 
   Example `docker-compose.yaml`:
       environment:
-        CONFIGURED_APPS: "anantha myapp"
-        APP_ANANTHA_URL: "http://anantha:4000"
-        APP_ANANTHA_API_KEY: "${ANANTHA_API_KEY}"
-        APP_ANANTHA_AUTH_HEADER_NAME: "authorization"
-        APP_ANANTHA_AUTH_HEADER_SCHEME: "Bearer"
+        CONFIGURED_APPS: "my_app myapp2"
+        APP_MY_APP_URL: "http://my_app:4000"
+        APP_MY_APP_API_KEY: "${MY_APP_API_KEY}"
+        APP_MY_APP_AUTH_HEADER_NAME: "authorization"
+        APP_MY_APP_AUTH_HEADER_SCHEME: "Bearer"
         APP_MYAPP_URL: "http://myapp:5000"
         APP_MYAPP_API_KEY: "key123"
         APP_MYAPP_AUTH_HEADER_NAME: "x-api-key"

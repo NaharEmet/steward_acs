@@ -116,9 +116,6 @@ defmodule Acs.MCP.UrlSafety do
       end)
 
     cond do
-      ips == [] ->
-        {:error, "Could not resolve host '#{host}'"}
-
       Enum.any?(ips, &private_ip?/1) ->
         {:error, "Host '#{host}' resolves to a private or loopback address"}
 
@@ -139,12 +136,12 @@ defmodule Acs.MCP.UrlSafety do
     Bitwise.band(a, 0xFE00) == 0xFC00 or Bitwise.band(a, 0xFFC0) == 0xFE80
   end
 
+  defp private_ip?(_), do: false
+
   defp ip_in_cidr?({a, b, c, d}, {pa, pb, pc, pd}, bits) when bits <= 32 do
     ip_int = Bitwise.bsl(a, 24) + Bitwise.bsl(b, 16) + Bitwise.bsl(c, 8) + d
     prefix_int = Bitwise.bsl(pa, 24) + Bitwise.bsl(pb, 16) + Bitwise.bsl(pc, 8) + pd
     mask = Bitwise.bsl(0xFFFFFFFF, 32 - bits)
     Bitwise.band(ip_int, mask) == Bitwise.band(prefix_int, mask)
   end
-
-  defp private_ip?(_), do: false
 end

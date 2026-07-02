@@ -2,7 +2,7 @@ defmodule AcsWeb.Plugs.LocalhostOnly do
   @moduledoc """
   Restricts a route to loopback clients only.
 
-  Used for dev-only utilities such as the Swoosh mailbox and one-click dev login.
+  Used for dev-only utilities such as one-click dev login.
   """
   import Plug.Conn
 

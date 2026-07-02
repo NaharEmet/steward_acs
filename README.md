@@ -29,13 +29,20 @@ Steward ACS is an **infrastructure layer** for multi-agent coordination. It runs
 git clone https://github.com/NaharEmet/steward_acs.git
 cd steward_acs
 
+# Optional: configure LLM providers, dashboard credentials, etc.
+# Copy and edit the example env file before starting:
+# cp .env.example .env
+# nano .env
+
 docker compose up -d
 
-curl http://localhost:4001/health
+curl http://localhost:4001/mcp/health
 
 # Open http://localhost:4001 in your browser
 # Dashboard login: admin / admin (configurable via ACS_USERNAME / ACS_PASSWORD)
 ```
+
+> **Note:** Memory auditing and semantic search need at least one LLM provider API key. Set `NIM_API_KEY`, `MIMO_API_KEY`, `MINIMAX_API_KEY`, or `OPENAI_API_KEY` in `.env` (or directly in `docker-compose.yml`) to enable them. Without these, you'll see `Audit failed: :no_providers_enabled` in the logs.
 
 ### Docker — Remote
 
@@ -235,8 +242,47 @@ In Docker, uncomment the `obsidian_vault` volume and `syncthing` service in your
 | `MEMORY_STORE` | No | `yaml` | Storage format: `yaml` or `obsidian` |
 | `OBSIDIAN_VAULT_PATH` | No | — | Filesystem path to Obsidian vault |
 | `ENABLED_LLM_PROVIDERS` | No | all | Comma-separated whitelist (e.g. `mimo,nim`) |
+| `NIM_API_KEY` | No | — | NVIDIA NIM API key for LLM evaluation |
+| `MIMO_API_KEY` | No | — | Mimo API key for LLM evaluation |
+| `MINIMAX_API_KEY` | No | — | MiniMax API key for LLM evaluation |
+| `OPENAI_API_KEY` | No | — | OpenAI API key for LLM evaluation |
+| `OPENAI_BASE_URL` | No | — | Custom OpenAI-compatible endpoint URL |
+| `OPENAI_MODEL` | No | — | OpenAI model name override |
+| `MCP_TOOLS_PATH` | No | `<app>/acs/acstools` | Comma-separated directories for YAML tool definitions |
+| `MCP_AUTH_LOCAL_FALLBACK` | No | `false` | Allow unauthenticated MCP calls from localhost |
+| `HTTP_SLEEP_MAX_MS` | No | — | Max sleep duration for `sleep` tool (ms) |
+| `ALLOWED_PATHS` | No | — | Comma-separated allowed paths for `read_file`/`write_file` tools |
+| `ALLOWED_COMMANDS` | No | — | Comma-separated allowed commands for `exec_command` tool |
+| `BRIDGE_ALLOWED_HOSTS` | No | — | Comma-separated allowed hosts for the HTTP Bridge |
+| `ACS_ADMIN_EMAILS` | No | — | Comma-separated admin emails for notifications |
+| `LOG_INGEST_KEY` | No | — | Shared key for log ingestion endpoint |
+| `OAUTH_BEARER_ENABLED` | No | `false` | Enable OAuth Bearer token auth strategy |
+| `SESSION_VALIDITY_DAYS` | No | `7` | Dashboard session lifetime |
 
-See `.env.remote` and `config/runtime.exs` for the full reference.
+### LLM Provider Setup
+
+Memory auditing and semantic search need an LLM provider. Set at least one of these:
+
+| Variable | Provider |
+|---|---|
+| `NIM_API_KEY` | NVIDIA NIM |
+| `MIMO_API_KEY` | Mimo |
+| `MINIMAX_API_KEY` | MiniMax |
+| `OPENAI_API_KEY` | OpenAI (also set `OPENAI_BASE_URL` / `OPENAI_MODEL` for custom endpoints) |
+
+You can restrict which providers are used via `ENABLED_LLM_PROVIDERS` (comma-separated, e.g. `mimo,nim`). By default all enabled providers with valid API keys are tried in priority order.
+
+### MCP Tool Definitions
+
+Steward ACS discovers tool definitions from YAML files on disk. The search path is configured via:
+
+- `MCP_TOOLS_PATH` env var (comma-separated directories)
+- `config :steward_acs, Acs.MCP.ToolLoader, tools_paths:` in config files
+- Default: `<app_dir>/acs/acstools/`
+
+Create tool YAML files in one of these directories and they'll be hot-reloaded automatically. See `priv/acs_tools/` for examples.
+
+See `.env.remote`, `.env.example`, and `config/runtime.exs` for the full reference.
 
 ---
 

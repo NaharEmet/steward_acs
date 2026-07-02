@@ -12,9 +12,9 @@ defmodule Acs.MCP.Plugs.Strategies.AppAuth do
 
   Example config:
       config :steward_acs, :apps, %{
-        "anantha" => [
-          base_url: System.get_env("ANANTHA_URL"),
-          api_key: System.get_env("ANANTHA_API_KEY"),
+        "my_app" => [
+          base_url: System.get_env("MY_APP_URL"),
+          api_key: System.get_env("MY_APP_API_KEY"),
           auth_endpoint: "/api/auth/validate-key"
         ]
       }

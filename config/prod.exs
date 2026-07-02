@@ -9,9 +9,15 @@ repo_adapter =
 config :steward_acs, :repo_adapter, repo_adapter
 
 # Individual PG settings are fallbacks when DATABASE_URL is not set at runtime.
+pgpassword = System.get_env("PGPASSWORD", "postgres")
+
+if config_env() == :prod and pgpassword == "postgres" do
+  raise "PGPASSWORD must not be the default 'postgres' in production"
+end
+
 config :steward_acs, Acs.Repo,
   username: System.get_env("PGUSER", "postgres"),
-  password: System.get_env("PGPASSWORD", "postgres"),
+  password: pgpassword,
   hostname: System.get_env("PGHOST", "localhost"),
   port: String.to_integer(System.get_env("PGPORT", "5432")),
   database: System.get_env("PGDATABASE", "acs_prod"),
@@ -41,7 +47,8 @@ config :logger, level: :info
 
 config :steward_acs, Acs.MCP.ToolLoader,
   tools_paths: [
-    System.get_env("ANANTHA_TOOLS_PATH", "/app/anantha/acstools/"),
     System.get_env("EXTERNAL_TOOLS_PATH"),
     System.get_env("ACS_TOOLS_PATH", "/app/acs/acstools/")
   ]
+  |> Enum.reject(&is_nil/1)
+  |> Enum.reject(&(&1 == ""))

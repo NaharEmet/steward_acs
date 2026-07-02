@@ -16,7 +16,7 @@ defmodule Acs.Cognition.SearchTest do
     # Create some test specs
     specs = [
       Entry.from_map(%{
-        "app" => "anantha",
+        "app" => "my_app",
         "id" => "engine/orchestrator",
         "title" => "Workflow Orchestrator",
         "purpose" => "Coordinates execution of multi-step workflows across worker processes",
@@ -28,7 +28,7 @@ defmodule Acs.Cognition.SearchTest do
         "status" => "approved"
       }),
       Entry.from_map(%{
-        "app" => "anantha",
+        "app" => "my_app",
         "id" => "ant/core/ir_builder",
         "title" => "IR Builder",
         "purpose" => "Builds intermediate representations from parsed user input for compilation",
@@ -39,7 +39,7 @@ defmodule Acs.Cognition.SearchTest do
         "status" => "proposed"
       }),
       Entry.from_map(%{
-        "app" => "anantha",
+        "app" => "my_app",
         "id" => "engine/worker_pool",
         "title" => "Worker Pool Manager",
         "purpose" => "Manages a configurable pool of workers for parallel task execution across cores",
@@ -114,7 +114,7 @@ defmodule Acs.Cognition.SearchTest do
     end
 
     test "filters by app" do
-      assert {:ok, results} = Search.search("orchestrator", app: "anantha")
+      assert {:ok, results} = Search.search("orchestrator", app: "my_app")
       assert length(results) >= 1
     end
 

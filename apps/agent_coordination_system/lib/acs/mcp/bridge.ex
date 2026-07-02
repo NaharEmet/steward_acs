@@ -10,7 +10,7 @@ defmodule Acs.MCP.Bridge do
 
   @default_timeout 30_000
 
-  @session_table :anantha_sessions
+  @session_table :acs_sessions
   @session_ttl_ms 300_000  # 5 minutes
 
   defp ensure_session_table do

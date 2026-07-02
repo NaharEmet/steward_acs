@@ -13,7 +13,7 @@ defmodule Acs.Cognition.Entry do
   """
 
   defstruct [
-    :app,                # string — app name (e.g., "anantha") — per-app isolation
+    :app,                # string — app name (e.g., "my_app") — per-app isolation
     :id,                 # string — "engine/orchestrator" (unique within app scope)
     :status,             # string — see status lifecycle above
     :title,              # string — human-readable label
@@ -408,7 +408,7 @@ defmodule Acs.Cognition.Entry do
 
   @doc """
   Generate a file path for a spec given app and module path.
-  e.g., app="anantha", path="engine/orchestrator" → "anantha/engine/orchestrator.yaml".
+  e.g., app="my_app", path="engine/orchestrator" → "my_app/engine/orchestrator.yaml".
   The app name is arbitrary and serves as a namespace for per-app configuration isolation.
   """
   def spec_filename(app, path) do

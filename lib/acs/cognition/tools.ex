@@ -16,6 +16,7 @@ defmodule Acs.Cognition.Tools do
     - `document_list_undocumented` — Find modules without entries
   """
 
+  alias Acs.Abac
   alias Acs.Cognition.Entry
   alias Acs.Cognition.Loader
   alias Acs.Cognition.Search
@@ -67,11 +68,18 @@ defmodule Acs.Cognition.Tools do
   # ── cognition_get ──
 
   defp cognition_get(args) do
+    ctx = Abac.from_args(args)
+
     with :ok <- require_params!(args, ~w(app path)) do
       case Loader.load(args["app"], args["path"]) do
-        {:ok, entry} -> {:ok, Entry.to_map(entry)}
-        {:error, :not_found} -> {:ok, nil}
-        {:error, reason} -> {:error, "Failed to load spec: #{inspect(reason)}"}
+        {:ok, entry} ->
+          if Abac.visible?(ctx, entry), do: {:ok, Entry.to_map(entry)}, else: {:ok, nil}
+
+        {:error, :not_found} ->
+          {:ok, nil}
+
+        {:error, reason} ->
+          {:error, "Failed to load spec: #{inspect(reason)}"}
       end
     end
   end
@@ -86,9 +94,15 @@ defmodule Acs.Cognition.Tools do
     else
       opts = build_search_opts(args)
 
+      ctx = Abac.from_args(args)
+
       case Search.search(query, opts) do
         {:ok, entries} ->
-          result = Enum.map(entries, &Entry.to_map/1)
+          result =
+            entries
+            |> Abac.filter(ctx)
+            |> Enum.map(&Entry.to_map/1)
+
           {:ok, result}
 
         {:error, reason} ->
@@ -120,8 +134,12 @@ defmodule Acs.Cognition.Tools do
   # ── cognition_propose ──
 
   defp cognition_propose(args) do
-    with :ok <- require_params!(args, ~w(app path)) do
-      attrs = args |> Map.drop(["app", "path"]) |> Map.take(@allowed_fields)
+    ctx = Abac.from_args(args)
+
+    with :ok <- require_params!(args, ~w(app path)),
+         attrs = args |> Map.drop(["app", "path"]) |> Map.take(@allowed_fields),
+         :ok <- Abac.validate_write(ctx, attrs),
+         :ok <- ensure_entry_writable(ctx, args["app"], args["path"]) do
       title = attrs["title"] || ""
 
       # Check for duplicates/similars
@@ -257,10 +275,16 @@ defmodule Acs.Cognition.Tools do
   # ── cognition_approve ──
 
   defp cognition_approve(args) do
+    ctx = Abac.from_args(args)
+
     with :ok <- require_params!(args, ~w(app path reviewer)) do
       case Loader.load(args["app"], args["path"]) do
         {:ok, entry} ->
-          approve_entry(entry, args["reviewer"])
+          if Abac.visible?(ctx, entry) do
+            approve_entry(entry, args["reviewer"])
+          else
+            {:error, "Access denied"}
+          end
 
         {:error, :not_found} ->
           {:error, "Spec not found: #{args["app"]}/#{args["path"]}"}
@@ -293,10 +317,16 @@ defmodule Acs.Cognition.Tools do
   # ── cognition_reject ──
 
   defp cognition_reject(args) do
+    ctx = Abac.from_args(args)
+
     with :ok <- require_params!(args, ~w(app path)) do
       case Loader.load(args["app"], args["path"]) do
         {:ok, entry} ->
-          reject_entry(entry)
+          if Abac.visible?(ctx, entry) do
+            reject_entry(entry)
+          else
+            {:error, "Access denied"}
+          end
 
         {:error, :not_found} ->
           {:error, "Spec not found: #{args["app"]}/#{args["path"]}"}
@@ -319,13 +349,32 @@ defmodule Acs.Cognition.Tools do
   # ── cognition_list ──
 
   defp cognition_list(args) do
+    ctx = Abac.from_args(args)
     app_filter = args["app"]
     status_filter = args["status"]
 
     {:ok, entries} = Loader.load_all(app: app_filter)
-    filtered = Enum.filter(entries, fn entry -> matches_status?(entry.status, status_filter) end)
+
+    filtered =
+      entries
+      |> Abac.filter(ctx)
+      |> Enum.filter(fn entry -> matches_status?(entry.status, status_filter) end)
+
     summaries = Enum.map(filtered, &entry_summary/1)
     {:ok, %{entries: summaries, count: length(summaries)}}
+  end
+
+  defp ensure_entry_writable(ctx, app, path) do
+    case Loader.load(app, path) do
+      {:ok, entry} ->
+        if Abac.visible?(ctx, entry), do: :ok, else: {:error, "Access denied"}
+
+      {:error, :not_found} ->
+        :ok
+
+      {:error, reason} ->
+        {:error, "Failed to load existing spec: #{inspect(reason)}"}
+    end
   end
 
   defp matches_status?(_entry_status, nil), do: true

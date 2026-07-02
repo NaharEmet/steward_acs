@@ -7,10 +7,11 @@ RUN apk add --no-cache build-base git curl sqlite-dev
 
 WORKDIR /app
 
-COPY mix.exs mix.lock ./
 RUN mix local.hex --force && mix local.rebar --force
-RUN mix deps.get
-RUN mix deps.compile
+COPY mix.exs mix.lock ./
+RUN --mount=type=cache,target=/root/.mix \
+    --mount=type=cache,target=_build \
+    mix deps.get && mix deps.compile
 
 COPY config config
 COPY lib lib
@@ -45,10 +46,11 @@ ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
 ARG COOKIE_SIGNING_SALT
 ENV COOKIE_SIGNING_SALT=${COOKIE_SIGNING_SALT}
 
-COPY mix.exs mix.lock ./
 RUN mix local.hex --force && mix local.rebar --force
-RUN mix deps.get --only prod
-RUN mix deps.compile
+COPY mix.exs mix.lock ./
+RUN --mount=type=cache,target=/root/.mix \
+    --mount=type=cache,target=_build \
+    mix deps.get --only prod && mix deps.compile
 
 COPY config config
 COPY lib lib

@@ -22,7 +22,6 @@ defmodule Acs.MCP.HTTPServer do
   @max_body_size 2_000_000
   @default_http_sleep_max_ms 300_000
 
-  plug(CORSPlug)
   plug(:match)
   plug(Acs.MCP.Plugs.RateLimit)
   plug(Acs.MCP.Plugs.MCPAuth)

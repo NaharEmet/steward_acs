@@ -50,8 +50,6 @@ defmodule AcsWeb.Router do
   if Application.compile_env(:steward_acs, :dev_routes, false) do
     scope "/dev" do
       pipe_through [:browser, :localhost_only]
-
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
 

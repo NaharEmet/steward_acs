@@ -173,13 +173,21 @@ defmodule Acs.MCP.ToolRegistry do
 
   @impl true
   def handle_call({:list_tools, category}, _from, state) do
-    result =
+    yaml_tools =
       case category do
         nil -> Map.values(state.tools)
         cat -> Map.get(state.by_category, cat, [])
       end
 
-    {:reply, result, state}
+    core_tools =
+      if is_nil(category) do
+        Acs.MCP.Tools.list_tools()
+        |> Enum.reject(fn tool -> Map.has_key?(state.tools, tool["name"]) end)
+      else
+        []
+      end
+
+    {:reply, yaml_tools ++ core_tools, state}
   end
 
   @impl true
@@ -288,6 +296,10 @@ defmodule Acs.MCP.ToolRegistry do
 
             {:reply, {:error, reason}, new_state}
         end
+
+      "help" ->
+        result = safe_execute(fn -> acs_help(state, args) end)
+        {:reply, result, state}
 
       _ ->
         # Check if tool exists

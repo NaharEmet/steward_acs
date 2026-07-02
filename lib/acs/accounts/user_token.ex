@@ -5,7 +5,6 @@ defmodule Acs.Accounts.UserToken do
 
   @hash_algorithm :sha256
   @rand_size 32
-  @session_validity_in_days 60
 
   schema "users_tokens" do
     field :token, :binary
@@ -29,8 +28,12 @@ defmodule Acs.Accounts.UserToken do
      }}
   end
 
+  def session_validity_days do
+    Application.get_env(:steward_acs, :session_validity_in_days, 7)
+  end
+
   def verify_session_token_query(token) do
-    verify_token_query(token, "session", @session_validity_in_days, :day)
+    verify_token_query(token, "session", session_validity_days(), :day)
   end
 
   defp verify_token_query(token, context, validity, unit) do

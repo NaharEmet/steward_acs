@@ -74,12 +74,12 @@ defmodule Acs.MCP.Bridge do
     req_opts =
       case String.upcase(method) do
         m when m in ["POST", "PUT", "PATCH"] ->
-          _body = build_body(tool_def, args)
-          Keyword.put(req_opts, :json, _body)
+          body = build_body(tool_def, args)
+          Keyword.put(req_opts, :json, body)
 
         _ ->
-          _query = build_query(tool_def, args)
-          Keyword.put(req_opts, :params, _query)
+          query = build_query(tool_def, args)
+          Keyword.put(req_opts, :params, query)
       end
 
     case request_with_opts(req_opts) do
@@ -204,7 +204,7 @@ defmodule Acs.MCP.Bridge do
     build_body(tool_def, args)
   end
 
-  defp build_headers(args, app_config \\ []) do
+  defp build_headers(args, app_config) do
     headers = [{"content-type", "application/json"}]
 
     header_name = app_config[:auth_header_name] || "authorization"

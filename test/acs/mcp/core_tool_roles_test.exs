@@ -10,6 +10,8 @@ defmodule Acs.MCP.CoreToolRolesTest do
 
   test "collaborators cannot use admin-only tools" do
     refute CoreToolRoles.authorized?("query", "collaborator")
+    refute CoreToolRoles.authorized?("read_file", "collaborator")
+    refute CoreToolRoles.authorized?("read_dir", "collaborator")
     refute CoreToolRoles.authorized?("write_file", "collaborator")
     refute CoreToolRoles.authorized?("get_logs", "collaborator")
   end

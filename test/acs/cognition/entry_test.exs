@@ -23,7 +23,7 @@ defmodule Acs.Cognition.EntryTest do
     test "preserves input/output/expected_transformation" do
       entry =
         Entry.from_map(%{
-          "app" => "anantha",
+          "app" => "my_app",
           "id" => "engine/orch",
           "input" => "JSON payload with org_id and message",
           "output" => "Structured intent map with context",
@@ -38,7 +38,7 @@ defmodule Acs.Cognition.EntryTest do
     test "preserves provided values" do
       entry =
         Entry.from_map(%{
-          "app" => "anantha",
+          "app" => "my_app",
           "id" => "engine/orchestrator",
           "title" => "Orchestrator",
           "purpose" => "Manages workflows",
@@ -49,7 +49,7 @@ defmodule Acs.Cognition.EntryTest do
           "tags" => ["core", "workflow"]
         })
 
-      assert entry.app == "anantha"
+      assert entry.app == "my_app"
       assert entry.id == "engine/orchestrator"
       assert entry.title == "Orchestrator"
       assert entry.purpose == "Manages workflows"
@@ -84,7 +84,7 @@ defmodule Acs.Cognition.EntryTest do
     test "includes populated fields" do
       entry =
         Entry.from_map(%{
-          "app" => "anantha",
+          "app" => "my_app",
           "id" => "engine/orch",
           "title" => "Orch",
           "purpose" => "Does stuff",
@@ -93,7 +93,7 @@ defmodule Acs.Cognition.EntryTest do
         })
 
       map = Entry.to_map(entry)
-      assert map["app"] == "anantha"
+      assert map["app"] == "my_app"
       assert map["id"] == "engine/orch"
       assert map["title"] == "Orch"
       assert map["purpose"] == "Does stuff"
@@ -199,7 +199,7 @@ defmodule Acs.Cognition.EntryTest do
 
   describe "spec_filename/2" do
     test "generates correct path" do
-      assert Entry.spec_filename("anantha", "engine/orchestrator") == "anantha/engine/orchestrator.yaml"
+      assert Entry.spec_filename("my_app", "engine/orchestrator") == "my_app/engine/orchestrator.yaml"
     end
 
     test "handles simple names" do

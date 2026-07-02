@@ -55,7 +55,7 @@ defmodule Acs.Cognition.LoaderTest do
 
   describe "module_to_path/1" do
     test "converts module atom to path" do
-      assert Loader.module_to_path(Anantha.Engine.Orchestrator) == "anantha/engine/orchestrator"
+      assert Loader.module_to_path(MyApp.Engine.Orchestrator) == "my_app/engine/orchestrator"
     end
 
     test "handles single-segment modules" do
@@ -213,8 +213,8 @@ defmodule Acs.Cognition.LoaderTest do
 
   describe "file_path/2" do
     test "builds correct path" do
-      path = Loader.file_path("anantha", "engine/orchestrator")
-      assert String.ends_with?(path, "anantha/engine/orchestrator.yaml")
+      path = Loader.file_path("my_app", "engine/orchestrator")
+      assert String.ends_with?(path, "my_app/engine/orchestrator.yaml")
     end
 
     test "rejects path traversal in app" do
@@ -225,13 +225,13 @@ defmodule Acs.Cognition.LoaderTest do
 
     test "rejects path traversal in path" do
       assert_raise ArgumentError, ~r/Invalid path segment/, fn ->
-        Loader.file_path("anantha", "../../etc/passwd")
+        Loader.file_path("my_app", "../../etc/passwd")
       end
     end
 
     test "rejects special characters" do
       assert_raise ArgumentError, ~r/Invalid path segment/, fn ->
-        Loader.file_path("anantha", "engine/$(cat /etc/passwd)")
+        Loader.file_path("my_app", "engine/$(cat /etc/passwd)")
       end
     end
   end

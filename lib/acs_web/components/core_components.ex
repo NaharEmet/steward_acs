@@ -1,6 +1,6 @@
 defmodule AcsWeb.CoreComponents do
   @moduledoc """
-  Core UI components for the ACS dashboard.
+  Core UI components for the Steward dashboard.
   """
   use Phoenix.Component
 

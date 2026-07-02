@@ -133,6 +133,8 @@ defmodule Acs.MCP.Tools.ClusterHandlers do
     end
   end
 
+  defp path_allowed?(_), do: false
+
   defp under_root?(path, root) do
     path == root or String.starts_with?(path, root <> "/")
   end
@@ -150,5 +152,4 @@ defmodule Acs.MCP.Tools.ClusterHandlers do
     end
   end
 
-  defp path_allowed?(_), do: false
 end

@@ -166,19 +166,19 @@ After answering the 4 questions, the setup script generates:
 |------|----------|
 | `steward.env` | All configuration (API keys, secrets) |
 | `steward.docker-compose.yml` | Services to run |
-| `AGENTS_ACS.md` | Startup instructions for agents |
+| `AGENTS_STEWARD.md` | Startup instructions for agents |
 | `fluent-bit.conf` + `parsers.conf` | Fluent Bit config (if enabled) |
 
 Say:
 
-> "I've generated `steward.env`, `steward.docker-compose.yml`, and `AGENTS_ACS.md`. Should I add them to `.gitignore`? They contain secrets or are local-only."
+> "I've generated `steward.env`, `steward.docker-compose.yml`, and `AGENTS_STEWARD.md`. Should I add them to `.gitignore`? They contain secrets or are local-only."
 
 If yes, add to `.gitignore`:
 ```gitignore
 # ACS
 steward.env
 steward.docker-compose.yml
-AGENTS_ACS.md
+AGENTS_STEWARD.md
 var/
 acs_data/
 ```

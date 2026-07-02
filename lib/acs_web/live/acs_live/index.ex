@@ -51,7 +51,7 @@ defmodule AcsWeb.AcsLive.Index do
   @impl true
   def handle_event("reset-all", _, socket) do
     Acs.reset_all()
-    socket = put_flash(socket, :info, "All ACS data has been reset.")
+    socket = put_flash(socket, :info, "All Steward data has been reset.")
     socket = load_data(socket)
     {:noreply, socket}
   end
@@ -108,7 +108,7 @@ defmodule AcsWeb.AcsLive.Index do
 
   @impl true
   def handle_info({:acs_reset, _payload}, socket) do
-    socket = put_flash(socket, :info, "ACS data was reset by another session.")
+    socket = put_flash(socket, :info, "Steward data was reset by another session.")
     {:noreply, load_data(socket)}
   end
 
@@ -151,7 +151,7 @@ defmodule AcsWeb.AcsLive.Index do
           <span class="section-count">(<%= map_size(@agent_status) %>)</span>
           <button
             phx-click="reset-all"
-            data-confirm="This will permanently delete all ACS tasks, file locks, and agent statuses. Are you sure?"
+            data-confirm="This will permanently delete all Steward tasks, file locks, and agent statuses. Are you sure?"
             class="btn btn-danger"
             style="padding: 4px 12px; font-size: 0.7rem; margin-left: auto;"
           >
@@ -164,7 +164,7 @@ defmodule AcsWeb.AcsLive.Index do
             <div class="empty-state">
               <div class="empty-state-icon">◉</div>
               <p class="empty-state-title">No active agents</p>
-              <p class="empty-state-desc">Agents will appear here when they connect to the ACS server</p>
+              <p class="empty-state-desc">Agents will appear here when they connect to the Steward server</p>
             </div>
           </div>
         <% else %>

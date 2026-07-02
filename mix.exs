@@ -10,6 +10,7 @@ defmodule Acs.MixProject do
       start_permanent: Mix.env() == :prod,
       build_per_environment: false,
       deps: deps(),
+      elixirc_paths: elixirc_paths(Mix.env()),
       aliases: aliases(),
       preferred_cli_env: [test: :test],
       releases: [
@@ -33,13 +34,6 @@ defmodule Acs.MixProject do
   defp elixirc_paths(_), do: ["lib"]
 
   defp deps do
-    # External app dependency: anantha_json if available as sibling project
-    llm_utils_dep = if File.dir?("../../lib/anantha_json") do
-      {:llm_utils, path: "../../lib/anantha_json", override: true}
-    else
-      {:llm_utils, "~> 0.1.1"}
-    end
-
     [
       {:ecto_sql, "~> 3.13"},
       {:ecto_sqlite3, "~> 0.22"},
@@ -47,7 +41,7 @@ defmodule Acs.MixProject do
       {:jason, "~> 1.2"},
       {:req, "~> 0.5.0"},
       {:req_llm, ">= 1.0.0"},
-      llm_utils_dep,
+      {:llm_utils, "~> 0.1.1"},
       {:dotenvy, "~> 1.0", override: true},
       {:yaml_elixir, "~> 2.9"},
       {:bandit, "~> 1.5"},

@@ -10,7 +10,7 @@ defmodule Acs.Application do
 
   @impl true
   def stop(_state) do
-    Acs.MetaHarness.OperationLogger.flush()
+    if meta_harness_enabled?(), do: Acs.MetaHarness.OperationLogger.flush()
     :ok
   end
 
@@ -19,11 +19,17 @@ defmodule Acs.Application do
     env_path = System.get_env("ENV_PATH") || Path.expand("../../.env", __DIR__)
     if File.exists?(env_path), do: Dotenvy.source!(env_path)
 
+    meta_harness_children =
+      if meta_harness_enabled?() do
+        [Acs.MetaHarness.OperationLogger, Acs.MetaHarness.Scheduler]
+      else
+        []
+      end
+
     children = [
       Acs.Apps.Config,
-      Acs.Repo,
-      Acs.MetaHarness.OperationLogger,
-      Acs.MetaHarness.Scheduler,
+      Acs.Repo | meta_harness_children
+    ] ++ [
       Acs.Acs.Cache,
       Acs.Acs.Sweeper,
       Acs.Memory.Auditor,
@@ -86,5 +92,9 @@ defmodule Acs.Application do
     end
 
     {:ok, pid}
+  end
+
+  defp meta_harness_enabled? do
+    System.get_env("META_HARNESS_ENABLED", "false") == "true"
   end
 end

@@ -45,6 +45,9 @@ config :steward_acs, :session_signing_salt, cookie_signing_salt
 config :steward_acs, :auditor_interval,
   System.get_env("AUDITOR_INTERVAL", "30000") |> String.to_integer()
 
+config :steward_acs, :session_validity_in_days,
+  System.get_env("SESSION_VALIDITY_DAYS", "7") |> String.to_integer()
+
 if System.get_env("DATABASE_URL") do
   config :steward_acs, Acs.Repo,
     url: System.get_env("DATABASE_URL"),
@@ -88,8 +91,13 @@ if System.get_env("BRIDGE_ALLOWED_HOSTS") do
     |> Enum.reject(&(&1 == ""))
 end
 
-config :steward_acs, :mcp_api_key, System.get_env("MCP_API_KEY", "")
-config :steward_acs, :service_api_key, System.get_env("SERVICE_API_KEY", "")
+if mcp_api_key = System.get_env("MCP_API_KEY") do
+  config :steward_acs, :mcp_api_key, mcp_api_key
+end
+
+if service_api_key = System.get_env("SERVICE_API_KEY") do
+  config :steward_acs, :service_api_key, service_api_key
+end
 
 if log_ingest_key = System.get_env("LOG_INGEST_KEY") do
   config :steward_acs, :log_ingest_key, log_ingest_key

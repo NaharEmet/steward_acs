@@ -218,7 +218,7 @@ defmodule Acs.Memory.Auditor do
   # Detect if the error is caused by missing LLM API keys (provider unavailability).
   # Only matches actual configuration issues — runtime failures (bad JSON, rate limits, HTTP errors)
   # pass through so retry logic handles them.
-  defp providers_unavailable?(:no_providers_configured), do: true
+  defp providers_unavailable?(:no_providers_enabled), do: true
 
   # All providers failed at runtime — providers ARE available and tried,
   # they just all happened to fail. Let retry logic handle these.

@@ -1,6 +1,6 @@
 defmodule AcsWeb.AcsLive.MemoryLive do
   @moduledoc """
-  LiveView for human governance of the ACS Memory System.
+  LiveView for human governance of the Steward Memory System.
 
   Provides:
   - Pending approvals list with approve/reject
