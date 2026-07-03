@@ -4,8 +4,7 @@
 .git
 .github
 metaanalysis
-priv/acs_memory/test_app
-priv/acs_memory/test
+priv/acs_memory
 test
 *.md
 !README.md

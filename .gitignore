@@ -23,9 +23,11 @@ acs_data/
 # Metaanalysis artifacts (auto-generated)
 metaanalysis/
 
+# Auto-generated agent memory files (never committed)
+priv/acs_memory/
+
 # Test artifacts
-priv/acs_memory/test_app/
 priv/acs_time_offset.txt
 
-# Personal ACS memory paths
-priv/acs_memory/home/
+# Server credentials
+serverpass.md
