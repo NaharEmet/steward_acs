@@ -35,13 +35,45 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       assert result.assigns.agent_cluster == Acs.Cluster.current()
     end
 
-    test "does not accept api_key from query params" do
+    test "does not accept api_key from query params by default" do
       {:ok, %{key: raw_key}} = Developers.generate_key("query-auth-test", cluster: "staging")
 
       conn =
         Plug.Test.conn(:get, "/mcp/v1/messages", %{"api_key" => raw_key})
 
       assert %Plug.Conn{halted: true, status: 401} = MCPAuth.call(conn, [])
+    end
+
+    test "accepts api_key from query params when MCP_QUERY_KEY_AUTH is enabled" do
+      original = Application.get_env(:steward_acs, :mcp_query_key_auth)
+      Application.put_env(:steward_acs, :mcp_query_key_auth, true)
+
+      on_exit(fn ->
+        Application.put_env(:steward_acs, :mcp_query_key_auth, original)
+      end)
+
+      {:ok, %{key: raw_key}} =
+        Developers.generate_key("query-auth-enabled-test", role: "admin", cluster: "dev")
+
+      conn =
+        Plug.Test.conn(:get, "/mcp/v1/messages", %{"api_key" => raw_key})
+
+      result = MCPAuth.call(conn, [])
+      assert result.assigns.agent_role == "admin"
+      assert result.assigns.agent_org_id == "dev"
+    end
+
+    test "accepts Bearer token with developer key" do
+      {:ok, %{key: raw_key}} =
+        Developers.generate_key("bearer-auth-test", role: "admin", cluster: "dev")
+
+      conn =
+        Plug.Test.conn(:get, "/mcp/v1/messages")
+        |> Plug.Conn.put_req_header("authorization", "Bearer #{raw_key}")
+
+      result = MCPAuth.call(conn, [])
+      assert result.assigns.agent_role == "admin"
+      assert result.assigns.agent_org_id == "dev"
     end
 
     test "localhost fallback grants admin when enabled and no key provided" do

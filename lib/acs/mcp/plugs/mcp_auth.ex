@@ -35,6 +35,7 @@ defmodule Acs.MCP.Plugs.MCPAuth do
         authenticate_log_ingest(conn)
 
       true ->
+        conn = fetch_query_params(conn)
         key = extract_key(conn)
         strategies = auth_strategies()
 
@@ -89,10 +90,41 @@ defmodule Acs.MCP.Plugs.MCPAuth do
   end
 
   defp extract_key(conn) do
+    conn
+    |> header_api_key()
+    |> case do
+      key when is_binary(key) -> key
+      _ -> bearer_api_key(conn) || query_api_key(conn)
+    end
+  end
+
+  defp header_api_key(conn) do
     case get_req_header(conn, "x-api-key") do
       [key | _] when is_binary(key) and key != "" -> key
       _ -> nil
     end
+  end
+
+  defp bearer_api_key(conn) do
+    case get_req_header(conn, "authorization") do
+      ["Bearer " <> key | _] when is_binary(key) and key != "" -> key
+      _ -> nil
+    end
+  end
+
+  defp query_api_key(conn) do
+    if query_key_auth_enabled?() do
+      case conn.query_params["api_key"] do
+        key when is_binary(key) and key != "" -> key
+        _ -> nil
+      end
+    else
+      nil
+    end
+  end
+
+  defp query_key_auth_enabled? do
+    Application.get_env(:steward_acs, :mcp_query_key_auth, false)
   end
 
   defp auth_strategies do

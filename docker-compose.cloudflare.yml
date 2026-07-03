@@ -1,0 +1,83 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: steward_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/etc/caddy/certs:ro
+      - caddy_data:/data
+    environment:
+      DOMAIN: "prod.stewardacs.xyz"
+      ACS_URL: "http://steward_acs:4001"
+      SYNC_BCRYPT_PASS: "${SYNC_BCRYPT_PASS}"
+      OBSIDIAN_DOMAIN: "${OBSIDIAN_DOMAIN}"
+    depends_on:
+      steward_acs:
+        condition: service_healthy
+
+  steward_acs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: release
+      args:
+        REPO_ADAPTER: sqlite
+        SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
+        COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT:-}"
+    image: naharemete/steward_acs:cloudflare
+    container_name: steward_acs
+    restart: unless-stopped
+    expose:
+      - "4001"
+    environment:
+      MIX_ENV: prod
+      PORT: "4001"
+      REPO_ADAPTER: sqlite
+      DATABASE_PATH: /data/steward.sqlite
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
+      COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT}"
+      MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
+      MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-true}"
+      ACS_USERNAME: "${ACS_USERNAME:-admin}"
+      ACS_PASSWORD: "${ACS_PASSWORD:?Set ACS_PASSWORD}"
+      PHX_HOST: "prod.stewardacs.xyz"
+      OBSIDIAN_VAULT_PATH: /obsidian
+    volumes:
+      - acs_data:/data
+      - obsidian_vault:/obsidian:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/mcp/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: steward_syncthing
+    hostname: steward_acs
+    user: root
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8384:8384"
+      - "22000:22000"
+      - "21027:21027/udp"
+    volumes:
+      - syncthing_config:/var/syncthing/config
+      - obsidian_vault:/var/syncthing/vault
+    environment:
+      STGUIAPIKEY: ${STGUIAPIKEY}
+    entrypoint:
+      - sh
+      - -c
+      - "chown 1000:1000 /var/syncthing/config /var/syncthing/vault && exec /bin/syncthing"
+
+volumes:
+  acs_data:
+  caddy_data:
+  obsidian_vault:
+  syncthing_config:

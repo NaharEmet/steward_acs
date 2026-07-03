@@ -100,6 +100,12 @@ if System.get_env("MCP_AUTH_LOCAL_FALLBACK") do
          System.get_env("MCP_AUTH_LOCAL_FALLBACK") == "true"
 end
 
+if System.get_env("MCP_QUERY_KEY_AUTH") do
+  config :steward_acs,
+         :mcp_query_key_auth,
+         System.get_env("MCP_QUERY_KEY_AUTH") == "true"
+end
+
 if System.get_env("OAUTH_BEARER_ENABLED") == "true" do
   config :steward_acs, :auth_strategies, [
     Acs.MCP.Plugs.Strategies.Developer,
@@ -155,6 +161,8 @@ config :steward_acs, Acs.Memory.Embedding,
   ollama_url: System.get_env("OLLAMA_URL", "http://localhost:11434")
 
 config :steward_acs, :cluster_name, System.get_env("ACS_CLUSTER_NAME", "default")
+
+config :steward_acs, :project_name, System.get_env("ACS_PROJECT_NAME", "")
 
 config :steward_acs,
        :developer_name,
