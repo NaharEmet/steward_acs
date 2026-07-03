@@ -1,0 +1,3 @@
+[submodule "mcp-acs-bridge"]
+	path = mcp-acs-bridge
+	url = https://github.com/NaharEmet/steward_mcp_bridge.git
