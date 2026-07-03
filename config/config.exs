@@ -11,7 +11,14 @@ config :cors_plug,
   origin: cors_origins,
   max_age: 86_400,
   methods: ["GET", "POST", "PATCH", "OPTIONS"],
-  headers: ["content-type", "authorization", "x-requested-with", "x-mcp-session-id", "x-log-ingest-key"],
+  headers: [
+    "content-type",
+    "authorization",
+    "x-requested-with",
+    "x-mcp-session-id",
+    "x-log-ingest-key",
+    "x-api-key"
+  ],
   expose: ["x-mcp-session-id"]
 
 config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
@@ -33,7 +40,6 @@ config :steward_acs, AcsWeb.Endpoint,
 
 config :phoenix, :json_library, Jason
 
-
 config :steward_acs, dev_routes: false
 
 compile_session_salt =
@@ -51,8 +57,8 @@ compile_session_salt =
   end
 
 config :steward_acs,
-  :session_signing_salt,
-  compile_session_salt
+       :session_signing_salt,
+       compile_session_salt
 
 config :steward_acs, :session_validity_in_days, 7
 

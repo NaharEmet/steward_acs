@@ -15,8 +15,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     detection (exact ID, semantic vector similarity, lexical title match)
   - `list_memories/1` — Lists memories with optional filters (kind,
     status, scope, limit)
-  - `search_memories/1` — Full-text search across memory titles,
-    summaries, and content
+  - `search_memories/1` — Hybrid search (semantic + FTS) across memories
   - `set_memory_status/1` — Updates memory status (approved, rejected,
     stale, deprecated)
   - `generate_guidance_packet/1` — Generates structured guidance for a
@@ -112,20 +111,24 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
   def search_memories(args) do
     query = args["query"]
+    mode = args["mode"] || "auto"
+    min_relevance = args["min_relevance"]
 
     opts = [
       scope_path: args["scope"],
       kind: args["kind"],
       limit: args["limit"] || 20,
+      mode: mode,
       allowed_teams: args["_auth_allowed_teams"],
       allowed_projects: args["_auth_allowed_projects"],
       agent_role: args["_auth_role"]
     ]
 
-    memories = Acs.Memory.Search.search(query, opts)
+    {memories, scores} = Acs.Memory.Search.search_with_scores(query, opts)
 
     result =
-      Enum.map(memories, fn m ->
+      memories
+      |> Enum.map(fn m ->
         %{
           id: m.id,
           kind: m.kind,
@@ -135,12 +138,22 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
           scope_path: m.scope_path,
           importance: m.importance,
           content: String.slice(m.content || "", 0, 500),
+          relevance: Map.get(scores, m.id),
           created_by: decode_created_by(m.created_by_json)
         }
       end)
+      |> maybe_filter_by_relevance(min_relevance)
 
-    {:ok, %{memories: result, count: length(result)}}
+    {:ok, %{memories: result, count: length(result), mode: mode}}
   end
+
+  defp maybe_filter_by_relevance(results, nil), do: results
+
+  defp maybe_filter_by_relevance(results, min) when is_number(min) do
+    Enum.filter(results, fn r -> r[:relevance] != nil && r[:relevance] >= min end)
+  end
+
+  defp maybe_filter_by_relevance(results, _), do: results
 
   def set_memory_status(args) do
     memory_id = args["memory_id"]
@@ -220,39 +233,47 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
   def generate_guidance_packet(args) do
     scope_path = args["scope_path"] || args["scope"]
     task_id = args["task_id"]
-    mode = String.to_atom(args["mode"] || "mcp")
     allowed_teams = args["_auth_allowed_teams"]
     allowed_projects = args["_auth_allowed_projects"]
     agent_role = args["_auth_role"]
 
-    packet =
-      cond do
-        task_id && task_id != "" ->
-          Acs.Memory.Guidance.for_task(task_id, tier: :full, mode: mode)
+    with {:ok, mode} <- parse_guidance_mode(args["mode"]) do
+      packet =
+        cond do
+          task_id && task_id != "" ->
+            Acs.Memory.Guidance.for_task(task_id, tier: :full, mode: mode)
 
-        scope_path && scope_path != "" ->
-          Acs.Memory.Guidance.generate(scope_path,
-            tier: :full,
-            mode: mode,
-            allowed_teams: allowed_teams,
-            allowed_projects: allowed_projects,
-            agent_role: agent_role
-          )
+          scope_path && scope_path != "" ->
+            Acs.Memory.Guidance.generate(scope_path,
+              tier: :full,
+              mode: mode,
+              allowed_teams: allowed_teams,
+              allowed_projects: allowed_projects,
+              agent_role: agent_role
+            )
 
-        true ->
-          %{
-            scope: nil,
-            tier: :full,
-            mode: mode,
-            critical_axioms: [],
-            warnings: [],
-            relevant_patterns: [],
-            compressed_knowledge: ""
-          }
-      end
+          true ->
+            %{
+              scope: nil,
+              tier: :full,
+              mode: mode,
+              critical_axioms: [],
+              warnings: [],
+              relevant_patterns: [],
+              compressed_knowledge: ""
+            }
+        end
 
-    {:ok, packet}
+      {:ok, packet}
+    end
   end
+
+  defp parse_guidance_mode(nil), do: {:ok, :mcp}
+  defp parse_guidance_mode("mcp"), do: {:ok, :mcp}
+  defp parse_guidance_mode("knowledge"), do: {:ok, :knowledge}
+
+  defp parse_guidance_mode(mode) when is_binary(mode),
+    do: {:error, "Invalid mode '#{mode}'. Must be 'mcp' or 'knowledge'"}
 
   # Layer 1: Check for exact duplicate by ID (same kind + same normalized title)
   defp check_exact_memory_duplicate(id) do

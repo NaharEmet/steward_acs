@@ -7,18 +7,32 @@ defmodule Acs.MCP.Plugs.Strategies.Default do
     cond do
       key && dev_key_valid?(key) ->
         Logger.debug("[MCPAuth] authenticated via dev key as admin")
-        {:ok, %{role: "admin", org_id: nil, permissions: nil, agent_identity: Acs.Cluster.developer_name()}}
+
+        {:ok,
+         %{
+           role: "admin",
+           org_id: nil,
+           permissions: nil,
+           agent_identity: Acs.Cluster.developer_name()
+         }}
 
       key && service_key_valid?(key) ->
-        Logger.debug("[MCPAuth] authenticated via service key as admin")
-        {:ok, %{role: "admin", org_id: nil, permissions: nil, agent_identity: "service"}}
+        Logger.debug("[MCPAuth] authenticated via service key")
+        {:ok, %{role: "service", org_id: nil, permissions: nil, agent_identity: "service"}}
 
       key ->
         {:error, "Invalid API key"}
 
       local_fallback_enabled?() && is_localhost?(conn) ->
         Logger.debug("[MCPAuth] localhost fallback — authenticated as admin")
-        {:ok, %{role: "admin", org_id: nil, permissions: nil, agent_identity: Acs.Cluster.developer_name()}}
+
+        {:ok,
+         %{
+           role: "admin",
+           org_id: nil,
+           permissions: nil,
+           agent_identity: Acs.Cluster.developer_name()
+         }}
 
       true ->
         {:error, "Missing or invalid API key"}

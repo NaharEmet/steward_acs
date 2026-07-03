@@ -81,8 +81,10 @@ defmodule Acs.Memory.VectorIndexTest do
     test "respects limit parameter" do
       # Insert multiple embeddings
       for i <- 1..5 do
-        VectorIndex.upsert_embedding("test_limit_#{i}_#{System.unique_integer([:positive])}",
-                                     [i * 0.1, i * 0.1, 0.0, 0.0, 0.0])
+        VectorIndex.upsert_embedding(
+          "test_limit_#{i}_#{System.unique_integer([:positive])}",
+          [i * 0.1, i * 0.1, 0.0, 0.0, 0.0]
+        )
       end
 
       results = VectorIndex.search_similar([0.5, 0.5, 0.0, 0.0, 0.0], limit: 3)
@@ -116,7 +118,7 @@ defmodule Acs.Memory.VectorIndexTest do
 
       # Nearly identical vectors (5-element)
       vec1 = [1.0, 0.0, 0.0, 0.0, 0.0]
-      vec2 = [0.99, 0.01, 0.0, 0.0, 0.0]
+      _vec2 = [0.99, 0.01, 0.0, 0.0, 0.0]
       vec3 = [0.5, 0.5, 0.0, 0.0, 0.0]
 
       VectorIndex.upsert_embedding(memory1, vec1)
@@ -132,8 +134,7 @@ defmodule Acs.Memory.VectorIndexTest do
 
   # Helper to clean up test embeddings
   defp cleanup_test_embeddings do
-    # Delete rows where memory_id starts with 'sim' or 'test' prefixes
-    Acs.Repo.query("DELETE FROM memory_embeddings WHERE memory_id LIKE 'sim%' OR memory_id LIKE 'test%'")
+    Acs.Repo.query("DELETE FROM memory_embeddings")
     :ok
   end
 end

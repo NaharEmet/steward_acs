@@ -1,0 +1,34 @@
+services:
+  steward_acs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: release
+      args:
+        REPO_ADAPTER: sqlite
+    image: steward_acs:prod
+    container_name: steward_acs
+    restart: always
+    ports:
+      - "4001:4001"
+    environment:
+      MIX_ENV: prod
+      PORT: "4001"
+      REPO_ADAPTER: sqlite
+      DATABASE_PATH: /data/steward.sqlite
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
+      COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT}"
+      MCP_API_KEY: "${MCP_API_KEY}"
+      ACS_USERNAME: "${ACS_USERNAME:-admin}"
+      ACS_PASSWORD: "${ACS_PASSWORD:?Set ACS_PASSWORD}"
+    volumes:
+      - acs_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/mcp/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  acs_data:

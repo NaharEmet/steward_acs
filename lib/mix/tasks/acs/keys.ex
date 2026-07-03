@@ -28,7 +28,7 @@ defmodule Mix.Tasks.Acs.Keys do
 
   defp generate(opts) do
     name = opts[:name] || "developer"
-    role = opts[:role] || "admin"
+    role = opts[:role] || "collaborator"
     cluster = opts[:cluster] || "default"
 
     # Ensure repo is started

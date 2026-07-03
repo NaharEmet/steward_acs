@@ -14,6 +14,10 @@ defmodule Acs.MCP.Plugs.RateLimit do
   def init(opts), do: opts
 
   def call(conn, opts) do
+    if health_check?(conn), do: conn, else: do_rate_limit(conn, opts)
+  end
+
+  defp do_rate_limit(conn, opts) do
     limit = Keyword.get(opts, :limit, @default_limit)
     window_ms = Keyword.get(opts, :window_ms, @default_window_ms)
     key = rate_key(conn)
@@ -30,6 +34,10 @@ defmodule Acs.MCP.Plugs.RateLimit do
         |> send_resp(429, body)
         |> halt()
     end
+  end
+
+  defp health_check?(conn) do
+    conn.method == "GET" and conn.request_path == "/mcp/health"
   end
 
   defp rate_key(conn) do
@@ -73,7 +81,12 @@ defmodule Acs.MCP.Plugs.RateLimit do
   defp ensure_table do
     case :ets.info(@table) do
       :undefined ->
-        :ets.new(@table, [:named_table, :protected, read_concurrency: true, write_concurrency: true])
+        :ets.new(@table, [
+          :named_table,
+          :protected,
+          read_concurrency: true,
+          write_concurrency: true
+        ])
 
       _ ->
         :ok

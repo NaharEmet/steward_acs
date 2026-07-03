@@ -38,7 +38,9 @@ defmodule Acs.MCP.StdioServer do
         line = String.trim(line)
 
         if line != "" do
-          case Protocol.handle_message(line) do
+          agent_role = Application.get_env(:steward_acs, :mcp_stdio_role, "admin")
+
+          case Protocol.handle_message(line, agent_role) do
             {:ok, nil} ->
               :ok
 

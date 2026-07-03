@@ -65,21 +65,14 @@ defmodule Acs.MCP.HTTPServer do
 
     case conn.body_params do
       %{} = params ->
-        agent_role = conn.assigns[:agent_role] || "admin"
-        agent_org_id = conn.assigns[:agent_org_id]
-        agent_permissions = conn.assigns[:agent_permissions]
-        agent_allowed_teams = conn.assigns[:agent_allowed_teams]
-        agent_allowed_projects = conn.assigns[:agent_allowed_projects]
-        agent_identity = conn.assigns[:agent_identity]
-
         case Protocol.handle_message(
                params,
-               agent_role,
-               agent_org_id,
-               agent_permissions,
-               agent_allowed_teams,
-               agent_allowed_projects,
-               agent_identity
+               conn.assigns[:agent_role],
+               conn.assigns[:agent_org_id],
+               conn.assigns[:agent_permissions],
+               conn.assigns[:agent_allowed_teams],
+               conn.assigns[:agent_allowed_projects],
+               conn.assigns[:agent_identity]
              ) do
           {:sleep, id, agent_id, timeout} ->
             timeout = cap_sleep_timeout(timeout)
@@ -135,21 +128,14 @@ defmodule Acs.MCP.HTTPServer do
 
     case conn.body_params do
       %{} = params ->
-        agent_role = conn.assigns[:agent_role] || "admin"
-        agent_org_id = conn.assigns[:agent_org_id]
-        agent_permissions = conn.assigns[:agent_permissions]
-        agent_allowed_teams = conn.assigns[:agent_allowed_teams]
-        agent_allowed_projects = conn.assigns[:agent_allowed_projects]
-        agent_identity = conn.assigns[:agent_identity]
-
         case Protocol.handle_message(
                params,
-               agent_role,
-               agent_org_id,
-               agent_permissions,
-               agent_allowed_teams,
-               agent_allowed_projects,
-               agent_identity
+               conn.assigns[:agent_role],
+               conn.assigns[:agent_org_id],
+               conn.assigns[:agent_permissions],
+               conn.assigns[:agent_allowed_teams],
+               conn.assigns[:agent_allowed_projects],
+               conn.assigns[:agent_identity]
              ) do
           {:sleep, id, agent_id, timeout} ->
             timeout = cap_sleep_timeout(timeout)
@@ -218,7 +204,10 @@ defmodule Acs.MCP.HTTPServer do
 
           conn
           |> put_resp_content_type("application/json")
-          |> send_resp(200, Jason.encode!(%{status: "ok", stored: success_count, total: length(logs)}))
+          |> send_resp(
+            200,
+            Jason.encode!(%{status: "ok", stored: success_count, total: length(logs)})
+          )
         end
 
       %{} = log_entry when map_size(log_entry) > 0 ->
@@ -231,13 +220,22 @@ defmodule Acs.MCP.HTTPServer do
           {:error, _reason} ->
             conn
             |> put_resp_content_type("application/json")
-            |> send_resp(500, Jason.encode!(%{status: "error", reason: "Failed to store log entry"}))
+            |> send_resp(
+              500,
+              Jason.encode!(%{status: "error", reason: "Failed to store log entry"})
+            )
         end
 
       _ ->
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(400, Jason.encode!(%{error: "Invalid log entry. Expected JSON with 'message' and optional 'level', 'service', 'component', 'metadata'"}))
+        |> send_resp(
+          400,
+          Jason.encode!(%{
+            error:
+              "Invalid log entry. Expected JSON with 'message' and optional 'level', 'service', 'component', 'metadata'"
+          })
+        )
     end
   end
 
@@ -248,7 +246,10 @@ defmodule Acs.MCP.HTTPServer do
     unless conn.assigns[:agent_role] in ~w(admin service) do
       conn
       |> put_resp_content_type("application/json")
-      |> send_resp(403, Jason.encode!(%{error: "Access denied: log query requires admin or service role"}))
+      |> send_resp(
+        403,
+        Jason.encode!(%{error: "Access denied: log query requires admin or service role"})
+      )
       |> halt()
     end
 
@@ -263,12 +264,18 @@ defmodule Acs.MCP.HTTPServer do
 
         level ->
           case parse_log_level(level) do
-            {:ok, atom} -> Keyword.put(opts, :level, atom)
+            {:ok, atom} ->
+              Keyword.put(opts, :level, atom)
 
             :error ->
               conn
               |> put_resp_content_type("application/json")
-              |> send_resp(400, Jason.encode!(%{error: "Invalid level: must be one of debug, info, warning, error"}))
+              |> send_resp(
+                400,
+                Jason.encode!(%{
+                  error: "Invalid level: must be one of debug, info, warning, error"
+                })
+              )
               |> halt()
           end
       end
@@ -276,26 +283,50 @@ defmodule Acs.MCP.HTTPServer do
     opts =
       if params["limit"] do
         case Integer.parse(params["limit"]) do
-          {n, ""} when n > 0 -> Keyword.put(opts, :limit, n)
-          _ -> conn |> send_resp(400, Jason.encode!(%{error: "Invalid limit: must be positive integer"})) |> halt()
+          {n, ""} when n > 0 ->
+            Keyword.put(opts, :limit, n)
+
+          _ ->
+            conn
+            |> send_resp(400, Jason.encode!(%{error: "Invalid limit: must be positive integer"}))
+            |> halt()
         end
       else
         opts
       end
 
-    opts = if params["component"], do: Keyword.put(opts, :component, params["component"]), else: opts
+    opts =
+      if params["component"], do: Keyword.put(opts, :component, params["component"]), else: opts
+
     opts = if params["search"], do: Keyword.put(opts, :search, params["search"]), else: opts
     opts = if params["service"], do: Keyword.put(opts, :service, params["service"]), else: opts
-    opts = if params["workflow_id"], do: Keyword.put(opts, :workflow_id, params["workflow_id"]), else: opts
-    opts = if params["execution_id"], do: Keyword.put(opts, :execution_id, params["execution_id"]), else: opts
+
+    opts =
+      if params["workflow_id"],
+        do: Keyword.put(opts, :workflow_id, params["workflow_id"]),
+        else: opts
+
+    opts =
+      if params["execution_id"],
+        do: Keyword.put(opts, :execution_id, params["execution_id"]),
+        else: opts
+
     opts = if params["since"], do: Keyword.put(opts, :since, params["since"]), else: opts
     opts = if params["until"], do: Keyword.put(opts, :until, params["until"]), else: opts
 
     opts =
       if params["offset"] do
         case Integer.parse(params["offset"]) do
-          {n, ""} when n >= 0 -> Keyword.put(opts, :offset, n)
-          _ -> conn |> send_resp(400, Jason.encode!(%{error: "Invalid offset: must be non-negative integer"})) |> halt()
+          {n, ""} when n >= 0 ->
+            Keyword.put(opts, :offset, n)
+
+          _ ->
+            conn
+            |> send_resp(
+              400,
+              Jason.encode!(%{error: "Invalid offset: must be non-negative integer"})
+            )
+            |> halt()
         end
       else
         opts
@@ -319,13 +350,18 @@ defmodule Acs.MCP.HTTPServer do
     unless conn.assigns[:agent_role] in ~w(admin service) do
       conn
       |> put_resp_content_type("application/json")
-      |> send_resp(403, Jason.encode!(%{error: "Access denied: log query requires admin or service role"}))
+      |> send_resp(
+        403,
+        Jason.encode!(%{error: "Access denied: log query requires admin or service role"})
+      )
       |> halt()
     end
 
     entry_id =
       case Integer.parse(id) do
-        {n, ""} -> n
+        {n, ""} ->
+          n
+
         _ ->
           conn
           |> put_resp_content_type("application/json")
@@ -335,14 +371,21 @@ defmodule Acs.MCP.HTTPServer do
 
     window_size =
       case conn.query_params["window_size"] do
-        nil -> 30
+        nil ->
+          30
+
         ws ->
           case Integer.parse(ws) do
-            {n, ""} when n > 0 -> n
+            {n, ""} when n > 0 ->
+              n
+
             _ ->
               conn
               |> put_resp_content_type("application/json")
-              |> send_resp(400, Jason.encode!(%{error: "Invalid window_size: must be positive integer"}))
+              |> send_resp(
+                400,
+                Jason.encode!(%{error: "Invalid window_size: must be positive integer"})
+              )
               |> halt()
           end
       end
@@ -382,7 +425,8 @@ defmodule Acs.MCP.HTTPServer do
     body = conn.body_params
 
     case body do
-      %{"title" => title, "created_by_agent" => agent_id} when is_binary(title) and is_binary(agent_id) ->
+      %{"title" => title, "created_by_agent" => agent_id}
+      when is_binary(title) and is_binary(agent_id) ->
         case Acs.create_task(body, agent_id) do
           {:ok, task} ->
             conn
@@ -392,7 +436,15 @@ defmodule Acs.MCP.HTTPServer do
           {:warn, task, similar} ->
             conn
             |> put_resp_content_type("application/json")
-            |> send_resp(201, Jason.encode!(%{status: "created_with_warning", task_id: task.id, task: task, similar_tasks: similar}))
+            |> send_resp(
+              201,
+              Jason.encode!(%{
+                status: "created_with_warning",
+                task_id: task.id,
+                task: task,
+                similar_tasks: similar
+              })
+            )
 
           {:error, _reason} ->
             conn
@@ -403,7 +455,10 @@ defmodule Acs.MCP.HTTPServer do
       _ ->
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(400, Jason.encode!(%{error: "Missing required fields: title, created_by_agent"}))
+        |> send_resp(
+          400,
+          Jason.encode!(%{error: "Missing required fields: title, created_by_agent"})
+        )
     end
   end
 
@@ -415,11 +470,16 @@ defmodule Acs.MCP.HTTPServer do
       {:ok, task} ->
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(200, Jason.encode!(%{status: "updated", task_id: task.id, event_count: task.event_count}))
+        |> send_resp(
+          200,
+          Jason.encode!(%{status: "updated", task_id: task.id, event_count: task.event_count})
+        )
 
       {:error, reason} ->
         status = if reason == :task_not_found, do: 404, else: 400
-        message = if reason == :task_not_found, do: "Task not found", else: "Failed to update task"
+
+        message =
+          if reason == :task_not_found, do: "Task not found", else: "Failed to update task"
 
         conn
         |> put_resp_content_type("application/json")
@@ -471,7 +531,10 @@ defmodule Acs.MCP.HTTPServer do
   end
 
   defp cap_sleep_timeout(:infinity), do: http_sleep_max_ms()
-  defp cap_sleep_timeout(timeout) when is_integer(timeout) and timeout > 0, do: min(timeout, http_sleep_max_ms())
+
+  defp cap_sleep_timeout(timeout) when is_integer(timeout) and timeout > 0,
+    do: min(timeout, http_sleep_max_ms())
+
   defp cap_sleep_timeout(_), do: http_sleep_max_ms()
 
   defp http_sleep_max_ms do
@@ -495,7 +558,9 @@ defmodule Acs.MCP.HTTPServer do
 
   defp normalize_metadata(metadata) when is_map(metadata) do
     Map.new(metadata, fn
-      {key, value} when is_atom(key) -> {key, value}
+      {key, value} when is_atom(key) ->
+        {key, value}
+
       {key, value} when is_binary(key) ->
         {to_atom(key), value}
     end)
@@ -552,6 +617,7 @@ defmodule Acs.MCP.HTTPServer do
   rescue
     ArgumentError -> key
   end
+
   defp to_atom(key), do: key
 
   defp parse_log_level(level) when is_binary(level) do

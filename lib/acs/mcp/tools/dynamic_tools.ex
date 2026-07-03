@@ -51,13 +51,13 @@ defmodule Acs.MCP.Tools.DynamicTools do
         {:error, "Missing required field: 'inputSchema' must be a JSON Schema object"}
 
       has_no_handler?(args) and has_no_endpoint?(args) ->
-        {:error,
-         "Must provide either 'handler' (Elixir module name) or 'endpoint' (HTTP URL)"}
+        {:error, "Must provide either 'handler' (Elixir module name) or 'endpoint' (HTTP URL)"}
 
       is_map_key(args, "permissions") and not is_list(args["permissions"]) ->
         {:error, "'permissions' must be a list of strings"}
 
-      is_map_key(args, "permissions") and Enum.any?(args["permissions"], fn p -> not is_binary(p) end) ->
+      is_map_key(args, "permissions") and
+          Enum.any?(args["permissions"], fn p -> not is_binary(p) end) ->
         {:error, "'permissions' must be a list of strings"}
 
       (url_error = endpoint_url_error(args)) != nil ->
@@ -123,16 +123,18 @@ defmodule Acs.MCP.Tools.DynamicTools do
       "description" => args["description"],
       "input_schema" => input_schema,
       "level" => args["level"] || 1,
-      "role" => args["role"] || "admin",
+      "role" => args["role"] || "collaborator",
       "category" => args["category"] || "custom"
     }
 
     # Include permissions if provided
-    tool = if is_map_key(args, "permissions") and is_list(args["permissions"]) and args["permissions"] != [] do
-      Map.put(tool, "permissions", args["permissions"])
-    else
-      tool
-    end
+    tool =
+      if is_map_key(args, "permissions") and is_list(args["permissions"]) and
+           args["permissions"] != [] do
+        Map.put(tool, "permissions", args["permissions"])
+      else
+        tool
+      end
 
     {tool, base_url} = add_handler_or_endpoint(tool, args)
 
@@ -257,7 +259,9 @@ defmodule Acs.MCP.Tools.DynamicTools do
         _ ->
           configured =
             case Application.get_env(:steward_acs, Acs.MCP.ToolLoader) do
-              nil -> []
+              nil ->
+                []
+
               config ->
                 (config[:tools_paths] || [config[:tools_path]] |> List.wrap())
                 |> Enum.filter(& &1)
@@ -265,7 +269,8 @@ defmodule Acs.MCP.Tools.DynamicTools do
 
           case configured do
             [] ->
-              Path.expand("../../../acs/acstools",
+              Path.expand(
+                "../../../acs/acstools",
                 Application.app_dir(:steward_acs)
               )
 

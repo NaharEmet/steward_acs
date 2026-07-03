@@ -6,7 +6,8 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
 
   describe "call/2" do
     test "sets agent_cluster and role on request with valid developer key" do
-      {:ok, %{key: raw_key}} = Developers.generate_key("mcp-auth-test", role: "admin", cluster: "dev")
+      {:ok, %{key: raw_key}} =
+        Developers.generate_key("mcp-auth-test", role: "admin", cluster: "dev")
 
       conn =
         Plug.Test.conn(:get, "/mcp/v1/messages")
@@ -70,6 +71,23 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
         |> Plug.Conn.put_req_header("x-api-key", "not-a-valid-key")
 
       assert %Plug.Conn{halted: true, status: 401} = MCPAuth.call(conn, [])
+    end
+
+    test "service API key authenticates with service role" do
+      original = Application.get_env(:steward_acs, :service_api_key)
+      Application.put_env(:steward_acs, :service_api_key, "test-service-key-12345")
+
+      on_exit(fn ->
+        Application.put_env(:steward_acs, :service_api_key, original)
+      end)
+
+      conn =
+        Plug.Test.conn(:get, "/mcp/v1/messages")
+        |> Plug.Conn.put_req_header("x-api-key", "test-service-key-12345")
+
+      result = MCPAuth.call(conn, [])
+      assert result.assigns.agent_role == "service"
+      assert result.assigns.agent_identity == "service"
     end
   end
 end

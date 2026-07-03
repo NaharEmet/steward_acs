@@ -1,23 +1,6 @@
 import Config
 
-# Load .env file at runtime for all environments
-if File.exists?(".env") do
-  File.read!(".env")
-  |> String.split("\n")
-  |> Enum.each(fn line ->
-    line = String.trim(line)
-
-    if String.length(line) > 0 and not String.starts_with?(line, "#") do
-      case String.split(line, "=", parts: 2) do
-        [key, value] ->
-          System.put_env(String.trim(key), String.trim(value))
-
-        _ ->
-          :ok
-      end
-    end
-  end)
-end
+# .env is loaded at application start via Dotenvy (see Acs.Application and ENV_PATH).
 
 secret_key_base =
   System.get_env("SECRET_KEY_BASE") ||
@@ -30,11 +13,15 @@ secret_key_base =
 
 signing_salt =
   System.get_env("SESSION_SIGNING_SALT") ||
-    :crypto.hash(:sha256, secret_key_base) |> Base.url_encode64(padding: false) |> binary_part(0, 16)
+    :crypto.hash(:sha256, secret_key_base)
+    |> Base.url_encode64(padding: false)
+    |> binary_part(0, 16)
 
 cookie_signing_salt =
   System.get_env("COOKIE_SIGNING_SALT") ||
-    :crypto.hash(:sha256, signing_salt <> "cookie") |> Base.url_encode64(padding: false) |> binary_part(0, 16)
+    :crypto.hash(:sha256, signing_salt <> "cookie")
+    |> Base.url_encode64(padding: false)
+    |> binary_part(0, 16)
 
 config :steward_acs, AcsWeb.Endpoint,
   secret_key_base: secret_key_base,
@@ -42,11 +29,13 @@ config :steward_acs, AcsWeb.Endpoint,
 
 config :steward_acs, :session_signing_salt, cookie_signing_salt
 
-config :steward_acs, :auditor_interval,
-  System.get_env("AUDITOR_INTERVAL", "30000") |> String.to_integer()
+config :steward_acs,
+       :auditor_interval,
+       System.get_env("AUDITOR_INTERVAL", "30000") |> String.to_integer()
 
-config :steward_acs, :session_validity_in_days,
-  System.get_env("SESSION_VALIDITY_DAYS", "7") |> String.to_integer()
+config :steward_acs,
+       :session_validity_in_days,
+       System.get_env("SESSION_VALIDITY_DAYS", "7") |> String.to_integer()
 
 if System.get_env("DATABASE_URL") do
   config :steward_acs, Acs.Repo,
@@ -78,17 +67,19 @@ end
 
 if System.get_env("DATABASE_PATH") do
   config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
+
   config :steward_acs, Acs.Repo,
     database: System.get_env("DATABASE_PATH"),
     pool_size: String.to_integer(System.get_env("POOL_SIZE", "5"))
 end
 
 if System.get_env("BRIDGE_ALLOWED_HOSTS") do
-  config :steward_acs, :bridge_allowed_hosts,
-    System.get_env("BRIDGE_ALLOWED_HOSTS")
-    |> String.split(",", trim: true)
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
+  config :steward_acs,
+         :bridge_allowed_hosts,
+         System.get_env("BRIDGE_ALLOWED_HOSTS")
+         |> String.split(",", trim: true)
+         |> Enum.map(&String.trim/1)
+         |> Enum.reject(&(&1 == ""))
 end
 
 if mcp_api_key = System.get_env("MCP_API_KEY") do
@@ -104,7 +95,9 @@ if log_ingest_key = System.get_env("LOG_INGEST_KEY") do
 end
 
 if System.get_env("MCP_AUTH_LOCAL_FALLBACK") do
-  config :steward_acs, :mcp_auth_local_fallback, System.get_env("MCP_AUTH_LOCAL_FALLBACK") == "true"
+  config :steward_acs,
+         :mcp_auth_local_fallback,
+         System.get_env("MCP_AUTH_LOCAL_FALLBACK") == "true"
 end
 
 if System.get_env("OAUTH_BEARER_ENABLED") == "true" do
@@ -130,17 +123,19 @@ if admin_emails_env = System.get_env("ACS_ADMIN_EMAILS") do
 end
 
 if System.get_env("ALLOWED_PATHS") do
-  config :steward_acs, :allowed_paths,
-    System.get_env("ALLOWED_PATHS")
-    |> String.split(",", trim: true)
-    |> Enum.map(&String.trim/1)
+  config :steward_acs,
+         :allowed_paths,
+         System.get_env("ALLOWED_PATHS")
+         |> String.split(",", trim: true)
+         |> Enum.map(&String.trim/1)
 end
 
 if System.get_env("ALLOWED_COMMANDS") do
-  config :steward_acs, :allowed_commands,
-    System.get_env("ALLOWED_COMMANDS")
-    |> String.split(",", trim: true)
-    |> Enum.map(&String.trim/1)
+  config :steward_acs,
+         :allowed_commands,
+         System.get_env("ALLOWED_COMMANDS")
+         |> String.split(",", trim: true)
+         |> Enum.map(&String.trim/1)
 end
 
 config :steward_acs, :nim_api_key, System.get_env("NIM_API_KEY", "")

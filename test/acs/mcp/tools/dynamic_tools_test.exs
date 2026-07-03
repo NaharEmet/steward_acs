@@ -9,7 +9,8 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
 
     # Clean up any stale test files from previous runs
     default_path =
-      Path.expand("../../../acs/acstools",
+      Path.expand(
+        "../../../acs/acstools",
         Application.app_dir(:steward_acs)
       )
 
@@ -75,7 +76,7 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
       assert tool["name"] == "my-custom-tool"
       assert tool["description"] == "A custom test tool created by write_tool"
       assert tool["level"] == 1
-      assert tool["role"] == "admin"
+      assert tool["role"] == "collaborator"
       assert tool["category"] == "custom"
       assert tool["endpoint"] == "/tool"
 
@@ -192,7 +193,9 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
 
     test "parses full HTTPS URL without port" do
       assert {:ok, "https://api.example.com", "/v1/endpoint"} =
-               Acs.MCP.Tools.DynamicTools.split_endpoint_url("https://api.example.com/v1/endpoint")
+               Acs.MCP.Tools.DynamicTools.split_endpoint_url(
+                 "https://api.example.com/v1/endpoint"
+               )
     end
 
     test "returns :error for path-only URL" do

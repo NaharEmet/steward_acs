@@ -42,11 +42,13 @@ defmodule Acs.MCP.ToolRegistry do
 
   @doc """
   Returns all loaded tools in MCP-compatible format (strips internal fields).
-  Optional agent_role filters tools by role. Defaults to "admin" for backward compatibility.
+  Optional agent_role filters tools by role. Returns an empty list when role is missing.
   """
-  def list_tools_mcp(agent_role \\ nil) do
-    GenServer.call(__MODULE__, {:list_tools_mcp, agent_role || "admin"})
+  def list_tools_mcp(agent_role) when is_binary(agent_role) do
+    GenServer.call(__MODULE__, {:list_tools_mcp, agent_role})
   end
+
+  def list_tools_mcp(_agent_role), do: []
 
   @doc """
   Returns all unique categories across loaded tools.
@@ -183,6 +185,11 @@ defmodule Acs.MCP.ToolRegistry do
       if is_nil(category) do
         Acs.MCP.Tools.list_tools()
         |> Enum.reject(fn tool -> Map.has_key?(state.tools, tool["name"]) end)
+        |> Enum.map(fn tool ->
+          tool
+          |> Map.put("app", "steward")
+          |> Map.put("category", Acs.MCP.Tools.tool_category(tool["name"]) || "uncategorized")
+        end)
       else
         []
       end
@@ -219,8 +226,7 @@ defmodule Acs.MCP.ToolRegistry do
             if Acs.MCP.CoreToolRoles.authorized?(name, agent_role) do
               :ok
             else
-              {:error,
-               "Role '#{agent_role}' is not authorized to use tool '#{name}'"}
+              {:error, "Role '#{agent_role}' is not authorized to use tool '#{name}'"}
             end
           else
             {:error, "Unknown tool: #{name}"}
@@ -265,7 +271,14 @@ defmodule Acs.MCP.ToolRegistry do
         {:reply, result, state}
 
       "refresh_tools" ->
-        case load_tools(%{state | tools: %{}, by_app: %{}, by_category: %{}, apps: [], apps_meta: %{}}) do
+        case load_tools(%{
+               state
+               | tools: %{},
+                 by_app: %{},
+                 by_category: %{},
+                 apps: [],
+                 apps_meta: %{}
+             }) do
           {:ok, new_state} ->
             result = {:ok, %{refreshed: map_size(new_state.tools), apps: new_state.apps}}
 
@@ -358,10 +371,11 @@ defmodule Acs.MCP.ToolRegistry do
               )
 
             # Update state with new chain info
-            new_state = %{state |
-              execution_chain: new_execution_chain,
-              sequence_order: sequence_order,
-              last_error_at: new_last_error_at
+            new_state = %{
+              state
+              | execution_chain: new_execution_chain,
+                sequence_order: sequence_order,
+                last_error_at: new_last_error_at
             }
 
             {:reply, result, new_state}
@@ -371,7 +385,14 @@ defmodule Acs.MCP.ToolRegistry do
 
   @impl true
   def handle_call(:refresh, _from, state) do
-    case load_tools(%{state | tools: %{}, by_app: %{}, by_category: %{}, apps: [], apps_meta: %{}}) do
+    case load_tools(%{
+           state
+           | tools: %{},
+             by_app: %{},
+             by_category: %{},
+             apps: [],
+             apps_meta: %{}
+         }) do
       {:ok, new_state} ->
         Logger.info("ToolRegistry refreshed: #{map_size(new_state.tools)} tools")
         {:reply, :ok, new_state}
@@ -384,14 +405,25 @@ defmodule Acs.MCP.ToolRegistry do
 
   @impl true
   def handle_call(:stats, _from, state) do
+    core_tools =
+      Acs.MCP.Tools.list_tools() |> Enum.reject(fn t -> Map.has_key?(state.tools, t["name"]) end)
+
+    core_categories =
+      core_tools
+      |> Enum.map(&Acs.MCP.Tools.tool_category(&1["name"]))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
     app_counts =
       Map.new(state.by_app, fn {app, tools} -> {app, length(tools)} end)
 
+    categories = (Map.keys(state.by_category) ++ core_categories) |> Enum.uniq()
+
     {:reply,
      %{
-       total_tools: map_size(state.tools),
-       total_apps: length(state.apps),
-       categories: Map.keys(state.by_category),
+       total_tools: map_size(state.tools) + length(core_tools),
+       total_apps: length(state.apps) + if(core_tools != [], do: 1, else: 0),
+       categories: categories,
        apps: app_counts
      }, state}
   end
@@ -551,7 +583,8 @@ defmodule Acs.MCP.ToolRegistry do
           Enum.reduce(
             tools_by_app,
             {state.tools, state.by_app, state.by_category, state.apps, state.apps_meta},
-            fn {app_name, app_config}, {tools_acc, by_app_acc, by_cat_acc, apps_acc, apps_meta_acc} ->
+            fn {app_name, app_config},
+               {tools_acc, by_app_acc, by_cat_acc, apps_acc, apps_meta_acc} ->
               tool_defs = Acs.MCP.ToolLoader.to_mcp_tools(app_config)
 
               # Index by name
@@ -582,7 +615,14 @@ defmodule Acs.MCP.ToolRegistry do
             end
           )
 
-        new_state = %{state | tools: tools, by_app: by_app, by_category: by_category, apps: apps, apps_meta: apps_meta}
+        new_state = %{
+          state
+          | tools: tools,
+            by_app: by_app,
+            by_category: by_category,
+            apps: apps,
+            apps_meta: apps_meta
+        }
 
         {:ok, new_state}
 
@@ -638,6 +678,8 @@ defmodule Acs.MCP.ToolRegistry do
       agent_role in roles
     end)
   end
+
+  defp filter_by_role(_tools, _agent_role), do: []
 
   defp acs_help(state, args) do
     category_filter = args["category"]
@@ -862,7 +904,8 @@ defmodule Acs.MCP.ToolRegistry do
   defp add_core_tools(state) do
     ask_def = %{
       "name" => "ask",
-      "description" => "Ask a natural language question about the knowledge base. Searches memories, documents, and agent status for relevant information.",
+      "description" =>
+        "Ask a natural language question about the knowledge base. Searches memories, documents, and agent status for relevant information.",
       "inputSchema" => %{
         "type" => "object",
         "properties" => %{
@@ -875,7 +918,8 @@ defmodule Acs.MCP.ToolRegistry do
       },
       "category" => "knowledge",
       "roles" => ["admin", "collaborator"],
-      "level" => "normal"
+      "level" => "normal",
+      "app" => "steward"
     }
 
     if Map.has_key?(state.tools, "ask") do
@@ -883,7 +927,8 @@ defmodule Acs.MCP.ToolRegistry do
     else
       tools = Map.put(state.tools, "ask", ask_def)
       by_category = Map.update(state.by_category, "knowledge", [ask_def], &[ask_def | &1])
-      %{state | tools: tools, by_category: by_category}
+      by_app = Map.update(state.by_app, "steward", [ask_def], &[ask_def | &1])
+      %{state | tools: tools, by_category: by_category, by_app: by_app}
     end
   end
 end

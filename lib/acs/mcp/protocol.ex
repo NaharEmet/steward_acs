@@ -16,7 +16,7 @@ defmodule Acs.MCP.Protocol do
   Processes a JSON-RPC message and returns the appropriate response.
 
   Accepts optional authentication context:
-  - `agent_role` - Role assigned to the calling agent (default: "admin")
+  - `agent_role` - Role assigned to the calling agent (required for `tools/list` and `tools/call`)
   - `agent_org_id` - Organization ID for the calling agent
   - `agent_permissions` - List of permission strings for the calling agent
     (used for permission-based RBAC, see `permissions` in YAML tool definitions)
@@ -26,14 +26,40 @@ defmodule Acs.MCP.Protocol do
           | {:error, String.t()}
           | {:sleep, any(), String.t(), integer() | :infinity}
 
-  def handle_message(message, agent_role \\ nil, agent_org_id \\ nil, agent_permissions \\ nil, agent_allowed_teams \\ nil, agent_allowed_projects \\ nil, agent_identity \\ nil)
+  def handle_message(
+        message,
+        agent_role \\ nil,
+        agent_org_id \\ nil,
+        agent_permissions \\ nil,
+        agent_allowed_teams \\ nil,
+        agent_allowed_projects \\ nil,
+        agent_identity \\ nil
+      )
 
-  def handle_message(message, agent_role, agent_org_id, agent_permissions, agent_allowed_teams, agent_allowed_projects, agent_identity) when is_binary(message) do
+  def handle_message(
+        message,
+        agent_role,
+        agent_org_id,
+        agent_permissions,
+        agent_allowed_teams,
+        agent_allowed_projects,
+        agent_identity
+      )
+      when is_binary(message) do
     case Jason.decode(message) do
       {:ok, decoded} ->
-        handle_message(decoded, agent_role, agent_org_id, agent_permissions, agent_allowed_teams, agent_allowed_projects, agent_identity)
+        handle_message(
+          decoded,
+          agent_role,
+          agent_org_id,
+          agent_permissions,
+          agent_allowed_teams,
+          agent_allowed_projects,
+          agent_identity
+        )
 
-      {:error, reason} -> {:error, "Failed to parse JSON: #{inspect(reason)}"}
+      {:error, reason} ->
+        {:error, "Failed to parse JSON: #{inspect(reason)}"}
     end
   end
 
@@ -53,7 +79,7 @@ defmodule Acs.MCP.Protocol do
       id,
       method,
       params,
-      agent_role || "admin",
+      agent_role,
       agent_org_id,
       agent_permissions,
       agent_allowed_teams,
@@ -62,16 +88,40 @@ defmodule Acs.MCP.Protocol do
     )
   end
 
-  def handle_message(%{"jsonrpc" => "2.0", "method" => method} = msg, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
+  def handle_message(
+        %{"jsonrpc" => "2.0", "method" => method} = msg,
+        _agent_role,
+        _agent_org_id,
+        _agent_permissions,
+        _agent_allowed_teams,
+        _agent_allowed_projects,
+        _agent_identity
+      ) do
     params = msg["params"] || %{}
     handle_notification(method, params)
   end
 
-  def handle_message(%{"jsonrpc" => "2.0"} = _msg, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
+  def handle_message(
+        %{"jsonrpc" => "2.0"} = _msg,
+        _agent_role,
+        _agent_org_id,
+        _agent_permissions,
+        _agent_allowed_teams,
+        _agent_allowed_projects,
+        _agent_identity
+      ) do
     {:ok, error_response(nil, -32600, "Invalid Request", "Missing method")}
   end
 
-  def handle_message(_msg, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
+  def handle_message(
+        _msg,
+        _agent_role,
+        _agent_org_id,
+        _agent_permissions,
+        _agent_allowed_teams,
+        _agent_allowed_projects,
+        _agent_identity
+      ) do
     {:ok, error_response(nil, -32600, "Invalid Request", "Not a valid JSON-RPC 2.0 message")}
   end
 
@@ -95,7 +145,17 @@ defmodule Acs.MCP.Protocol do
     %{"jsonrpc" => "2.0", "id" => id, "error" => error}
   end
 
-  defp handle_request(id, "initialize", _params, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
+  defp handle_request(
+         id,
+         "initialize",
+         _params,
+         _agent_role,
+         _agent_org_id,
+         _agent_permissions,
+         _agent_allowed_teams,
+         _agent_allowed_projects,
+         _agent_identity
+       ) do
     result = %{
       "protocolVersion" => @mcp_version,
       "capabilities" => server_capabilities(),
@@ -105,12 +165,158 @@ defmodule Acs.MCP.Protocol do
     {:ok, success_response(id, result)}
   end
 
-  defp handle_request(id, "tools/list", _params, agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
-    tools = ToolRegistry.list_tools_mcp(agent_role)
-    {:ok, success_response(id, %{"tools" => tools})}
+  defp handle_request(
+         id,
+         "tools/list",
+         _params,
+         agent_role,
+         _agent_org_id,
+         _agent_permissions,
+         _agent_allowed_teams,
+         _agent_allowed_projects,
+         _agent_identity
+       ) do
+    with :ok <- require_agent_role(agent_role) do
+      tools = ToolRegistry.list_tools_mcp(agent_role)
+      {:ok, success_response(id, %{"tools" => tools})}
+    else
+      {:error, reason} ->
+        {:ok, error_response(id, -32001, "Unauthorized", reason)}
+    end
   end
 
-  defp handle_request(id, "tools/call", params, agent_role, agent_org_id, agent_permissions, agent_allowed_teams, agent_allowed_projects, agent_identity) do
+  defp handle_request(
+         id,
+         "tools/call",
+         params,
+         agent_role,
+         agent_org_id,
+         agent_permissions,
+         agent_allowed_teams,
+         agent_allowed_projects,
+         agent_identity
+       ) do
+    with :ok <- require_agent_role(agent_role) do
+      do_tools_call(
+        id,
+        params,
+        agent_role,
+        agent_org_id,
+        agent_permissions,
+        agent_allowed_teams,
+        agent_allowed_projects,
+        agent_identity
+      )
+    else
+      {:error, reason} ->
+        {:ok, error_response(id, -32001, "Unauthorized", reason)}
+    end
+  end
+
+  defp handle_request(
+         id,
+         "ping",
+         _params,
+         _agent_role,
+         _agent_org_id,
+         _agent_permissions,
+         _agent_allowed_teams,
+         _agent_allowed_projects,
+         _agent_identity
+       ) do
+    {:ok, success_response(id, %{})}
+  end
+
+  # OpenCode startup methods — return empty/success responses to avoid "Method not found" errors
+  defp handle_request(
+         id,
+         "config.providers",
+         _params,
+         _agent_role,
+         _agent_org_id,
+         _agent_permissions,
+         _agent_allowed_teams,
+         _agent_allowed_projects,
+         _agent_identity
+       ) do
+    {:ok, success_response(id, %{"providers" => []})}
+  end
+
+  defp handle_request(
+         id,
+         "provider.list",
+         _params,
+         _agent_role,
+         _agent_org_id,
+         _agent_permissions,
+         _agent_allowed_teams,
+         _agent_allowed_projects,
+         _agent_identity
+       ) do
+    {:ok, success_response(id, %{"providers" => []})}
+  end
+
+  defp handle_request(
+         id,
+         "app.agents",
+         _params,
+         _agent_role,
+         _agent_org_id,
+         _agent_permissions,
+         _agent_allowed_teams,
+         _agent_allowed_projects,
+         _agent_identity
+       ) do
+    {:ok, success_response(id, %{"agents" => []})}
+  end
+
+  defp handle_request(
+         id,
+         "config.get",
+         _params,
+         _agent_role,
+         _agent_org_id,
+         _agent_permissions,
+         _agent_allowed_teams,
+         _agent_allowed_projects,
+         _agent_identity
+       ) do
+    {:ok, success_response(id, %{})}
+  end
+
+  defp handle_request(
+         id,
+         method,
+         _params,
+         _agent_role,
+         _agent_org_id,
+         _agent_permissions,
+         _agent_allowed_teams,
+         _agent_allowed_projects,
+         _agent_identity
+       ) do
+    {:ok, error_response(id, -32601, "Method not found", method)}
+  end
+
+  defp handle_notification("initialized", _params), do: {:ok, nil}
+  defp handle_notification("notifications/initialized", _params), do: {:ok, nil}
+  defp handle_notification("shutdown", _params), do: {:ok, nil}
+  defp handle_notification("$/cancelRequest", _params), do: {:ok, nil}
+  defp handle_notification(_method, _params), do: {:ok, nil}
+
+  defp require_agent_role(role) when is_binary(role) and role != "", do: :ok
+  defp require_agent_role(_), do: {:error, "Missing authentication context"}
+
+  defp do_tools_call(
+         id,
+         params,
+         agent_role,
+         agent_org_id,
+         agent_permissions,
+         agent_allowed_teams,
+         agent_allowed_projects,
+         agent_identity
+       ) do
     name = params["name"]
 
     arguments =
@@ -125,7 +331,6 @@ defmodule Acs.MCP.Protocol do
     if is_nil(name) do
       {:ok, error_response(id, -32602, "Invalid params", "Missing 'name' parameter")}
     else
-      # Check role authorization before executing
       case ToolRegistry.authorize_tool(name, agent_role, agent_permissions) do
         :ok ->
           case ToolRegistry.call_tool(name, arguments) do
@@ -156,37 +361,6 @@ defmodule Acs.MCP.Protocol do
     end
   end
 
-  defp handle_request(id, "ping", _params, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
-    {:ok, success_response(id, %{})}
-  end
-
-  # OpenCode startup methods — return empty/success responses to avoid "Method not found" errors
-  defp handle_request(id, "config.providers", _params, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
-    {:ok, success_response(id, %{"providers" => []})}
-  end
-
-  defp handle_request(id, "provider.list", _params, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
-    {:ok, success_response(id, %{"providers" => []})}
-  end
-
-  defp handle_request(id, "app.agents", _params, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
-    {:ok, success_response(id, %{"agents" => []})}
-  end
-
-  defp handle_request(id, "config.get", _params, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
-    {:ok, success_response(id, %{})}
-  end
-
-  defp handle_request(id, method, _params, _agent_role, _agent_org_id, _agent_permissions, _agent_allowed_teams, _agent_allowed_projects, _agent_identity) do
-    {:ok, error_response(id, -32601, "Method not found", method)}
-  end
-
-  defp handle_notification("initialized", _params), do: {:ok, nil}
-  defp handle_notification("notifications/initialized", _params), do: {:ok, nil}
-  defp handle_notification("shutdown", _params), do: {:ok, nil}
-  defp handle_notification("$/cancelRequest", _params), do: {:ok, nil}
-  defp handle_notification(_method, _params), do: {:ok, nil}
-
   defp server_capabilities do
     %{
       "tools" => %{
@@ -199,6 +373,4 @@ defmodule Acs.MCP.Protocol do
   defp server_info do
     %{"name" => "Acs MCP Server", "version" => "0.1.0"}
   end
-
-
 end
