@@ -107,11 +107,35 @@ if System.get_env("MCP_QUERY_KEY_AUTH") do
 end
 
 if System.get_env("OAUTH_BEARER_ENABLED") == "true" do
+  config :steward_acs,
+         :oauth_bearer_enabled,
+         true
+
   config :steward_acs, :auth_strategies, [
     Acs.MCP.Plugs.Strategies.Developer,
     Acs.MCP.Plugs.Strategies.OAuthBearer,
     Acs.MCP.Plugs.Strategies.Default
   ]
+end
+
+if auth0_domain = System.get_env("AUTH0_DOMAIN") do
+  config :steward_acs, :auth0_domain, auth0_domain
+end
+
+if auth0_audience = System.get_env("AUTH0_AUDIENCE") do
+  config :steward_acs, :auth0_audience, auth0_audience
+end
+
+if auth0_issuer = System.get_env("AUTH0_ISSUER") do
+  config :steward_acs, :auth0_issuer, auth0_issuer
+end
+
+if mcp_public_url = System.get_env("MCP_PUBLIC_URL") do
+  config :steward_acs, :mcp_public_url, mcp_public_url
+end
+
+if mcp_resource_url = System.get_env("MCP_RESOURCE_URL") do
+  config :steward_acs, :mcp_resource_url, mcp_resource_url
 end
 
 if System.get_env("HTTP_SLEEP_MAX_MS") do

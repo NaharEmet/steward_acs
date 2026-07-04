@@ -128,7 +128,10 @@ defmodule Acs.MCP.Plugs.MCPAuth do
   end
 
   defp auth_strategies do
-    Application.get_env(:steward_acs, :auth_strategies, @default_strategies)
+    case Application.get_env(:steward_acs, :auth_strategies) do
+      strategies when is_list(strategies) -> strategies
+      _ -> @default_strategies
+    end
   end
 
   defp authenticate_with_strategies(_key, _conn, []) do
@@ -151,9 +154,28 @@ defmodule Acs.MCP.Plugs.MCPAuth do
   defp unauthorized(conn, reason) do
     body = Jason.encode!(%{error: reason})
 
+    conn =
+      conn
+      |> maybe_put_oauth_challenge()
+      |> put_resp_content_type("application/json")
+
     conn
-    |> put_resp_content_type("application/json")
     |> send_resp(401, body)
     |> halt()
+  end
+
+  defp maybe_put_oauth_challenge(conn) do
+    alias Acs.MCP.OAuth.Config
+
+    if Config.enabled?() and Config.protected_resource_metadata_url() do
+      metadata_url = Config.protected_resource_metadata_url()
+
+      challenge =
+        ~s(Bearer error="invalid_token", resource_metadata="#{metadata_url}")
+
+      Plug.Conn.put_resp_header(conn, "www-authenticate", challenge)
+    else
+      conn
+    end
   end
 end

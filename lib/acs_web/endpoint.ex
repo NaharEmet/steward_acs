@@ -6,12 +6,12 @@ defmodule AcsWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_acs_web_key",
-    signing_salt: Application.compile_env(:steward_acs, :session_signing_salt, "acs_cookie_session_v1"),
+    signing_salt:
+      Application.compile_env(:steward_acs, :session_signing_salt, "acs_cookie_session_v1"),
     same_site: "Lax"
   ]
 
-  socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [session: @session_options]]
+  socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
 
   plug Plug.Static,
     at: "/",
@@ -55,11 +55,16 @@ defmodule AcsWeb.Endpoint do
   end
 
   defp route_mcp_or_dashboard(conn, _opts) do
-    if String.starts_with?(conn.request_path, "/mcp") or
-         String.starts_with?(conn.request_path, "/api") do
-      Acs.MCP.HTTPServer.call(conn, [])
-    else
-      AcsWeb.Router.call(conn, [])
+    cond do
+      String.starts_with?(conn.request_path, "/.well-known/oauth-protected-resource") ->
+        Acs.MCP.OAuth.WellKnown.call(conn, [])
+
+      String.starts_with?(conn.request_path, "/mcp") or
+          String.starts_with?(conn.request_path, "/api") ->
+        Acs.MCP.HTTPServer.call(conn, [])
+
+      true ->
+        AcsWeb.Router.call(conn, [])
     end
   end
 end

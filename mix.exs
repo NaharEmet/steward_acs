@@ -6,13 +6,11 @@ defmodule Acs.MixProject do
       app: :steward_acs,
       version: "0.1.0",
       elixir: "~> 1.17",
-      build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
-      build_per_environment: false,
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
       aliases: aliases(),
-      preferred_cli_env: [test: :test],
+      test_coverage: [tool: ExCoveralls],
       releases: [
         steward_acs: [
           include_executables_for: [:unix],
@@ -54,7 +52,15 @@ defmodule Acs.MixProject do
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:esbuild, "~> 0.8", runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:cors_plug, "~> 3.0"}
+      {:excoveralls, "~> 0.18", only: :test, runtime: false},
+      {:cors_plug, "~> 3.0"},
+      {:jose, "~> 1.11"}
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [test: :test, coveralls: :test, "coveralls.html": :test]
     ]
   end
 
@@ -64,6 +70,8 @@ defmodule Acs.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       setup: ["deps.get", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate", "test"],
+      coveralls: ["ecto.create --quiet", "ecto.migrate", "coveralls"],
+      "coveralls.html": ["ecto.create --quiet", "ecto.migrate", "coveralls.html"],
       "assets.deploy": ["esbuild steward_acs --minify", "phx.digest"]
     ]
   end

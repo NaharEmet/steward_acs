@@ -1,0 +1,147 @@
+defmodule Acs.MCP.OAuth.JWKS do
+  @moduledoc false
+
+  alias Acs.MCP.OAuth.Config
+
+  @cache_key {:acs_mcp_jwks, :keys}
+  @cache_ttl_ms 3_600_000
+
+  @spec verify(String.t()) :: {:ok, map()} | {:error, String.t()}
+  def verify(token) when is_binary(token) do
+    with {:ok, header} <- decode_header(token),
+         kid when is_binary(kid) <- header["kid"],
+         {:ok, jwk} <- fetch_jwk(kid),
+         {:ok, claims} <- verify_signature(token, jwk),
+         :ok <- validate_claims(claims) do
+      {:ok, claims}
+    else
+      nil -> {:error, "JWT missing key id"}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def verify(_), do: {:error, "Invalid bearer token"}
+
+  defp decode_header(token) do
+    case String.split(token, ".", parts: 3) do
+      [header_b64, _payload, _sig] ->
+        with {:ok, json} <- Base.url_decode64(header_b64, padding: false),
+             {:ok, header} <- Jason.decode(json) do
+          {:ok, header}
+        else
+          _ -> {:error, "Invalid JWT header"}
+        end
+
+      _ ->
+        {:error, "Malformed JWT"}
+    end
+  end
+
+  defp verify_signature(token, jwk) do
+    case JOSE.JWT.verify(jwk, token) do
+      {true, %JOSE.JWT{fields: claims}, _} ->
+        {:ok, claims}
+
+      _ ->
+        {:error, "Invalid JWT signature"}
+    end
+  end
+
+  defp validate_claims(claims) when is_map(claims) do
+    now = System.system_time(:second)
+
+    with :ok <- validate_issuer(claims),
+         :ok <- validate_audience(claims),
+         :ok <- validate_expiry(claims, now) do
+      :ok
+    end
+  end
+
+  defp validate_issuer(%{"iss" => iss}) when is_binary(iss) do
+    expected = Config.issuer()
+
+    if iss == expected or iss == expected <> "/" do
+      :ok
+    else
+      {:error, "Invalid token issuer"}
+    end
+  end
+
+  defp validate_issuer(_), do: {:error, "JWT missing issuer"}
+
+  defp validate_audience(%{"aud" => aud}) when is_binary(aud) do
+    if aud == Config.audience(), do: :ok, else: {:error, "Invalid token audience"}
+  end
+
+  defp validate_audience(%{"aud" => aud}) when is_list(aud) do
+    if Config.audience() in aud, do: :ok, else: {:error, "Invalid token audience"}
+  end
+
+  defp validate_audience(_), do: {:error, "JWT missing audience"}
+
+  defp validate_expiry(%{"exp" => exp}, now) when is_integer(exp) do
+    if exp > now, do: :ok, else: {:error, "JWT expired"}
+  end
+
+  defp validate_expiry(_, _), do: {:error, "JWT missing expiry"}
+
+  defp fetch_jwk(kid) do
+    case cached_keys()[kid] do
+      %JOSE.JWK{} = jwk ->
+        {:ok, jwk}
+
+      _ ->
+        refresh_keys()
+
+        case cached_keys()[kid] do
+          %JOSE.JWK{} = jwk -> {:ok, jwk}
+          _ -> {:error, "Unknown signing key"}
+        end
+    end
+  end
+
+  defp cached_keys do
+    case :persistent_term.get(@cache_key, :missing) do
+      {keys, fetched_at} when is_map(keys) ->
+        if System.monotonic_time(:millisecond) - fetched_at < @cache_ttl_ms do
+          keys
+        else
+          refresh_keys()
+        end
+
+      :missing ->
+        refresh_keys()
+    end
+  end
+
+  defp refresh_keys do
+    keys =
+      case fetch_jwks_json() do
+        {:ok, %{"keys" => jwks}} when is_list(jwks) ->
+          Map.new(jwks, fn jwk_map ->
+            jwk = JOSE.JWK.from_map(jwk_map)
+            {jwk_map["kid"], jwk}
+          end)
+
+        _ ->
+          %{}
+      end
+
+    :persistent_term.put(@cache_key, {keys, System.monotonic_time(:millisecond)})
+    keys
+  end
+
+  defp fetch_jwks_json do
+    case Config.jwks_url() do
+      nil ->
+        {:error, :missing_jwks_url}
+
+      url ->
+        case Req.get(url) do
+          {:ok, %{status: 200, body: body}} when is_map(body) -> {:ok, body}
+          {:ok, %{status: 200, body: body}} when is_binary(body) -> Jason.decode(body)
+          _ -> {:error, :jwks_fetch_failed}
+        end
+    end
+  end
+end

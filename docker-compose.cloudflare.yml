@@ -42,13 +42,27 @@ services:
       COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT}"
       MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
       MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-true}"
+      OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-false}"
+      AUTH0_DOMAIN: "${AUTH0_DOMAIN:-dev-jw5wgp2b.us.auth0.com}"
+      AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-https://prod.stewardacs.xyz/mcp/sse}"
+      MCP_PUBLIC_URL: "${MCP_PUBLIC_URL:-https://prod.stewardacs.xyz}"
+      MCP_RESOURCE_URL: "${MCP_RESOURCE_URL:-https://prod.stewardacs.xyz/mcp/sse}"
       ACS_USERNAME: "${ACS_USERNAME:-admin}"
       ACS_PASSWORD: "${ACS_PASSWORD:?Set ACS_PASSWORD}"
+      ACS_PROJECT_NAME: Bhutan
+      MIMO_API_KEY: "${MIMO_API_KEY:-}"
+      NIM_API_KEY: "${NIM_API_KEY:-}"
+      MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-}"
+      ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-}"
       PHX_HOST: "prod.stewardacs.xyz"
       OBSIDIAN_VAULT_PATH: /obsidian
+      MEMORY_STORE: obsidian
     volumes:
       - acs_data:/data
-      - obsidian_vault:/obsidian:ro
+      - obsidian_vault:/obsidian
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4001/mcp/health"]
       interval: 30s

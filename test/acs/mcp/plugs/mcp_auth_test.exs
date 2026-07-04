@@ -121,5 +121,46 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       assert result.assigns.agent_role == "service"
       assert result.assigns.agent_identity == "service"
     end
+
+    test "returns WWW-Authenticate challenge when OAuth is enabled" do
+      original = %{
+        oauth: Application.get_env(:steward_acs, :oauth_bearer_enabled),
+        domain: Application.get_env(:steward_acs, :auth0_domain),
+        audience: Application.get_env(:steward_acs, :auth0_audience),
+        public: Application.get_env(:steward_acs, :mcp_public_url),
+        resource: Application.get_env(:steward_acs, :mcp_resource_url),
+        strategies: Application.get_env(:steward_acs, :auth_strategies)
+      }
+
+      Application.put_env(:steward_acs, :oauth_bearer_enabled, true)
+      Application.put_env(:steward_acs, :auth0_domain, "dev-jw5wgp2b.us.auth0.com")
+      Application.put_env(:steward_acs, :auth0_audience, "https://prod.stewardacs.xyz/mcp/sse")
+      Application.put_env(:steward_acs, :mcp_public_url, "https://prod.stewardacs.xyz")
+      Application.put_env(:steward_acs, :mcp_resource_url, "https://prod.stewardacs.xyz/mcp/sse")
+
+      Application.put_env(:steward_acs, :auth_strategies, [
+        Acs.MCP.Plugs.Strategies.Developer,
+        Acs.MCP.Plugs.Strategies.OAuthBearer,
+        Acs.MCP.Plugs.Strategies.Default
+      ])
+
+      on_exit(fn ->
+        Application.put_env(:steward_acs, :oauth_bearer_enabled, original.oauth)
+        Application.put_env(:steward_acs, :auth0_domain, original.domain)
+        Application.put_env(:steward_acs, :auth0_audience, original.audience)
+        Application.put_env(:steward_acs, :mcp_public_url, original.public)
+        Application.put_env(:steward_acs, :mcp_resource_url, original.resource)
+        Application.put_env(:steward_acs, :auth_strategies, original.strategies)
+      end)
+
+      conn = Plug.Test.conn(:get, "/mcp/v1/messages")
+
+      result = MCPAuth.call(conn, [])
+
+      assert result.status == 401
+      assert {"www-authenticate", challenge} = List.keyfind(result.resp_headers, "www-authenticate", 0)
+      assert challenge =~ "resource_metadata="
+      assert challenge =~ "/.well-known/oauth-protected-resource/mcp/sse"
+    end
   end
 end
