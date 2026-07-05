@@ -49,7 +49,7 @@ defmodule Acs.Application do
     # to avoid background tasks conflicting with Ecto sandbox connections.
     children =
       if Application.get_env(:steward_acs, :start_background_workers, true) do
-        [Acs.Memory.Auditor, Acs.Memory.FileWatcher, {Acs.Log.RetentionSweeper, []}, Acs.Skills.Auditor | children]
+        [Acs.Memory.Auditor, Acs.Memory.FileWatcher, Acs.Specs.FileWatcher, {Acs.Log.RetentionSweeper, []}, Acs.Skills.Auditor | children]
       else
         children
       end

@@ -167,6 +167,7 @@ defmodule Acs.Specs.Loader do
         content = to_file_content(entry, ext)
         File.write!(file, content)
         Logger.info("Saved cognition entry: #{file}")
+        Acs.broadcast(:specs_updated, %{app: entry.app, id: entry.id})
         :ok
 
       {:error, reasons} ->
@@ -198,6 +199,7 @@ defmodule Acs.Specs.Loader do
       true ->
         File.rm!(file)
         Logger.info("Deleted cognition spec: #{file}")
+        Acs.broadcast(:specs_updated, %{app: app, id: path})
         :ok
 
       false ->

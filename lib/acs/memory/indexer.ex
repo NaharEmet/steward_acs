@@ -27,7 +27,7 @@ defmodule Acs.Memory.Indexer do
 
     count =
       Enum.reduce(memories, 0, fn memory, acc ->
-        case upsert_memory(memory) do
+        case upsert_memory(memory, broadcast: false) do
           {:ok, _} ->
             acc + 1
 
@@ -38,6 +38,7 @@ defmodule Acs.Memory.Indexer do
       end)
 
     Logger.info("[Memory.Indexer] Synced #{count} memories, #{length(quarantined)} quarantined")
+    broadcast_memory_updated()
     {:ok, count, quarantined}
   end
 
@@ -68,7 +69,7 @@ defmodule Acs.Memory.Indexer do
   Upserts a single Acs.Memory into the SQLite index.
   Uses Repo.insert with on_conflict: :replace_all.
   """
-  def upsert_memory(%Acs.Memory{} = memory) do
+  def upsert_memory(%Acs.Memory{} = memory, opts \\ []) do
     attrs = %{
       id: memory.id,
       kind: memory.kind,
@@ -102,8 +103,12 @@ defmodule Acs.Memory.Indexer do
       end)
 
     case result do
-      {:ok, _} -> {:ok, memory}
-      {:error, changeset} -> {:error, inspect(changeset.errors)}
+      {:ok, _} ->
+        if Keyword.get(opts, :broadcast, true), do: broadcast_memory_updated()
+        {:ok, memory}
+
+      {:error, changeset} ->
+        {:error, inspect(changeset.errors)}
     end
   end
 
@@ -111,12 +116,20 @@ defmodule Acs.Memory.Indexer do
   Removes a memory from the index by id.
   """
   def remove_memory(memory_id) do
-    Retry.with_busy_retry(fn ->
-      case Repo.get(Schema, memory_id) do
-        nil -> :ok
-        schema -> Repo.delete(schema)
-      end
-    end)
+    result =
+      Retry.with_busy_retry(fn ->
+        case Repo.get(Schema, memory_id) do
+          nil -> :ok
+          schema -> Repo.delete(schema)
+        end
+      end)
+
+    case result do
+      {:ok, _} -> broadcast_memory_updated()
+      _ -> :noop
+    end
+
+    result
   end
 
   @doc """
@@ -124,20 +137,28 @@ defmodule Acs.Memory.Indexer do
   """
   def update_status(memory_id, new_status)
       when new_status in ~w(proposed approved rejected stale deprecated archived parse_error) do
-    Retry.with_busy_retry(fn ->
-      case Repo.get(Schema, memory_id) do
-        nil ->
-          {:error, "Memory not found: #{memory_id}"}
+    result =
+      Retry.with_busy_retry(fn ->
+        case Repo.get(Schema, memory_id) do
+          nil ->
+            {:error, "Memory not found: #{memory_id}"}
 
-        schema ->
-          schema
-          |> Ecto.Changeset.change(%{
-            status: new_status,
-            updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
-          })
-          |> Repo.update()
-      end
-    end)
+          schema ->
+            schema
+            |> Ecto.Changeset.change(%{
+              status: new_status,
+              updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+            })
+            |> Repo.update()
+        end
+      end)
+
+    case result do
+      {:ok, _} -> broadcast_memory_updated()
+      _ -> :noop
+    end
+
+    result
   end
 
   @doc """
@@ -145,20 +166,33 @@ defmodule Acs.Memory.Indexer do
   Returns {:ok, schema} or {:error, reason}.
   """
   def update_field(memory_id, field, value) when field in ~w(title content)a do
-    Retry.with_busy_retry(fn ->
-      case Repo.get(Schema, memory_id) do
-        nil ->
-          {:error, "Memory not found: #{memory_id}"}
+    result =
+      Retry.with_busy_retry(fn ->
+        case Repo.get(Schema, memory_id) do
+          nil ->
+            {:error, "Memory not found: #{memory_id}"}
 
-        schema ->
-          schema
-          |> Ecto.Changeset.change(%{
-            field => value,
-            updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
-          })
-          |> Repo.update()
-      end
-    end)
+          schema ->
+            schema
+            |> Ecto.Changeset.change(%{
+              field => value,
+              updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+            })
+            |> Repo.update()
+        end
+      end)
+
+    case result do
+      {:ok, _} -> broadcast_memory_updated()
+      _ -> :noop
+    end
+
+    result
+  end
+
+  @doc false
+  def broadcast_memory_updated do
+    Acs.broadcast(:memory_updated, %{})
   end
 
   @doc """

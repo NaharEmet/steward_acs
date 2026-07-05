@@ -172,6 +172,11 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   end
 
   @impl true
+  def handle_info({:memory_updated, _payload}, socket) do
+    {:noreply, load_data(socket)}
+  end
+
+  @impl true
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end

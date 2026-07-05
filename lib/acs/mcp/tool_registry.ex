@@ -360,6 +360,7 @@ defmodule Acs.MCP.ToolRegistry do
          }) do
       {:ok, new_state} ->
         Logger.info("ToolRegistry refreshed: #{map_size(new_state.tools)} tools")
+        Acs.broadcast(:tools_refresh, %{})
         {:reply, :ok, new_state}
 
       {:error, reason, new_state} ->
@@ -430,6 +431,7 @@ defmodule Acs.MCP.ToolRegistry do
       new_state = %{state | tools: new_tools, by_category: by_category, by_app: by_app}
 
       Logger.info("ToolRegistry: registered new tool '#{name}' in category '#{category}'")
+      Acs.broadcast(:tools_refresh, %{})
       {:reply, :ok, new_state}
     end
   end
