@@ -76,6 +76,7 @@ defmodule Acs.Acs.Sweeper do
       Logger.info("[Acs.Sweeper] Auto-releasing expired file lock: #{lock.file_path}")
       Repo.delete(lock)
       Cache.delete_file_lock(lock.file_path)
+      Acs.broadcast(:file_unlocked, %{file_path: lock.file_path})
     end)
 
     Logger.info(
@@ -155,7 +156,10 @@ defmodule Acs.Acs.Sweeper do
         end)
 
       case result do
-        {:ok, {:ok, _updated}} ->
+        {:ok, {:ok, updated}} ->
+          Acs.broadcast(:task_released, %{task_id: updated.id, agent_id: original_agent})
+          Acs.broadcast(:file_unlocked, %{task_id: updated.id})
+
           if original_agent do
             Acs.broadcast(:agent_removed, %{agent_id: original_agent})
           end

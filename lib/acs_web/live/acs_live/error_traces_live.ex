@@ -55,7 +55,6 @@ defmodule AcsWeb.AcsLive.ErrorTracesLive do
   def handle_event("acknowledge", %{"id" => id}, socket) do
     case ErrorTrace.acknowledge_trace(id) do
       {:ok, _trace} ->
-        broadcast_error_traces_update()
         {:noreply, load_traces(socket)}
 
       {:error, reason} ->
@@ -67,7 +66,6 @@ defmodule AcsWeb.AcsLive.ErrorTracesLive do
   def handle_event("resolve", %{"id" => id}, socket) do
     case ErrorTrace.resolve_trace(id) do
       {:ok, _trace} ->
-        broadcast_error_traces_update()
         {:noreply, load_traces(socket)}
 
       {:error, reason} ->
@@ -95,12 +93,10 @@ defmodule AcsWeb.AcsLive.ErrorTracesLive do
            ) do
         {:ok, task} ->
           ErrorTrace.mark_tasked(trace.id, task.id)
-          broadcast_error_traces_update()
           {:noreply, load_traces(socket)}
 
         {:warn, task, _similar} ->
           ErrorTrace.mark_tasked(trace.id, task.id)
-          broadcast_error_traces_update()
           {:noreply, load_traces(socket)}
 
         {:error, reason} ->
@@ -116,6 +112,12 @@ defmodule AcsWeb.AcsLive.ErrorTracesLive do
 
   @impl true
   def handle_info({:error_traces_updated, _payload}, socket) do
+    {:noreply, load_traces(socket)}
+  end
+
+  @impl true
+  def handle_info({event, _payload}, socket)
+      when event in [:tool_request_created, :tool_request_approved, :tool_request_rejected] do
     {:noreply, load_traces(socket)}
   end
 
@@ -152,10 +154,6 @@ defmodule AcsWeb.AcsLive.ErrorTracesLive do
 
   defp count_status(traces, status) do
     Enum.count(traces, fn t -> t.status == status end)
-  end
-
-  defp broadcast_error_traces_update do
-    Phoenix.PubSub.broadcast(AcsWeb.PubSub, "acs", {:error_traces_updated, %{}})
   end
 
   # Date formatting

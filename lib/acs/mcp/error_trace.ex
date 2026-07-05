@@ -48,7 +48,14 @@ defmodule Acs.MCP.ErrorTrace do
     if not table_exists?() do
       {:error, :no_table}
     else
-      do_store_or_update(service, component, message_pattern, sample_message, metadata)
+      case do_store_or_update(service, component, message_pattern, sample_message, metadata) do
+        {:ok, _action, _entry} = ok ->
+          broadcast_update()
+          ok
+
+        other ->
+          other
+      end
     end
   end
 
@@ -124,6 +131,7 @@ defmodule Acs.MCP.ErrorTrace do
         [{^trace_id, entry}] ->
           updated = %{entry | status: :tasked, task_id: task_id}
           :ets.insert(@table_name, {trace_id, updated})
+          broadcast_update()
           {:ok, updated}
 
         [] ->
@@ -148,6 +156,7 @@ defmodule Acs.MCP.ErrorTrace do
           }
 
           :ets.insert(@table_name, {trace_id, updated})
+          broadcast_update()
           {:ok, updated}
 
         [] ->
@@ -176,6 +185,7 @@ defmodule Acs.MCP.ErrorTrace do
 
       if trace_ids != [] do
         Logger.info("[ErrorTrace] Trimmed #{length(trace_ids)} expired traces")
+        broadcast_update()
       end
 
       :ok
@@ -343,12 +353,17 @@ defmodule Acs.MCP.ErrorTrace do
         [{^trace_id, entry}] ->
           updated = %{entry | status: new_status}
           :ets.insert(@table_name, {trace_id, updated})
+          broadcast_update()
           {:ok, updated}
 
         [] ->
           {:error, :not_found}
       end
     end
+  end
+
+  defp broadcast_update do
+    Acs.broadcast(:error_traces_updated, %{})
   end
 
   # ── Post-filter helpers ──

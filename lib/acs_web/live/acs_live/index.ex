@@ -77,6 +77,11 @@ defmodule AcsWeb.AcsLive.Index do
   end
 
   @impl true
+  def handle_info({:task_updated, _payload}, socket) do
+    {:noreply, load_data(socket)}
+  end
+
+  @impl true
   def handle_info({:task_released, _payload}, socket) do
     {:noreply, load_data(socket)}
   end
@@ -109,6 +114,12 @@ defmodule AcsWeb.AcsLive.Index do
   @impl true
   def handle_info({:acs_reset, _payload}, socket) do
     socket = put_flash(socket, :info, "Steward data was reset by another session.")
+    {:noreply, load_data(socket)}
+  end
+
+  @impl true
+  def handle_info({event, _payload}, socket)
+      when event in [:tool_request_created, :tool_request_approved, :tool_request_rejected] do
     {:noreply, load_data(socket)}
   end
 
