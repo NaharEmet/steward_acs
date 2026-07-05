@@ -50,6 +50,7 @@ RUN mix local.hex --force && mix local.rebar --force
 COPY mix.exs mix.lock ./
 RUN --mount=type=cache,target=/root/.mix \
     --mount=type=cache,target=_build \
+    HEX_HTTP_CONCURRENCY=8 HEX_HTTP_TIMEOUT=120 \
     mix deps.get --only prod && mix deps.compile
 
 COPY config config
@@ -65,20 +66,19 @@ RUN if [ -z "$COOKIE_SIGNING_SALT" ]; then \
     mix release
 
 # --- Production runtime ---
-FROM alpine:3.19 AS release
+FROM alpine:3.22 AS release
 
-RUN apk add --no-cache libstdc++ openssl ncurses-libs curl sqlite-libs bash libgcc
+RUN apk add --no-cache libstdc++ openssl ncurses-libs curl sqlite-libs libgcc su-exec
 
-RUN addgroup -S acs && adduser -S acs -G acs
+RUN addgroup -g 1000 -S acs && adduser -u 1000 -S acs -G acs
 
 WORKDIR /app
 
-COPY --from=build /app/_build/shared/rel/steward_acs ./
+COPY --from=build /app/_build/prod/rel/steward_acs ./
+COPY --from=build /app/priv/evaluation_prompt /app/priv/evaluation_prompt
 COPY docker/entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh && chown -R acs:acs /app
-
-USER acs
 
 ENV HOME=/app \
     MIX_ENV=prod \

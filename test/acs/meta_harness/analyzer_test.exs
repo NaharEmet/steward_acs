@@ -59,7 +59,8 @@ defmodule Acs.MetaHarness.AnalyzerTest do
     end
 
     test "accepts optional parameters without crashing" do
-      result = Analyzer.analyze(timeframe: :last_24_hours, min_sample_size: 10, min_cluster_size: 5)
+      result =
+        Analyzer.analyze(timeframe: :last_24_hours, min_sample_size: 10, min_cluster_size: 5)
 
       assert is_map(result)
       assert result.metadata.timeframe == :last_24_hours

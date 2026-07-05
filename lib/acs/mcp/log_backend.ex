@@ -153,6 +153,7 @@ defmodule Acs.MCP.LogBackend do
   defp format_component(other), do: to_string(other)
 
   defp format_message(msg) when is_binary(msg), do: msg
+
   defp format_message(msg) when is_list(msg) do
     try do
       IO.iodata_to_binary(msg)
@@ -160,6 +161,7 @@ defmodule Acs.MCP.LogBackend do
       _ -> inspect(msg)
     end
   end
+
   defp format_message(msg), do: inspect(msg)
 
   # -- Tag inference --

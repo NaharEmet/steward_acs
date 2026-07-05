@@ -12,16 +12,18 @@ defmodule Acs.Memory.LifecycleTest do
 
   describe "save memory creates embedding" do
     test "saving memory triggers indexing with embedding" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "lifecycle_save_#{System.unique_integer([:positive])}",
-        "kind" => "axiom",
-        "title" => "Lifecycle Test Memory",
-        "scope_path" => "test_app/lifecycle"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "lifecycle_save_#{System.unique_integer([:positive])}",
+          "kind" => "axiom",
+          "title" => "Lifecycle Test Memory",
+          "scope_path" => "test_app/lifecycle"
+        })
 
       # Save memory
       assert Loader.save(memory) == :ok
-      Indexer.upsert_memory(memory)  # Explicit - automatic sync is Phase 5
+      # Explicit - automatic sync is Phase 5
+      Indexer.upsert_memory(memory)
 
       # Verify it was indexed
       indexed = Indexer.get_memory(memory.id)
@@ -42,21 +44,24 @@ defmodule Acs.Memory.LifecycleTest do
 
   describe "delete memory removes embedding" do
     test "deleting memory removes from index and vector store" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "lifecycle_delete_#{System.unique_integer([:positive])}",
-        "kind" => "warning",
-        "title" => "Delete Test Memory",
-        "scope_path" => "test_app/lifecycle"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "lifecycle_delete_#{System.unique_integer([:positive])}",
+          "kind" => "warning",
+          "title" => "Delete Test Memory",
+          "scope_path" => "test_app/lifecycle"
+        })
 
       # Save and verify indexed
       Loader.save(memory)
-      Indexer.upsert_memory(memory)  # Explicit
+      # Explicit
+      Indexer.upsert_memory(memory)
       assert Indexer.get_memory(memory.id) != nil
 
       # Delete memory
       assert Loader.delete(memory) == :ok
-      Indexer.remove_memory(memory.id)  # Explicit - Loader.delete only removes file
+      # Explicit - Loader.delete only removes file
+      Indexer.remove_memory(memory.id)
 
       # Verify removed from index
       assert Indexer.get_memory(memory.id) == nil
@@ -73,16 +78,19 @@ defmodule Acs.Memory.LifecycleTest do
   describe "sync_all regenerates all embeddings" do
     test "sync_all upserts all memories to index" do
       # Create multiple memories
-      memories = for i <- 1..3 do
-        memory = Acs.MemoryTestHelpers.create_test_memory(%{
-          "id" => "lifecycle_sync_#{i}_#{System.unique_integer([:positive])}",
-          "kind" => "pattern",
-          "title" => "Sync Test Memory #{i}",
-          "scope_path" => "test_app/sync/#{i}"
-        })
-        Loader.save(memory)
-        memory
-      end
+      memories =
+        for i <- 1..3 do
+          memory =
+            Acs.MemoryTestHelpers.create_test_memory(%{
+              "id" => "lifecycle_sync_#{i}_#{System.unique_integer([:positive])}",
+              "kind" => "pattern",
+              "title" => "Sync Test Memory #{i}",
+              "scope_path" => "test_app/sync/#{i}"
+            })
+
+          Loader.save(memory)
+          memory
+        end
 
       # Call sync_all
       {:ok, count, quarantined} = Indexer.sync_all()
@@ -101,10 +109,12 @@ defmodule Acs.Memory.LifecycleTest do
 
     test "sync_all handles quarantine of invalid memories" do
       # Create a memory with invalid data
-      invalid_memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "lifecycle_invalid_#{System.unique_integer([:positive])}",
-        "title" => ""  # Empty title should fail validation
-      })
+      invalid_memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "lifecycle_invalid_#{System.unique_integer([:positive])}",
+          # Empty title should fail validation
+          "title" => ""
+        })
 
       # Try to save - should either fail or save with parse_error status
       _result = Loader.save(invalid_memory)
@@ -119,19 +129,21 @@ defmodule Acs.Memory.LifecycleTest do
 
   describe "status change updates scoring" do
     test "approved memories get higher priority" do
-      memory_proposed = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "lifecycle_proposed_#{System.unique_integer([:positive])}",
-        "kind" => "axiom",
-        "status" => "proposed",
-        "scope_path" => "test_app/status"
-      })
+      memory_proposed =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "lifecycle_proposed_#{System.unique_integer([:positive])}",
+          "kind" => "axiom",
+          "status" => "proposed",
+          "scope_path" => "test_app/status"
+        })
 
-      memory_approved = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "lifecycle_approved_#{System.unique_integer([:positive])}",
-        "kind" => "axiom",
-        "status" => "approved",
-        "scope_path" => "test_app/status"
-      })
+      memory_approved =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "lifecycle_approved_#{System.unique_integer([:positive])}",
+          "kind" => "axiom",
+          "status" => "approved",
+          "scope_path" => "test_app/status"
+        })
 
       Loader.save(memory_proposed)
       Loader.save(memory_approved)
@@ -142,7 +154,9 @@ defmodule Acs.Memory.LifecycleTest do
       memories = Indexer.list_memories(scope_path: "test_app/status")
 
       # Approved should appear if using hybrid search with metadata scoring
-      approved_found = Enum.any?(memories, fn m -> m.id == memory_approved.id and m.status == "approved" end)
+      approved_found =
+        Enum.any?(memories, fn m -> m.id == memory_approved.id and m.status == "approved" end)
+
       assert approved_found
 
       # Cleanup
@@ -152,12 +166,13 @@ defmodule Acs.Memory.LifecycleTest do
 
     test "stale memories get decay applied" do
       # Create an old memory (simulated via past updated_at)
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "lifecycle_stale_#{System.unique_integer([:positive])}",
-        "kind" => "learning",
-        "status" => "stale",
-        "scope_path" => "test_app/decay"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "lifecycle_stale_#{System.unique_integer([:positive])}",
+          "kind" => "learning",
+          "status" => "stale",
+          "scope_path" => "test_app/decay"
+        })
 
       Loader.save(memory)
       Indexer.upsert_memory(memory)
@@ -173,12 +188,13 @@ defmodule Acs.Memory.LifecycleTest do
 
   describe "canonical source integrity" do
     test "memory can be regenerated from YAML" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "lifecycle_regen_#{System.unique_integer([:positive])}",
-        "kind" => "decision",
-        "title" => "Regeneration Test",
-        "scope_path" => "test_app/regen"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "lifecycle_regen_#{System.unique_integer([:positive])}",
+          "kind" => "decision",
+          "title" => "Regeneration Test",
+          "scope_path" => "test_app/regen"
+        })
 
       # Save memory
       Loader.save(memory)
@@ -201,17 +217,20 @@ defmodule Acs.Memory.LifecycleTest do
 
     test "index can be rebuilt from filesystem" do
       # Create multiple memories
-      memories = for i <- 1..2 do
-        memory = Acs.MemoryTestHelpers.create_test_memory(%{
-          "id" => "lifecycle_rebuild_#{i}_#{System.unique_integer([:positive])}",
-          "kind" => "observation",
-          "title" => "Rebuild Test #{i}",
-          "scope_path" => "test_app/rebuild/#{i}"
-        })
-        Loader.save(memory)
-        Indexer.upsert_memory(memory)
-        memory
-      end
+      memories =
+        for i <- 1..2 do
+          memory =
+            Acs.MemoryTestHelpers.create_test_memory(%{
+              "id" => "lifecycle_rebuild_#{i}_#{System.unique_integer([:positive])}",
+              "kind" => "observation",
+              "title" => "Rebuild Test #{i}",
+              "scope_path" => "test_app/rebuild/#{i}"
+            })
+
+          Loader.save(memory)
+          Indexer.upsert_memory(memory)
+          memory
+        end
 
       # Clear index
       Enum.each(memories, fn m ->
@@ -246,6 +265,4 @@ defmodule Acs.Memory.LifecycleTest do
       _ -> :ok
     end
   end
-
-
 end

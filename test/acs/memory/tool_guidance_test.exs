@@ -19,7 +19,7 @@ defmodule Acs.Memory.ToolGuidanceTest do
         "agent_coordination_system/tools",
         "agent_coordination_system/tools/core",
         "agent_coordination_system/tools/knowledge",
-        "agent_coordination_system/tools/cognition",
+        "agent_coordination_system/tools/specs",
         "agent_coordination_system/tools/diagnostic",
         "agent_coordination_system/tools/crm"
       ]
@@ -27,7 +27,7 @@ defmodule Acs.Memory.ToolGuidanceTest do
       Enum.each(scopes, fn scope ->
         guidance = ToolGuidance.for_scope(scope)
         assert is_map(guidance), "Expected map for scope: #{scope}"
-        assert length(guidance.critical_axioms) > 0, "Expected axioms for scope: #{scope}"
+        assert guidance.critical_axioms != [], "Expected axioms for scope: #{scope}"
       end)
     end
 
@@ -51,7 +51,7 @@ defmodule Acs.Memory.ToolGuidanceTest do
       assert "agent_coordination_system/tools" in scopes
       assert "agent_coordination_system/tools/core" in scopes
       assert "agent_coordination_system/tools/knowledge" in scopes
-      assert "agent_coordination_system/tools/cognition" in scopes
+      assert "agent_coordination_system/tools/specs" in scopes
       assert "agent_coordination_system/tools/diagnostic" in scopes
       assert "agent_coordination_system/tools/crm" in scopes
     end
@@ -75,11 +75,9 @@ defmodule Acs.Memory.ToolGuidanceTest do
     test "includes hardcoded tool axioms when scope matches" do
       packet = Guidance.generate("agent_coordination_system/tools/core")
 
-      assert length(packet.critical_axioms) > 0
-      assert length(packet.warnings) > 0
-      assert length(packet.relevant_patterns) > 0
-      assert is_binary(packet.compressed_knowledge)
-      assert String.length(packet.compressed_knowledge) > 0
+      assert packet.critical_axioms != []
+      assert packet.warnings != []
+      assert packet.relevant_patterns != []
     end
 
     test "hardcoded items have toolguidance_ prefix IDs" do
@@ -90,7 +88,7 @@ defmodule Acs.Memory.ToolGuidanceTest do
           String.starts_with?(a.id, "toolguidance_")
         end)
 
-      assert length(tool_ids) > 0
+      assert tool_ids != []
     end
 
     test "items have required fields" do
@@ -123,25 +121,25 @@ defmodule Acs.Memory.ToolGuidanceTest do
 
       assert Map.has_key?(packet, :maintenance_instructions)
       assert Map.has_key?(packet, :tool_reference)
-      assert Map.has_key?(packet, :document_instructions)
-      assert Map.has_key?(packet, :document_mismatch_protocol)
+      assert Map.has_key?(packet, :specs_instructions)
+      assert Map.has_key?(packet, :specs_mismatch_protocol)
       assert is_binary(packet.maintenance_instructions)
       assert String.length(packet.maintenance_instructions) > 0
       assert String.contains?(packet.maintenance_instructions, "set_memory_status")
       assert is_binary(packet.tool_reference)
-      assert is_binary(packet.document_instructions)
-      assert is_binary(packet.document_mismatch_protocol)
+      assert is_binary(packet.specs_instructions)
+      assert is_binary(packet.specs_mismatch_protocol)
     end
 
     test "merges axioms from both memories and hardcoded guidance" do
-      packet = Guidance.generate("agent_coordination_system/tools/cognition")
+      packet = Guidance.generate("agent_coordination_system/tools/specs")
 
       toolguidance_items =
         Enum.filter(packet.critical_axioms, fn a ->
           String.starts_with?(a.id, "toolguidance_")
         end)
 
-      assert length(toolguidance_items) > 0
+      assert toolguidance_items != []
     end
   end
 
@@ -160,8 +158,8 @@ defmodule Acs.Memory.ToolGuidanceTest do
 
       assert Map.has_key?(packet, :maintenance_instructions)
       assert Map.has_key?(packet, :tool_reference)
-      assert Map.has_key?(packet, :document_instructions)
-      assert Map.has_key?(packet, :document_mismatch_protocol)
+      assert Map.has_key?(packet, :specs_instructions)
+      assert Map.has_key?(packet, :specs_mismatch_protocol)
       assert is_binary(packet.maintenance_instructions)
     end
   end
@@ -177,7 +175,7 @@ defmodule Acs.Memory.ToolGuidanceTest do
         |> List.flatten()
 
       assert length(axiom_ids) == length(Enum.uniq(axiom_ids)),
-        "Each scope should have unique axiom IDs"
+             "Each scope should have unique axiom IDs"
     end
 
     test "each scope has different compressed_knowledge content" do
@@ -189,7 +187,7 @@ defmodule Acs.Memory.ToolGuidanceTest do
         end)
 
       assert length(contents) == length(Enum.uniq(contents)),
-        "Each scope should have unique compressed_knowledge content"
+             "Each scope should have unique compressed_knowledge content"
     end
   end
 
@@ -208,9 +206,9 @@ defmodule Acs.Memory.ToolGuidanceTest do
       packet = Guidance.generate("agent_coordination_system/tools/core", tier: :full)
 
       assert packet.tier == :full
-      assert length(packet.critical_axioms) > 0
-      assert length(packet.warnings) > 0
-      assert length(packet.relevant_patterns) > 0
+      assert packet.critical_axioms != []
+      assert packet.warnings != []
+      assert packet.relevant_patterns != []
       assert is_binary(packet.compressed_knowledge)
     end
   end

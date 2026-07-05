@@ -40,15 +40,18 @@ defmodule Acs.MCP.HTTPServer do
       |> put_resp_header("x-accel-buffering", "no")
       |> send_chunked(200)
 
-    {:ok, conn} =
-      chunk(
-        conn,
-        "event: endpoint\ndata: /mcp/messages?session_id=#{session_id}\n\n"
-      )
+    case chunk(
+           conn,
+           "event: endpoint\ndata: /mcp/messages?session_id=#{session_id}\n\n"
+         ) do
+      {:ok, conn} ->
+        :ok = Acs.MCP.SSESessionManager.register(session_id, self())
+        sse_loop(conn, session_id)
 
-    :ok = Acs.MCP.SSESessionManager.register(session_id, self())
-
-    sse_loop(conn, session_id)
+      {:error, _reason} ->
+        :ok = Acs.MCP.SSESessionManager.register(session_id, self())
+        handle_sse_close(session_id, conn)
+    end
   end
 
   # MCP Streamable HTTP messages endpoint — receives JSON-RPC and responds via SSE
@@ -56,66 +59,13 @@ defmodule Acs.MCP.HTTPServer do
     conn = fetch_query_params(conn)
     session_id = conn.query_params["session_id"]
 
-    unless session_id && Acs.MCP.SSESessionManager.alive?(session_id) do
+    if session_id && Acs.MCP.SSESessionManager.alive?(session_id) do
+      handle_mcp_message(conn, session_id)
+    else
       conn
       |> put_resp_content_type("application/json")
       |> send_resp(400, Jason.encode!(%{error: "Invalid or missing session_id"}))
       |> halt()
-    end
-
-    case conn.body_params do
-      %{} = params ->
-        case Protocol.handle_message(
-               params,
-               conn.assigns[:agent_role],
-               conn.assigns[:agent_org_id],
-               conn.assigns[:agent_permissions],
-               conn.assigns[:agent_allowed_teams],
-               conn.assigns[:agent_allowed_projects],
-               conn.assigns[:agent_identity]
-             ) do
-          {:sleep, id, agent_id, timeout} ->
-            timeout = cap_sleep_timeout(timeout)
-
-            Logger.info("MCP SSE: agent #{agent_id} sleeping (timeout=#{inspect(timeout)})")
-
-            Task.start(fn ->
-              result = Acs.MCP.Tools.CoreHandlers.sleep_and_wait(agent_id, timeout)
-
-              response =
-                case result do
-                  {:ok, data} ->
-                    Protocol.success_response(id, %{
-                      "content" => [
-                        %{"type" => "text", "text" => Jason.encode!(data, pretty: true)}
-                      ]
-                    })
-
-                  {:error, _reason} ->
-                    Protocol.success_response(id, %{
-                      "content" => [%{"type" => "text", "text" => "Error during sleep"}],
-                      "isError" => true
-                    })
-                end
-
-              Acs.MCP.SSESessionManager.send_response(session_id, response)
-            end)
-
-            conn |> send_resp(202, "")
-
-          {:ok, response} ->
-            Logger.debug("MCP SSE: response=#{inspect(response)}")
-            Acs.MCP.SSESessionManager.send_response(session_id, response)
-            conn |> send_resp(202, "")
-
-          {:error, reason} ->
-            error = Protocol.error_response(nil, -32700, "Parse error", reason)
-            Acs.MCP.SSESessionManager.send_response(session_id, error)
-            conn |> send_resp(202, "")
-        end
-
-      _ ->
-        conn |> send_resp(400, ~s({"error": "Invalid JSON"}))
     end
   end
 
@@ -492,6 +442,63 @@ defmodule Acs.MCP.HTTPServer do
     conn |> send_resp(404, ~s({"error": "Not found"}))
   end
 
+  defp handle_mcp_message(conn, session_id) do
+    case conn.body_params do
+      %{} = params ->
+        case Protocol.handle_message(
+               params,
+               conn.assigns[:agent_role],
+               conn.assigns[:agent_org_id],
+               conn.assigns[:agent_permissions],
+               conn.assigns[:agent_allowed_teams],
+               conn.assigns[:agent_allowed_projects],
+               conn.assigns[:agent_identity]
+             ) do
+          {:sleep, id, agent_id, timeout} ->
+            timeout = cap_sleep_timeout(timeout)
+
+            Logger.info("MCP SSE: agent #{agent_id} sleeping (timeout=#{inspect(timeout)})")
+
+            Task.start(fn ->
+              result = Acs.MCP.Tools.CoreHandlers.sleep_and_wait(agent_id, timeout)
+
+              response =
+                case result do
+                  {:ok, data} ->
+                    Protocol.success_response(id, %{
+                      "content" => [
+                        %{"type" => "text", "text" => Jason.encode!(data, pretty: true)}
+                      ]
+                    })
+
+                  {:error, _reason} ->
+                    Protocol.success_response(id, %{
+                      "content" => [%{"type" => "text", "text" => "Error during sleep"}],
+                      "isError" => true
+                    })
+                end
+
+              Acs.MCP.SSESessionManager.send_response(session_id, response)
+            end)
+
+            conn |> send_resp(202, "")
+
+          {:ok, response} ->
+            Logger.debug("MCP SSE: response=#{inspect(response)}")
+            Acs.MCP.SSESessionManager.send_response(session_id, response)
+            conn |> send_resp(202, "")
+
+          {:error, reason} ->
+            error = Protocol.error_response(nil, -32700, "Parse error", reason)
+            Acs.MCP.SSESessionManager.send_response(session_id, error)
+            conn |> send_resp(202, "")
+        end
+
+      _ ->
+        conn |> send_resp(400, ~s({"error": "Invalid JSON"}))
+    end
+  end
+
   defp generate_session_id do
     "http_#{System.system_time(:millisecond)}_#{:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)}"
   end
@@ -505,29 +512,30 @@ defmodule Acs.MCP.HTTPServer do
       {:send_response, response} ->
         case chunk(conn, "event: message\ndata: #{Jason.encode!(response)}\n\n") do
           {:ok, conn} -> sse_loop(conn, session_id)
-          {:error, _reason} -> handle_sse_close(session_id)
+          {:error, _reason} -> handle_sse_close(session_id, conn)
         end
 
       {:send_event, event, data} ->
         case chunk(conn, "event: #{event}\ndata: #{data}\n\n") do
           {:ok, conn} -> sse_loop(conn, session_id)
-          {:error, _reason} -> handle_sse_close(session_id)
+          {:error, _reason} -> handle_sse_close(session_id, conn)
         end
 
       :close ->
-        handle_sse_close(session_id)
+        Acs.MCP.SSESessionManager.unregister(session_id)
+        conn
     after
       30_000 ->
         case chunk(conn, ": heartbeat\n\n") do
           {:ok, conn} -> sse_loop(conn, session_id)
-          {:error, _reason} -> handle_sse_close(session_id)
+          {:error, _reason} -> handle_sse_close(session_id, conn)
         end
     end
   end
 
-  defp handle_sse_close(session_id) do
+  defp handle_sse_close(session_id, conn) do
     Acs.MCP.SSESessionManager.unregister(session_id)
-    :closed
+    conn
   end
 
   defp cap_sleep_timeout(:infinity), do: http_sleep_max_ms()

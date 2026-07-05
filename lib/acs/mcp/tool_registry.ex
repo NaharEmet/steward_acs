@@ -258,15 +258,7 @@ defmodule Acs.MCP.ToolRegistry do
       "request_tool" ->
         result = handle_request_tool_in_state(args, state)
 
-        _ =
-          Acs.MetaHarness.OperationLogger.log_tool_result_async(
-            "request_tool",
-            result,
-            0,
-            nil,
-            nil,
-            []
-          )
+        maybe_log_operation("request_tool", result, 0)
 
         {:reply, result, state}
 
@@ -282,31 +274,13 @@ defmodule Acs.MCP.ToolRegistry do
           {:ok, new_state} ->
             result = {:ok, %{refreshed: map_size(new_state.tools), apps: new_state.apps}}
 
-            _ =
-              Acs.MetaHarness.OperationLogger.log_tool_result_async(
-                "refresh_tools",
-                result,
-                0,
-                nil,
-                nil,
-                []
-              )
+            maybe_log_operation("refresh_tools", result, 0)
 
             {:reply, result, new_state}
 
           {:error, reason, new_state} ->
             result = {:error, reason}
-
-            _ =
-              Acs.MetaHarness.OperationLogger.log_tool_result_async(
-                "refresh_tools",
-                result,
-                0,
-                nil,
-                nil,
-                []
-              )
-
+            maybe_log_operation("refresh_tools", result, 0)
             {:reply, {:error, reason}, new_state}
         end
 
@@ -359,16 +333,7 @@ defmodule Acs.MCP.ToolRegistry do
               params_hash: params_hash
             ]
 
-            # Log asynchronously to avoid blocking the response
-            _ =
-              Acs.MetaHarness.OperationLogger.log_tool_result_async(
-                name,
-                result,
-                latency_ms,
-                agent_id,
-                execution_id,
-                telemetry_opts
-              )
+            maybe_log_operation(name, result, latency_ms, agent_id, execution_id, telemetry_opts)
 
             # Update state with new chain info
             new_state = %{
@@ -660,6 +625,25 @@ defmodule Acs.MCP.ToolRegistry do
       "help" ->
         acs_help(state, args)
 
+      "list_plugins" ->
+        plugins =
+          Enum.map(state.apps, fn app_config ->
+            app_name = app_config["app"]
+            tools = Map.get(state.by_app, app_name, [])
+            meta = Map.get(state.apps_meta, app_name, %{})
+
+            %{
+              app: app_name,
+              version: meta["version"],
+              plugin: meta["plugin"],
+              tool_count: length(tools),
+              tools: Enum.map(tools, & &1["name"])
+            }
+          end)
+          |> Enum.sort_by(& &1.app)
+
+        {:ok, %{plugins: plugins, count: length(plugins)}}
+
       _ ->
         execute_external_tool(tool_def, args, state)
     end
@@ -884,25 +868,37 @@ defmodule Acs.MCP.ToolRegistry do
     1
   end
 
+  defp meta_harness_enabled? do
+    System.get_env("META_HARNESS_ENABLED", "false") == "true"
+  end
+
+  defp maybe_log_operation(name, result, latency_ms, agent_id \\ nil, execution_id \\ nil, opts \\ []) do
+    if meta_harness_enabled?() do
+      _ = Acs.MetaHarness.OperationLogger.log_tool_result_async(name, result, latency_ms, agent_id, execution_id, opts)
+    end
+  end
+
   @doc """
   Tracks when an agent requests a tool that doesn't exist.
   """
   def track_tool_discovery(tool_name, agent_id, execution_id) do
-    Acs.MetaHarness.OperationLogger.log_async(
-      tool_name,
-      :discovery,
-      nil,
-      nil,
-      nil,
-      agent_id,
-      execution_id,
-      tool_discovered: true
-    )
+    if meta_harness_enabled?() do
+      Acs.MetaHarness.OperationLogger.log_async(
+        tool_name,
+        :discovery,
+        nil,
+        nil,
+        nil,
+        agent_id,
+        execution_id,
+        tool_discovered: true
+      )
+    end
   end
 
   # Core tools registered at startup (survives restarts)
   defp add_core_tools(state) do
-    ask_def = %{
+    state = maybe_add_tool(state, "ask", %{
       "name" => "ask",
       "description" =>
         "Ask a natural language question about the knowledge base. Searches memories, documents, and agent status for relevant information.",
@@ -920,14 +916,31 @@ defmodule Acs.MCP.ToolRegistry do
       "roles" => ["admin", "collaborator"],
       "level" => "normal",
       "app" => "steward"
-    }
+    })
 
-    if Map.has_key?(state.tools, "ask") do
+    maybe_add_tool(state, "list_plugins", %{
+      "name" => "list_plugins",
+      "description" => "List all registered plugin apps with their metadata, tool counts, and health status.",
+      "inputSchema" => %{
+        "type" => "object",
+        "properties" => %{},
+        "required" => []
+      },
+      "category" => "acs_core",
+      "roles" => ["admin", "collaborator", "viewer"],
+      "level" => 1,
+      "app" => "steward"
+    })
+  end
+
+  defp maybe_add_tool(state, name, tool_def) do
+    if Map.has_key?(state.tools, name) do
       state
     else
-      tools = Map.put(state.tools, "ask", ask_def)
-      by_category = Map.update(state.by_category, "knowledge", [ask_def], &[ask_def | &1])
-      by_app = Map.update(state.by_app, "steward", [ask_def], &[ask_def | &1])
+      tools = Map.put(state.tools, name, tool_def)
+      category = tool_def["category"] || "uncategorized"
+      by_category = Map.update(state.by_category, category, [tool_def], &[tool_def | &1])
+      by_app = Map.update(state.by_app, "steward", [tool_def], &[tool_def | &1])
       %{state | tools: tools, by_category: by_category, by_app: by_app}
     end
   end

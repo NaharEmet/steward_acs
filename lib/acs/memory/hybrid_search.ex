@@ -34,6 +34,7 @@ defmodule Acs.Memory.HybridSearch do
     project_filter = Keyword.get(opts, :project_filter)
 
     query_embedding = get_query_embedding(query)
+
     lexical_opts =
       opts
       |> Keyword.put(:limit, limit * 2)
@@ -51,13 +52,15 @@ defmodule Acs.Memory.HybridSearch do
         semantic = Map.get(semantic_scores, memory.id, 0.0)
         lexical = compute_lexical_score(memory, query)
         scope_score = compute_scope_score(memory.scope_path, scope)
-        meta = compute_metadata_score(memory, team_filter: team_filter, project_filter: project_filter)
+
+        meta =
+          compute_metadata_score(memory, team_filter: team_filter, project_filter: project_filter)
 
         total =
           0.4 * semantic +
-          0.3 * lexical +
-          0.2 * scope_score +
-          0.1 * meta
+            0.3 * lexical +
+            0.2 * scope_score +
+            0.1 * meta
 
         %{
           memory_id: memory.id,
@@ -125,13 +128,21 @@ defmodule Acs.Memory.HybridSearch do
 
   defp compute_scope_score(scope_path, filter_scope) do
     cond do
-      scope_path == filter_scope -> 1.0
-      String.starts_with?(scope_path, filter_scope <> "/") -> 0.7
-      String.starts_with?(filter_scope, scope_path) -> 0.7
+      scope_path == filter_scope ->
+        1.0
+
+      String.starts_with?(scope_path, filter_scope <> "/") ->
+        0.7
+
+      String.starts_with?(filter_scope, scope_path) ->
+        0.7
+
       true ->
         scope_segments = String.split(scope_path, "/")
         filter_segments = String.split(filter_scope, "/")
-        if length(scope_segments) > 0 and scope_segments != [] and filter_segments != [] and hd(scope_segments) == hd(filter_segments) do
+
+        if scope_segments != [] and filter_segments != [] and
+             hd(scope_segments) == hd(filter_segments) do
           0.4
         else
           0.1

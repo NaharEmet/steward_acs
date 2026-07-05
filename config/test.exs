@@ -25,6 +25,7 @@ config :steward_acs, :allowed_commands, ~w(echo ls cat)
 config :steward_acs, :obsidian_vault_path, Path.expand("../../tmp/test_acs_memory", __DIR__)
 
 config :steward_acs, dev_routes: false
+
 config :steward_acs, AcsWeb.Endpoint,
   secret_key_base: "test_secret_key_base_for_exunit_only_not_for_production_use_1234567890",
   live_view: [signing_salt: "test_signing_salt"]

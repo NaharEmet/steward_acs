@@ -21,6 +21,7 @@ services:
       MCP_API_KEY: "${MCP_API_KEY}"
       ACS_USERNAME: "${ACS_USERNAME:-admin}"
       ACS_PASSWORD: "${ACS_PASSWORD:?Set ACS_PASSWORD}"
+      MEMORY_EVALUATION_PROMPT_PATH: /app/priv/evaluation_prompt/evaluate.txt
     volumes:
       - acs_data:/data
     healthcheck:

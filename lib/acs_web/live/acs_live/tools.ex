@@ -27,7 +27,8 @@ defmodule AcsWeb.AcsLive.Tools do
         app_health: %{},
         selected_tool: nil,
         stats: %{total_tools: 0, total_apps: 0, categories: [], apps: %{}},
-        pending_requests_count: ToolRequests.pending_count()
+        pending_requests_count: ToolRequests.pending_count(),
+        collapsed_apps: MapSet.new()
       )
       |> load_data()
 
@@ -56,6 +57,20 @@ defmodule AcsWeb.AcsLive.Tools do
   def handle_event("refresh", _, socket) do
     socket = load_data(socket)
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle-app", %{"app" => app}, socket) do
+    collapsed = socket.assigns.collapsed_apps
+
+    collapsed =
+      if MapSet.member?(collapsed, app) do
+        MapSet.delete(collapsed, app)
+      else
+        MapSet.put(collapsed, app)
+      end
+
+    {:noreply, assign(socket, collapsed_apps: collapsed)}
   end
 
   @impl true
@@ -98,6 +113,12 @@ defmodule AcsWeb.AcsLive.Tools do
     socket
     |> load_tools()
     |> load_app_health()
+    |> load_collapsed_apps()
+  end
+
+  defp load_collapsed_apps(socket) do
+    app_names = Map.keys(socket.assigns.tools_by_app)
+    assign(socket, collapsed_apps: MapSet.new(app_names))
   end
 
   defp load_tools(socket) do
@@ -181,8 +202,13 @@ defmodule AcsWeb.AcsLive.Tools do
           <%= for {app_name, app_tools} <- Enum.sort_by(@tools_by_app, fn {_k, v} -> length(v) end, :desc) do %>
             <section class="animate-in">
               <div class="card" style="padding: 24px;">
-                <!-- App Header -->
-                <div class="section-header">
+                <!-- App Header (clickable toggle) -->
+                <div
+                  class="section-header"
+                  phx-click="toggle-app"
+                  phx-value-app={app_name}
+                  style="cursor: pointer; user-select: none;"
+                >
                   <span class={"health-dot #{health_status(@app_health[app_name])}"}></span>
                   <h3 class="section-title" style="font-size: 1.1rem;"><%= app_name %></h3>
                   <span class="section-count"><%= length(app_tools) %> tools</span>
@@ -190,10 +216,14 @@ defmodule AcsWeb.AcsLive.Tools do
                   <%= if is_nil(@app_health[app_name]) do %>
                     <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);">internal</span>
                   <% end %>
+                  <span style="font-size: 0.85rem; color: var(--muted); margin-left: 8px;">
+                    <%= if MapSet.member?(@collapsed_apps, app_name), do: "▶", else: "▼" %>
+                  </span>
                 </div>
 
-                <!-- Tool List -->
-                <div style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Tool List (collapsible) -->
+                <%= if not MapSet.member?(@collapsed_apps, app_name) do %>
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
                   <%= for tool <- app_tools do %>
                     <div
                       phx-click={if @selected_tool && @selected_tool["name"] == tool["name"], do: "deselect-tool", else: "select-tool"}
@@ -281,6 +311,7 @@ defmodule AcsWeb.AcsLive.Tools do
                     </div>
                   <% end %>
                 </div>
+              <% end %>
               </div>
             </section>
           <% end %>

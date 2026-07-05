@@ -85,9 +85,7 @@ defmodule Acs.Acs.Cache do
       Enum.each(stale, fn s ->
         :ets.delete(@agent_status_table, s.agent_id)
 
-        Repo.delete_all(
-          from(t in Acs.Acs.AgentStatus, where: t.agent_id == ^s.agent_id)
-        )
+        Repo.delete_all(from(t in Acs.Acs.AgentStatus, where: t.agent_id == ^s.agent_id))
       end)
 
       if stale != [],
@@ -196,6 +194,7 @@ defmodule Acs.Acs.Cache do
             {n, _} when is_integer(n) -> n
             _ -> 0
           end
+
         _ ->
           0
       end
@@ -346,7 +345,11 @@ defmodule Acs.Acs.Cache do
   def touch_agent_status(agent_id) do
     case :ets.lookup(@agent_status_table, agent_id) do
       [{^agent_id, status}] ->
-        :ets.insert(@agent_status_table, {agent_id, Map.put(status, :updated_at, DateTime.utc_now())})
+        :ets.insert(
+          @agent_status_table,
+          {agent_id, Map.put(status, :updated_at, DateTime.utc_now())}
+        )
+
         :ok
 
       [] ->
@@ -355,7 +358,6 @@ defmodule Acs.Acs.Cache do
   end
 
   def get_all_agent_statuses do
-
     :ets.tab2list(@agent_status_table) |> Enum.map(fn {aid, s} -> Map.put(s, :agent_id, aid) end)
   end
 

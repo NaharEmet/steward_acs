@@ -5,6 +5,7 @@
 .github
 metaanalysis
 priv/acs_memory
+priv/static
 test
 *.md
 !README.md

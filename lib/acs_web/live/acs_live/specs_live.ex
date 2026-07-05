@@ -12,9 +12,9 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   use AcsWeb, :live_view
   require Logger
 
-  alias Acs.Cognition.Entry
-  alias Acs.Cognition.Loader
-  alias Acs.Cognition.Search
+  alias Acs.Specs.Entry
+  alias Acs.Specs.Loader
+  alias Acs.Specs.Search
 
   def on_mount(_params, _session, socket) do
     {:cont, assign(socket, current_path: socket.assigns[:current_path] || "/")}
@@ -187,7 +187,9 @@ defmodule AcsWeb.AcsLive.SpecsLive do
         approved = Enum.count(results, fn r -> match?({:ok, _}, r) end)
         failed = Enum.count(results, fn r -> match?({:error, _, _}, r) end)
 
-        flash_msg = "Approved #{approved} specs" <> if failed > 0, do: " (#{failed} failed)", else: ""
+        flash_msg =
+          "Approved #{approved} specs" <> if failed > 0, do: " (#{failed} failed)", else: ""
+
         socket = socket |> put_flash(:info, flash_msg) |> load_data()
         {:noreply, socket}
 
@@ -228,7 +230,9 @@ defmodule AcsWeb.AcsLive.SpecsLive do
           {:ok, entries} ->
             entries
             |> maybe_filter_by_status_in_view(socket.assigns.status_filter)
-          _ -> []
+
+          _ ->
+            []
         end
       end
 
@@ -244,6 +248,7 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   end
 
   defp maybe_filter_by_status_in_view(entries, nil), do: entries
+
   defp maybe_filter_by_status_in_view(entries, status) do
     Enum.filter(entries, fn e -> e.status == status end)
   end
@@ -374,7 +379,7 @@ defmodule AcsWeb.AcsLive.SpecsLive do
                   <% end %>
                 </p>
                 <p class="empty-state-desc">
-                  Use the cognition tools via agents or create specs manually.
+                  Use the specs tools via agents or create specs manually.
                 </p>
               </div>
             </div>

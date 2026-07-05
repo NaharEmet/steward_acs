@@ -79,20 +79,24 @@ defmodule Acs.MCP.Tools.QueryAgent do
       entries =
         cond do
           is_binary(query) and query != "" ->
-            case Acs.Cognition.Search.search(query) do
+            case Acs.Specs.Search.search(query) do
               {:ok, results} -> results
               _ -> []
             end
 
           is_binary(doc_type) and doc_type != "" ->
-            case Acs.Cognition.Search.search("") do
+            case Acs.Specs.Search.search("") do
               {:ok, results} ->
-                results |> Enum.filter(fn e -> is_entry_match?(e, doc_type) end) |> Enum.take(limit)
-              _ -> []
+                results
+                |> Enum.filter(fn e -> is_entry_match?(e, doc_type) end)
+                |> Enum.take(limit)
+
+              _ ->
+                []
             end
 
           true ->
-            case Acs.Cognition.Search.search("") do
+            case Acs.Specs.Search.search("") do
               {:ok, results} -> Enum.take(results, limit)
               _ -> []
             end
@@ -113,8 +117,8 @@ defmodule Acs.MCP.Tools.QueryAgent do
         |> Enum.map(fn {agent_id, s} ->
           %{
             agent_id: agent_id,
-            purpose: (if is_map(s), do: Map.get(s, :purpose), else: "unknown"),
-            current_task: (if is_map(s), do: Map.get(s, :current_task_id))
+            purpose: if(is_map(s), do: Map.get(s, :purpose), else: "unknown"),
+            current_task: if(is_map(s), do: Map.get(s, :current_task_id))
           }
         end)
 
@@ -135,9 +139,10 @@ defmodule Acs.MCP.Tools.QueryAgent do
 
     %{
       response:
-        (if sections == [],
-           do: "No results found for your query.",
-           else: Enum.join(sections, "\n")),
+        if(sections == [],
+          do: "No results found for your query.",
+          else: Enum.join(sections, "\n")
+        ),
       summary: %{
         memory_count: length(mems || []),
         document_count: length(docs || []),
@@ -177,10 +182,13 @@ defmodule Acs.MCP.Tools.QueryAgent do
       docs
       |> Enum.take(@max_limit)
       |> Enum.map(fn d ->
-        title = if is_struct(d, Acs.Cognition.Entry), do: d.title, else: Map.get(d, :title)
-        doc_type = if is_struct(d, Acs.Cognition.Entry), do: d.document_type, else: Map.get(d, :document_type)
-        app = if is_struct(d, Acs.Cognition.Entry), do: d.app, else: Map.get(d, :app)
-        id = if is_struct(d, Acs.Cognition.Entry), do: d.id, else: Map.get(d, :id)
+        title = if is_struct(d, Acs.Specs.Entry), do: d.title, else: Map.get(d, :title)
+
+        doc_type =
+          if is_struct(d, Acs.Specs.Entry), do: d.document_type, else: Map.get(d, :document_type)
+
+        app = if is_struct(d, Acs.Specs.Entry), do: d.app, else: Map.get(d, :app)
+        id = if is_struct(d, Acs.Specs.Entry), do: d.id, else: Map.get(d, :id)
 
         type_str = if doc_type, do: doc_type, else: "spec"
         app_str = if app, do: " (#{app})", else: ""
@@ -226,7 +234,7 @@ defmodule Acs.MCP.Tools.QueryAgent do
   defp maybe_prepend(list, nil), do: list
   defp maybe_prepend(list, item), do: list ++ [item]
 
-  defp is_entry_match?(%Acs.Cognition.Entry{document_type: dt}, type), do: dt == type
+  defp is_entry_match?(%Acs.Specs.Entry{document_type: dt}, type), do: dt == type
   defp is_entry_match?(map, type) when is_map(map), do: Map.get(map, :document_type) == type
   defp is_entry_match?(_, _), do: false
 end

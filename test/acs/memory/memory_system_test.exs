@@ -42,6 +42,7 @@ defmodule Acs.MemorySystemTest do
   describe "Loader" do
     test "loads a valid YAML memory file" do
       file_path = Path.join(@tmp_dir, "valid_memory.yaml")
+
       write_test_yaml(file_path, %{
         "id" => "test_loader_001",
         "kind" => "axiom",
@@ -79,6 +80,7 @@ defmodule Acs.MemorySystemTest do
 
     test "quarantines files with missing required fields" do
       file_path = Path.join(@tmp_dir, "missing_fields.yaml")
+
       write_test_yaml(file_path, %{
         "kind" => "axiom",
         "title" => "Missing ID"
@@ -89,10 +91,11 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "saves and reloads a memory struct" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "save_reload_test",
-        "scope_path" => "test/save_reload"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "save_reload_test",
+          "scope_path" => "test/save_reload"
+        })
 
       assert :ok = Loader.save(memory)
 
@@ -122,10 +125,11 @@ defmodule Acs.MemorySystemTest do
 
   describe "Indexer" do
     test "upserts a memory into the SQLite database" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "indexer_upsert_001",
-        "scope_path" => "test/indexer"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "indexer_upsert_001",
+          "scope_path" => "test/indexer"
+        })
 
       assert {:ok, ^memory} = Indexer.upsert_memory(memory)
 
@@ -136,20 +140,22 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "upsert is idempotent" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "indexer_idempotent_001",
-        "scope_path" => "test/indexer",
-        "title" => "Original Title"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "indexer_idempotent_001",
+          "scope_path" => "test/indexer",
+          "title" => "Original Title"
+        })
 
       assert {:ok, _} = Indexer.upsert_memory(memory)
 
       # Update the title and upsert again
-      updated = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "indexer_idempotent_001",
-        "scope_path" => "test/indexer",
-        "title" => "Updated Title"
-      })
+      updated =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "indexer_idempotent_001",
+          "scope_path" => "test/indexer",
+          "title" => "Updated Title"
+        })
 
       assert {:ok, _} = Indexer.upsert_memory(updated)
 
@@ -159,10 +165,11 @@ defmodule Acs.MemorySystemTest do
 
     test "sync_all processes memory files from the loader" do
       # Create and save a memory so it will be picked up by load_all
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "sync_all_test_001",
-        "scope_path" => "test/sync_all"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "sync_all_test_001",
+          "scope_path" => "test/sync_all"
+        })
 
       assert :ok = Loader.save(memory)
 
@@ -176,17 +183,19 @@ defmodule Acs.MemorySystemTest do
 
     test "lists memories with status filter" do
       # Insert two memories with different statuses
-      mem1 = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "list_status_proposed",
-        "scope_path" => "test/indexer_list",
-        "status" => "proposed"
-      })
+      mem1 =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "list_status_proposed",
+          "scope_path" => "test/indexer_list",
+          "status" => "proposed"
+        })
 
-      mem2 = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "list_status_approved",
-        "scope_path" => "test/indexer_list",
-        "status" => "approved"
-      })
+      mem2 =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "list_status_approved",
+          "scope_path" => "test/indexer_list",
+          "status" => "approved"
+        })
 
       Indexer.upsert_memory(mem1)
       Indexer.upsert_memory(mem2)
@@ -200,17 +209,19 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "lists memories with kind filter" do
-      mem1 = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "list_kind_axiom",
-        "scope_path" => "test/indexer_kind",
-        "kind" => "axiom"
-      })
+      mem1 =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "list_kind_axiom",
+          "scope_path" => "test/indexer_kind",
+          "kind" => "axiom"
+        })
 
-      mem2 = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "list_kind_warning",
-        "scope_path" => "test/indexer_kind",
-        "kind" => "warning"
-      })
+      mem2 =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "list_kind_warning",
+          "scope_path" => "test/indexer_kind",
+          "kind" => "warning"
+        })
 
       Indexer.upsert_memory(mem1)
       Indexer.upsert_memory(mem2)
@@ -221,15 +232,17 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "lists memories with scope_path filter" do
-      mem1 = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "list_scope_a",
-        "scope_path" => "app/feature_a"
-      })
+      mem1 =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "list_scope_a",
+          "scope_path" => "app/feature_a"
+        })
 
-      mem2 = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "list_scope_b",
-        "scope_path" => "app/feature_b"
-      })
+      mem2 =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "list_scope_b",
+          "scope_path" => "app/feature_b"
+        })
 
       Indexer.upsert_memory(mem1)
       Indexer.upsert_memory(mem2)
@@ -241,11 +254,12 @@ defmodule Acs.MemorySystemTest do
 
     test "lists memories with limit" do
       for i <- 1..5 do
-        memory = Acs.MemoryTestHelpers.create_test_memory(%{
-          "id" => "list_limit_#{i}",
-          "scope_path" => "test/limit",
-          "title" => "Memory #{i}"
-        })
+        memory =
+          Acs.MemoryTestHelpers.create_test_memory(%{
+            "id" => "list_limit_#{i}",
+            "scope_path" => "test/limit",
+            "title" => "Memory #{i}"
+          })
 
         Indexer.upsert_memory(memory)
       end
@@ -255,10 +269,11 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "updates memory status to approved" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "status_update_001",
-        "scope_path" => "test/status"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "status_update_001",
+          "scope_path" => "test/status"
+        })
 
       Indexer.upsert_memory(memory)
 
@@ -271,10 +286,11 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "updates memory status to stale" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "status_stale_001",
-        "scope_path" => "test/status"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "status_stale_001",
+          "scope_path" => "test/status"
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("status_stale_001", "approved")
@@ -289,10 +305,11 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "returns error for invalid status value" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "invalid_status_001",
-        "scope_path" => "test/status"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "invalid_status_001",
+          "scope_path" => "test/status"
+        })
 
       Indexer.upsert_memory(memory)
 
@@ -307,10 +324,11 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "removes a memory from the index" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "remove_test_001",
-        "scope_path" => "test/remove"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "remove_test_001",
+          "scope_path" => "test/remove"
+        })
 
       Indexer.upsert_memory(memory)
       assert Repo.get(Schema, "remove_test_001")
@@ -324,10 +342,11 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "gets a memory by id" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "get_test_001",
-        "scope_path" => "test/get"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "get_test_001",
+          "scope_path" => "test/get"
+        })
 
       Indexer.upsert_memory(memory)
 
@@ -348,14 +367,16 @@ defmodule Acs.MemorySystemTest do
   describe "Search" do
     setup do
       # Create a memory with searchable content
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "search_temporal_001",
-        "scope_path" => "test/search",
-        "title" => "Cache Invalidation Timing",
-        "content" => "Always invalidate cache entries before releasing locks to prevent race conditions.",
-        "summary" => "Cache invalidation ordering is critical.",
-        "tags" => ["cache", "invalidation", "timing", "locking"]
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "search_temporal_001",
+          "scope_path" => "test/search",
+          "title" => "Cache Invalidation Timing",
+          "content" =>
+            "Always invalidate cache entries before releasing locks to prevent race conditions.",
+          "summary" => "Cache invalidation ordering is critical.",
+          "tags" => ["cache", "invalidation", "timing", "locking"]
+        })
 
       Indexer.upsert_memory(memory)
       :ok
@@ -363,24 +384,24 @@ defmodule Acs.MemorySystemTest do
 
     test "finds memories by keyword in title" do
       results = Search.search("Cache")
-      assert length(results) >= 1
+      assert results != []
       assert Enum.any?(results, fn m -> m.id == "search_temporal_001" end)
     end
 
     test "finds memories by lowercase keyword" do
       results = Search.search("cache")
-      assert length(results) >= 1
+      assert results != []
     end
 
     test "finds memories by keyword in content" do
       results = Search.search("invalidation")
-      assert length(results) >= 1
+      assert results != []
       assert Enum.any?(results, fn m -> m.id == "search_temporal_001" end)
     end
 
     test "finds memories by keyword in summary" do
       results = Search.search("ordering")
-      assert length(results) >= 1
+      assert results != []
     end
 
     test "returns empty list for non-matching search" do
@@ -389,27 +410,29 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "search respects scope_path filter" do
-      other = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "search_other_scope",
-        "scope_path" => "other_app/features",
-        "title" => "Cache Invalidation in Other App"
-      })
+      other =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "search_other_scope",
+          "scope_path" => "other_app/features",
+          "title" => "Cache Invalidation in Other App"
+        })
 
       Indexer.upsert_memory(other)
 
       # Search with scope filter should only return memories in that scope
       results = Search.search("cache", scope_path: "test/search")
-      assert length(results) >= 1
+      assert results != []
       assert Enum.all?(results, fn m -> String.starts_with?(m.scope_path, "test/search") end)
     end
 
     test "search respects kind filter" do
-      warning = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "search_warning_kind",
-        "scope_path" => "test/search",
-        "kind" => "warning",
-        "title" => "Cache Warning"
-      })
+      warning =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "search_warning_kind",
+          "scope_path" => "test/search",
+          "kind" => "warning",
+          "title" => "Cache Warning"
+        })
 
       Indexer.upsert_memory(warning)
 
@@ -430,11 +453,12 @@ defmodule Acs.MemorySystemTest do
 
     test "search limits results" do
       for i <- 1..5 do
-        mem = Acs.MemoryTestHelpers.create_test_memory(%{
-          "id" => "search_limit_#{i}",
-          "scope_path" => "test/search",
-          "title" => "Cache Entry #{i}"
-        })
+        mem =
+          Acs.MemoryTestHelpers.create_test_memory(%{
+            "id" => "search_limit_#{i}",
+            "scope_path" => "test/search",
+            "title" => "Cache Entry #{i}"
+          })
 
         Indexer.upsert_memory(mem)
       end
@@ -446,29 +470,31 @@ defmodule Acs.MemorySystemTest do
 
   describe "find_relevant" do
     test "returns approved memories matching context keywords" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "relevant_approved_001",
-        "scope_path" => "app/cache",
-        "title" => "Cache Release Ordering",
-        "content" => "Always release locks in reverse acquisition order."
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "relevant_approved_001",
+          "scope_path" => "app/cache",
+          "title" => "Cache Release Ordering",
+          "content" => "Always release locks in reverse acquisition order."
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("relevant_approved_001", "approved")
 
       # find_relevant extracts keywords from the context string
       results = Search.find_relevant("cache release ordering", scope_path: "app/cache")
-      assert length(results) >= 1
+      assert results != []
       assert Enum.any?(results, fn m -> m.id == "relevant_approved_001" end)
     end
 
     test "does not return non-approved memories" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "relevant_proposed_only",
-        "scope_path" => "app/cache",
-        "title" => "Proposed Cache Rule",
-        "content" => "This memory is still in proposed status."
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "relevant_proposed_only",
+          "scope_path" => "app/cache",
+          "title" => "Proposed Cache Rule",
+          "content" => "This memory is still in proposed status."
+        })
 
       Indexer.upsert_memory(memory)
       # Intentionally NOT approving it
@@ -483,19 +509,21 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "ranks results by importance descending" do
-      mem_high = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "relevant_importance_high",
-        "scope_path" => "app/cache",
-        "importance" => 5,
-        "title" => "Critical Cache Rule"
-      })
+      mem_high =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "relevant_importance_high",
+          "scope_path" => "app/cache",
+          "importance" => 5,
+          "title" => "Critical Cache Rule"
+        })
 
-      mem_low = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "relevant_importance_low",
-        "scope_path" => "app/cache",
-        "importance" => 1,
-        "title" => "Minor Cache Note"
-      })
+      mem_low =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "relevant_importance_low",
+          "scope_path" => "app/cache",
+          "importance" => 1,
+          "title" => "Minor Cache Note"
+        })
 
       Indexer.upsert_memory(mem_high)
       Indexer.upsert_memory(mem_low)
@@ -523,35 +551,47 @@ defmodule Acs.MemorySystemTest do
 
     test "detects no conflicts for different scopes even with overlapping tags" do
       # Insert an approved memory at a specific scope
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "conflict_scope_a",
-        "scope_path" => "app/cache",
-        "title" => "Cache Rule",
-        "tags" => ["cache", "release", "ordering", "locking"]
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "conflict_scope_a",
+          "scope_path" => "app/cache",
+          "title" => "Cache Rule",
+          "tags" => ["cache", "release", "ordering", "locking"]
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("conflict_scope_a", "approved")
 
       # Check for conflicts at a different scope with overlapping tags
-      flags = Conflict.check("new_memory", "app/network", ["cache", "release", "ordering", "locking"])
+      flags =
+        Conflict.check("new_memory", "app/network", ["cache", "release", "ordering", "locking"])
+
       assert flags == []
     end
 
     test "detects conflicts when tags overlap at same scope" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "conflict_existing",
-        "scope_path" => "app/cache",
-        "title" => "Existing Cache Rule",
-        "tags" => ["cache", "release", "ordering", "locking", "performance"]
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "conflict_existing",
+          "scope_path" => "app/cache",
+          "title" => "Existing Cache Rule",
+          "tags" => ["cache", "release", "ordering", "locking", "performance"]
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("conflict_existing", "approved")
 
       # Proposed memory with 4 overlapping tags at same scope
-      flags = Conflict.check("new_memory", "app/cache", ["cache", "release", "ordering", "locking", "new_tag"])
-      assert length(flags) >= 1
+      flags =
+        Conflict.check("new_memory", "app/cache", [
+          "cache",
+          "release",
+          "ordering",
+          "locking",
+          "new_tag"
+        ])
+
+      assert flags != []
 
       flag = hd(flags)
       assert flag.type == "overlap"
@@ -560,65 +600,74 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "detects medium confidence conflicts for 3 overlapping tags" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "conflict_medium",
-        "scope_path" => "app/cache",
-        "title" => "Medium Cache Rule",
-        "tags" => ["cache", "release", "ordering"]
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "conflict_medium",
+          "scope_path" => "app/cache",
+          "title" => "Medium Cache Rule",
+          "tags" => ["cache", "release", "ordering"]
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("conflict_medium", "approved")
 
-      flags = Conflict.check("new_memory", "app/cache", ["cache", "release", "ordering", "new_tag"])
-      assert length(flags) >= 1
+      flags =
+        Conflict.check("new_memory", "app/cache", ["cache", "release", "ordering", "new_tag"])
+
+      assert flags != []
 
       flag = hd(flags)
       assert flag.confidence == :medium
     end
 
     test "allows non-overlapping tags at same scope" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "conflict_no_overlap",
-        "scope_path" => "app/cache",
-        "title" => "Cache Rule",
-        "tags" => ["cache", "locking"]
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "conflict_no_overlap",
+          "scope_path" => "app/cache",
+          "title" => "Cache Rule",
+          "tags" => ["cache", "locking"]
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("conflict_no_overlap", "approved")
 
       # Only 2 tags overlap, threshold is 3
-      flags = Conflict.check("new_memory", "app/cache", ["cache", "network", "deployment", "monitoring"])
+      flags =
+        Conflict.check("new_memory", "app/cache", ["cache", "network", "deployment", "monitoring"])
+
       assert flags == []
     end
 
     test "check_before_save returns empty list for no conflicts" do
-      result = Conflict.check_before_save(%{
-        "id" => "new_memory",
-        "scope_path" => "app/empty_scope",
-        "tags" => ["tag1", "tag2", "tag3", "tag4"]
-      })
+      result =
+        Conflict.check_before_save(%{
+          "id" => "new_memory",
+          "scope_path" => "app/empty_scope",
+          "tags" => ["tag1", "tag2", "tag3", "tag4"]
+        })
 
       assert {:ok, []} = result
     end
 
     test "check_before_save detects conflicts via map interface" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "conflict_before_save",
-        "scope_path" => "app/cache",
-        "title" => "Existing Rule",
-        "tags" => ["cache", "release", "ordering", "locking"]
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "conflict_before_save",
+          "scope_path" => "app/cache",
+          "title" => "Existing Rule",
+          "tags" => ["cache", "release", "ordering", "locking"]
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("conflict_before_save", "approved")
 
-      result = Conflict.check_before_save(%{
-        "id" => "proposed_new",
-        "scope_path" => "app/cache",
-        "tags" => ["cache", "release", "ordering", "locking", "new_tag"]
-      })
+      result =
+        Conflict.check_before_save(%{
+          "id" => "proposed_new",
+          "scope_path" => "app/cache",
+          "tags" => ["cache", "release", "ordering", "locking", "new_tag"]
+        })
 
       assert {:ok, [_ | _]} = result
     end
@@ -640,23 +689,25 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "generates guidance from approved axioms" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "guidance_axiom_001",
-        "kind" => "axiom",
-        "scope_path" => "app/cache",
-        "title" => "Cache Release Order",
-        "summary" => "Always release locks in reverse acquisition order",
-        "content" => "When releasing cache locks, always release in reverse order of acquisition to prevent deadlocks.",
-        "tags" => ["cache", "locking", "ordering"],
-        "importance" => 5
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "guidance_axiom_001",
+          "kind" => "axiom",
+          "scope_path" => "app/cache",
+          "title" => "Cache Release Order",
+          "summary" => "Always release locks in reverse acquisition order",
+          "content" =>
+            "When releasing cache locks, always release in reverse order of acquisition to prevent deadlocks.",
+          "tags" => ["cache", "locking", "ordering"],
+          "importance" => 5
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("guidance_axiom_001", "approved")
 
       packet = Guidance.generate("app/cache")
 
-      assert length(packet.critical_axioms) >= 1
+      assert packet.critical_axioms != []
       axiom = hd(packet.critical_axioms)
       assert axiom.id == "guidance_axiom_001"
       assert axiom.title == "Cache Release Order"
@@ -664,41 +715,44 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "generates warnings from approved warning memories" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "guidance_warning_001",
-        "kind" => "warning",
-        "scope_path" => "app/cache",
-        "title" => "Avoid Double Locking",
-        "summary" => "Double locking can cause deadlocks.",
-        "importance" => 4
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "guidance_warning_001",
+          "kind" => "warning",
+          "scope_path" => "app/cache",
+          "title" => "Avoid Double Locking",
+          "summary" => "Double locking can cause deadlocks.",
+          "importance" => 4
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("guidance_warning_001", "approved")
 
       packet = Guidance.generate("app/cache")
 
-      assert length(packet.warnings) >= 1
+      assert packet.warnings != []
       warning = hd(packet.warnings)
       assert warning.id == "guidance_warning_001"
     end
 
     test "generates patterns from approved pattern and learning memories" do
-      pattern = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "guidance_pattern_001",
-        "kind" => "pattern",
-        "scope_path" => "app/cache",
-        "title" => "Release Pattern",
-        "summary" => "Use try/finally for lock release."
-      })
+      pattern =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "guidance_pattern_001",
+          "kind" => "pattern",
+          "scope_path" => "app/cache",
+          "title" => "Release Pattern",
+          "summary" => "Use try/finally for lock release."
+        })
 
-      learning = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "guidance_learning_001",
-        "kind" => "learning",
-        "scope_path" => "app/cache",
-        "title" => "Learning: Lock Ordering",
-        "summary" => "Learned that lock ordering matters for performance."
-      })
+      learning =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "guidance_learning_001",
+          "kind" => "learning",
+          "scope_path" => "app/cache",
+          "title" => "Learning: Lock Ordering",
+          "summary" => "Learned that lock ordering matters for performance."
+        })
 
       Indexer.upsert_memory(pattern)
       Indexer.upsert_memory(learning)
@@ -711,14 +765,15 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "compressed knowledge includes title and summary" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "guidance_knowledge_001",
-        "kind" => "axiom",
-        "scope_path" => "app/cache",
-        "title" => "Cache Rule",
-        "summary" => "Always invalidate before release.",
-        "importance" => 5
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "guidance_knowledge_001",
+          "kind" => "axiom",
+          "scope_path" => "app/cache",
+          "title" => "Cache Rule",
+          "summary" => "Always invalidate before release.",
+          "importance" => 5
+        })
 
       Indexer.upsert_memory(memory)
       Indexer.update_status("guidance_knowledge_001", "approved")
@@ -730,13 +785,14 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "does not include non-approved memories in guidance" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "guidance_not_approved",
-        "kind" => "axiom",
-        "scope_path" => "app/cache",
-        "title" => "Not Approved Rule",
-        "summary" => "This should not appear."
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "guidance_not_approved",
+          "kind" => "axiom",
+          "scope_path" => "app/cache",
+          "title" => "Not Approved Rule",
+          "summary" => "This should not appear."
+        })
 
       Indexer.upsert_memory(memory)
       # Intentionally NOT approving it
@@ -765,26 +821,61 @@ defmodule Acs.MemorySystemTest do
     end
 
     test "rejects missing id" do
-      assert {:error, reasons} = Memory.validate(%{"kind" => "axiom", "title" => "No ID", "scope_path" => "test", "importance" => 3})
+      assert {:error, reasons} =
+               Memory.validate(%{
+                 "kind" => "axiom",
+                 "title" => "No ID",
+                 "scope_path" => "test",
+                 "importance" => 3
+               })
+
       assert Enum.any?(reasons, fn r -> String.contains?(r, "id") end)
     end
 
     test "rejects missing title" do
-      assert {:error, reasons} = Memory.validate(%{"id" => "no_title", "kind" => "axiom", "scope_path" => "test", "importance" => 3})
+      assert {:error, reasons} =
+               Memory.validate(%{
+                 "id" => "no_title",
+                 "kind" => "axiom",
+                 "scope_path" => "test",
+                 "importance" => 3
+               })
+
       assert Enum.any?(reasons, fn r -> String.contains?(r, "title") end)
     end
 
     test "rejects missing scope_path" do
-      assert {:error, _} = Memory.validate(%{"id" => "no_scope", "kind" => "axiom", "title" => "No Scope", "importance" => 3})
+      assert {:error, _} =
+               Memory.validate(%{
+                 "id" => "no_scope",
+                 "kind" => "axiom",
+                 "title" => "No Scope",
+                 "importance" => 3
+               })
     end
 
     test "rejects invalid kind" do
-      assert {:error, reasons} = Memory.validate(%{"id" => "bad_kind", "kind" => "invalid", "title" => "Bad Kind", "scope_path" => "test", "importance" => 3})
+      assert {:error, reasons} =
+               Memory.validate(%{
+                 "id" => "bad_kind",
+                 "kind" => "invalid",
+                 "title" => "Bad Kind",
+                 "scope_path" => "test",
+                 "importance" => 3
+               })
+
       assert Enum.any?(reasons, fn r -> String.contains?(r, "kind") end)
     end
 
     test "rejects invalid importance" do
-      assert {:error, _} = Memory.validate(%{"id" => "bad_imp", "kind" => "axiom", "title" => "Bad Importance", "scope_path" => "test", "importance" => 10})
+      assert {:error, _} =
+               Memory.validate(%{
+                 "id" => "bad_imp",
+                 "kind" => "axiom",
+                 "title" => "Bad Importance",
+                 "scope_path" => "test",
+                 "importance" => 10
+               })
     end
 
     test "rejects non-map input" do
@@ -828,15 +919,16 @@ defmodule Acs.MemorySystemTest do
   describe "End-to-End Lifecycle" do
     test "full memory lifecycle: sync → search → approve → guidance → stale" do
       # 1. Create a memory
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "e2e_lifecycle_001",
-        "kind" => "learning",
-        "scope_path" => "app/testing",
-        "title" => "Important Testing Learning",
-        "summary" => "This is an important learning about testing.",
-        "importance" => 4,
-        "tags" => ["testing", "e2e", "verification"]
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "e2e_lifecycle_001",
+          "kind" => "learning",
+          "scope_path" => "app/testing",
+          "title" => "Important Testing Learning",
+          "summary" => "This is an important learning about testing.",
+          "importance" => 4,
+          "tags" => ["testing", "e2e", "verification"]
+        })
 
       # 2. Index it directly (simulates the sync step)
       assert {:ok, _} = Indexer.upsert_memory(memory)
@@ -853,7 +945,7 @@ defmodule Acs.MemorySystemTest do
       # 5. Generate guidance from it
       # The memory has kind "learning", so it appears in relevant_patterns, not critical_axioms
       packet = Guidance.generate("app/testing")
-      assert length(packet.relevant_patterns) >= 1
+      assert packet.relevant_patterns != []
       assert Enum.any?(packet.relevant_patterns, fn p -> p.id == "e2e_lifecycle_001" end)
 
       # 6. Mark as stale
@@ -871,13 +963,14 @@ defmodule Acs.MemorySystemTest do
 
     test "full pipeline: save to YAML → load → index → search" do
       # 1. Create and save memory as YAML file
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "e2e_pipeline_001",
-        "kind" => "axiom",
-        "scope_path" => "app/pipeline_test",
-        "title" => "Pipeline Test Memory",
-        "content" => "This memory tests the full save-load-index-search pipeline."
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "e2e_pipeline_001",
+          "kind" => "axiom",
+          "scope_path" => "app/pipeline_test",
+          "title" => "Pipeline Test Memory",
+          "content" => "This memory tests the full save-load-index-search pipeline."
+        })
 
       assert :ok = Loader.save(memory)
 

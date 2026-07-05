@@ -11,13 +11,22 @@ defmodule Acs.MCP.Bridge do
   @default_timeout 30_000
 
   @session_table :mcp_sessions
-  @session_ttl_ms 300_000  # 5 minutes
+  # 5 minutes
+  @session_ttl_ms 300_000
 
   defp ensure_session_table do
     case :ets.info(@session_table, :name) do
       :undefined ->
-        :ets.new(@session_table, [:set, :named_table, :protected, read_concurrency: true, write_concurrency: true])
-      _ -> :ok
+        :ets.new(@session_table, [
+          :set,
+          :named_table,
+          :protected,
+          read_concurrency: true,
+          write_concurrency: true
+        ])
+
+      _ ->
+        :ok
     end
   end
 
@@ -64,6 +73,7 @@ defmodule Acs.MCP.Bridge do
     Logger.info("Bridge: calling #{method} #{url} for tool '#{tool_name}'")
 
     headers = build_headers(args, app_config)
+
     req_opts = [
       url: url,
       method: String.downcase(method),
@@ -152,7 +162,8 @@ defmodule Acs.MCP.Bridge do
     System.monotonic_time(:millisecond) - session.inserted_at > @session_ttl_ms
   end
 
-  defp maybe_store_session("ant_authenticate", result, api_key) when is_map(result) and is_binary(api_key) do
+  defp maybe_store_session("ant_authenticate", result, api_key)
+       when is_map(result) and is_binary(api_key) do
     if result["status"] == "ok" and result["org_id"] and result["key_prefix"] do
       ensure_session_table()
       session_id = "sess_#{random_string(16)}"
@@ -280,7 +291,9 @@ defmodule Acs.MCP.Bridge do
 
   defp format_response(nil, _tool_name), do: %{status: "ok"}
   defp format_response(body, _tool_name) when is_map(body), do: body
-  defp format_response(body, _tool_name) when is_list(body), do: %{items: body, count: length(body)}
+
+  defp format_response(body, _tool_name) when is_list(body),
+    do: %{items: body, count: length(body)}
 
   defp format_response(body, _tool_name) when is_binary(body) do
     case Jason.decode(body) do

@@ -25,7 +25,17 @@ defmodule Acs.Developers.DeveloperApiKey do
 
   def changeset(key, attrs) do
     key
-    |> cast(attrs, [:key_hash, :key_prefix, :developer_name, :role, :cluster, :active, :last_used_at, :allowed_teams_json, :allowed_projects_json])
+    |> cast(attrs, [
+      :key_hash,
+      :key_prefix,
+      :developer_name,
+      :role,
+      :cluster,
+      :active,
+      :last_used_at,
+      :allowed_teams_json,
+      :allowed_projects_json
+    ])
     |> validate_required([:key_hash, :developer_name])
     |> validate_inclusion(:role, ~w(admin service reader collaborator))
     |> validate_length(:developer_name, min: 1, max: 100)

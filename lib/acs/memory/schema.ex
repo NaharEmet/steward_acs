@@ -9,7 +9,8 @@ defmodule Acs.Memory.Schema do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @derive {Jason.Encoder, only: [:id, :kind, :status, :title, :summary, :content, :scope_path, :importance]}
+  @derive {Jason.Encoder,
+           only: [:id, :kind, :status, :title, :summary, :content, :scope_path, :importance]}
   @primary_key {:id, :string, []}
   schema "acs_memories" do
     field :kind, :string
@@ -38,13 +39,38 @@ defmodule Acs.Memory.Schema do
 
   def changeset(schema, attrs) do
     schema
-    |> cast(attrs, [:id, :kind, :status, :title, :summary, :content, :scope_path,
-                    :importance, :tags_json, :triggers_json, :failure_modes_json,
-                    :related_memories_json, :verification_json, :revalidation_json,
-                    :created_by_json, :created_by_agent, :parse_error, :file_path,
-                    :auditor_flags, :team, :project, :visibility])
+    |> cast(attrs, [
+      :id,
+      :kind,
+      :status,
+      :title,
+      :summary,
+      :content,
+      :scope_path,
+      :importance,
+      :tags_json,
+      :triggers_json,
+      :failure_modes_json,
+      :related_memories_json,
+      :verification_json,
+      :revalidation_json,
+      :created_by_json,
+      :created_by_agent,
+      :parse_error,
+      :file_path,
+      :auditor_flags,
+      :team,
+      :project,
+      :visibility
+    ])
     |> validate_required([:id, :kind, :title, :content, :scope_path])
-    |> validate_inclusion(:kind, ~w(observation learning warning pattern bug decision invariant axiom context status work_note activity))
-    |> validate_inclusion(:status, ~w(proposed approved rejected stale deprecated archived parse_error))
+    |> validate_inclusion(
+      :kind,
+      ~w(observation learning warning pattern bug decision invariant axiom context status work_note activity)
+    )
+    |> validate_inclusion(
+      :status,
+      ~w(proposed approved rejected stale deprecated archived parse_error)
+    )
   end
 end

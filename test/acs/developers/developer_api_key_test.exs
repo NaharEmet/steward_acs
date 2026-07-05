@@ -23,13 +23,17 @@ defmodule Acs.Developers.DeveloperApiKeyTest do
     end
 
     test "requires developer_name" do
-      changeset = DeveloperApiKey.changeset(%DeveloperApiKey{}, %{@valid_attrs | developer_name: nil})
+      changeset =
+        DeveloperApiKey.changeset(%DeveloperApiKey{}, %{@valid_attrs | developer_name: nil})
+
       refute changeset.valid?
       assert errors_on(changeset)[:developer_name]
     end
 
     test "validates role inclusion" do
-      changeset = DeveloperApiKey.changeset(%DeveloperApiKey{}, %{@valid_attrs | role: "superadmin"})
+      changeset =
+        DeveloperApiKey.changeset(%DeveloperApiKey{}, %{@valid_attrs | role: "superadmin"})
+
       refute changeset.valid?
     end
 
@@ -41,7 +45,12 @@ defmodule Acs.Developers.DeveloperApiKeyTest do
     end
 
     test "defaults to collaborator role and default cluster" do
-      changeset = DeveloperApiKey.changeset(%DeveloperApiKey{}, %{key_hash: "hash", developer_name: "default-test"})
+      changeset =
+        DeveloperApiKey.changeset(%DeveloperApiKey{}, %{
+          key_hash: "hash",
+          developer_name: "default-test"
+        })
+
       assert changeset.valid?
       assert get_field(changeset, :role) == "collaborator"
     end

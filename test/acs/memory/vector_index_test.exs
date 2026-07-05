@@ -127,7 +127,7 @@ defmodule Acs.Memory.VectorIndexTest do
       # Search with vec1 should only return memory1 above 0.95 threshold
       results = VectorIndex.search_threshold(vec1, 0.95)
 
-      assert length(results) >= 1
+      assert results != []
       assert Enum.any?(results, fn r -> r.memory_id == memory1 end)
     end
   end

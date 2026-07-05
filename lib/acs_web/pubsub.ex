@@ -1,5 +1,4 @@
 defmodule AcsWeb.PubSub do
-
   def subscribe(pubsub, topic, opts \\ []) do
     Phoenix.PubSub.subscribe(pubsub, topic, opts)
   end

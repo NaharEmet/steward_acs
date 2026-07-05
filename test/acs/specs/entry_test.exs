@@ -1,7 +1,7 @@
-defmodule Acs.Cognition.EntryTest do
+defmodule Acs.Specs.EntryTest do
   use ExUnit.Case, async: true
 
-  alias Acs.Cognition.Entry
+  alias Acs.Specs.Entry
 
   describe "from_map/1" do
     test "sets defaults for nil fields" do
@@ -27,12 +27,15 @@ defmodule Acs.Cognition.EntryTest do
           "id" => "engine/orch",
           "input" => "JSON payload with org_id and message",
           "output" => "Structured intent map with context",
-          "expected_transformation" => "Parses, validates, enriches with context, and routes to planner"
+          "expected_transformation" =>
+            "Parses, validates, enriches with context, and routes to planner"
         })
 
       assert entry.input == "JSON payload with org_id and message"
       assert entry.output == "Structured intent map with context"
-      assert entry.expected_transformation == "Parses, validates, enriches with context, and routes to planner"
+
+      assert entry.expected_transformation ==
+               "Parses, validates, enriches with context, and routes to planner"
     end
 
     test "preserves provided values" do
@@ -104,7 +107,17 @@ defmodule Acs.Cognition.EntryTest do
 
   describe "validate/1" do
     test "returns :ok for valid entry" do
-      entry = Entry.from_map(%{"app" => "test", "id" => "valid/path", "title" => "Test Module Entry", "purpose" => "Test module purpose for validating entries with quality content", "invariants" => ["Always returns ok when content is valid"], "workflows" => ["Agent calls validate with entry data"], "failure_modes" => ["Entry may fail validation if content is too short"]})
+      entry =
+        Entry.from_map(%{
+          "app" => "test",
+          "id" => "valid/path",
+          "title" => "Test Module Entry",
+          "purpose" => "Test module purpose for validating entries with quality content",
+          "invariants" => ["Always returns ok when content is valid"],
+          "workflows" => ["Agent calls validate with entry data"],
+          "failure_modes" => ["Entry may fail validation if content is too short"]
+        })
+
       assert Entry.validate(entry) == :ok
     end
 
@@ -127,8 +140,20 @@ defmodule Acs.Cognition.EntryTest do
     end
 
     test "accepts all valid statuses" do
-      for status <- ~w(proposed under_review approved deprecated contradicted runtime_divergent historical rejected) do
-        entry = Entry.from_map(%{"app" => "test", "id" => "path", "status" => status, "title" => "Test Module Entry", "purpose" => "Test module purpose for validating entries with quality content", "invariants" => ["Always returns ok when content is valid"], "workflows" => ["Agent calls validate with entry data"], "failure_modes" => ["Entry may fail validation if content is too short"]})
+      for status <-
+            ~w(proposed under_review approved deprecated contradicted runtime_divergent historical rejected) do
+        entry =
+          Entry.from_map(%{
+            "app" => "test",
+            "id" => "path",
+            "status" => status,
+            "title" => "Test Module Entry",
+            "purpose" => "Test module purpose for validating entries with quality content",
+            "invariants" => ["Always returns ok when content is valid"],
+            "workflows" => ["Agent calls validate with entry data"],
+            "failure_modes" => ["Entry may fail validation if content is too short"]
+          })
+
         assert Entry.validate(entry) == :ok
       end
     end
@@ -143,7 +168,18 @@ defmodule Acs.Cognition.EntryTest do
 
     test "accepts all valid verification statuses" do
       for vs <- ~w(confirmed inferred proposed contested unknown) do
-        entry = Entry.from_map(%{"app" => "test", "id" => "path", "verification_status" => vs, "title" => "Test Module Entry", "purpose" => "Test module purpose for validating entries with quality content", "invariants" => ["Always returns ok when content is valid"], "workflows" => ["Agent calls validate with entry data"], "failure_modes" => ["Entry may fail validation if content is too short"]})
+        entry =
+          Entry.from_map(%{
+            "app" => "test",
+            "id" => "path",
+            "verification_status" => vs,
+            "title" => "Test Module Entry",
+            "purpose" => "Test module purpose for validating entries with quality content",
+            "invariants" => ["Always returns ok when content is valid"],
+            "workflows" => ["Agent calls validate with entry data"],
+            "failure_modes" => ["Entry may fail validation if content is too short"]
+          })
+
         assert Entry.validate(entry) == :ok
       end
     end
@@ -199,7 +235,8 @@ defmodule Acs.Cognition.EntryTest do
 
   describe "spec_filename/2" do
     test "generates correct path" do
-      assert Entry.spec_filename("my_app", "engine/orchestrator") == "my_app/engine/orchestrator.yaml"
+      assert Entry.spec_filename("my_app", "engine/orchestrator") ==
+               "my_app/engine/orchestrator.yaml"
     end
 
     test "handles simple names" do

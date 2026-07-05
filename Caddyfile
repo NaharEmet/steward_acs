@@ -1,8 +1,16 @@
 {$DOMAIN} {
-    reverse_proxy {$ACS_URL}
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
 
-    header /mcp/sse {
-        Cache-Control "no-cache"
-        X-Accel-Buffering "no"
+    # Single proxy — separate @mcp_sse handle breaks 401 JSON responses (shows as 500)
+    reverse_proxy {$ACS_URL} {
+        flush_interval -1
     }
+}
+
+obsidian.stewardacs.xyz:80 {
+    basic_auth {
+        syncuser {$SYNC_BCRYPT_PASS}
+    }
+
+    reverse_proxy http://steward_syncthing:8384
 }

@@ -1,4 +1,4 @@
-defmodule Acs.Cognition.Search do
+defmodule Acs.Specs.Search do
   @moduledoc """
   Full-text search across cognition spec entries.
 
@@ -7,7 +7,7 @@ defmodule Acs.Cognition.Search do
   matches weighted highest and constraint matches weighted lowest.
   """
 
-  alias Acs.Cognition.Loader
+  alias Acs.Specs.Loader
 
   @max_results 20
 

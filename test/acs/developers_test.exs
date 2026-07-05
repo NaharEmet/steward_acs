@@ -7,14 +7,17 @@ defmodule Acs.DevelopersTest do
     test "generates a valid developer key" do
       assert {:ok, %{key: raw_key, developer: dev}} = Developers.generate_key("test-user")
       assert String.starts_with?(raw_key, "acs_dev_")
-      assert byte_size(raw_key) == 8 + 64  # prefix (acs_dev_) + hex
+      # prefix (acs_dev_) + hex
+      assert byte_size(raw_key) == 8 + 64
       assert dev.developer_name == "test-user"
       assert dev.role == "collaborator"
       assert dev.active == true
     end
 
     test "accepts custom role and cluster options" do
-      assert {:ok, %{developer: dev}} = Developers.generate_key("svc-user", role: "service", cluster: "prod")
+      assert {:ok, %{developer: dev}} =
+               Developers.generate_key("svc-user", role: "service", cluster: "prod")
+
       assert dev.role == "service"
       assert dev.cluster == "prod"
     end
@@ -35,12 +38,17 @@ defmodule Acs.DevelopersTest do
 
   describe "authenticate/1" do
     test "returns role and cluster on valid key" do
-      {:ok, %{key: raw_key}} = Developers.generate_key("auth-test", role: "admin", cluster: "staging")
+      {:ok, %{key: raw_key}} =
+        Developers.generate_key("auth-test", role: "admin", cluster: "staging")
+
       assert {:ok, %{role: "admin", cluster: "staging"}} = Developers.authenticate(raw_key)
     end
 
     test "returns error on invalid key" do
-      assert {:error, "Invalid API key"} = Developers.authenticate("acs_dev_invalid_key_here_that_is_long_enough_to_be_a_key_but_not_in_db")
+      assert {:error, "Invalid API key"} =
+               Developers.authenticate(
+                 "acs_dev_invalid_key_here_that_is_long_enough_to_be_a_key_but_not_in_db"
+               )
     end
 
     test "returns error on revoked key" do
@@ -82,7 +90,8 @@ defmodule Acs.DevelopersTest do
       hash1 = Developers.hash_key("test-key")
       hash2 = Developers.hash_key("test-key")
       assert hash1 == hash2
-      assert byte_size(hash1) == 64  # 32 bytes = 64 hex chars
+      # 32 bytes = 64 hex chars
+      assert byte_size(hash1) == 64
     end
 
     test "produces different hashes for different keys" do

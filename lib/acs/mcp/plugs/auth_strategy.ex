@@ -6,6 +6,7 @@ defmodule Acs.MCP.Plugs.AuthStrategy do
   or `{:error, reason}`.
   """
   @callback authenticate(key :: String.t(), conn :: Plug.Conn.t()) ::
-              {:ok, %{role: String.t(), org_id: String.t() | nil, permissions: [String.t()] | nil}}
+              {:ok,
+               %{role: String.t(), org_id: String.t() | nil, permissions: [String.t()] | nil}}
               | {:error, String.t()}
 end

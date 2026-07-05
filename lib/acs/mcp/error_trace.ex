@@ -141,7 +141,12 @@ defmodule Acs.MCP.ErrorTrace do
     else
       case :ets.lookup(@table_name, trace_id) do
         [{^trace_id, entry}] ->
-          updated = %{entry | status: :failed, metadata: Map.put(entry.metadata, :failure_reason, reason)}
+          updated = %{
+            entry
+            | status: :failed,
+              metadata: Map.put(entry.metadata, :failure_reason, reason)
+          }
+
           :ets.insert(@table_name, {trace_id, updated})
           {:ok, updated}
 
@@ -232,10 +237,8 @@ defmodule Acs.MCP.ErrorTrace do
       :ets.select(@table_name, [
         {{:"$1", :"$2"},
          [
-           {:andalso,
-            {:==, {:map_get, :service, :"$2"}, service},
-            {:andalso,
-             {:==, {:map_get, :component, :"$2"}, component},
+           {:andalso, {:==, {:map_get, :service, :"$2"}, service},
+            {:andalso, {:==, {:map_get, :component, :"$2"}, component},
              {:==, {:map_get, :message_pattern, :"$2"}, norm_pattern}}}
          ], [:"$_"]}
       ])
@@ -243,7 +246,15 @@ defmodule Acs.MCP.ErrorTrace do
     case match_result do
       [] ->
         # No existing trace — create new
-        create_new_trace(service, component, norm_pattern, sample_message, metadata, now, now_epoch)
+        create_new_trace(
+          service,
+          component,
+          norm_pattern,
+          sample_message,
+          metadata,
+          now,
+          now_epoch
+        )
 
       matches when is_list(matches) ->
         # Take the most recently seen match (handle potential duplicates)
@@ -280,12 +291,28 @@ defmodule Acs.MCP.ErrorTrace do
           {:ok, :updated, updated}
         else
           # Outside dedup window: create new trace
-          create_new_trace(service, component, norm_pattern, sample_message, metadata, now, now_epoch)
+          create_new_trace(
+            service,
+            component,
+            norm_pattern,
+            sample_message,
+            metadata,
+            now,
+            now_epoch
+          )
         end
     end
   end
 
-  defp create_new_trace(service, component, message_pattern, sample_message, metadata, now, now_epoch) do
+  defp create_new_trace(
+         service,
+         component,
+         message_pattern,
+         sample_message,
+         metadata,
+         now,
+         now_epoch
+       ) do
     trace_id = Ecto.UUID.generate()
 
     entry = %{

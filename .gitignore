@@ -12,6 +12,7 @@ erl_crash.dump
 # Environment files (local secrets, never committed)
 .env*
 !.env.example
+!.env.remote
 
 # ACS generated files (local, not committed)
 steward.env
@@ -31,3 +32,9 @@ priv/acs_time_offset.txt
 
 # Server credentials
 serverpass.md
+
+# Steward agent secrets
+steward_agent/.env
+
+# TLS certificates (not committed)
+certs/

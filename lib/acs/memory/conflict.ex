@@ -19,27 +19,33 @@ defmodule Acs.Memory.Conflict do
   - :confidence - :high, :medium, or :low
   """
   def check(memory_id, scope_path, tags) when is_binary(scope_path) and is_list(tags) do
-    scope_memories = Acs.Memory.Search.list(
-      scope_path: scope_path,
-      status: "approved"
-    )
+    scope_memories =
+      Acs.Memory.Search.list(
+        scope_path: scope_path,
+        status: "approved"
+      )
 
     scope_memories
     |> Enum.reject(fn m -> m.id == memory_id end)
     |> Enum.reduce([], fn existing, flags ->
       existing_tags = parse_tags(existing.tags_json)
-      overlapping = MapSet.intersection(
-        MapSet.new(tags),
-        MapSet.new(existing_tags)
-      ) |> MapSet.size()
+
+      overlapping =
+        MapSet.intersection(
+          MapSet.new(tags),
+          MapSet.new(existing_tags)
+        )
+        |> MapSet.size()
 
       if overlapping >= @tag_overlap_threshold do
         flag = %{
           type: "overlap",
           existing_memory_id: existing.id,
-          reason: "Proposed memory shares #{overlapping} tags with existing approved memory '#{existing.id}' at same scope",
+          reason:
+            "Proposed memory shares #{overlapping} tags with existing approved memory '#{existing.id}' at same scope",
           confidence: if(overlapping >= 4, do: :high, else: :medium)
         }
+
         [flag | flags]
       else
         flags
@@ -55,7 +61,8 @@ defmodule Acs.Memory.Conflict do
 
   Filters by scope path and excludes the memory itself from self-matching.
   """
-  def check_in_memory(memory, tags, approved_memories) when is_list(tags) and is_list(approved_memories) do
+  def check_in_memory(memory, tags, approved_memories)
+      when is_list(tags) and is_list(approved_memories) do
     scope_path = memory.scope_path
     memory_id = memory.id
 
@@ -111,11 +118,13 @@ defmodule Acs.Memory.Conflict do
   end
 
   defp parse_tags(nil), do: []
+
   defp parse_tags(json) when is_binary(json) do
     case Jason.decode(json) do
       {:ok, tags} when is_list(tags) -> tags
       _ -> []
     end
   end
+
   defp parse_tags(_), do: []
 end

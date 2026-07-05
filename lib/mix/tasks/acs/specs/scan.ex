@@ -1,19 +1,19 @@
-defmodule Mix.Tasks.Acs.Cognition.Scan do
+defmodule Mix.Tasks.Acs.Specs.Scan do
   @moduledoc """
-  Scan the codebase for modules missing cognition specs.
+  Scan the codebase for modules missing specs.
 
   Usage:
-      mix acs.cognition.scan                          # Scan ACS app
-      mix acs.cognition.scan --app my_app             # Specify app name
-      mix acs.cognition.scan --app my_app --dir ../.. # Custom lib dir
+      mix acs.specs.scan                          # Scan ACS app
+      mix acs.specs.scan --app my_app             # Specify app name
+      mix acs.specs.scan --app my_app --dir ../.. # Custom lib dir
 
   This scans lib/ directories for .ex files, compares against existing
-  cognition specs, and outputs a summary of undocumented modules.
+  specs, and outputs a summary of undocumented modules.
   """
 
   use Mix.Task
 
-  @shortdoc "Scan for modules missing cognition specs"
+  @shortdoc "Scan for modules missing specs"
 
   @impl true
   def run(args) do
@@ -28,7 +28,7 @@ defmodule Mix.Tasks.Acs.Cognition.Scan do
         Path.join(Application.app_dir(:steward_acs), "lib")
       end
 
-    Mix.Shell.IO.info([:green, "=== Cognition Spec Scanner ==="])
+    Mix.Shell.IO.info([:green, "=== Specs Scanner ==="])
     Mix.Shell.IO.info("App: #{app_name}")
     Mix.Shell.IO.info("Lib dir: #{lib_dir}")
     Mix.Shell.IO.info("")
@@ -36,7 +36,7 @@ defmodule Mix.Tasks.Acs.Cognition.Scan do
     # Ensure Loader is started
     {:ok, _} = Application.ensure_all_started(:steward_acs)
 
-    results = Acs.Cognition.Loader.find_undocumented(lib_dir, app: app_name)
+    results = Acs.Specs.Loader.find_undocumented(lib_dir, app: app_name)
 
     total_modules = count_modules(lib_dir)
     documented = total_modules - length(results)
@@ -48,7 +48,7 @@ defmodule Mix.Tasks.Acs.Cognition.Scan do
     Mix.Shell.IO.info("")
 
     if results == [] do
-      Mix.Shell.IO.info([:green, "✓ All modules have cognition specs!"])
+      Mix.Shell.IO.info([:green, "✓ All modules have specs!"])
     else
       Mix.Shell.IO.info([:yellow, "Undocumented modules:"])
 

@@ -1,24 +1,22 @@
-defmodule Acs.Cognition.LoaderTest do
+defmodule Acs.Specs.LoaderTest do
   use ExUnit.Case, async: false
 
-  alias Acs.Cognition.Entry
-  alias Acs.Cognition.Loader
+  alias Acs.Specs.Entry
+  alias Acs.Specs.Loader
 
   setup do
-    # Create temp dir for specs
     tmp_specs =
-      Path.expand("../../tmp/cognition_specs_#{System.unique_integer([:positive])}", __DIR__)
+      Path.expand("../../tmp/specs_#{System.unique_integer([:positive])}", __DIR__)
 
     File.mkdir_p!(tmp_specs)
 
-    # Save original env, set new one
-    orig_env = System.get_env("COGNITION_SPECS_PATH")
-    System.put_env("COGNITION_SPECS_PATH", tmp_specs)
+    orig_env = System.get_env("SPECS_PATH")
+    System.put_env("SPECS_PATH", tmp_specs)
 
     on_exit(fn ->
       if orig_env,
-        do: System.put_env("COGNITION_SPECS_PATH", orig_env),
-        else: System.delete_env("COGNITION_SPECS_PATH")
+        do: System.put_env("SPECS_PATH", orig_env),
+        else: System.delete_env("SPECS_PATH")
 
       File.rm_rf!(tmp_specs)
     end)
@@ -49,7 +47,7 @@ defmodule Acs.Cognition.LoaderTest do
   describe "specs_path/0" do
     test "returns the path from env var" do
       path = Loader.specs_path()
-      assert String.contains?(path, "cognition_specs_")
+      assert String.contains?(path, "specs_")
     end
   end
 
@@ -95,25 +93,31 @@ defmodule Acs.Cognition.LoaderTest do
     test "round-trip preserves all fields" do
       refs = [%{"type" => "module", "target" => "other/mod", "description" => "calls"}]
 
-      entry = create_test_entry(%{
-        "title" => "Full Entry Comprehensive",
-        "purpose" => "This is the original purpose for testing",
-        "invariants" => ["First invariant must hold true", "Second invariant always applies"],
-        "workflows" => ["Primary workflow processes data correctly"],
-        "failure_modes" => ["Primary failure scenario to handle"],
-        "constraints" => ["Constraint 1"],
-        "tags" => ["tag1", "tag2"],
-        "references" => refs,
-        "verification_status" => "confirmed",
-        "version" => 2,
-        "parent_version" => 1
-      })
+      entry =
+        create_test_entry(%{
+          "title" => "Full Entry Comprehensive",
+          "purpose" => "This is the original purpose for testing",
+          "invariants" => ["First invariant must hold true", "Second invariant always applies"],
+          "workflows" => ["Primary workflow processes data correctly"],
+          "failure_modes" => ["Primary failure scenario to handle"],
+          "constraints" => ["Constraint 1"],
+          "tags" => ["tag1", "tag2"],
+          "references" => refs,
+          "verification_status" => "confirmed",
+          "version" => 2,
+          "parent_version" => 1
+        })
 
       assert :ok = Loader.save(entry)
       assert {:ok, loaded} = Loader.load("test_app", "my_test_module")
       assert loaded.title == "Full Entry Comprehensive"
       assert loaded.purpose == "This is the original purpose for testing"
-      assert loaded.invariants == ["First invariant must hold true", "Second invariant always applies"]
+
+      assert loaded.invariants == [
+               "First invariant must hold true",
+               "Second invariant always applies"
+             ]
+
       assert loaded.workflows == ["Primary workflow processes data correctly"]
       assert loaded.failure_modes == ["Primary failure scenario to handle"]
       assert loaded.constraints == ["Constraint 1"]
@@ -187,16 +191,22 @@ defmodule Acs.Cognition.LoaderTest do
 
   describe "find_undocumented/2" do
     test "returns modules without specs" do
-      # Use system temp dir to avoid /test/ in path (relevant_module? filters by /test/)
       tmp_lib =
         System.tmp_dir!()
-        |> Path.join("cognition_lib_#{System.unique_integer([:positive])}")
+        |> Path.join("specs_lib_#{System.unique_integer([:positive])}")
 
       File.mkdir_p!(Path.join([tmp_lib, "lib", "my_app"]))
-      File.write!(Path.join([tmp_lib, "lib", "my_app", "existing.ex"]), "defmodule MyApp.Existing do\nend\n")
-      File.write!(Path.join([tmp_lib, "lib", "my_app", "unknown.ex"]), "defmodule MyApp.Unknown do\nend\n")
 
-      # Create a spec for the existing module
+      File.write!(
+        Path.join([tmp_lib, "lib", "my_app", "existing.ex"]),
+        "defmodule MyApp.Existing do\nend\n"
+      )
+
+      File.write!(
+        Path.join([tmp_lib, "lib", "my_app", "unknown.ex"]),
+        "defmodule MyApp.Unknown do\nend\n"
+      )
+
       entry = create_test_entry(id: "my_app/existing", app: "test_app")
       Loader.save(entry)
 
@@ -206,7 +216,6 @@ defmodule Acs.Cognition.LoaderTest do
       assert undocumented != nil
       assert undocumented.module == "MyApp.Unknown"
 
-      # Cleanup
       File.rm_rf!(tmp_lib)
     end
   end

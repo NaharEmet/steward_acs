@@ -13,10 +13,10 @@ defmodule Acs.Acs.Task do
              :locked_at,
              :auto_release_at,
              :event_count,
-              :file_paths,
-              :cluster,
-              :inserted_at,
-              :updated_at
+             :file_paths,
+             :cluster,
+             :inserted_at,
+             :updated_at
            ]}
 
   @primary_key {:id, :binary_id, autogenerate: true}

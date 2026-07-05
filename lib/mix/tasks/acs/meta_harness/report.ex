@@ -28,10 +28,11 @@ defmodule Mix.Tasks.Acs.MetaHarness.Report do
 
     opts = parse_args(args)
 
-    timeframe = case opts[:timeframe] do
-      "30d" -> :last_30_days
-      _ -> :last_24_hours
-    end
+    timeframe =
+      case opts[:timeframe] do
+        "30d" -> :last_30_days
+        _ -> :last_24_hours
+      end
 
     report = Acs.MetaHarness.DocumentGenerator.generate(timeframe: timeframe)
 
@@ -46,10 +47,12 @@ defmodule Mix.Tasks.Acs.MetaHarness.Report do
   end
 
   defp parse_args(args) do
-    {opts, _, _} = OptionParser.parse(args,
-      strict: [timeframe: :string, output: :string],
-      aliases: [t: :timeframe, o: :output]
-    )
+    {opts, _, _} =
+      OptionParser.parse(args,
+        strict: [timeframe: :string, output: :string],
+        aliases: [t: :timeframe, o: :output]
+      )
+
     opts
   end
 end

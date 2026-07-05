@@ -34,7 +34,9 @@ secret_key_base =
 
 signing_salt =
   System.get_env("SESSION_SIGNING_SALT") ||
-    :crypto.hash(:sha256, secret_key_base) |> Base.url_encode64(padding: false) |> binary_part(0, 16)
+    :crypto.hash(:sha256, secret_key_base)
+    |> Base.url_encode64(padding: false)
+    |> binary_part(0, 16)
 
 config :steward_acs, AcsWeb.Endpoint,
   http: [ip: {0, 0, 0, 0}, port: 4001],
@@ -62,12 +64,18 @@ config :steward_acs, Acs.Cognition.Loader,
 config :steward_acs, :mcp_api_key, System.get_env("MCP_API_KEY", "dev-api-key")
 config :steward_acs, :service_api_key, System.get_env("SERVICE_API_KEY", "dev-service-key")
 config :steward_acs, :log_ingest_key, System.get_env("LOG_INGEST_KEY", "dev-log-ingest-key")
-config :steward_acs, :mcp_auth_local_fallback, System.get_env("MCP_AUTH_LOCAL_FALLBACK", "false") == "true"
+
+config :steward_acs,
+       :mcp_auth_local_fallback,
+       System.get_env("MCP_AUTH_LOCAL_FALLBACK", "false") == "true"
+
 config :steward_acs, :cluster_name, System.get_env("ACS_CLUSTER_NAME", "dev")
 config :steward_acs, :admin_emails, [System.get_env("ACS_ADMIN_EMAIL", "admin@localhost")]
+
 config :steward_acs, :basic_auth,
   username: System.get_env("ACS_USERNAME", "admin"),
   password: System.get_env("ACS_PASSWORD", "admin")
+
 config :steward_acs, :allowed_paths, ["/tmp"]
 config :steward_acs, :allowed_commands, ~w(echo ls cat)
 

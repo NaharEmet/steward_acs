@@ -83,7 +83,7 @@ defmodule Acs.MCP.Plugs.RateLimit do
       :undefined ->
         :ets.new(@table, [
           :named_table,
-          :protected,
+          :public,
           read_concurrency: true,
           write_concurrency: true
         ])

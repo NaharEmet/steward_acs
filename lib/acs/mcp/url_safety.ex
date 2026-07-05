@@ -71,7 +71,9 @@ defmodule Acs.MCP.UrlSafety do
   defp validate_ip_literal(host) do
     case :inet.parse_address(String.to_charlist(host)) do
       {:ok, ip} ->
-        if private_ip?(ip), do: {:error, "Private or loopback IP addresses are not allowed"}, else: :ok
+        if private_ip?(ip),
+          do: {:error, "Private or loopback IP addresses are not allowed"},
+          else: :ok
 
       {:error, _} ->
         {:error, "Invalid IP address '#{host}'"}

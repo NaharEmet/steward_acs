@@ -15,7 +15,8 @@ defmodule Acs.MixProject do
         steward_acs: [
           include_executables_for: [:unix],
           steps: [:assemble],
-          validate_compile_env: false
+          validate_compile_env: false,
+          strip_beams: [keep: ["Docs"]]
         ]
       ]
     ]

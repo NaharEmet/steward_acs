@@ -4,8 +4,9 @@ defmodule Acs.Memory.EmbeddingTest do
   alias Acs.Memory.Embedding
 
   setup do
-    ollama_url = Application.get_env(:steward_acs, Acs.Memory.Embedding, [])
-                 |> Keyword.get(:ollama_url, "http://localhost:11434")
+    ollama_url =
+      Application.get_env(:steward_acs, Acs.Memory.Embedding, [])
+      |> Keyword.get(:ollama_url, "http://localhost:11434")
 
     ollama_available = ollama_available?(ollama_url)
 
@@ -17,7 +18,7 @@ defmodule Acs.Memory.EmbeddingTest do
       if ctx[:ollama_available] do
         {:ok, embedding} = Embedding.embed_text("cache release ordering")
         assert is_list(embedding)
-        assert length(embedding) > 0
+        assert embedding != []
         assert Enum.all?(embedding, &is_float/1)
       else
         assert true
@@ -33,9 +34,10 @@ defmodule Acs.Memory.EmbeddingTest do
 
         assert length(embedding1) == length(embedding2)
 
-        diff = Enum.zip(embedding1, embedding2)
-               |> Enum.map(fn {a, b} -> abs(a - b) end)
-               |> Enum.sum()
+        diff =
+          Enum.zip(embedding1, embedding2)
+          |> Enum.map(fn {a, b} -> abs(a - b) end)
+          |> Enum.sum()
 
         assert diff < 0.001, "Embeddings should be nearly identical"
       else
@@ -49,10 +51,12 @@ defmodule Acs.Memory.EmbeddingTest do
         {:ok, embedding1} = Embedding.embed_text("cache release ordering")
         {:ok, embedding2} = Embedding.embed_text("task assignment conflict")
 
-        diff_count = Enum.zip(embedding1, embedding2)
-                     |> Enum.count(fn {a, b} -> abs(a - b) > 0.01 end)
+        diff_count =
+          Enum.zip(embedding1, embedding2)
+          |> Enum.count(fn {a, b} -> abs(a - b) > 0.01 end)
 
-        assert diff_count > length(embedding1) * 0.5, "Different texts should produce different embeddings"
+        assert diff_count > length(embedding1) * 0.5,
+               "Different texts should produce different embeddings"
       else
         result = Embedding.embed_text("different text")
         assert match?({:error, _}, result) or match?({:ok, _}, result)
@@ -139,7 +143,7 @@ defmodule Acs.Memory.EmbeddingTest do
 
       similarity = Embedding.cosine_similarity(vector1, vector2)
 
-      assert abs(similarity - (-1.0)) < 0.0001
+      assert abs(similarity - -1.0) < 0.0001
     end
 
     test "returns value between -1 and 1 for general vectors" do
@@ -155,11 +159,12 @@ defmodule Acs.Memory.EmbeddingTest do
 
   describe "error handling" do
     test "handles Ollama connection failure gracefully" do
-      result = case Embedding.embed_text("test") do
-        {:ok, _} -> :ok
-        {:error, reason} when is_binary(reason) -> :error_handled
-        {:error, _} -> :error_handled
-      end
+      result =
+        case Embedding.embed_text("test") do
+          {:ok, _} -> :ok
+          {:error, reason} when is_binary(reason) -> :error_handled
+          {:error, _} -> :error_handled
+        end
 
       assert result in [:ok, :error_handled]
     end

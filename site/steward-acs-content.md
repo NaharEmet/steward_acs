@@ -181,8 +181,10 @@ The name "Steward" comes from the Old English *stigweard* — "one who manages a
 - **No uptime monitoring** — health check is basic.
 - **No usage/analytics dashboard** — you build your own.
 
-### 4.8 Not an Auth/Access System (for agents)
-- **API-key based** — no OAuth, no SSO, no multi-tenant agent auth.
+### 4.8 Not a Full Auth/Access System (for agents)
+- **API keys** — primary auth for Claude Code, plugins, and service integrations.
+- **Auth0 OAuth** — optional for Claude web Custom Connectors when `OAUTH_BEARER_ENABLED=true` (see `.env.remote`).
+- **No SSO / enterprise IdP** beyond Auth0 for Connectors.
 - **No per-agent permissions** beyond role (admin/dev/analyst).
 - **No audit logging for agent actions** — only error traces.
 
@@ -392,6 +394,12 @@ volumes:
 | `ENABLED_LLM_PROVIDERS`   | No       | All configured                                           | Comma-separated whitelist (e.g., `mimo,minimax`) |
 | `OLLAMA_URL`              | No       | `http://localhost:11434`                                 | URL for local Ollama instance (embeddings) |
 | `MCP_API_KEY`             | No       | —                                                        | API key for MCP tool authentication    |
+| `MCP_QUERY_KEY_AUTH`      | No       | `false`                                                  | Allow `?api_key=` on MCP SSE (connector fallback) |
+| `OAUTH_BEARER_ENABLED`    | No       | `false`                                                  | Enable Auth0 JWT validation for Claude Connectors |
+| `AUTH0_DOMAIN`            | When OAuth on | —                                                     | Auth0 tenant (e.g. `dev-jw5wgp2b.us.auth0.com`) |
+| `AUTH0_AUDIENCE`          | When OAuth on | —                                                     | MCP API identifier (e.g. `https://prod.stewardacs.xyz/mcp/sse`) |
+| `MCP_PUBLIC_URL`          | When OAuth on | —                                                     | Public base URL for OAuth metadata |
+| `MCP_RESOURCE_URL`        | No       | same as audience                                         | Resource URL in protected-resource metadata |
 | `SERVICE_API_KEY`         | No       | —                                                        | Service-level API key for integrations |
 | `MCP_AUTH_LOCAL_FALLBACK` | No       | `true` (dev)                                             | Allow connections without auth on localhost |
 | `ANANTHA_URL`            | No       | `http://localhost:4000`                                  | Anantha base URL (optional integration) |
@@ -471,8 +479,7 @@ All tools are prefixed with `acs_*` when called by agents. These are defined in 
 | Tool                      | Description                                                                   | Key Params                                              |
 | ------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `save_memory`             | Create a proposed memory entry (eternal truth).                                | kind, title, content, scope_path, tags?, triggers?      |
-| `search_memories`         | Full-text search across memory titles, summaries, content.                    | query, scope?, kind?, limit?                            |
-| `list_memories`           | List memories filtered by scope_path, kind, or status.                        | scope_path?, kind?, status?, limit?                     |
+| `query_memories`          | Unified query: hybrid search if `query` provided, else list with filters.     | query?, scope_path?, kind?, status?, limit?, mode?      |
 | `generate_guidance_packet`| Get structured guidance for a scope. Returns axioms, warnings, patterns.       | scope_path?, task_id?                                   |
 | `set_memory_status`       | Update memory status: approved/rejected/stale.                                 | memory_id, status, notes?                               |
 
@@ -494,7 +501,7 @@ All tools are prefixed with `acs_*` when called by agents. These are defined in 
 | ------------------------- | ---------------------------------------------------------------------- | ------------------------------- |
 | `config_lookup`           | Look up opencode/ACS configuration settings.                           | path?, key?                     |
 | `connection_diagnostic`   | Check if external services are reachable (ACS, DB, LLM).               | service?, verbose?              |
-| `find_similar_code`       | Semantic code search across the codebase.                              | query, limit?, scope?           |
+| `query_memories`          | Unified query: hybrid search if `query` provided, else list with filters. | query?, scope_path?, kind?, status?, limit?, mode? |
 | `memory_health_check`     | Check health of the Anantha memory system.                             | org_id?                         |
 | `get_logs`                | Retrieve application logs with filtering.                              | level?, component?, search?     |
 
@@ -518,9 +525,7 @@ All tools are prefixed with `acs_*` when called by agents. These are defined in 
 | `list_categories`| List all tool categories.                                         | (none)                                  |
 | `time`          | Get or set ACS time offset (for testing).                          | action, seconds?                        |
 | `exec_command`  | Execute shell commands (restricted to allowed list).               | command, args?, cwd?, timeout?          |
-| `read_file`     | Read files from the cluster filesystem.                            | path                                    |
-| `write_file`    | Write files to the cluster filesystem.                             | path, content                           |
-| `read_dir`      | List directory contents.                                           | path                                    |
+
 
 ---
 
@@ -537,7 +542,7 @@ Every agent that works with Steward ACS follows this lifecycle:
 
 2. PREPARE (optional, recommended)
    generate_guidance_packet(scope_path: "my/area")
-   search_memories(query: "what I'm working on")
+   query_memories(query: "what I'm working on")
 
 3. CREATE + CLAIM
    acs_create_work(agent_id: "MyAgent", title: "Implement X")
@@ -585,7 +590,7 @@ AFTER done:      acs_unlock_file(agent_id, file_path: file_path)
 
 ```
 BEFORE starting: generate_guidance_packet(scope_path: "...")
-                  search_memories(query: "...")
+                  query_memories(query: "...")
 DURING work:     save_memory(kind: "learning", title: "...", ...)
 AFTER done:      acs_submit_task_feedback(learned_for_agents: "...")
 ```
@@ -612,7 +617,7 @@ When you encounter an error:
 
 1. **Run Steward ACS** as a standalone service (Docker or source)
 2. **Configure your agent system** (opencode config) to connect to `http://<host>:4001/mcp`
-3. **Set up auth** — API key or local fallback
+3. **Set up auth** — API key (`MCP_API_KEY` / `acs_dev_...`) for Claude Code and plugins; **Auth0 OAuth** (`OAUTH_BEARER_ENABLED=true`) for Claude web Connectors (see `.env.remote`)
 4. **Agents start using `acs_*` tools** — no SDK needed, tools are HTTP-callable
 
 ### 10.2 Adding Custom Tools

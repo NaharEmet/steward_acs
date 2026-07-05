@@ -2,7 +2,7 @@ defmodule Acs.AbacTest do
   use ExUnit.Case, async: true
 
   alias Acs.Abac
-  alias Acs.Cognition.Entry
+  alias Acs.Specs.Entry
 
   describe "visible?/2 for org KB memories and coding-agent documents" do
     test "admin sees all visibility levels" do
@@ -63,13 +63,16 @@ defmodule Acs.AbacTest do
     test "collaborator org-wide writes are proposed for review" do
       ctx = %Abac{agent_role: "collaborator"}
 
-      assert "proposed" = Abac.memory_status_for_write(ctx, %{"visibility" => "org", "kind" => "context"})
+      assert "proposed" =
+               Abac.memory_status_for_write(ctx, %{"visibility" => "org", "kind" => "context"})
     end
 
     test "collaborator team-scoped writes keep default status" do
       ctx = %Abac{agent_role: "collaborator", allowed_teams: ["platform"]}
 
-      assert is_nil(Abac.memory_status_for_write(ctx, %{"visibility" => "team", "team" => "platform"}))
+      assert is_nil(
+               Abac.memory_status_for_write(ctx, %{"visibility" => "team", "team" => "platform"})
+             )
     end
   end
 end

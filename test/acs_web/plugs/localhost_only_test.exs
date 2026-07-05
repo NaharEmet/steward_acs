@@ -1,7 +1,6 @@
 defmodule AcsWeb.Plugs.LocalhostOnlyTest do
   use ExUnit.Case, async: true
 
-  import Plug.Conn
   import Plug.Test
 
   alias AcsWeb.Plugs.LocalhostOnly

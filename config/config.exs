@@ -64,6 +64,8 @@ config :steward_acs, :session_validity_in_days, 7
 
 config :steward_acs, AcsWeb.PubSub, name: AcsWeb.PubSub
 
+config :logger, :console, metadata: [:agent_id, :task_id, :file_path, :locked_by]
+
 config :tailwind, :version, "3.4.3"
 
 # Configure esbuild

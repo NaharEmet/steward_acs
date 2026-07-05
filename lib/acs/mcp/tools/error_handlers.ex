@@ -143,7 +143,9 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     if is_nil(trace_id) do
       {:error, "trace_id is required"}
     else
-      Logger.info("[ErrorHandlers] create_task_from_error_trace: #{trace_id} for agent #{agent_id}")
+      Logger.info(
+        "[ErrorHandlers] create_task_from_error_trace: #{trace_id} for agent #{agent_id}"
+      )
 
       case Acs.MCP.ErrorTrace.get_trace(trace_id) do
         nil ->
@@ -174,7 +176,9 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
 
             {:warn, task, similar} ->
               Acs.MCP.ErrorTrace.mark_tasked(trace_id, task.id)
-              {:ok, %{task_id: task.id, trace_id: trace_id, status: "tasked", similar_tasks: similar}}
+
+              {:ok,
+               %{task_id: task.id, trace_id: trace_id, status: "tasked", similar_tasks: similar}}
 
             {:error, reason} ->
               Acs.MCP.ErrorTrace.mark_failed(trace_id, inspect(reason))
@@ -247,7 +251,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     end
 
     if (helpful_items = args["guidance_items_helpful"]) && is_list(helpful_items) &&
-         length(helpful_items) > 0 do
+         helpful_items != [] do
       save_feedback_memory(
         "learning",
         "Guidance items that helped",
@@ -257,7 +261,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     end
 
     if (confusing_items = args["guidance_items_confusing"]) && is_list(confusing_items) &&
-         length(confusing_items) > 0 do
+         confusing_items != [] do
       save_feedback_memory(
         "warning",
         "Guidance items that were confusing or unhelpful",

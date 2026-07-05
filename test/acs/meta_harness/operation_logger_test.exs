@@ -33,11 +33,26 @@ defmodule Acs.MetaHarness.OperationLoggerTest do
     end
 
     test "returns :ok for failure status" do
-      assert :ok = OperationLogger.log_async("create_work", :failure, 8, "timeout", "timed out", "Bob")
+      assert :ok =
+               OperationLogger.log_async(
+                 "create_work",
+                 :failure,
+                 8,
+                 "timeout",
+                 "timed out",
+                 "Bob"
+               )
     end
 
     test "returns :ok for error status" do
-      assert :ok = OperationLogger.log_async("lock_file", :error, nil, "db_error", "DB connection failed")
+      assert :ok =
+               OperationLogger.log_async(
+                 "lock_file",
+                 :error,
+                 nil,
+                 "db_error",
+                 "DB connection failed"
+               )
     end
 
     test "returns :ok with nil latency" do
@@ -51,13 +66,29 @@ defmodule Acs.MetaHarness.OperationLoggerTest do
     end
 
     test "returns :ok for failure case" do
-      assert :ok = OperationLogger.log("test_tool", :failure, 5, "err", "something broke", "agent-1", "exec-1")
+      assert :ok =
+               OperationLogger.log(
+                 "test_tool",
+                 :failure,
+                 5,
+                 "err",
+                 "something broke",
+                 "agent-1",
+                 "exec-1"
+               )
     end
   end
 
   describe "log_tool_result_async/6" do
     test "handles {:ok, _} result" do
-      assert :ok = OperationLogger.log_tool_result_async("test_tool", {:ok, %{result: "data"}}, 15, "agent-1", "exec-1")
+      assert :ok =
+               OperationLogger.log_tool_result_async(
+                 "test_tool",
+                 {:ok, %{result: "data"}},
+                 15,
+                 "agent-1",
+                 "exec-1"
+               )
     end
 
     test "handles :ok result" do

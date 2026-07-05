@@ -11,7 +11,8 @@ defmodule Acs.MemoryDedupTest do
   @base_attrs %{
     "kind" => "axiom",
     "title" => "Dedup Test Memory",
-    "content" => "This is a test memory for deduplication verification. It has enough content to generate a meaningful embedding.",
+    "content" =>
+      "This is a test memory for deduplication verification. It has enough content to generate a meaningful embedding.",
     "scope_path" => "test/dedup",
     "tags" => ["test", "dedup", "verification"],
     "importance" => 3
@@ -103,7 +104,8 @@ defmodule Acs.MemoryDedupTest do
                Acs.MCP.Tools.call_tool("save_memory", %{
                  "kind" => "pattern",
                  "title" => "Completely Different Memory",
-                 "content" => "This is a completely different memory with different content and meaning.",
+                 "content" =>
+                   "This is a completely different memory with different content and meaning.",
                  "scope_path" => "test/dedup",
                  "tags" => ["test", "different"],
                  "importance" => 2

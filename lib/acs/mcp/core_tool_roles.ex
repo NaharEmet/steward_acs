@@ -10,15 +10,11 @@ defmodule Acs.MCP.CoreToolRoles do
     query
     config_lookup
     connection_diagnostic
-    find_similar_code
     memory_health_check
     get_logs
     list_orgs
     app_configure
     app_remove
-    read_file
-    write_file
-    read_dir
     write_tool
     set_memory_status
     ack_error_trace
@@ -40,10 +36,14 @@ defmodule Acs.MCP.CoreToolRoles do
     submit_task_feedback
     help
     save_memory
-    list_memories
-    search_memories
+    query_memories
     generate_guidance_packet
     ask
+    specs_get
+    query_specs
+    specs_propose
+    specs_approve
+    specs_reject
     list_error_traces
     list_plugins
     app_list
@@ -52,8 +52,8 @@ defmodule Acs.MCP.CoreToolRoles do
   @admin_service ~w(time)
 
   @roles Map.new(@admin_only, &{&1, ["admin"]})
-           |> Map.merge(Map.new(@admin_collaborator, &{&1, ["admin", "collaborator"]}))
-           |> Map.merge(Map.new(@admin_service, &{&1, ["admin", "service", "collaborator"]}))
+         |> Map.merge(Map.new(@admin_collaborator, &{&1, ["admin", "collaborator"]}))
+         |> Map.merge(Map.new(@admin_service, &{&1, ["admin", "service", "collaborator"]}))
 
   @default_roles ["admin"]
 

@@ -4,7 +4,7 @@ defmodule Acs.Abac do
 
   ## Use cases
 
-  1. **Coding agents** — cognition specs (`Acs.Cognition.Entry`) scoped by team/project
+  1. **Coding agents** — specs (\`Acs.Specs.Entry\`) scoped by team/project
      so agents only read and write specs for code they work on.
 
   2. **Org KB memories** — atomic knowledge scoped by team/project/visibility for

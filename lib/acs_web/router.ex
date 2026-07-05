@@ -37,7 +37,9 @@ defmodule AcsWeb.Router do
   scope "/", AcsWeb do
     pipe_through [:browser, :require_auth]
 
-    live_session :acs, on_mount: [{AcsWeb.UserAuth, :ensure_authenticated}] do
+    live_session :acs,
+      session: {AcsWeb.UserAuth, :fetch_user_token, []},
+      on_mount: [{AcsWeb.UserAuth, :ensure_authenticated}] do
       live "/", AcsLive.Index, :index
       live "/tools", AcsLive.Tools, :index
       live "/tools/requests", AcsLive.ToolRequests, :index

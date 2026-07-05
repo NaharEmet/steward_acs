@@ -38,7 +38,8 @@ defmodule Acs.MemoryTestHelpers do
       "status" => "proposed",
       "title" => "Test Memory #{id}",
       "summary" => "A test memory for verification purposes",
-      "content" => "This is the full content of the test memory. It contains enough text to verify that search indexing and content display work correctly.",
+      "content" =>
+        "This is the full content of the test memory. It contains enough text to verify that search indexing and content display work correctly.",
       "scope_path" => "test_app/test_component",
       "importance" => 3,
       "tags" => ["test", "verification", "memory_system"],
@@ -92,6 +93,7 @@ defmodule Acs.MemoryTestHelpers do
   def assert_memory_fields(memory, expected) do
     Enum.each(expected, fn {field, value} ->
       actual = Map.get(memory, field)
+
       assert actual == value,
              "Expected memory.#{field} to be #{inspect(value)}, got #{inspect(actual)}"
     end)
@@ -103,6 +105,7 @@ defmodule Acs.MemoryTestHelpers do
   def assert_schema_fields(schema, expected) do
     Enum.each(expected, fn {field, value} ->
       actual = Map.get(schema, field)
+
       assert actual == value,
              "Expected schema.#{field} to be #{inspect(value)}, got #{inspect(actual)}"
     end)

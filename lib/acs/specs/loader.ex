@@ -1,4 +1,4 @@
-defmodule Acs.Cognition.Loader do
+defmodule Acs.Specs.Loader do
   @moduledoc """
   File I/O for cognition spec YAML files.
 
@@ -15,26 +15,32 @@ defmodule Acs.Cognition.Loader do
   Resolve the specs root directory.
 
   Resolution order:
-  1. `COGNITION_SPECS_PATH` environment variable
-  2. Application config `:steward_acs, Acs.Cognition.Loader, :specs_path`
+  1. `SPECS_PATH` environment variable
+  2. Application config `:steward_acs, Acs.Specs.Loader, :specs_path`
   3. Default: `../../../acs/specs` relative to ACS app dir
   """
   def specs_path do
-    System.get_env("COGNITION_SPECS_PATH") ||
-      (Application.get_env(:steward_acs, Acs.Cognition.Loader, [])
-       |> Keyword.get(:specs_path)) ||
+    System.get_env("SPECS_PATH") ||
+      Application.get_env(:steward_acs, Acs.Specs.Loader, [])
+      |> Keyword.get(:specs_path) ||
       default_specs_path()
   end
 
   defp default_specs_path do
-    Path.expand("../../../acs/specs", Application.app_dir(:steward_acs))
+    obsidian_path = Application.get_env(:steward_acs, :obsidian_vault_path)
+
+    if is_binary(obsidian_path) and obsidian_path != "" do
+      Path.join(obsidian_path, "specs")
+    else
+      Path.expand("../../../acs/specs", Application.app_dir(:steward_acs))
+    end
   end
 
   @doc """
   Convert a module atom to a spec path string.
 
   ## Examples
-      iex> Acs.Cognition.Loader.module_to_path(MyApp.Engine.Orchestrator)
+      iex> Acs.Specs.Loader.module_to_path(MyApp.Engine.Orchestrator)
       "my_app/engine/orchestrator"
   """
   def module_to_path(module) when is_atom(module) do
@@ -52,8 +58,8 @@ defmodule Acs.Cognition.Loader do
 
   defp validate_path_segment!(segment) do
     if String.starts_with?(segment, "/") or
-       String.contains?(segment, "..") or
-       String.match?(segment, ~r/[^a-z0-9_\/\-\.]/) do
+         String.contains?(segment, "..") or
+         String.match?(segment, ~r/[^a-z0-9_\/\-\.]/) do
       raise ArgumentError, "Invalid path segment: #{inspect(segment)}"
     end
 
@@ -110,22 +116,28 @@ defmodule Acs.Cognition.Loader do
   end
 
   defp load_markdown_file(file_path) do
-    case Acs.Memory.Frontmatter.split(file_path) do
-      {:ok, frontmatter, body} ->
-        map = Map.put(frontmatter, "content", body)
-        entry = Acs.Cognition.Entry.from_map(map)
-        {:ok, entry}
+    case File.read(file_path) do
+      {:ok, content} ->
+        case Acs.Memory.Frontmatter.split(content) do
+          {:ok, frontmatter, body} ->
+            map = Map.put(frontmatter, "content", body)
+            entry = Acs.Specs.Entry.from_map(map)
+            {:ok, entry}
+
+          {:error, reason} ->
+            quarantine_file(file_path, "Frontmatter parse error: #{reason}")
+            {:error, :parse_error, reason}
+        end
 
       {:error, reason} ->
-        quarantine_file(file_path, "Frontmatter parse error: #{reason}")
-        {:error, :parse_error, reason}
+        {:error, :read_error, "Cannot read #{file_path}: #{inspect(reason)}"}
     end
   end
 
   defp load_yaml_file(file_path) do
     case YamlElixir.read_from_file(file_path) do
       {:ok, map} when is_map(map) ->
-        entry = Acs.Cognition.Entry.from_map(map)
+        entry = Acs.Specs.Entry.from_map(map)
         {:ok, entry}
 
       {:ok, _} ->
@@ -141,13 +153,16 @@ defmodule Acs.Cognition.Loader do
   Save a spec entry to its YAML file. Creates directories as needed.
   Returns `:ok` or `{:error, reason}`.
   """
-  def save(%Acs.Cognition.Entry{} = entry) do
-    ext = if entry.document_type && Application.get_env(:steward_acs, :memory_store) == "obsidian",
-      do: ".md", else: ".yaml"
+  def save(%Acs.Specs.Entry{} = entry) do
+    ext =
+      if entry.document_type && Application.get_env(:steward_acs, :memory_store) == "obsidian",
+        do: ".md",
+        else: ".yaml"
+
     file = file_path(entry.app, entry.id, ext)
     File.mkdir_p!(Path.dirname(file))
 
-    case Acs.Cognition.Entry.validate(entry) do
+    case Acs.Specs.Entry.validate(entry) do
       :ok ->
         content = to_file_content(entry, ext)
         File.write!(file, content)
@@ -162,14 +177,14 @@ defmodule Acs.Cognition.Loader do
   end
 
   defp to_file_content(entry, ".md") do
-    map = Acs.Cognition.Entry.to_map(entry)
+    map = Acs.Specs.Entry.to_map(entry)
     body = Map.get(map, "content", "") || ""
     frontmatter = Map.drop(map, ["content"])
     Acs.Memory.Frontmatter.serialize(frontmatter, body)
   end
 
   defp to_file_content(entry, _ext) do
-    map = Acs.Cognition.Entry.to_map(entry)
+    map = Acs.Specs.Entry.to_map(entry)
     encode_yaml(map)
   end
 
@@ -359,7 +374,9 @@ defmodule Acs.Cognition.Loader do
     cond do
       # Multi-line: use block scalar
       String.contains?(value, "\n") ->
-        " |\n" <> String.duplicate("  ", depth) <> String.replace(value, "\n", "\n" <> String.duplicate("  ", depth))
+        " |\n" <>
+          String.duplicate("  ", depth) <>
+          String.replace(value, "\n", "\n" <> String.duplicate("  ", depth))
 
       # YAML 1.1 implicit type keywords -> single-quote
       needs_yaml_quoting?(value) ->
@@ -372,7 +389,7 @@ defmodule Acs.Cognition.Loader do
       # Contains special YAML chars -> block scalar
       String.contains?(value, "#") or
         String.contains?(value, "'") or String.contains?(value, "\"") or
-        String.match?(value, ~r/^[>\|]/) ->
+          String.match?(value, ~r/^[>\|]/) ->
         " |\n" <> String.duplicate("  ", depth) <> value
 
       # Normal string
@@ -430,7 +447,8 @@ defmodule Acs.Cognition.Loader do
     cond do
       # Multi-line: use block scalar, indent content one level deeper
       String.contains?(value, "\n") ->
-        "|\n" <> String.duplicate("  ", depth + 1) <>
+        "|\n" <>
+          String.duplicate("  ", depth + 1) <>
           String.replace(value, "\n", "\n" <> String.duplicate("  ", depth + 1))
 
       # YAML 1.1 implicit type keywords -> single-quote
@@ -444,7 +462,7 @@ defmodule Acs.Cognition.Loader do
       # Contains special YAML chars -> block scalar
       String.contains?(value, "#") or
         String.contains?(value, "'") or String.contains?(value, "\"") or
-        String.match?(value, ~r/^[>\|]/) ->
+          String.match?(value, ~r/^[>\|]/) ->
         "|\n" <> String.duplicate("  ", depth + 1) <> value
 
       # Normal string
@@ -454,6 +472,7 @@ defmodule Acs.Cognition.Loader do
   end
 
   defp encode_yaml_inline_value(nil), do: "~"
+
   defp encode_yaml_inline_value(value) when is_binary(value) do
     cond do
       # YAML booleans, nulls, and numerics that could be misinterpreted
@@ -480,6 +499,7 @@ defmodule Acs.Cognition.Loader do
         value
     end
   end
+
   defp encode_yaml_inline_value(value) when is_integer(value), do: Integer.to_string(value)
   defp encode_yaml_inline_value(value) when is_float(value), do: Float.to_string(value)
   defp encode_yaml_inline_value(true), do: "true"

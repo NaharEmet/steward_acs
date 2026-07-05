@@ -60,6 +60,8 @@ services:
       PHX_HOST: "prod.stewardacs.xyz"
       OBSIDIAN_VAULT_PATH: /obsidian
       MEMORY_STORE: obsidian
+      MEMORY_EVALUATION_PROMPT_PATH: /app/priv/evaluation_prompt/evaluate.txt
+      META_HARNESS_ENABLED: "${META_HARNESS_ENABLED:-false}"
     volumes:
       - acs_data:/data
       - obsidian_vault:/obsidian

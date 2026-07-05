@@ -13,13 +13,13 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
   - `save_memory/1` — Creates a new memory with multi-layer duplicate
     detection (exact ID, semantic vector similarity, lexical title match)
-  - `list_memories/1` — Lists memories with optional filters (kind,
-    status, scope, limit)
-  - `search_memories/1` — Hybrid search (semantic + FTS) across memories
+  - `query_memories/1` — Unified query tool: if `query` is provided does
+    hybrid search (semantic + FTS); otherwise lists memories with filters
   - `set_memory_status/1` — Updates memory status (approved, rejected,
     stale, deprecated)
   - `generate_guidance_packet/1` — Generates structured guidance for a
     scope path or task ID
+
   """
   require Logger
 
@@ -78,73 +78,65 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     end
   end
 
-  def list_memories(args) do
-    opts = [
+  def query_memories(args) do
+    query = args["query"]
+    mode = args["mode"] || "auto"
+    min_relevance = args["min_relevance"]
+
+    base_opts = [
+      scope_path: args["scope_path"] || args["scope"],
       kind: args["kind"],
       status: args["status"],
-      scope_path: args["scope_path"],
       limit: args["limit"] || 50,
       allowed_teams: args["_auth_allowed_teams"],
       allowed_projects: args["_auth_allowed_projects"],
       agent_role: args["_auth_role"]
     ]
 
-    memories = Acs.Memory.Search.list(opts)
+    if query && query != "" do
+      search_opts = Keyword.put(base_opts, :mode, mode)
 
-    result =
-      Enum.map(memories, fn m ->
-        %{
-          id: m.id,
-          kind: m.kind,
-          status: m.status,
-          title: m.title,
-          scope_path: m.scope_path,
-          importance: m.importance,
-          created_at: m.created_at,
-          updated_at: m.updated_at,
-          created_by: decode_created_by(m.created_by_json)
-        }
-      end)
+      {memories, scores} = Acs.Memory.Search.search_with_scores(query, search_opts)
 
-    {:ok, %{memories: result, count: length(result)}}
-  end
+      result =
+        memories
+        |> Enum.map(fn m ->
+          %{
+            id: m.id,
+            kind: m.kind,
+            status: m.status,
+            title: m.title,
+            summary: m.summary,
+            scope_path: m.scope_path,
+            importance: m.importance,
+            content: String.slice(m.content || "", 0, 500),
+            relevance: Map.get(scores, m.id),
+            created_by: decode_created_by(m.created_by_json)
+          }
+        end)
+        |> maybe_filter_by_relevance(min_relevance)
 
-  def search_memories(args) do
-    query = args["query"]
-    mode = args["mode"] || "auto"
-    min_relevance = args["min_relevance"]
+      {:ok, %{memories: result, count: length(result), mode: mode}}
+    else
+      memories = Acs.Memory.Search.list(base_opts)
 
-    opts = [
-      scope_path: args["scope"],
-      kind: args["kind"],
-      limit: args["limit"] || 20,
-      mode: mode,
-      allowed_teams: args["_auth_allowed_teams"],
-      allowed_projects: args["_auth_allowed_projects"],
-      agent_role: args["_auth_role"]
-    ]
+      result =
+        Enum.map(memories, fn m ->
+          %{
+            id: m.id,
+            kind: m.kind,
+            status: m.status,
+            title: m.title,
+            scope_path: m.scope_path,
+            importance: m.importance,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+            created_by: decode_created_by(m.created_by_json)
+          }
+        end)
 
-    {memories, scores} = Acs.Memory.Search.search_with_scores(query, opts)
-
-    result =
-      memories
-      |> Enum.map(fn m ->
-        %{
-          id: m.id,
-          kind: m.kind,
-          status: m.status,
-          title: m.title,
-          summary: m.summary,
-          scope_path: m.scope_path,
-          importance: m.importance,
-          content: String.slice(m.content || "", 0, 500),
-          relevance: Map.get(scores, m.id),
-          created_by: decode_created_by(m.created_by_json)
-        }
-      end)
-      |> maybe_filter_by_relevance(min_relevance)
-
-    {:ok, %{memories: result, count: length(result), mode: mode}}
+      {:ok, %{memories: result, count: length(result)}}
+    end
   end
 
   defp maybe_filter_by_relevance(results, nil), do: results

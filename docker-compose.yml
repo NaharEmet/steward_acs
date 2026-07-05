@@ -13,8 +13,9 @@ services:
       MIX_ENV: dev
       PORT: "4001"
       ACS_CLUSTER_NAME: default
+      ACS_PROJECT_NAME: steward
       DATABASE_PATH: /app/priv/acs.sqlite
-      ENABLED_LLM_PROVIDERS: ""
+      ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-mimo,nim}"
       MCP_AUTH_LOCAL_FALLBACK: "false"
 
       # Dashboard credentials (default: admin/admin)
@@ -22,7 +23,7 @@ services:
       ACS_PASSWORD: "${ACS_PASSWORD:-admin}"
 
       # MCP API key for tool calls (optional in dev, required in prod)
-      MCP_API_KEY: "${MCP_API_KEY:-}"
+      MCP_API_KEY: "${MCP_API_KEY:-dev-api-key}"
 
       # MCP tool definitions directory
       # Create YAML tool files in ./acstools/ on the host and point here:
@@ -30,12 +31,12 @@ services:
 
       # LLM provider API keys (enable memory auditing and semantic search)
       # At least one provider key is needed for memory features to work:
-      # NIM_API_KEY: "${NIM_API_KEY:-}"
-      # MIMO_API_KEY: "${MIMO_API_KEY:-}"
-      # MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
-      # OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
-      # OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
-      # OPENAI_MODEL: "${OPENAI_MODEL:-}"
+      NIM_API_KEY: "${NIM_API_KEY:-}"
+      MIMO_API_KEY: "${MIMO_API_KEY:-}"
+      MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-}"
     volumes:
       # Uncomment to mount Obsidian vault:
       # - /path/to/your/vault:/obsidian:ro

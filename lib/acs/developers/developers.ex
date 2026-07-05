@@ -7,6 +7,7 @@ defmodule Acs.Developers do
   """
   alias Acs.Developers.DeveloperApiKey
   alias Acs.Repo
+  import Ecto.Query
   require Logger
 
   @doc """
@@ -21,22 +22,20 @@ defmodule Acs.Developers do
         {:error, "Invalid API key"}
 
       dev_key ->
-        # Update last_used_at (fire-and-forget)
-        Task.start(fn ->
-          case dev_key
-               |> Ecto.Changeset.change(%{last_used_at: DateTime.utc_now() |> DateTime.truncate(:second)})
-               |> Repo.update() do
-            {:ok, _} ->
-              :ok
+        # Update last_used_at (synchronous, fast single-row update)
+        Repo.update_all(
+          from(d in DeveloperApiKey, where: d.id == ^dev_key.id),
+          set: [last_used_at: DateTime.utc_now() |> DateTime.truncate(:second)]
+        )
 
-            {:error, e} ->
-              Logger.error("[Developers] Failed to update last_used_at: #{inspect(e)}")
-          end
-        end)
-
-        {:ok, %{role: dev_key.role, cluster: dev_key.cluster, developer_name: dev_key.developer_name,
-                allowed_teams: decode_json(dev_key.allowed_teams_json),
-                allowed_projects: decode_json(dev_key.allowed_projects_json)}}
+        {:ok,
+         %{
+           role: dev_key.role,
+           cluster: dev_key.cluster,
+           developer_name: dev_key.developer_name,
+           allowed_teams: decode_json(dev_key.allowed_teams_json),
+           allowed_projects: decode_json(dev_key.allowed_projects_json)
+         }}
     end
   end
 
@@ -64,10 +63,10 @@ defmodule Acs.Developers do
            key_prefix: prefix,
            developer_name: name,
            role: role,
-            cluster: cluster,
-            active: true,
-            allowed_teams_json: encode_json(allowed_teams),
-            allowed_projects_json: encode_json(allowed_projects)
+           cluster: cluster,
+           active: true,
+           allowed_teams_json: encode_json(allowed_teams),
+           allowed_projects_json: encode_json(allowed_projects)
          })
          |> Repo.insert() do
       {:ok, dev} ->
@@ -118,6 +117,7 @@ defmodule Acs.Developers do
   defp encode_json(list) when is_list(list), do: Jason.encode!(list)
 
   defp decode_json(nil), do: nil
+
   defp decode_json(json) when is_binary(json) do
     case Jason.decode(json) do
       {:ok, list} when is_list(list) -> list

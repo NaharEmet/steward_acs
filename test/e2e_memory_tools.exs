@@ -23,7 +23,10 @@ Ecto.Adapters.SQL.Sandbox.checkout(Repo)
 Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
 
 {:ok, init_count, init_quarantined} = Indexer.sync_all()
-IO.puts("🟢 Index initialized: #{init_count} memories synced, #{length(init_quarantined)} quarantined\n")
+
+IO.puts(
+  "🟢 Index initialized: #{init_count} memories synced, #{length(init_quarantined)} quarantined\n"
+)
 
 # State accumulator
 state = %{ids: [], pass: 0, fail: 0}
@@ -42,6 +45,7 @@ end
 # Pre-clean: remove any leftover YAML from a prior aborted run
 scope_path = "agent_coordination_system/memory/e2e_test"
 legacy_path = Loader.memory_dir() |> Path.join(scope_path <> ".yaml")
+
 if File.exists?(legacy_path) do
   File.rm!(legacy_path)
   IO.puts("  🗑️ Cleaned leftover file: #{legacy_path}")
@@ -127,10 +131,9 @@ result3 =
 
 {state, mem2_id} =
   case result3 do
-    {:ok, %{id: id, status: "proposed", conflict_flags: flags}} when is_list(flags) and flags != [] ->
-      record_pass.(
-        "save_memory #2 with #{length(flags)} conflict flag(s): #{inspect(flags)}"
-      )
+    {:ok, %{id: id, status: "proposed", conflict_flags: flags}}
+    when is_list(flags) and flags != [] ->
+      record_pass.("save_memory #2 with #{length(flags)} conflict flag(s): #{inspect(flags)}")
 
       {%{state | ids: [id | state.ids], pass: state.pass + 1}, id}
 
@@ -186,21 +189,21 @@ IO.puts("")
 # ─── Test 5: search_memories ───
 ph.("Test 5: search_memories - full-text search by query")
 
-  result5 =
-    Acs.MCP.Tools.call_tool("search_memories", %{
-      "query" => "debounce"
-    })
+result5 =
+  Acs.MCP.Tools.call_tool("search_memories", %{
+    "query" => "debounce"
+  })
 
-  state =
-    case result5 do
-      {:ok, %{memories: mems, count: count}} when count >= 1 ->
-        titles = Enum.map(mems, & &1.title)
-        record_pass.("search_memories for 'debounce' found #{count} result(s): #{inspect(titles)}")
-        %{state | pass: state.pass + 1}
+state =
+  case result5 do
+    {:ok, %{memories: mems, count: count}} when count >= 1 ->
+      titles = Enum.map(mems, & &1.title)
+      record_pass.("search_memories for 'debounce' found #{count} result(s): #{inspect(titles)}")
+      %{state | pass: state.pass + 1}
 
-      {:ok, %{memories: [], count: 0}} ->
-        record_fail.("search_memories found 0 results for 'debounce'")
-        %{state | fail: state.fail + 1}
+    {:ok, %{memories: [], count: 0}} ->
+      record_fail.("search_memories found 0 results for 'debounce'")
+      %{state | fail: state.fail + 1}
 
     {:ok, data} ->
       record_fail.("search_memories unexpected format: #{inspect(data)}")
@@ -287,12 +290,15 @@ state =
   case result8 do
     {:ok, packet} when is_map(packet) ->
       has_scope = Map.has_key?(packet, :scope) or Map.has_key?(packet, "scope")
-      has_critical = Map.has_key?(packet, :critical_axioms) or Map.has_key?(packet, "critical_axioms")
+
+      has_critical =
+        Map.has_key?(packet, :critical_axioms) or Map.has_key?(packet, "critical_axioms")
 
       cond do
         has_scope and has_critical ->
           scope_val = packet[:scope] || packet["scope"]
           axioms = packet[:critical_axioms] || packet["critical_axioms"] || []
+
           record_pass.(
             "generate_guidance_packet for scope '#{scope_val}' returned #{map_size(packet)} keys, #{length(axioms)} axiom(s)"
           )
@@ -300,7 +306,10 @@ state =
           %{state | pass: state.pass + 1}
 
         true ->
-          record_fail.("generate_guidance_packet missing scope or critical_axioms keys: #{inspect(Map.keys(packet))}")
+          record_fail.(
+            "generate_guidance_packet missing scope or critical_axioms keys: #{inspect(Map.keys(packet))}"
+          )
+
           %{state | fail: state.fail + 1}
       end
 

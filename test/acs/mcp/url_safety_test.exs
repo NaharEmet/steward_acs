@@ -31,7 +31,8 @@ defmodule Acs.MCP.UrlSafetyTest do
     end
 
     test "rejects metadata endpoint" do
-      assert {:error, _} = UrlSafety.validate_outbound_url("http://169.254.169.254/latest/meta-data")
+      assert {:error, _} =
+               UrlSafety.validate_outbound_url("http://169.254.169.254/latest/meta-data")
     end
 
     test "rejects non-http schemes" do

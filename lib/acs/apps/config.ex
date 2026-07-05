@@ -82,8 +82,16 @@ defmodule Acs.Apps.Config do
   def init(_opts) do
     case :ets.info(@table, :name) do
       :undefined ->
-        :ets.new(@table, [:set, :named_table, :public, read_concurrency: true, write_concurrency: true])
-      _ -> :ok
+        :ets.new(@table, [
+          :set,
+          :named_table,
+          :public,
+          read_concurrency: true,
+          write_concurrency: true
+        ])
+
+      _ ->
+        :ok
     end
 
     discover_from_env()
@@ -139,17 +147,28 @@ defmodule Acs.Apps.Config do
       []
       |> then(fn c -> if base_url, do: Keyword.put(c, :base_url, base_url), else: c end)
       |> then(fn c -> if api_key, do: Keyword.put(c, :api_key, api_key), else: c end)
-      |> then(fn c -> if auth_endpoint, do: Keyword.put(c, :auth_endpoint, auth_endpoint), else: c end)
-      |> then(fn c -> if auth_header_name, do: Keyword.put(c, :auth_header_name, auth_header_name), else: c end)
-      |> then(fn c -> if auth_header_scheme, do: Keyword.put(c, :auth_header_scheme, auth_header_scheme), else: c end)
-      |> then(fn c -> if timeout_ms, do: Keyword.put(c, :timeout_ms, String.to_integer(timeout_ms)), else: c end)
+      |> then(fn c ->
+        if auth_endpoint, do: Keyword.put(c, :auth_endpoint, auth_endpoint), else: c
+      end)
+      |> then(fn c ->
+        if auth_header_name, do: Keyword.put(c, :auth_header_name, auth_header_name), else: c
+      end)
+      |> then(fn c ->
+        if auth_header_scheme,
+          do: Keyword.put(c, :auth_header_scheme, auth_header_scheme),
+          else: c
+      end)
+      |> then(fn c ->
+        if timeout_ms, do: Keyword.put(c, :timeout_ms, String.to_integer(timeout_ms)), else: c
+      end)
 
     if base_url do
       :ets.insert(@table, {name, config})
       Logger.debug("[Apps.Config] Discovered app: #{name} (#{base_url})")
     else
-      Logger.warning("[Apps.Config] App '#{name}' listed in CONFIGURED_APPS but no #{prefix}_URL set, skipping")
+      Logger.warning(
+        "[Apps.Config] App '#{name}' listed in CONFIGURED_APPS but no #{prefix}_URL set, skipping"
+      )
     end
   end
-
 end

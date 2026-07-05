@@ -14,9 +14,8 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   - `acs_help/1` — Lists MCP tools with filtering by category/level
   - `config_lookup/1` — Returns opencode configuration data (agents,
     skills, plugins, MCP)
-  - `connection_diagnostic/1` — Checks reachability of ACS, database,
+   - `connection_diagnostic/1` — Checks reachability of ACS, database,
     and LLM services
-  - `find_similar_code/1` — Semantic search across codebase memories
   - `memory_health_check/1` — Full memory pipeline health assessment
     including flow, throughput, DLQ, and stuck messages
   """
@@ -25,7 +24,9 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   def acs_query(%{"sql" => sql, "purpose" => purpose}) do
     case validate_read_only_sql(sql) do
       :ok ->
-        Logger.info("[acs_query] purpose: #{purpose || "unknown"}, sql: #{String.slice(sql, 0, 100)}")
+        Logger.info(
+          "[acs_query] purpose: #{purpose || "unknown"}, sql: #{String.slice(sql, 0, 100)}"
+        )
 
         case run_sql_query(sql) do
           {:ok, results} -> {:ok, %{row_count: length(results), results: results}}
@@ -159,34 +160,6 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
     {:ok, %{diagnostics: results, timestamp: DateTime.utc_now() |> DateTime.to_iso8601()}}
   end
 
-  def find_similar_code(args) do
-    query = args["query"]
-    limit = args["limit"] || 5
-    scope = args["scope"]
-
-    if is_nil(query) || query == "" do
-      {:error, "Query is required"}
-    else
-      search_opts = [limit: limit]
-      search_opts = if scope, do: Keyword.put(search_opts, :scope_path, scope), else: search_opts
-
-      results = Acs.Memory.Search.search(query, search_opts)
-
-      formatted_results =
-        Enum.map(results, fn mem ->
-          %{
-            id: mem.id,
-            title: mem.title,
-            kind: mem.kind,
-            scope_path: mem.scope_path,
-            relevance: "semantic_match"
-          }
-        end)
-
-      {:ok, %{results: formatted_results, count: length(formatted_results), query: query}}
-    end
-  end
-
   def memory_health_check(args) do
     org_id = args["org_id"]
     ext = extension_module()
@@ -216,8 +189,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
            %{
              severity: "critical",
              code: "INVALID_API_RESPONSE",
-             message:
-               "fetch_memory_stats returned non-map: #{inspect(stats_response)}"
+             message: "fetch_memory_stats returned non-map: #{inspect(stats_response)}"
            }
          ],
          dlq: %{summary: %{}, recent_entries: []},
@@ -356,10 +328,23 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   end
 
   defp check_acs_service do
-    case Acs.Repo.query("SELECT 1") do
-      {:ok, _} -> %{status: "ok", message: "ACS database reachable"}
-      {:error, reason} -> %{status: "error", message: inspect(reason)}
-    end
+    db_result =
+      case Acs.Repo.query("SELECT 1") do
+        {:ok, _} -> %{status: "ok", message: "ACS database reachable"}
+        {:error, reason} -> %{status: "error", message: inspect(reason)}
+      end
+
+    auth_modes =
+      ["api_key"]
+      |> then(fn modes ->
+        if Acs.MCP.OAuth.Config.enabled?(), do: modes ++ ["auth0_oauth"], else: modes
+      end)
+
+    Map.merge(db_result, %{
+      auth_modes: auth_modes,
+      oauth_enabled: Acs.MCP.OAuth.Config.enabled?(),
+      oauth_metadata_url: Acs.MCP.OAuth.Config.protected_resource_metadata_url()
+    })
   end
 
   defp check_database_service do
@@ -371,7 +356,8 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
 
   defp check_llm_service do
     case extension_module().fetch_llm_config() do
-      %{minimax_key: minimax_key, nim_key: nim_key} when not is_nil(minimax_key) and not is_nil(nim_key) ->
+      %{minimax_key: minimax_key, nim_key: nim_key}
+      when not is_nil(minimax_key) and not is_nil(nim_key) ->
         %{status: "ok", message: "Both LLM providers configured"}
 
       %{minimax_key: minimax_key} when not is_nil(minimax_key) ->
@@ -495,7 +481,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
         end)
 
       per_minute =
-        if length(last_minute_cycles) > 0 do
+        if last_minute_cycles != [] do
           total = Enum.reduce(last_minute_cycles, 0, fn c, acc -> acc + (c.processed || 0) end)
           Float.round(total / max(1, length(last_minute_cycles)), 2)
         else
@@ -503,7 +489,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
         end
 
       per_hour =
-        if length(last_hour_cycles) > 0 do
+        if last_hour_cycles != [] do
           total = Enum.reduce(last_hour_cycles, 0, fn c, acc -> acc + (c.processed || 0) end)
           Float.round(total / max(1, length(last_hour_cycles)), 2)
         else

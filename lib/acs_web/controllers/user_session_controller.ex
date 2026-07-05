@@ -14,7 +14,9 @@ defmodule AcsWeb.UserSessionController do
     config = auth_config()
 
     if config[:username] == "admin" and config[:password] == "admin" do
-      Logger.warning("[Auth] Dashboard using default admin/admin credentials — set ACS_USERNAME/ACS_PASSWORD env vars")
+      Logger.warning(
+        "[Auth] Dashboard using default admin/admin credentials — set ACS_USERNAME/ACS_PASSWORD env vars"
+      )
     end
 
     render(conn, :new, layout: false)

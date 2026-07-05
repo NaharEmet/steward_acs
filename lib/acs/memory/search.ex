@@ -4,20 +4,61 @@ defmodule Acs.Memory.Search do
 
   Provides both basic keyword search (via SQLite LIKE) and
   structured queries (by scope, kind, status, importance).
+
+  Supports three search modes:
+  - `"auto"` (default): hybrid search (semantic + lexical + scope + metadata) when
+    embeddings are available, falling back to LIKE-based search
+  - `"keyword"`: forces LIKE-based FTS search via Indexer
+  - `"semantic"`: forces embedding-based vector search
   """
 
   require Logger
 
   @doc """
-  Searches memories by keyword across title, summary, and content.
-  Uses hybrid search (semantic + lexical + scope + metadata) when embeddings are available,
-  falling back to basic LIKE-based search through Indexer.
+  Searches memories using the specified mode.
+
+  Options:
+  - `:mode` - "auto" (default), "keyword", or "semantic"
+  - Other options passed through to the underlying search (scope_path, kind, limit, etc.)
   """
   def search(query, opts \\ []) do
-    if Code.ensure_loaded?(Acs.Memory.HybridSearch) &&
-         function_exported?(Acs.Memory.HybridSearch, :search, 2) &&
-         Acs.Memory.Embedding.available?() do
-      # Use hybrid search for better results
+    mode = Keyword.get(opts, :mode, "auto")
+
+    case mode do
+      "keyword" ->
+        Acs.Memory.Indexer.search(query, opts)
+
+      "semantic" ->
+        search_semantic(query, opts)
+
+      "auto" ->
+        search_auto(query, opts)
+    end
+  end
+
+  @doc """
+  Like `search/2`, but also returns a scores map when hybrid/semantic results are available.
+
+  Returns `{memories, scores_map}` where scores_map is `%{memory_id => float}`.
+  When only keyword results are available, scores_map is empty.
+  """
+  def search_with_scores(query, opts \\ []) do
+    mode = Keyword.get(opts, :mode, "auto")
+
+    case mode do
+      "keyword" ->
+        {Acs.Memory.Indexer.search(query, opts), %{}}
+
+      "semantic" ->
+        search_semantic_with_scores(query, opts)
+
+      "auto" ->
+        search_auto_with_scores(query, opts)
+    end
+  end
+
+  defp search_auto(query, opts) do
+    if hybrid_available?() do
       hybrid_results = Acs.Memory.HybridSearch.search(query, opts)
       memory_ids = Enum.map(hybrid_results.results, & &1.memory_id)
 
@@ -26,7 +67,6 @@ defmodule Acs.Memory.Search do
       else
         memories_map = Acs.Memory.Indexer.get_memories_by_ids(memory_ids)
 
-        # Return in hybrid score order
         memory_ids
         |> Enum.map(fn id -> Map.get(memories_map, id) end)
         |> Enum.reject(&is_nil/1)
@@ -35,6 +75,95 @@ defmodule Acs.Memory.Search do
       Logger.warning("[Search] Hybrid search unavailable, falling back to keyword search")
       Acs.Memory.Indexer.search(query, opts)
     end
+  end
+
+  defp search_auto_with_scores(query, opts) do
+    if hybrid_available?() do
+      hybrid_results = Acs.Memory.HybridSearch.search(query, opts)
+      memory_ids = Enum.map(hybrid_results.results, & &1.memory_id)
+
+      if memory_ids == [] do
+        {[], %{}}
+      else
+        memories_map = Acs.Memory.Indexer.get_memories_by_ids(memory_ids)
+        scores_map = Map.new(hybrid_results.results, fn r -> {r.memory_id, r.total_score} end)
+
+        memories =
+          memory_ids
+          |> Enum.map(fn id -> Map.get(memories_map, id) end)
+          |> Enum.reject(&is_nil/1)
+
+        {memories, scores_map}
+      end
+    else
+      Logger.warning("[Search] Hybrid search unavailable, falling back to keyword search")
+      {Acs.Memory.Indexer.search(query, opts), %{}}
+    end
+  end
+
+  defp search_semantic(query, opts) do
+    if Acs.Memory.Embedding.available?() do
+      case Acs.Memory.Embedding.embed_text(query) do
+        {:ok, embedding} ->
+          limit = Keyword.get(opts, :limit, 20)
+          similar = Acs.Memory.VectorIndex.search_similar(embedding, limit: limit)
+          memory_ids = Enum.map(similar, & &1.memory_id)
+
+          if memory_ids == [] do
+            []
+          else
+            memories_map = Acs.Memory.Indexer.get_memories_by_ids(memory_ids)
+
+            memory_ids
+            |> Enum.map(fn id -> Map.get(memories_map, id) end)
+            |> Enum.reject(&is_nil/1)
+          end
+
+        {:error, _reason} ->
+          []
+      end
+    else
+      Logger.warning("[Search] Embeddings unavailable for semantic search")
+      []
+    end
+  end
+
+  defp search_semantic_with_scores(query, opts) do
+    if Acs.Memory.Embedding.available?() do
+      case Acs.Memory.Embedding.embed_text(query) do
+        {:ok, embedding} ->
+          limit = Keyword.get(opts, :limit, 20)
+          similar = Acs.Memory.VectorIndex.search_similar(embedding, limit: limit)
+
+          memory_ids = Enum.map(similar, & &1.memory_id)
+
+          if memory_ids == [] do
+            {[], %{}}
+          else
+            memories_map = Acs.Memory.Indexer.get_memories_by_ids(memory_ids)
+            scores_map = Map.new(similar, fn s -> {s.memory_id, s.similarity} end)
+
+            memories =
+              memory_ids
+              |> Enum.map(fn id -> Map.get(memories_map, id) end)
+              |> Enum.reject(&is_nil/1)
+
+            {memories, scores_map}
+          end
+
+        {:error, _reason} ->
+          {[], %{}}
+      end
+    else
+      Logger.warning("[Search] Embeddings unavailable for semantic search")
+      {[], %{}}
+    end
+  end
+
+  defp hybrid_available? do
+    Code.ensure_loaded?(Acs.Memory.HybridSearch) &&
+      function_exported?(Acs.Memory.HybridSearch, :search, 2) &&
+      Acs.Memory.Embedding.available?()
   end
 
   @doc """

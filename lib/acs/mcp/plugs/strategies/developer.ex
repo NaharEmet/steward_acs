@@ -23,9 +23,15 @@ defmodule Acs.MCP.Plugs.Strategies.Developer do
             "[MCPAuth] authenticated via developer key: role=#{result.role} cluster=#{result.cluster}"
           )
 
-          {:ok, %{role: result.role, org_id: result.cluster, permissions: nil,
-                  agent_identity: result.developer_name,
-                  allowed_teams: result[:allowed_teams], allowed_projects: result[:allowed_projects]}}
+          {:ok,
+           %{
+             role: result.role,
+             org_id: result.cluster,
+             permissions: nil,
+             agent_identity: result.developer_name,
+             allowed_teams: result[:allowed_teams],
+             allowed_projects: result[:allowed_projects]
+           }}
 
         {:error, reason} ->
           {:error, reason}

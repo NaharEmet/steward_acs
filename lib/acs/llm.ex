@@ -47,7 +47,8 @@ defmodule Acs.LLM do
   end
 
   def evaluate_memory(memory_id, invalid) do
-    {:error, {:invalid_input, "memory_id #{memory_id}: memory must be a map, got: #{inspect(invalid)}"}}
+    {:error,
+     {:invalid_input, "memory_id #{memory_id}: memory must be a map, got: #{inspect(invalid)}"}}
   end
 
   # Backward compatibility — deprecated, use evaluate_memory/2
@@ -82,7 +83,8 @@ defmodule Acs.LLM do
   # ── Core evaluation logic ───────────────────────────────────────────
 
   defp do_evaluate(memory_id, memory) do
-    prompt = build_evaluation_prompt(memory, fetch_approved_memories_for_context(memory.scope_path))
+    prompt =
+      build_evaluation_prompt(memory, fetch_approved_memories_for_context(memory.scope_path))
 
     providers = get_enabled_providers()
 
@@ -109,7 +111,9 @@ defmodule Acs.LLM do
     Logger.info("[Acs.LLM] Trying provider: #{provider_id}")
 
     case call_provider(provider_id, prompt) do
-      {:ok, evaluation} -> {:ok, evaluation}
+      {:ok, evaluation} ->
+        {:ok, evaluation}
+
       {:error, reason} ->
         Logger.warning("[Acs.LLM] Provider #{provider_id} failed: #{inspect(reason)}")
         try_providers(memory_id, rest, prompt, [{provider_id, reason} | errors])
@@ -156,7 +160,10 @@ defmodule Acs.LLM do
           extract_evaluation(content)
 
         {:ok, response} ->
-          Logger.warning("[Acs.LLM] Unexpected response format from #{provider_id}: #{inspect(response)}")
+          Logger.warning(
+            "[Acs.LLM] Unexpected response format from #{provider_id}: #{inspect(response)}"
+          )
+
           {:error, :unexpected_response_format}
 
         {:error, reason} ->
@@ -270,6 +277,20 @@ defmodule Acs.LLM do
   defp fetch_approved_memories_for_context(_), do: []
 
   # ── Evaluation prompt ────────────────────────────────────────────────
+  # Default prompt used when MEMORY_EVALUATION_PROMPT_PATH is not set or unreadable.
+  # Supports {{memory_json}} and {{existing_memories_json}} template variables.
+
+  @default_evaluation_prompt """
+  You are a memory quality auditor. Evaluate memory entries for content quality, title descriptiveness, noise, and contradictions with existing knowledge.
+
+  {"memory_entry": {{memory_json}}}
+
+  {"existing_memories": {{existing_memories_json}}}
+
+  Respond ONLY with valid JSON. Use single-line values only — no multi-line strings. Fields: quality_score(1-5), title_quality(1-5), is_noise(bool), recommendation(one of: "approve","reject","human_review"), reasoning, improvements, suggested_title, is_duplicate_of
+
+  For recommendation, you MUST use exactly one of: "approve", "reject", or "human_review".
+  """
 
   defp build_evaluation_prompt(memory, context_memories) do
     memory_json =
@@ -283,16 +304,26 @@ defmodule Acs.LLM do
 
     existing_memories_json = Jason.encode!(context_memories)
 
-    """
-    You are a memory quality auditor. Evaluate memory entries for content quality, title descriptiveness, noise, and contradictions with existing knowledge.
+    prompt_template = load_prompt_template()
+    do_interpolate(prompt_template, memory_json, existing_memories_json)
+  end
 
-    {"memory_entry": #{memory_json}}
+  defp load_prompt_template do
+    case Application.get_env(:steward_acs, :memory_evaluation_prompt_path) do
+      nil -> @default_evaluation_prompt
+      path ->
+        case File.read(path) do
+          {:ok, content} -> content
+          {:error, reason} ->
+            Logger.warning("[Acs.LLM] Failed to read prompt file #{path}: #{reason}. Using default.")
+            @default_evaluation_prompt
+        end
+    end
+  end
 
-    {"existing_memories": #{existing_memories_json}}
-
-    Respond ONLY with valid JSON. Use single-line values only — no multi-line strings. Fields: quality_score(1-5), title_quality(1-5), is_noise(bool), recommendation(one of: "approve","reject","human_review"), reasoning, improvements, suggested_title, is_duplicate_of
-
-    For recommendation, you MUST use exactly one of: "approve", "reject", or "human_review".
-    """
+  defp do_interpolate(template, memory_json, existing_memories_json) do
+    template
+    |> String.replace("{{memory_json}}", memory_json)
+    |> String.replace("{{existing_memories_json}}", existing_memories_json)
   end
 end

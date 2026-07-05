@@ -251,12 +251,18 @@ In Docker, uncomment the `obsidian_vault` volume and `syncthing` service in your
 | `MCP_TOOLS_PATH` | No | `<app>/acs/acstools` | Comma-separated directories for YAML tool definitions |
 | `MCP_AUTH_LOCAL_FALLBACK` | No | `false` | Allow unauthenticated MCP calls from localhost |
 | `HTTP_SLEEP_MAX_MS` | No | — | Max sleep duration for `sleep` tool (ms) |
-| `ALLOWED_PATHS` | No | — | Comma-separated allowed paths for `read_file`/`write_file` tools |
+
 | `ALLOWED_COMMANDS` | No | — | Comma-separated allowed commands for `exec_command` tool |
 | `BRIDGE_ALLOWED_HOSTS` | No | — | Comma-separated allowed hosts for the HTTP Bridge |
 | `ACS_ADMIN_EMAILS` | No | — | Comma-separated admin emails for notifications |
 | `LOG_INGEST_KEY` | No | — | Shared key for log ingestion endpoint |
-| `OAUTH_BEARER_ENABLED` | No | `false` | Enable OAuth Bearer token auth strategy |
+| `OAUTH_BEARER_ENABLED` | No | `false` | Enable Auth0 JWT validation for Claude Connectors |
+| `AUTH0_DOMAIN` | When OAuth on | — | Auth0 tenant domain (e.g. `dev-jw5wgp2b.us.auth0.com`) |
+| `AUTH0_AUDIENCE` | When OAuth on | — | MCP API identifier — must match Claude connector URL (e.g. `https://prod.stewardacs.xyz/mcp/sse`) |
+| `AUTH0_ISSUER` | No | `https://${AUTH0_DOMAIN}/` | Override OIDC issuer if non-standard |
+| `MCP_PUBLIC_URL` | When OAuth on | — | Public base URL for OAuth metadata (e.g. `https://prod.stewardacs.xyz`) |
+| `MCP_RESOURCE_URL` | No | same as audience | Resource URL in protected-resource metadata |
+| `MCP_QUERY_KEY_AUTH` | No | `false` | Allow `?api_key=` on MCP SSE (legacy connector fallback) |
 | `SESSION_VALIDITY_DAYS` | No | `7` | Dashboard session lifetime |
 
 ### LLM Provider Setup
@@ -293,11 +299,11 @@ All tools are prefixed `acs_*` when called by agents.
 | Category | Tools |
 |---|---|
 | **Core** | `create_work`, `claim_work`, `release_work`, `lock_file`, `unlock_file`, `get_present_status`, `list_tasks`, `sleep`, `wake`, `help` |
-| **Knowledge** | `save_memory`, `search_memories`, `list_memories`, `set_memory_status`, `generate_guidance_packet` |
+| **Knowledge** | `save_memory`, `query_memories`, `set_memory_status`, `generate_guidance_packet` |
 | **Cognition** | `cognition_get`, `cognition_search`, `cognition_propose`, `cognition_approve`, `cognition_reject`, `cognition_list`, `cognition_list_undocumented` |
-| **Diagnostic** | `config_lookup`, `connection_diagnostic`, `find_similar_code`, `memory_health_check`, `get_logs` |
+| **Diagnostic** | `config_lookup`, `connection_diagnostic`, `query_memories`, `memory_health_check`, `get_logs` |
 | **Error** | `list_error_traces`, `ack_error_trace`, `resolve_error_trace`, `create_task_from_error_trace` |
-| **Advanced** | `write_tool`, `refresh_tools`, `time`, `list_orgs`, `list_categories`, `list_tools`, `exec_command`, `read_file`, `write_file`, `read_dir` |
+| **Advanced** | `write_tool`, `refresh_tools`, `time`, `list_orgs`, `list_categories`, `list_tools`, `exec_command` |
 
 ---
 

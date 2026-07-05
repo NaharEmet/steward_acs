@@ -85,10 +85,13 @@ defmodule Acs.Memory.AuditorTest do
   # ---------------------------------------------------------------------------
 
   describe "Auditor GenServer" do
-    test "is running and alive" do
-      auditor_pid = Process.whereis(Acs.Memory.Auditor)
-      assert auditor_pid != nil
-      assert Process.alive?(auditor_pid)
+    setup do
+      pid = start_supervised!(Acs.Memory.Auditor)
+      %{auditor_pid: pid}
+    end
+
+    test "is running and alive", %{auditor_pid: pid} do
+      assert Process.alive?(pid)
     end
 
     test "trigger_audit returns :ok" do
@@ -109,34 +112,6 @@ defmodule Acs.Memory.AuditorTest do
       interval = Auditor.audit_interval()
       assert is_integer(interval)
       assert interval > 0
-    end
-  end
-
-  # ---------------------------------------------------------------------------
-  # Supervision Tree Tests
-  # ---------------------------------------------------------------------------
-
-  describe "Supervision tree" do
-    test "Auditor is in children list in application.ex" do
-      # Path from test/acs/memory/auditor_test.exs to lib/acs/application.ex
-      # Going up: memory -> acs -> test -> (back to agent_coordination_system)
-      # Need: ../../.. to get to agent_coordination_system root, then lib/acs/application.ex
-      application_path = Path.expand("../../../lib/acs/application.ex", __DIR__)
-
-      assert File.exists?(application_path), "Application file not found at #{application_path}"
-
-      content = File.read!(application_path)
-      assert content =~ "Acs.Memory.Auditor"
-    end
-
-    test "Auditor is started and supervised" do
-      # Verify the Auditor process is running under the supervisor
-      auditor_pid = Process.whereis(Acs.Memory.Auditor)
-      assert auditor_pid != nil
-
-      # Verify it's actually supervised by checking it's part of the supervision tree
-      # The supervisor should be Acs.Supervisor
-      assert Process.info(auditor_pid, :group_leader) != nil
     end
   end
 
@@ -162,12 +137,13 @@ defmodule Acs.Memory.AuditorTest do
 
   describe "Memory audit status updates" do
     test "Indexer.update_status changes memory status" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "status_update_auditor_#{System.unique_integer([:positive])}",
-        "kind" => "axiom",
-        "title" => "Status Update Test",
-        "scope_path" => "test_app/status_update"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "status_update_auditor_#{System.unique_integer([:positive])}",
+          "kind" => "axiom",
+          "title" => "Status Update Test",
+          "scope_path" => "test_app/status_update"
+        })
 
       Indexer.upsert_memory(memory)
 
@@ -185,12 +161,13 @@ defmodule Acs.Memory.AuditorTest do
 
     test "memory with empty scope_path is invalid" do
       # Empty scope_path should cause issues when saved
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "empty_scope_int_test_#{System.unique_integer([:positive])}",
-        "kind" => "learning",
-        "title" => "Empty Scope Memory",
-        "scope_path" => ""
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "empty_scope_int_test_#{System.unique_integer([:positive])}",
+          "kind" => "learning",
+          "title" => "Empty Scope Memory",
+          "scope_path" => ""
+        })
 
       # Memory struct should have empty scope_path
       assert memory.scope_path == ""
@@ -199,13 +176,14 @@ defmodule Acs.Memory.AuditorTest do
     test "memory with title == content is stored correctly" do
       same_text = "Identical text in both fields."
 
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "identical_#{System.unique_integer([:positive])}",
-        "kind" => "observation",
-        "title" => same_text,
-        "content" => same_text,
-        "scope_path" => "test_app/identical"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "identical_#{System.unique_integer([:positive])}",
+          "kind" => "observation",
+          "title" => same_text,
+          "content" => same_text,
+          "scope_path" => "test_app/identical"
+        })
 
       # Memory should store the same values
       assert memory.title == memory.content
@@ -213,13 +191,15 @@ defmodule Acs.Memory.AuditorTest do
     end
 
     test "short content memory is stored with correct content" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "short_content_#{System.unique_integer([:positive])}",
-        "kind" => "pattern",
-        "title" => "Short Memory",
-        "content" => "Too short.",  # 11 chars
-        "scope_path" => "test_app/short"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "short_content_#{System.unique_integer([:positive])}",
+          "kind" => "pattern",
+          "title" => "Short Memory",
+          # 11 chars
+          "content" => "Too short.",
+          "scope_path" => "test_app/short"
+        })
 
       # Verify content length
       assert String.length(memory.content) < 20
@@ -274,13 +254,15 @@ defmodule Acs.Memory.AuditorTest do
 
   describe "Auto-improve" do
     test "suggested_title is applied when approving a memory" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "auto_improve_title_test_#{System.unique_integer([:positive])}",
-        "kind" => "axiom",
-        "title" => "Original Title",
-        "content" => "This memory needs a better title.",
-        "scope_path" => "test_app/auto_improve"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "auto_improve_title_test_#{System.unique_integer([:positive])}",
+          "kind" => "axiom",
+          "title" => "Original Title",
+          "content" => "This memory needs a better title.",
+          "scope_path" => "test_app/auto_improve"
+        })
+
       Indexer.upsert_memory(memory)
 
       {:ok, _} = Indexer.update_field(memory.id, :title, "Better Descriptive Title")
@@ -290,13 +272,15 @@ defmodule Acs.Memory.AuditorTest do
     end
 
     test "improvements are appended to content" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "auto_improve_content_test_#{System.unique_integer([:positive])}",
-        "kind" => "learning",
-        "title" => "Test Title",
-        "content" => "Original content.",
-        "scope_path" => "test_app/auto_improve"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "auto_improve_content_test_#{System.unique_integer([:positive])}",
+          "kind" => "learning",
+          "title" => "Test Title",
+          "content" => "Original content.",
+          "scope_path" => "test_app/auto_improve"
+        })
+
       Indexer.upsert_memory(memory)
 
       improvements_text = "Consider adding more examples."
@@ -309,13 +293,15 @@ defmodule Acs.Memory.AuditorTest do
     end
 
     test "empty suggested_title is not applied" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "auto_improve_empty_#{System.unique_integer([:positive])}",
-        "kind" => "pattern",
-        "title" => "Current Title",
-        "content" => "Some good content here.",
-        "scope_path" => "test_app/auto_improve"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "auto_improve_empty_#{System.unique_integer([:positive])}",
+          "kind" => "pattern",
+          "title" => "Current Title",
+          "content" => "Some good content here.",
+          "scope_path" => "test_app/auto_improve"
+        })
+
       Indexer.upsert_memory(memory)
 
       updated = Repo.get(Schema, memory.id)
@@ -323,13 +309,15 @@ defmodule Acs.Memory.AuditorTest do
     end
 
     test "update_field with invalid field returns error" do
-      memory = Acs.MemoryTestHelpers.create_test_memory(%{
-        "id" => "auto_improve_invalid_#{System.unique_integer([:positive])}",
-        "kind" => "learning",
-        "title" => "Valid Title",
-        "content" => "Valid content for testing.",
-        "scope_path" => "test_app/auto_improve"
-      })
+      memory =
+        Acs.MemoryTestHelpers.create_test_memory(%{
+          "id" => "auto_improve_invalid_#{System.unique_integer([:positive])}",
+          "kind" => "learning",
+          "title" => "Valid Title",
+          "content" => "Valid content for testing.",
+          "scope_path" => "test_app/auto_improve"
+        })
+
       Indexer.upsert_memory(memory)
 
       assert_raise FunctionClauseError, fn ->

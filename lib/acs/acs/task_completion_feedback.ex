@@ -19,7 +19,19 @@ defmodule Acs.Acs.TaskCompletionFeedback do
 
   def changeset(feedback, attrs) do
     feedback
-    |> cast(attrs, [:task_id, :agent_id, :most_surprising, :most_time_consuming, :improvements_needed, :tools_wish_list, :info_needed, :guidance_useful, :guidance_items_helpful, :guidance_items_confusing, :guidance_missing])
+    |> cast(attrs, [
+      :task_id,
+      :agent_id,
+      :most_surprising,
+      :most_time_consuming,
+      :improvements_needed,
+      :tools_wish_list,
+      :info_needed,
+      :guidance_useful,
+      :guidance_items_helpful,
+      :guidance_items_confusing,
+      :guidance_missing
+    ])
     |> validate_required([:task_id, :agent_id])
   end
 end

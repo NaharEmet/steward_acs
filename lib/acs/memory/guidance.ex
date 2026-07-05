@@ -14,7 +14,7 @@ defmodule Acs.Memory.Guidance do
 
   ## Delivery Tiers
   - `:claim` — Compact packet delivered at task claim time
-    Includes: axioms, warnings, maintenance, tool_reference, document_*, workflow_basics
+    Includes: axioms, warnings, maintenance, tool_reference, specs_*, workflow_basics
   - `:full` — Complete packet delivered on explicit request
     Includes: all of :claim + patterns, knowledge, file_locking_protocol,
     memory_protocol, error_response_protocol, sleep_wake_protocol, agent_identity
@@ -26,10 +26,12 @@ defmodule Acs.Memory.Guidance do
   @knowledge_max_chars 2000
 
   @maintenance_instructions """
+  ## Maintenance Instructions
+
   If you find any of the above items are incorrect or outdated while working:
   1. Mark old items as stale: use set_memory_status(memory_id: "...", status: "stale", notes: "reason")
   2. Save a corrected version: use save_memory(kind: "...", title: "...", content: "...", scope_path: "...")
-  3. For outdated cognition specs: use document_propose(app, path, updated_attrs) with corrected invariants
+  3. For outdated specs: use specs_propose(app, path, updated_attrs) with corrected invariants
   """
 
   @tool_reference """
@@ -37,21 +39,20 @@ defmodule Acs.Memory.Guidance do
 
   ### How Tool Discovery Works
   Tools are organized in 3 progressive levels for organizational clarity. The MCP `tools/list`
-  endpoint (what OpenCode calls on startup) returns **ALL tools at every level** — no level
+  endpoint returns **ALL tools at every level** — no level
   filtering is applied at the MCP listing layer. Every registered tool is always visible and
   callable by name.
 
   - **Level 1**: Core workflow tools — `claim_work`, `release_work`,
     `create_work`, `lock_file`, `unlock_file`, `get_present_status`, `get_locked_files`,
     `list_tasks`, `sleep`, `wake`, `submit_task_feedback`, `help`, `save_memory`,
-    `list_memories`, `search_memories`, `generate_guidance_packet`, `document_get`,
-    `document_search`, `document_list`, `document_list_undocumented`, and all `ant_*` tools
-  - **Level 2**: `get_logs`, `list_categories`, `list_tools`,
-    `refresh_tools`, `list_orgs`, `set_memory_status`, `document_propose`, `document_approve`,
-    `document_reject`, plus Ant Dev tools like `get_system_reply`, `trigger_workflow`, etc.
+    `query_memories`, `generate_guidance_packet`, `specs_get`,
+    `query_specs`
+  - **Level 2**: `get_logs`, `refresh_tools`, `list_orgs`, `set_memory_status`, `specs_propose`,
+    `specs_approve`, `specs_reject`
   - **Level 3**: `list_error_traces`, `ack_error_trace`,
-    `resolve_error_trace`, `create_task_from_error_trace`, `time`, `trigger_extraction_worker`,
-    `get_message`
+    `resolve_error_trace`, `create_task_from_error_trace`, `time`, `submit_task_feedback`,
+    `app_list`, `app_configure`, `app_remove`
 
   ### How to Discover and Organize Tools
 
@@ -59,13 +60,6 @@ defmodule Acs.Memory.Guidance do
     not access control. If you know a tool name, call it directly.
   - **`help`** — Lists ALL available tools with their levels, categories, and parameters from all
     levels. Always start here when unsure.
-  - **`list_tools(level: N)`** — Lists tools at level N and below. Example: `list_tools(level: 3)`
-    shows every tool available.
-  - **`list_tools(category: "category_name")`** — Lists ALL tools in a specific category at every
-    level. Use this to find tools for your work area.
-  - **Progressive disclosure is guidance-only**: Levels help you discover tools incrementally,
-    but they do not restrict what you can call. Use `list_tools(level: 2)` to see Level 2 tools,
-    or `list_tools(level: 3)` to see everything.
 
   ### Getting Unstuck
   - **get_logs(level: "error", limit: 50)** — Get recent error logs. First stop when something fails.
@@ -73,14 +67,14 @@ defmodule Acs.Memory.Guidance do
     call it — it will execute.
   """
 
-  @document_instructions """
-  ## Cognition Spec System
+  @specs_instructions """
+  ## Specs System
 
-  Cognition specs document WHY modules exist, what invariants must hold, how they work, and what can go wrong.
+  Specs document WHY modules exist, what invariants must hold, how they work, and what can go wrong.
 
   ### When to Propose a Spec
 
-  - **After completing implementation of any new module**: Always propose a cognition spec using `document_propose(app, path, attrs)` unless one already exists
+  - **After completing implementation of any new module**: Always propose a spec using `specs_propose(app, path, attrs)` unless one already exists
   - **When modules change**: Update the corresponding spec to reflect new behavior
   - **Before approving a spec**: Review invariants, workflows, failure_modes carefully
 
@@ -99,21 +93,25 @@ defmodule Acs.Memory.Guidance do
 
   | Tool | Level | Behavior |
   |------|-------|----------|
-  | `document_get` | 1 | Get full spec by app + path |
-  | `document_search` | 1 | Full-text search across specs |
-  | `document_list` | 1 | List all specs, optionally filtered |
-  | `document_list_undocumented` | 1 | Find modules without specs |
-  | `document_propose` | 2 | Create/update spec (status="proposed") |
-  | `document_approve` | 2 | Set status="approved" |
-  | `document_reject` | 2 | Set status="under_review" |
+  | `specs_get` | 1 | Get full spec by app + path |
+  | `query_specs` | 1 | Search, list, or find undocumented specs |
+  | `specs_propose` | 2 | Create/update spec (status="proposed") |
+  | `specs_approve` | 2 | Set status="approved" |
+  | `specs_reject` | 2 | Set status="under_review" |
 
   > Note: Level 2+ tools require explicit access. Call directly by name to use them.
   """
 
-  @document_mismatch_protocol """
+  @specs_instructions_short """
+  ## Specs System
+
+  After completing work on a module, use `specs_propose(app, path, attrs)` to document it if one doesn't exist already. Use `query_specs(undocumented: true)` to find modules missing specs.
+  """
+
+  @specs_mismatch_protocol """
   ## Code vs. Spec Mismatch Protocol
 
-  When working on a module that has an existing cognition spec, you may discover the code behavior differs from what the spec documents.
+  When working on a module that has an existing spec, you may discover the code behavior differs from what the spec documents.
 
   **When this happens:**
 
@@ -124,7 +122,7 @@ defmodule Acs.Memory.Guidance do
      - Which one needs to change?
   3. **ASK THE USER** — Present the mismatch:
      ```
-     COGNITION MISMATCH: [module_name]
+     SPECS MISMATCH: [module_name]
      
      Spec says: [what spec documents]
      Code does: [what code actually does]
@@ -141,7 +139,7 @@ defmodule Acs.Memory.Guidance do
   """
 
   @workflow_basics """
-  ## Next Steps
+  ## Workflow Basics
 
   After claiming this task:
 
@@ -156,7 +154,7 @@ defmodule Acs.Memory.Guidance do
   """
 
   @file_locking_protocol """
-  ## Next Steps (after locking this file)
+  ## File Locking
 
   - Edit the file
   - When done: `acs_unlock_file(agent_id, file_path: file_path)` or `acs_unlock_file(agent_id, task_id: task_id)`
@@ -165,16 +163,16 @@ defmodule Acs.Memory.Guidance do
   """
 
   @memory_protocol """
-  ## Next Steps (during this task)
+  ## Knowledge Memory
 
-  - When you discover something useful: `acs_save_memory(kind: "learning", title: "...", content: "...", scope_path: "...")`
+  When you discover something useful: `acs_save_memory(kind: "learning", title: "...", content: "...", scope_path: "...")`
   - Memory kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom
   - Save when: you found a pattern, encountered a pitfall, made a decision
   - Don't save: temporary state, obvious things, one-off events
   """
 
   @error_response_protocol """
-  ## Next Steps (if you encounter errors)
+  ## Error Handling
 
   1. Try to resolve it
   2. If persistent:
@@ -187,7 +185,7 @@ defmodule Acs.Memory.Guidance do
   """
 
   @sleep_wake_protocol """
-  ## Next Steps (when no tasks available)
+  ## Sleep/Wake
 
   - `acs_sleep(agent_id: "MyAgent", timeout: 300)` — wait for tasks
   - You'll be woken when a task is dispatched to you
@@ -204,9 +202,9 @@ defmodule Acs.Memory.Guidance do
   """
 
   @knowledge_workflow """
-  ## Organizational Workflow
+  ## Workflow Basics
 
-  This project uses structured workflows to maintain consistency:
+  This project uses structured workflows:
 
   1. **Claim work** before editing files — ensures no conflicts
   2. **Lock files** before each edit — prevents simultaneous modifications
@@ -283,8 +281,8 @@ defmodule Acs.Memory.Guidance do
   - :compressed_knowledge - condensed knowledge string
   - :maintenance_instructions - instructions for flagging outdated items
   - :tool_reference - guidance on using help, list_tools, and get_logs
-  - :document_instructions - cognition spec system instructions
-  - :document_mismatch_protocol - how to handle code vs spec disagreements
+  - :specs_instructions - specs system instructions
+  - :specs_mismatch_protocol - how to handle code vs spec disagreements
   - :workflow_basics - standard agent workflow (claim tier and above)
   - :file_locking_protocol - file locking rules (full tier only)
   - :memory_protocol - knowledge memory protocol (full tier only)
@@ -300,8 +298,15 @@ defmodule Acs.Memory.Guidance do
     agent_role = Keyword.get(opts, :agent_role)
 
     search_opts = [{:scope_path, scope_path}, {:status, "approved"}]
-    search_opts = if allowed_teams, do: search_opts ++ [allowed_teams: allowed_teams], else: search_opts
-    search_opts = if allowed_projects, do: search_opts ++ [allowed_projects: allowed_projects], else: search_opts
+
+    search_opts =
+      if allowed_teams, do: search_opts ++ [allowed_teams: allowed_teams], else: search_opts
+
+    search_opts =
+      if allowed_projects,
+        do: search_opts ++ [allowed_projects: allowed_projects],
+        else: search_opts
+
     search_opts = if agent_role, do: search_opts ++ [agent_role: agent_role], else: search_opts
 
     scope_memories =
@@ -319,19 +324,31 @@ defmodule Acs.Memory.Guidance do
             scope: scope_path,
             tier: :claim,
             mode: :knowledge,
-            critical_axioms: merge_items(extract_axioms(sorted, min_importance: 4), tool_guidance, :critical_axioms, @critical_axioms_max),
-            warnings: merge_items(extract_warnings(sorted, min_importance: 4), tool_guidance, :warnings, @warnings_max),
+            critical_axioms:
+              merge_items(
+                extract_axioms(sorted, min_importance: 4),
+                tool_guidance,
+                :critical_axioms,
+                @critical_axioms_max
+              ),
+            warnings:
+              merge_items(
+                extract_warnings(sorted, min_importance: 4),
+                tool_guidance,
+                :warnings,
+                @warnings_max
+              ),
             relevant_patterns: [],
             compressed_knowledge: "",
             maintenance_instructions: @maintenance_instructions,
             tool_reference: "",
-            document_instructions: @document_instructions,
-            document_mismatch_protocol: @document_mismatch_protocol,
+            specs_instructions: @specs_instructions_short,
+            specs_mismatch_protocol: "",
             workflow_basics: @knowledge_workflow,
             file_locking_protocol: @knowledge_file_locking,
             memory_protocol: @knowledge_memory,
             error_response_protocol: @knowledge_error,
-            sleep_wake_protocol: @knowledge_sleep,
+            sleep_wake_protocol: "",
             agent_identity: @knowledge_identity
           }
         else
@@ -339,19 +356,31 @@ defmodule Acs.Memory.Guidance do
             scope: scope_path,
             tier: :claim,
             mode: :mcp,
-            critical_axioms: merge_items(extract_axioms(sorted, min_importance: 4), tool_guidance, :critical_axioms, @critical_axioms_max),
-            warnings: merge_items(extract_warnings(sorted, min_importance: 4), tool_guidance, :warnings, @warnings_max),
+            critical_axioms:
+              merge_items(
+                extract_axioms(sorted, min_importance: 4),
+                tool_guidance,
+                :critical_axioms,
+                @critical_axioms_max
+              ),
+            warnings:
+              merge_items(
+                extract_warnings(sorted, min_importance: 4),
+                tool_guidance,
+                :warnings,
+                @warnings_max
+              ),
             relevant_patterns: [],
             compressed_knowledge: "",
             maintenance_instructions: @maintenance_instructions,
-            tool_reference: @tool_reference,
-            document_instructions: @document_instructions,
-            document_mismatch_protocol: @document_mismatch_protocol,
+            tool_reference: "",
+            specs_instructions: @specs_instructions_short,
+            specs_mismatch_protocol: "",
             workflow_basics: @workflow_basics,
             file_locking_protocol: @file_locking_protocol,
             memory_protocol: @memory_protocol,
             error_response_protocol: @error_response_protocol,
-            sleep_wake_protocol: @sleep_wake_protocol,
+            sleep_wake_protocol: "",
             agent_identity: @agent_identity
           }
         end
@@ -362,14 +391,27 @@ defmodule Acs.Memory.Guidance do
             scope: scope_path,
             tier: :full,
             mode: :knowledge,
-            critical_axioms: merge_items(extract_axioms(sorted), tool_guidance, :critical_axioms, @critical_axioms_max),
-            warnings: merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
-            relevant_patterns: merge_items(extract_patterns(sorted), tool_guidance, :relevant_patterns, @patterns_max),
+            critical_axioms:
+              merge_items(
+                extract_axioms(sorted),
+                tool_guidance,
+                :critical_axioms,
+                @critical_axioms_max
+              ),
+            warnings:
+              merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
+            relevant_patterns:
+              merge_items(
+                extract_patterns(sorted),
+                tool_guidance,
+                :relevant_patterns,
+                @patterns_max
+              ),
             compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
             maintenance_instructions: @maintenance_instructions,
             tool_reference: "",
-            document_instructions: @document_instructions,
-            document_mismatch_protocol: @document_mismatch_protocol,
+            specs_instructions: @specs_instructions,
+            specs_mismatch_protocol: @specs_mismatch_protocol,
             workflow_basics: @knowledge_workflow,
             file_locking_protocol: @knowledge_file_locking,
             memory_protocol: @knowledge_memory,
@@ -382,14 +424,27 @@ defmodule Acs.Memory.Guidance do
             scope: scope_path,
             tier: :full,
             mode: :mcp,
-            critical_axioms: merge_items(extract_axioms(sorted), tool_guidance, :critical_axioms, @critical_axioms_max),
-            warnings: merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
-            relevant_patterns: merge_items(extract_patterns(sorted), tool_guidance, :relevant_patterns, @patterns_max),
+            critical_axioms:
+              merge_items(
+                extract_axioms(sorted),
+                tool_guidance,
+                :critical_axioms,
+                @critical_axioms_max
+              ),
+            warnings:
+              merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
+            relevant_patterns:
+              merge_items(
+                extract_patterns(sorted),
+                tool_guidance,
+                :relevant_patterns,
+                @patterns_max
+              ),
             compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
             maintenance_instructions: @maintenance_instructions,
             tool_reference: @tool_reference,
-            document_instructions: @document_instructions,
-            document_mismatch_protocol: @document_mismatch_protocol,
+            specs_instructions: @specs_instructions,
+            specs_mismatch_protocol: @specs_mismatch_protocol,
             workflow_basics: @workflow_basics,
             file_locking_protocol: @file_locking_protocol,
             memory_protocol: @memory_protocol,
@@ -428,13 +483,13 @@ defmodule Acs.Memory.Guidance do
             compressed_knowledge: "",
             maintenance_instructions: @maintenance_instructions,
             tool_reference: "",
-            document_instructions: @document_instructions,
-            document_mismatch_protocol: @document_mismatch_protocol,
+            specs_instructions: @specs_instructions_short,
+            specs_mismatch_protocol: "",
             workflow_basics: @knowledge_workflow,
             file_locking_protocol: @knowledge_file_locking,
             memory_protocol: @knowledge_memory,
             error_response_protocol: @knowledge_error,
-            sleep_wake_protocol: @knowledge_sleep,
+            sleep_wake_protocol: "",
             agent_identity: @knowledge_identity,
             scope_category: nil
           }
@@ -448,14 +503,14 @@ defmodule Acs.Memory.Guidance do
             relevant_patterns: [],
             compressed_knowledge: "",
             maintenance_instructions: @maintenance_instructions,
-            tool_reference: @tool_reference,
-            document_instructions: @document_instructions,
-            document_mismatch_protocol: @document_mismatch_protocol,
+            tool_reference: "",
+            specs_instructions: @specs_instructions_short,
+            specs_mismatch_protocol: "",
             workflow_basics: @workflow_basics,
             file_locking_protocol: @file_locking_protocol,
             memory_protocol: @memory_protocol,
             error_response_protocol: @error_response_protocol,
-            sleep_wake_protocol: @sleep_wake_protocol,
+            sleep_wake_protocol: "",
             agent_identity: @agent_identity,
             scope_category: nil
           }
@@ -470,7 +525,13 @@ defmodule Acs.Memory.Guidance do
           |> scope_from_path()
 
         guidance = generate(scope_path, tier: tier, mode: mode)
-        Map.put(guidance, :scope_category, scope_path)
+
+        title = (task_map[:title] || "") |> String.downcase()
+        task_context = build_task_context(title)
+
+        guidance
+        |> Map.put(:scope_category, scope_path)
+        |> Map.put(:task_context, task_context)
     end
   end
 
@@ -508,11 +569,165 @@ defmodule Acs.Memory.Guidance do
   end
 
   defp compress_knowledge(memories) do
-    memories
-    |> Enum.map(fn m -> "#{m.title}: #{m.summary}" end)
+    axioms = memories |> Enum.filter(fn m -> m.kind in ["axiom", "invariant", "decision"] end)
+    warnings = memories |> Enum.filter(fn m -> m.kind == "warning" end)
+    patterns = memories |> Enum.filter(fn m -> m.kind in ["pattern", "learning", "observation"] end)
+
+    [maybe_section("Axioms", axioms), maybe_section("Warnings", warnings),
+     maybe_section("Patterns & Learnings", patterns)]
     |> Enum.reject(&is_nil/1)
-    |> Enum.join("\n")
+    |> Enum.join("\n\n")
     |> String.slice(0, @knowledge_max_chars)
+  end
+
+  defp maybe_section(_title, []), do: nil
+
+  defp maybe_section(title, items) do
+    body =
+      items
+      |> Enum.map(fn m -> "**#{m.title}**: #{m.summary}" end)
+      |> Enum.join("\n")
+
+    "## #{title}\n\n#{body}"
+  end
+
+  defp build_task_context(title) do
+    cond do
+      title =~ ~r/marketing|campaign|promot|content|seo|social|blog|advert/i ->
+        """
+        ## Marketing Context
+
+        This task involves marketing activities. Considerations:
+        - Ensure analytics/UTM tracking is set up (see guides/analytics.md)
+        - Verify conversion events are firing correctly
+        - Coordinate publishing timing with content calendar
+        - Test all links and calls-to-action before release
+        """
+
+      title =~ ~r/test|spec|coverage|testing|rspec|exunit|assert/i ->
+        """
+        ## Testing Context
+
+        This task involves tests or specs. Before releasing, ensure:
+        - New tests pass with `mix test`
+        - Existing tests are not broken
+        - Consider both unit and integration test coverage
+        """
+
+      title =~ ~r/bug|fix|error|crash|issue|fault|broken|fail/i ->
+        """
+        ## Bug Fix Context
+
+        This task fixes a bug. Before releasing, ensure:
+        - The root cause is identified and fixed (not just symptoms)
+        - Add a regression test that would catch this if reintroduced
+        - Check for the same pattern elsewhere in the codebase
+        """
+
+      title =~ ~r/deploy|release|ci|cd|publish|rollout|build/i ->
+        """
+        ## Deployment Context
+
+        This task involves deployment. Before releasing, ensure:
+        - All changes are committed and pushed
+        - The build pipeline passes
+        - Review guides/deployment.md for the deployment workflow
+        """
+
+      title =~ ~r/migrat|schema|database|db|sql|ecto/i ->
+        """
+        ## Database Context
+
+        This task involves database changes. Before releasing, ensure:
+        - Run `mix ecto.migrate` to apply new migrations
+        - Verify rollback works: `mix ecto.rollback`
+        - Consider data migration for existing records
+        """
+
+      title =~ ~r/secur|auth|permission|oauth|api.?key|encrypt/i ->
+        """
+        ## Security Context
+
+        This task involves security-sensitive changes. Before releasing, ensure:
+        - No secrets or keys are committed or logged
+        - Follow guides/secrets.md for managing secrets
+        - Authentication and authorization paths are tested
+        """
+
+      title =~ ~r/refactor|clean.?up|optimize|performance|technical.?debt|rewrite/i ->
+        """
+        ## Refactoring Context
+
+        This task involves refactoring. Before releasing, ensure:
+        - Existing behaviour is preserved — don't change the API contract
+        - Tests still pass (refactoring should not break tests)
+        - Consider incremental changes rather than a big rewrite
+        """
+
+      title =~ ~r/document|docs?|readme|comment|guide|wiki|changelog/i ->
+        """
+        ## Documentation Context
+
+        This task involves documentation. Considerations:
+        - Keep docs close to the code they describe
+        - Update specs alongside documentation
+        - Use clear, concise language — avoid jargon
+        """
+
+      title =~ ~r/feature|add|new|implement|support|integrat/i ->
+        """
+        ## Feature Context
+
+        This task adds a new feature. Before releasing, ensure:
+        - Write tests for the new functionality
+        - Update or add specs for any new modules
+        - Consider backward compatibility
+        - Update any relevant documentation
+        """
+
+      title =~ ~r/api|endpoint|route|controller|graphql|rest/i ->
+        """
+        ## API Context
+
+        This task involves API changes. Before releasing, ensure:
+        - API changes are backward compatible or versioned
+        - Request/response formats are documented
+        - Error responses follow existing conventions
+        """
+
+      title =~ ~r/ui|ux|view|template|frontend|component|layout|style|css/i ->
+        """
+        ## UI/Frontend Context
+
+        This task involves UI changes. Before releasing, ensure:
+        - Works across target viewport sizes (responsive)
+        - Follows existing design patterns and conventions
+        - Check for accessibility basics (keyboard nav, screen readers)
+        """
+
+      title =~ ~r/docker|container|k8s|kubernetes|compose|image/i ->
+        """
+        ## Container Context
+
+        This task involves container/Docker changes. Before releasing, ensure:
+        - Test the build locally with `docker compose build`
+        - Keep image sizes small — prefer slim/alpine bases
+        - Don't bake secrets into images
+        """
+
+      title =~ ~r/config|configure|setup|env|setting|option/i ->
+        """
+        ## Configuration Context
+
+        This task involves configuration changes. Considerations:
+        - Default values should be safe for local development
+        - Document new config options in relevant guides
+        - Use env vars for environment-specific values
+        """
+
+      true ->
+        nil
+    end
   end
 
   defp scope_from_path(nil), do: ""

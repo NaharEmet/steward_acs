@@ -181,6 +181,62 @@ config :steward_acs,
        |> String.split(",", trim: true)
        |> Enum.map(&String.trim/1)
 
+# ─── Memory Evaluation Prompt (file path) ──────────────────────────────
+# If set, loads the LLM evaluation prompt from a file (supports {{memory_json}}
+# and {{existing_memories_json}} template variables). Falls back to hardcoded default.
+if prompt_path = System.get_env("MEMORY_EVALUATION_PROMPT_PATH") do
+  config :steward_acs, :memory_evaluation_prompt_path, prompt_path
+end
+
+# ─── Memory Auditor Pre-filter Configuration ───────────────────────────
+# Lists of comma-separated patterns for auto-reject pre-filter rules.
+if prefixes = System.get_env("AUDITOR_REJECT_TITLE_PREFIXES") do
+  config :steward_acs, :auditor_reject_title_prefixes,
+    String.split(prefixes, ",", trim: true) |> Enum.map(&String.trim/1)
+end
+
+if exact = System.get_env("AUDITOR_REJECT_TITLE_EXACT") do
+  config :steward_acs, :auditor_reject_title_exact,
+    String.split(exact, ",", trim: true) |> Enum.map(&String.trim/1)
+end
+
+if scopes = System.get_env("AUDITOR_REJECT_SCOPE_PREFIXES") do
+  config :steward_acs, :auditor_reject_scope_prefixes,
+    String.split(scopes, ",", trim: true) |> Enum.map(&String.trim/1)
+end
+
+if id_prefixes = System.get_env("AUDITOR_REJECT_ID_PREFIXES") do
+  config :steward_acs, :auditor_reject_id_prefixes,
+    String.split(id_prefixes, ",", trim: true) |> Enum.map(&String.trim/1)
+end
+
+if id_contains = System.get_env("AUDITOR_REJECT_ID_CONTAINS") do
+  config :steward_acs, :auditor_reject_id_contains,
+    String.split(id_contains, ",", trim: true) |> Enum.map(&String.trim/1)
+end
+
+if min_len = System.get_env("AUDITOR_MIN_CONTENT_LENGTH") do
+  config :steward_acs, :auditor_min_content_length, String.to_integer(min_len)
+end
+
+if low_len = System.get_env("AUDITOR_LOW_CONTENT_LENGTH") do
+  config :steward_acs, :auditor_low_content_length, String.to_integer(low_len)
+end
+
+if threshold = System.get_env("AUDITOR_FUZZY_THRESHOLD") do
+  config :steward_acs, :auditor_fuzzy_threshold, String.to_float(threshold)
+end
+
+if System.get_env("AUDITOR_REJECT_EMPTY_SCOPE") do
+  config :steward_acs, :auditor_reject_empty_scope,
+    System.get_env("AUDITOR_REJECT_EMPTY_SCOPE") == "true"
+end
+
+if System.get_env("AUDITOR_REJECT_TITLE_EQUALS_CONTENT") do
+  config :steward_acs, :auditor_reject_title_equals_content,
+    System.get_env("AUDITOR_REJECT_TITLE_EQUALS_CONTENT") == "true"
+end
+
 config :steward_acs, Acs.Memory.Embedding,
   ollama_url: System.get_env("OLLAMA_URL", "http://localhost:11434")
 

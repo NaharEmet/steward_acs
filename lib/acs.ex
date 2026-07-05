@@ -207,7 +207,8 @@ defmodule Acs do
           nil ->
             Repo.rollback({:error, :task_not_found})
 
-          %AcsTask{locked_by_agent: locked_by} when not is_nil(locked_by) and locked_by != agent_id ->
+          %AcsTask{locked_by_agent: locked_by}
+          when not is_nil(locked_by) and locked_by != agent_id ->
             Repo.rollback({:error, :not_owner})
 
           %AcsTask{} = task ->
@@ -323,7 +324,13 @@ defmodule Acs do
             |> case do
               {:ok, lock} ->
                 Cache.put_file_lock(file_path, to_file_lock_map(lock))
-                broadcast(:file_locked, %{file_path: file_path, agent_id: agent_id, task_id: task_id})
+
+                broadcast(:file_locked, %{
+                  file_path: file_path,
+                  agent_id: agent_id,
+                  task_id: task_id
+                })
+
                 scope_path = scope_from_file_path(file_path)
 
                 guidance =
@@ -408,11 +415,8 @@ defmodule Acs do
   @doc """
   Gets the present status of all agents.
   """
-  def get_present_status(cluster \\ nil) do
-    cluster = cluster || Cluster.current()
-
-    statuses =
-      Repo.all(from(s in AgentStatus, where: s.cluster == ^cluster))
+  def get_present_status(_cluster \\ nil) do
+    statuses = Acs.Acs.get_present_status()
 
     task_ids = statuses |> Enum.map(& &1.current_task_id) |> Enum.reject(&is_nil/1)
 
@@ -434,18 +438,18 @@ defmodule Acs do
       end
 
     statuses
-    |> Enum.map(fn status ->
-      task = Map.get(tasks_map, status.current_task_id)
-      locks = Map.get(locks_map, status.current_task_id, [])
+    |> Enum.map(fn s ->
+      task = Map.get(tasks_map, s.current_task_id)
+      locks = Map.get(locks_map, s.current_task_id, [])
       locked_files = Enum.map(locks, fn l -> l.file_path end)
-      working? = !is_nil(status.current_task_id)
+      working? = !is_nil(s.current_task_id)
 
-      {status.agent_id,
+      {s.agent_id,
        %{
          task: task,
-         purpose: status.purpose,
-         application: status.application,
-         component: status.component,
+         purpose: s.purpose,
+         application: s.application,
+         component: s.component,
          locked_files: locked_files,
          status: if(working?, do: "working", else: "sleeping")
        }}
@@ -550,7 +554,10 @@ defmodule Acs do
             :ok
 
           {:error, _} ->
-            Logger.warning("[Acs] Failed to clear agent status for #{agent_id}, still cleaning cache")
+            Logger.warning(
+              "[Acs] Failed to clear agent status for #{agent_id}, still cleaning cache"
+            )
+
             Cache.delete_agent_status(agent_id)
             {:error, :db_delete_failed}
         end

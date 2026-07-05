@@ -24,7 +24,7 @@ defmodule Acs.Memory.Loader do
     obsidian_path = Application.get_env(:steward_acs, :obsidian_vault_path)
 
     if is_binary(obsidian_path) and obsidian_path != "" do
-      obsidian_path
+      Path.join(obsidian_path, "private/memories")
     else
       Path.join(Application.app_dir(:steward_acs), "priv/acs_memory")
     end
@@ -68,6 +68,7 @@ defmodule Acs.Memory.Loader do
     not String.contains?(file_path, "deps/") and
       not String.contains?(file_path, "/quarantine/") and
       not String.contains?(file_path, "/.obsidian/") and
+      not String.starts_with?(file_path, Path.join(memory_dir(), "specs/")) and
       not (String.contains?(file_path, "_build/") and String.contains?(file_path, "/test_app/"))
   end
 
@@ -253,6 +254,7 @@ defmodule Acs.Memory.Loader do
               Logger.warning(
                 "[Memory.Loader] Skipping quarantine for #{file_path} — already has parse_error status"
               )
+
               :ok
             else
               updated = Map.put(frontmatter, "status", "parse_error")
@@ -271,6 +273,7 @@ defmodule Acs.Memory.Loader do
         Logger.warning(
           "[Memory.Loader] Cannot quarantine unreadable file #{file_path}: #{inspect(reason)}"
         )
+
         :ok
     end
   end
@@ -282,6 +285,7 @@ defmodule Acs.Memory.Loader do
           Logger.warning(
             "[Memory.Loader] Skipping quarantine for #{file_path} — already has parse_error status"
           )
+
           :ok
         else
           updated_map = Map.put(memory_map, "status", "parse_error")

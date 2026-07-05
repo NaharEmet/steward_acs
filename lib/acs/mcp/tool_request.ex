@@ -16,8 +16,10 @@ defmodule Acs.MCP.ToolRequest do
     field :name, :string
     field :description, :string
     field :category, :string, default: "requested"
-    field :definition, :string  # JSON-encoded tool definition
-    field :status, :string, default: "pending"  # pending | approved | rejected
+    # JSON-encoded tool definition
+    field :definition, :string
+    # pending | approved | rejected
+    field :status, :string, default: "pending"
     field :agent_id, :string
     field :approved_by, :string
 

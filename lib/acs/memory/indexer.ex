@@ -25,14 +25,17 @@ defmodule Acs.Memory.Indexer do
 
     {:ok, memories, quarantined} = Acs.Memory.Loader.load_all()
 
-    count = Enum.reduce(memories, 0, fn memory, acc ->
-      case upsert_memory(memory) do
-        {:ok, _} -> acc + 1
-        {:error, reason} ->
-          Logger.warning("[Memory.Indexer] Failed to index #{memory.id}: #{reason}")
-          acc
-      end
-    end)
+    count =
+      Enum.reduce(memories, 0, fn memory, acc ->
+        case upsert_memory(memory) do
+          {:ok, _} ->
+            acc + 1
+
+          {:error, reason} ->
+            Logger.warning("[Memory.Indexer] Failed to index #{memory.id}: #{reason}")
+            acc
+        end
+      end)
 
     Logger.info("[Memory.Indexer] Synced #{count} memories, #{length(quarantined)} quarantined")
     {:ok, count, quarantined}
@@ -119,13 +122,19 @@ defmodule Acs.Memory.Indexer do
   @doc """
   Updates the status of a memory in the index.
   """
-  def update_status(memory_id, new_status) when new_status in ~w(proposed approved rejected stale deprecated archived parse_error) do
+  def update_status(memory_id, new_status)
+      when new_status in ~w(proposed approved rejected stale deprecated archived parse_error) do
     Retry.with_busy_retry(fn ->
       case Repo.get(Schema, memory_id) do
-        nil -> {:error, "Memory not found: #{memory_id}"}
+        nil ->
+          {:error, "Memory not found: #{memory_id}"}
+
         schema ->
           schema
-          |> Ecto.Changeset.change(%{status: new_status, updated_at: DateTime.utc_now() |> DateTime.truncate(:second)})
+          |> Ecto.Changeset.change(%{
+            status: new_status,
+            updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          })
           |> Repo.update()
       end
     end)
@@ -138,10 +147,15 @@ defmodule Acs.Memory.Indexer do
   def update_field(memory_id, field, value) when field in ~w(title content)a do
     Retry.with_busy_retry(fn ->
       case Repo.get(Schema, memory_id) do
-        nil -> {:error, "Memory not found: #{memory_id}"}
+        nil ->
+          {:error, "Memory not found: #{memory_id}"}
+
         schema ->
           schema
-          |> Ecto.Changeset.change(%{field => value, updated_at: DateTime.utc_now() |> DateTime.truncate(:second)})
+          |> Ecto.Changeset.change(%{
+            field => value,
+            updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          })
           |> Repo.update()
       end
     end)
@@ -171,9 +185,10 @@ defmodule Acs.Memory.Indexer do
   def count_by_status do
     import Ecto.Query
 
-    query = from m in Schema,
-      group_by: m.status,
-      select: %{status: m.status, count: count(m.id)}
+    query =
+      from m in Schema,
+        group_by: m.status,
+        select: %{status: m.status, count: count(m.id)}
 
     Repo.all(query)
     |> Enum.into(%{}, fn %{status: s, count: c} -> {s, c} end)
@@ -189,6 +204,7 @@ defmodule Acs.Memory.Indexer do
     query = from m in Schema, order_by: ^order_by
 
     query = if opts[:kind], do: from(m in query, where: m.kind == ^opts[:kind]), else: query
+
     query =
       if opts[:status] do
         if is_list(opts[:status]) do
@@ -199,6 +215,7 @@ defmodule Acs.Memory.Indexer do
       else
         query
       end
+
     query = apply_scope_path_filter(query, opts[:scope_path])
     query = if opts[:limit], do: from(m in query, limit: ^opts[:limit]), else: query
     query = build_abac_filter(query, opts)
@@ -220,14 +237,20 @@ defmodule Acs.Memory.Indexer do
     proposed
     |> Enum.filter(fn m ->
       case m.auditor_flags do
-        nil -> false
+        nil ->
+          false
+
         json when is_binary(json) ->
           case Jason.decode(json) do
             {:ok, flags} ->
               Map.get(flags, "audit_error_count", 0) > 0
-            _ -> false
+
+            _ ->
+              false
           end
-        _ -> false
+
+        _ ->
+          false
       end
     end)
     |> Enum.take(limit)
@@ -242,14 +265,20 @@ defmodule Acs.Memory.Indexer do
     proposed
     |> Enum.count(fn m ->
       case m.auditor_flags do
-        nil -> false
+        nil ->
+          false
+
         json when is_binary(json) ->
           case Jason.decode(json) do
             {:ok, flags} ->
               Map.get(flags, "audit_error_count", 0) > 0
-            _ -> false
+
+            _ ->
+              false
           end
-        _ -> false
+
+        _ ->
+          false
       end
     end)
   end
@@ -263,19 +292,22 @@ defmodule Acs.Memory.Indexer do
 
     search_term = "%#{query_text}%"
 
-    search_query = from m in Schema,
-      where: like(m.title, ^search_term) or
-             like(m.content, ^search_term) or
-             like(m.summary, ^search_term),
-      order_by: [desc: m.importance, desc: m.updated_at]
+    search_query =
+      from m in Schema,
+        where:
+          like(m.title, ^search_term) or
+            like(m.content, ^search_term) or
+            like(m.summary, ^search_term),
+        order_by: [desc: m.importance, desc: m.updated_at]
 
     search_query = apply_scope_path_filter(search_query, opts[:scope_path])
 
-    search_query = if opts[:kind] do
-      from m in search_query, where: m.kind == ^opts[:kind]
-    else
-      search_query
-    end
+    search_query =
+      if opts[:kind] do
+        from m in search_query, where: m.kind == ^opts[:kind]
+      else
+        search_query
+      end
 
     search_query =
       if opts[:status] do
@@ -288,11 +320,13 @@ defmodule Acs.Memory.Indexer do
         search_query
       end
 
-    search_query = if opts[:limit] do
-      from m in search_query, limit: ^opts[:limit]
-    else
-      from m in search_query, limit: 50
-    end
+    search_query =
+      if opts[:limit] do
+        from m in search_query, limit: ^opts[:limit]
+      else
+        from m in search_query, limit: 50
+      end
+
     search_query = build_abac_filter(search_query, opts)
 
     Repo.all(search_query)
@@ -325,12 +359,14 @@ defmodule Acs.Memory.Indexer do
   end
 
   defp decode_json_field(nil), do: nil
+
   defp decode_json_field(json) when is_binary(json) do
     case Jason.decode(json) do
       {:ok, value} -> value
       _ -> nil
     end
   end
+
   defp decode_json_field(_), do: nil
 
   defp format_datetime(nil), do: nil
@@ -339,6 +375,7 @@ defmodule Acs.Memory.Indexer do
 
   defp parse_datetime(nil), do: DateTime.utc_now()
   defp parse_datetime(dt) when is_struct(dt, DateTime), do: dt
+
   defp parse_datetime(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt
@@ -372,25 +409,39 @@ defmodule Acs.Memory.Indexer do
     cond do
       has_teams and has_projects ->
         from m in query,
-          where: fragment(
-            "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?)) OR (? = 'project' AND ? IN (?))",
-            m.visibility, m.visibility, m.team, ^allowed_teams,
-            m.visibility, m.project, ^allowed_projects
-          )
+          where:
+            fragment(
+              "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?)) OR (? = 'project' AND ? IN (?))",
+              m.visibility,
+              m.visibility,
+              m.team,
+              ^allowed_teams,
+              m.visibility,
+              m.project,
+              ^allowed_projects
+            )
 
       has_teams ->
         from m in query,
-          where: fragment(
-            "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?))",
-            m.visibility, m.visibility, m.team, ^allowed_teams
-          )
+          where:
+            fragment(
+              "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?))",
+              m.visibility,
+              m.visibility,
+              m.team,
+              ^allowed_teams
+            )
 
       has_projects ->
         from m in query,
-          where: fragment(
-            "COALESCE(?, 'org') = 'org' OR (? = 'project' AND ? IN (?))",
-            m.visibility, m.visibility, m.project, ^allowed_projects
-          )
+          where:
+            fragment(
+              "COALESCE(?, 'org') = 'org' OR (? = 'project' AND ? IN (?))",
+              m.visibility,
+              m.visibility,
+              m.project,
+              ^allowed_projects
+            )
 
       restricted_role? ->
         from m in query,
@@ -400,5 +451,4 @@ defmodule Acs.Memory.Indexer do
         query
     end
   end
-
 end

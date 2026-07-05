@@ -81,14 +81,14 @@ defmodule Acs.MCP.Tools.CoreHandlers do
            agent_id: agent_id,
            feedback_prompt: %{
              message:
-               "Task completed! Please share what you learned AND propose any cognition specs. Also rate how helpful the guidance packet was for this task.",
+               "Task completed! Please share what you learned AND propose any specs. Also rate how helpful the guidance packet was for this task.",
              next_step: %{
                tool: "submit_task_feedback",
                prompt: "Call this tool with the task_id and any learnings you want to share:",
-                params: %{
-                  task_id: task_id,
-                  agent_id: agent_id,
-                  learned_for_agents:
+               params: %{
+                 task_id: task_id,
+                 agent_id: agent_id,
+                 learned_for_agents:
                    "(optional) What did you learn that will help future agents?",
                  had_issues: "(optional) What issues or obstacles did you encounter?",
                  improvements: "(optional) What could have made this task easier?",
@@ -100,22 +100,23 @@ defmodule Acs.MCP.Tools.CoreHandlers do
                  guidance_missing: "(optional) What guidance was needed but not provided?"
                }
              },
-             document_reminder: %{
-               prompt:
-                 "For each module you worked on, check if it has a cognition spec. If not, call document_propose to document it. Use document_list_undocumented() to find modules missing specs.",
-               actions: [
+             specs_reminder: %{
+                prompt:
+                  "For each module you worked on, check if it has a spec. If not, call specs_propose to document it. Use query_specs(undocumented: true) to find modules missing specs.",
+                actions: [
+                  %{
+                    tool: "query_specs",
+                    description: "Find modules without specs",
+                    params: %{undocumented: true}
+                  },
                  %{
-                   tool: "document_list_undocumented",
-                   description: "Find modules without specs"
-                 },
-                 %{
-                    tool: "document_propose",
-                    description: "Document any undocumented modules",
-                    params: %{
-                      app: "<app_name>",
-                      path: "module_path",
-                      title: "Module name",
-                      purpose: "Why this module exists",
+                   tool: "specs_propose",
+                   description: "Document any undocumented modules",
+                   params: %{
+                     app: "<app_name>",
+                     path: "module_path",
+                     title: "Module name",
+                     purpose: "Why this module exists",
                      invariants: ["truth1", "truth2"],
                      workflows: ["expected execution"],
                      failure_modes: ["known failure scenario"],
@@ -126,7 +127,8 @@ defmodule Acs.MCP.Tools.CoreHandlers do
                ]
              },
              error_response_protocol: %{
-               prompt: "If you encountered errors during this task, use the error trace tools to document them:",
+               prompt:
+                 "If you encountered errors during this task, use the error trace tools to document them:",
                actions: [
                  %{
                    tool: "list_error_traces",
@@ -165,16 +167,34 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       "file_paths" => args["file_paths"] || []
     }
 
-    attrs = if claim, do: Map.put(attrs, "status", "claimed"), else: attrs
-
     case Acs.create_task(attrs, agent_id) do
       {:ok, task} ->
-        unless claim, do: SleepRegistry.try_dispatch(task.id)
-        {:ok, %{status: "ok", task_id: task.id, title: task.title}}
+        if claim do
+          case Acs.claim_task(task.id, agent_id) do
+            {:ok, _task, guidance} ->
+              {:ok, %{status: "claimed", task_id: task.id, title: task.title, guidance: guidance}}
+
+            {:error, reason} ->
+              {:ok, %{status: "created", task_id: task.id, title: task.title, claim_error: reason}}
+          end
+        else
+          SleepRegistry.try_dispatch(task.id)
+          {:ok, %{status: "ok", task_id: task.id, title: task.title}}
+        end
 
       {:warn, task, similar} ->
-        unless claim, do: SleepRegistry.try_dispatch(task.id)
-        {:ok, %{status: "warning", task_id: task.id, title: task.title, similar_tasks: similar}}
+        if claim do
+          case Acs.claim_task(task.id, agent_id) do
+            {:ok, _task, guidance} ->
+              {:ok, %{status: "claimed", task_id: task.id, title: task.title, guidance: guidance, similar_tasks: similar}}
+
+            {:error, reason} ->
+              {:ok, %{status: "created", task_id: task.id, title: task.title, similar_tasks: similar, claim_error: reason}}
+          end
+        else
+          SleepRegistry.try_dispatch(task.id)
+          {:ok, %{status: "warning", task_id: task.id, title: task.title, similar_tasks: similar}}
+        end
 
       {:error, reason} ->
         {:error, reason}
@@ -186,6 +206,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       {:ok, result} ->
         # Add file locking protocol guidance to the response
         guidance = Map.get(result, :guidance, %{})
+
         file_locking_protocol = """
         ## File Locking Protocol
 
@@ -194,7 +215,11 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         - Call `acs_get_locked_files()` to see all locked files
         """
 
-        final_guidance = if guidance == %{}, do: %{}, else: Map.put(guidance, :file_locking_protocol, file_locking_protocol)
+        final_guidance =
+          if guidance == %{},
+            do: %{},
+            else: Map.put(guidance, :file_locking_protocol, file_locking_protocol)
+
         {:ok, Map.put(result, :guidance, final_guidance)}
 
       {:error, :file_locked_by_other} ->
@@ -435,12 +460,18 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   def list_orgs(args) do
     app_name = Map.get(args, "app_name")
     orgs = Acs.Acs.list_orgs(app_name)
-    records = Enum.map(orgs, fn o -> %{id: o["id"], name: o["name"], settings: o["settings"], inserted_at: o["inserted_at"]} end)
+
+    records =
+      Enum.map(orgs, fn o ->
+        %{id: o["id"], name: o["name"], settings: o["settings"], inserted_at: o["inserted_at"]}
+      end)
+
     {:ok, %{orgs: records, count: length(records)}}
   end
 
   def app_list(_args) do
     apps = Acs.Apps.Config.list_apps()
+
     entries =
       Enum.map(apps, fn {name, config} ->
         %{
@@ -453,6 +484,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
           timeout_ms: Keyword.get(config, :timeout_ms) || 30_000
         }
       end)
+
     {:ok, %{apps: entries, count: length(entries)}}
   end
 
@@ -469,9 +501,17 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       []
       |> then(fn c -> if base_url, do: Keyword.put(c, :base_url, base_url), else: c end)
       |> then(fn c -> if api_key, do: Keyword.put(c, :api_key, api_key), else: c end)
-      |> then(fn c -> if auth_endpoint, do: Keyword.put(c, :auth_endpoint, auth_endpoint), else: c end)
-      |> then(fn c -> if auth_header_name, do: Keyword.put(c, :auth_header_name, auth_header_name), else: c end)
-      |> then(fn c -> if auth_header_scheme, do: Keyword.put(c, :auth_header_scheme, auth_header_scheme), else: c end)
+      |> then(fn c ->
+        if auth_endpoint, do: Keyword.put(c, :auth_endpoint, auth_endpoint), else: c
+      end)
+      |> then(fn c ->
+        if auth_header_name, do: Keyword.put(c, :auth_header_name, auth_header_name), else: c
+      end)
+      |> then(fn c ->
+        if auth_header_scheme,
+          do: Keyword.put(c, :auth_header_scheme, auth_header_scheme),
+          else: c
+      end)
       |> then(fn c -> if timeout_ms, do: Keyword.put(c, :timeout_ms, timeout_ms), else: c end)
 
     Acs.Apps.Config.configure_app(name, config)

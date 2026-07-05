@@ -382,7 +382,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     parts = []
 
     parts =
-      if length(telemetry.tool_chains) > 0 do
+      if telemetry.tool_chains != [] do
         chains_str =
           telemetry.tool_chains
           |> Enum.map(fn c -> "    - #{c.chain} (#{c.ops} calls)" end)
@@ -394,14 +394,14 @@ defmodule Acs.MetaHarness.DocumentGenerator do
       end
 
     parts =
-      if length(telemetry.retry_patterns) > 0 do
+      if telemetry.retry_patterns != [] do
         ["Retry Patterns: #{Enum.join(telemetry.retry_patterns, ", ")}" | parts]
       else
         parts
       end
 
     parts =
-      if length(telemetry.discovered_tools) > 0 do
+      if telemetry.discovered_tools != [] do
         [
           "Tool Discovery: #{Enum.join(telemetry.discovered_tools, ", ")} (tools agents wish existed)"
         ]
@@ -410,7 +410,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
       end
 
     parts =
-      if length(telemetry.error_bursts) > 0 do
+      if telemetry.error_bursts != [] do
         ["Error Bursts: #{Enum.join(telemetry.error_bursts, ", ")}"]
       else
         parts
@@ -426,7 +426,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     failing = Enum.filter(analysis.tool_reliability, fn {_, d} -> d.success_rate < 0.9 end)
 
     recs =
-      if length(failing) > 0 do
+      if failing != [] do
         recs ++
           [
             "- Investigate tools with <90% success rate: #{Enum.map_join(failing, ", ", &elem(&1, 0))}"
@@ -439,7 +439,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     slow = Enum.filter(analysis.latency_analysis, fn {_, d} -> (d.p95_latency || 0) > 500 end)
 
     recs =
-      if length(slow) > 0 do
+      if slow != [] do
         recs ++
           ["- Optimize slow tools (p95 > 500ms): #{Enum.map_join(slow, ", ", &elem(&1, 0))}"]
       else
@@ -448,7 +448,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
 
     # Error clusters
     recs =
-      if length(analysis.error_clusters) > 0 do
+      if analysis.error_clusters != [] do
         recs ++ ["- Review #{length(analysis.error_clusters)} error clusters for patterns"]
       else
         recs
@@ -456,7 +456,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
 
     # Tool discovery - agents requesting unknown tools
     recs =
-      if length(telemetry.discovered_tools) > 0 do
+      if telemetry.discovered_tools != [] do
         recs ++
           [
             "- Consider implementing requested tools: #{Enum.join(telemetry.discovered_tools, ", ")}"
@@ -467,7 +467,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
 
     # Retry patterns - tools with high retry counts
     recs =
-      if length(telemetry.retry_patterns) > 0 do
+      if telemetry.retry_patterns != [] do
         recs ++ ["- High retry rates detected on: #{Enum.join(telemetry.retry_patterns, ", ")}"]
       else
         recs
@@ -475,7 +475,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
 
     # Error bursts - clustered errors
     recs =
-      if length(telemetry.error_bursts) > 0 do
+      if telemetry.error_bursts != [] do
         recs ++ ["- Address error burst patterns in: #{Enum.join(telemetry.error_bursts, ", ")}"]
       else
         recs

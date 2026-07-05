@@ -70,11 +70,15 @@ defmodule Acs.Memory.GuidanceTest do
   describe "for_task/1" do
     test "generates guidance based on task file_paths" do
       # First create a task with a file path
-      {:ok, task} = Acs.create_task(%{
-        "title" => "Test Task",
-        "description" => "Test task for guidance",
-        "file_paths" => ["lib/acs/cache/release.ex"]
-      }, "test_agent")
+      {:ok, task} =
+        Acs.create_task(
+          %{
+            "title" => "Test Task",
+            "description" => "Test task for guidance",
+            "file_paths" => ["lib/acs/cache/release.ex"]
+          },
+          "test_agent"
+        )
 
       packet = Guidance.for_task(task.id)
 
@@ -133,7 +137,7 @@ defmodule Acs.Memory.GuidanceTest do
 
       assert String.contains?(packet.maintenance_instructions, "set_memory_status")
       assert String.contains?(packet.maintenance_instructions, "save_memory")
-      assert String.contains?(packet.maintenance_instructions, "document_propose")
+      assert String.contains?(packet.maintenance_instructions, "specs_propose")
     end
   end
 
@@ -147,7 +151,8 @@ defmodule Acs.Memory.GuidanceTest do
         "status" => "approved",
         "title" => "Cache Release Ordering",
         "summary" => "Agent state must be cleared before cache deletion",
-        "content" => "When releasing tasks, clear agent ownership before deleting cache entries to avoid stale assignment races.",
+        "content" =>
+          "When releasing tasks, clear agent ownership before deleting cache entries to avoid stale assignment races.",
         "scope_path" => "agent_coordination_system/cache/release",
         "importance" => 5,
         "tags" => ["cache", "concurrency"],
@@ -160,7 +165,8 @@ defmodule Acs.Memory.GuidanceTest do
         "status" => "approved",
         "title" => "Stale Task Release Race",
         "summary" => "Concurrent release can leave stale ownership",
-        "content" => "During concurrent release flows, stale ownership may remain if agent state is not cleared before cache deletion.",
+        "content" =>
+          "During concurrent release flows, stale ownership may remain if agent state is not cleared before cache deletion.",
         "scope_path" => "agent_coordination_system/cache/release",
         "importance" => 4,
         "tags" => ["cache", "concurrency"],
@@ -173,7 +179,8 @@ defmodule Acs.Memory.GuidanceTest do
         "status" => "approved",
         "title" => "Transactional Cleanup Pattern",
         "summary" => "Use transactional cleanup wrapper for release operations",
-        "content" => "Wrap release operations in a transactional cleanup pattern to ensure atomic state changes.",
+        "content" =>
+          "Wrap release operations in a transactional cleanup pattern to ensure atomic state changes.",
         "scope_path" => "agent_coordination_system/cache",
         "importance" => 3,
         "tags" => ["cache", "pattern"],

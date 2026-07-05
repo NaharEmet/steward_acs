@@ -40,9 +40,15 @@ defmodule Acs.Memory.Auditor do
   # Exponential backoff delays in milliseconds (longer for production resilience)
   @backoff_delays [2_000, 5_000, 15_000, 30_000, 60_000]
 
-  # Pre-filter thresholds
-  @min_content_length 20
-  @low_content_length 50
+  # Pre-filter thresholds (overridable via Application config)
+  @default_min_content_length 20
+  @default_low_content_length 50
+  @default_fuzzy_threshold 0.85
+  @default_reject_title_prefixes ["Key learning from task", "Issue encountered in task"]
+  @default_reject_title_exact ["Improvement suggestion from task feedback"]
+  @default_reject_scope_prefixes ["test/", "test_app/"]
+  @default_reject_id_prefixes ["lifecycle_rebuild"]
+  @default_reject_id_contains ["guidance_test", "e2e_pipeline", "test_hybrid"]
 
   @doc """
   Starts the Auditor GenServer.
@@ -304,40 +310,79 @@ defmodule Acs.Memory.Auditor do
     end
   end
 
+  # ── Config-driven pre-filter helpers ─────────────────────────────────
+
+  defp min_content_length do
+    Application.get_env(:steward_acs, :auditor_min_content_length, @default_min_content_length)
+  end
+
+  defp low_content_length do
+    Application.get_env(:steward_acs, :auditor_low_content_length, @default_low_content_length)
+  end
+
+  defp fuzzy_threshold do
+    Application.get_env(:steward_acs, :auditor_fuzzy_threshold, @default_fuzzy_threshold)
+  end
+
+  defp reject_title_prefixes do
+    Application.get_env(:steward_acs, :auditor_reject_title_prefixes, @default_reject_title_prefixes)
+  end
+
+  defp reject_title_exact do
+    Application.get_env(:steward_acs, :auditor_reject_title_exact, @default_reject_title_exact)
+  end
+
+  defp reject_scope_prefixes do
+    Application.get_env(:steward_acs, :auditor_reject_scope_prefixes, @default_reject_scope_prefixes)
+  end
+
+  defp reject_id_prefixes do
+    Application.get_env(:steward_acs, :auditor_reject_id_prefixes, @default_reject_id_prefixes)
+  end
+
+  defp reject_id_contains do
+    Application.get_env(:steward_acs, :auditor_reject_id_contains, @default_reject_id_contains)
+  end
+
+  defp reject_empty_scope? do
+    Application.get_env(:steward_acs, :auditor_reject_empty_scope, true)
+  end
+
+  defp reject_title_equals_content? do
+    Application.get_env(:steward_acs, :auditor_reject_title_equals_content, true)
+  end
+
   # Pre-filter check returns {:skip, reason} or :continue
   defp pre_filter_check(memory) do
     cond do
       # Auto-generated task feedback template → reject
-      String.starts_with?(memory.title || "", "Key learning from task") or
-        String.starts_with?(memory.title || "", "Issue encountered in task") or
-          memory.title == "Improvement suggestion from task feedback" ->
+      match_reject_title_prefix?(memory.title) or
+          match_reject_title_exact?(memory.title) ->
         mark_as_rejected(memory.id, "Auto-generated task feedback template")
         {:skip, "auto-generated task feedback"}
 
-      # Test/harness data patterns → reject
-      String.starts_with?(memory.scope_path || "", "test/") or
-          String.starts_with?(memory.scope_path || "", "test_app/") ->
+      # Test/harness data by scope pattern → reject
+      match_reject_scope_prefix?(memory.scope_path) ->
         mark_as_rejected(memory.id, "Test/harness scope_path")
         {:skip, "test scope_path"}
 
       # Test/harness data by known ID patterns → reject
-      # Catches: lifecycle_rebuild*, guidance_test*, e2e_pipeline*, test_hybrid*
-      is_test_noise_id?(memory.id) ->
+      match_reject_id_pattern?(memory.id) ->
         mark_as_rejected(memory.id, "Test/harness data by ID pattern")
         {:skip, "test data by id"}
 
       # Empty scope → reject
-      is_nil(memory.scope_path) or memory.scope_path == "" ->
+      reject_empty_scope?() and (is_nil(memory.scope_path) or memory.scope_path == "") ->
         mark_as_rejected(memory.id, "Empty scope_path")
         {:skip, "empty scope"}
 
       # Title equals content → reject
-      memory.title == memory.content ->
+      reject_title_equals_content?() and memory.title == memory.content ->
         mark_as_rejected(memory.id, "Title same as content")
         {:skip, "title equals content"}
 
-      # Content too short (<20 chars) → flag for human review
-      content_length(memory.content) < @min_content_length ->
+      # Content too short → flag for human review
+      content_length(memory.content) < min_content_length() ->
         mark_needs_human_review(
           memory.id,
           "Content too short (#{content_length(memory.content)} chars)"
@@ -345,8 +390,8 @@ defmodule Acs.Memory.Auditor do
 
         {:skip, "content too short"}
 
-      # Content borderline (20-50 chars) → flag + proceed with LLM
-      content_length(memory.content) < @low_content_length ->
+      # Content borderline → flag + proceed with LLM
+      content_length(memory.content) < low_content_length() ->
         Logger.debug(
           "[Acs.Memory.Auditor] Memory #{memory.id} has short content (#{content_length(memory.content)} chars), flagging for LLM review"
         )
@@ -366,24 +411,31 @@ defmodule Acs.Memory.Auditor do
     end
   end
 
+  defp match_reject_title_prefix?(title) do
+    Enum.any?(reject_title_prefixes(), &String.starts_with?(title || "", &1))
+  end
+
+  defp match_reject_title_exact?(title) do
+    title in reject_title_exact()
+  end
+
+  defp match_reject_scope_prefix?(scope_path) do
+    Enum.any?(reject_scope_prefixes(), &String.starts_with?(scope_path || "", &1))
+  end
+
+  defp match_reject_id_pattern?(id) when is_binary(id) do
+    id_lower = String.downcase(id)
+    Enum.any?(reject_id_prefixes(), &String.starts_with?(id_lower, &1)) or
+      Enum.any?(reject_id_contains(), &String.contains?(id_lower, &1))
+  end
+
+  defp match_reject_id_pattern?(_), do: false
+
   defp content_length(nil), do: 0
   defp content_length(content) when is_binary(content), do: String.length(content)
 
-  # Check if memory ID matches any known test/harness noise pattern
-  defp is_test_noise_id?(id) when is_binary(id) do
-    id_lower = String.downcase(id)
-
-    String.starts_with?(id_lower, "lifecycle_rebuild") or
-      String.contains?(id_lower, "guidance_test") or
-      String.contains?(id_lower, "e2e_pipeline") or
-      String.contains?(id_lower, "test_hybrid")
-  end
-
-  defp is_test_noise_id?(_), do: false
-
   # Find potential fuzzy duplicate by title similarity
   defp find_fuzzy_duplicate(memory) do
-    # Search for memories with similar titles in the same scope
     candidates =
       Indexer.list_memories(
         scope_path: memory.scope_path,
@@ -399,7 +451,7 @@ defmodule Acs.Memory.Auditor do
 
         candidate_title != "" &&
           memory_title != "" &&
-          String.jaro_distance(memory_title, candidate_title) > 0.85
+          String.jaro_distance(memory_title, candidate_title) > fuzzy_threshold()
       end)
 
     duplicate && duplicate.id

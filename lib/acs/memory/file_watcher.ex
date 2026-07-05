@@ -26,24 +26,59 @@ defmodule Acs.Memory.FileWatcher do
     dir = Acs.Memory.Loader.memory_dir()
 
     case File.mkdir_p(dir) do
-      :ok -> :ok
+      :ok ->
+        :ok
+
       {:error, reason} ->
-        Logger.warning("[Memory.FileWatcher] Could not create directory #{dir}: #{inspect(reason)}")
+        Logger.warning(
+          "[Memory.FileWatcher] Could not create directory #{dir}: #{inspect(reason)}"
+        )
     end
 
     case FileSystem.start_link(dirs: [dir], name: :acs_memory_fs_watcher) do
       {:ok, watcher_pid} ->
         FileSystem.subscribe(watcher_pid)
         Logger.info("[Memory.FileWatcher] Watching #{dir} for memory file changes")
-        {:ok, %{watcher_pid: watcher_pid, dir: dir, timer_ref: nil, in_sync: false, pending: false, pending_path: nil}}
+
+        {:ok,
+         %{
+           watcher_pid: watcher_pid,
+           dir: dir,
+           timer_ref: nil,
+           in_sync: false,
+           pending: false,
+           pending_path: nil
+         }}
 
       {:error, reason} ->
-        Logger.warning("[Memory.FileWatcher] Cannot start file watcher: #{inspect(reason)}. Continuing without file watching.")
-        {:ok, %{watcher_pid: nil, dir: dir, timer_ref: nil, in_sync: true, pending: false, pending_path: nil}}
+        Logger.warning(
+          "[Memory.FileWatcher] Cannot start file watcher: #{inspect(reason)}. Continuing without file watching."
+        )
+
+        {:ok,
+         %{
+           watcher_pid: nil,
+           dir: dir,
+           timer_ref: nil,
+           in_sync: true,
+           pending: false,
+           pending_path: nil
+         }}
 
       :ignore ->
-        Logger.warning("[Memory.FileWatcher] File system watching not available (inotify unsupported). Continuing without file watching.")
-        {:ok, %{watcher_pid: nil, dir: dir, timer_ref: nil, in_sync: true, pending: false, pending_path: nil}}
+        Logger.warning(
+          "[Memory.FileWatcher] File system watching not available (inotify unsupported). Continuing without file watching."
+        )
+
+        {:ok,
+         %{
+           watcher_pid: nil,
+           dir: dir,
+           timer_ref: nil,
+           in_sync: true,
+           pending: false,
+           pending_path: nil
+         }}
     end
   end
 

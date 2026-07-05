@@ -118,6 +118,7 @@ defmodule Acs.Acs do
 
     Repo.all(query)
   end
+
   @doc """
   Locks a file for a task. Delegates to Acs.lock_file.
   """
@@ -303,7 +304,13 @@ defmodule Acs.Acs do
             {"accept", "application/json"}
           ]
 
-          case Req.request(method: :post, url: base_url <> "/api/tools/list_orgs", headers: headers, json: %{}, receive_timeout: 15_000) do
+          case Req.request(
+                 method: :post,
+                 url: base_url <> "/api/tools/list_orgs",
+                 headers: headers,
+                 json: %{},
+                 receive_timeout: 15_000
+               ) do
             {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
               Map.get(body, "orgs", [])
 

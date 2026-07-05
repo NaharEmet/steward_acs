@@ -91,15 +91,16 @@ defmodule Acs.MetaHarness.Analyzer do
           total = row["total_calls"] || 0
           success = row["success_count"] || 0
 
-          {tool_name, %{
-            total_calls: total,
-            success_count: success,
-            failure_count: row["failure_count"] || 0,
-            error_count: row["error_count"] || 0,
-            success_rate: if(total > 0, do: success / total, else: 0.0),
-            avg_latency: row["avg_latency"] || 0,
-            max_latency: row["max_latency"] || 0
-          }}
+          {tool_name,
+           %{
+             total_calls: total,
+             success_count: success,
+             failure_count: row["failure_count"] || 0,
+             error_count: row["error_count"] || 0,
+             success_rate: if(total > 0, do: success / total, else: 0.0),
+             avg_latency: row["avg_latency"] || 0,
+             max_latency: row["max_latency"] || 0
+           }}
         end)
 
       {:error, _} ->
@@ -146,15 +147,16 @@ defmodule Acs.MetaHarness.Analyzer do
           tool_name = row["tool_name"]
           latencies = Map.get(latencies_by_tool, tool_name, [])
 
-          {tool_name, %{
-            sample_size: row["sample_size"] || 0,
-            avg_latency: row["avg_latency"] || 0,
-            min_latency: row["min_latency"] || 0,
-            max_latency: row["max_latency"] || 0,
-            p50_latency: percentile(latencies, 0.50),
-            p95_latency: percentile(latencies, 0.95),
-            p99_latency: percentile(latencies, 0.99)
-          }}
+          {tool_name,
+           %{
+             sample_size: row["sample_size"] || 0,
+             avg_latency: row["avg_latency"] || 0,
+             min_latency: row["min_latency"] || 0,
+             max_latency: row["max_latency"] || 0,
+             p50_latency: percentile(latencies, 0.50),
+             p95_latency: percentile(latencies, 0.95),
+             p99_latency: percentile(latencies, 0.99)
+           }}
         end)
 
       _ ->
@@ -230,16 +232,17 @@ defmodule Acs.MetaHarness.Analyzer do
           total = row["total_operations"] || 0
           success = row["success_count"] || 0
 
-          {agent_id, %{
-            total_operations: total,
-            success_count: success,
-            failure_count: row["failure_count"] || 0,
-            unique_tools_used: row["unique_tools_used"] || 0,
-            success_rate: if(total > 0, do: success / total, else: 0.0),
-            avg_latency: row["avg_latency"] || 0,
-            first_seen: row["first_seen"],
-            last_seen: row["last_seen"]
-          }}
+          {agent_id,
+           %{
+             total_operations: total,
+             success_count: success,
+             failure_count: row["failure_count"] || 0,
+             unique_tools_used: row["unique_tools_used"] || 0,
+             success_rate: if(total > 0, do: success / total, else: 0.0),
+             avg_latency: row["avg_latency"] || 0,
+             first_seen: row["first_seen"],
+             last_seen: row["last_seen"]
+           }}
         end)
         |> Enum.reject(fn {agent_id, _} -> is_nil(agent_id) or agent_id == "" end)
         |> Enum.into(%{})
@@ -253,6 +256,7 @@ defmodule Acs.MetaHarness.Analyzer do
 
   # Calculates percentile from sorted list using linear interpolation
   defp percentile([], _p), do: 0
+
   defp percentile(sorted_values, p) when is_list(sorted_values) do
     n = length(sorted_values)
     index = (p * (n - 1)) |> Float.ceil() |> max(0) |> min(n - 1) |> round()
@@ -294,9 +298,11 @@ defmodule Acs.MetaHarness.Analyzer do
       try do
         case Ecto.Adapters.SQL.query(Acs.Repo, query, []) do
           {:ok, %Exqlite.Result{} = result} ->
-            {:ok, Enum.map(result.rows, fn row ->
-              Enum.zip(result.columns, row) |> Enum.into(%{})
-            end)}
+            {:ok,
+             Enum.map(result.rows, fn row ->
+               Enum.zip(result.columns, row) |> Enum.into(%{})
+             end)}
+
           {:error, reason} ->
             {:error, reason}
         end
@@ -314,8 +320,11 @@ defmodule Acs.MetaHarness.Analyzer do
     if map_size(tool_reliability) == 0 do
       0.0
     else
-      total_calls = Enum.reduce(tool_reliability, 0, fn {_, data}, acc -> acc + data.total_calls end)
-      total_successes = Enum.reduce(tool_reliability, 0, fn {_, data}, acc -> acc + data.success_count end)
+      total_calls =
+        Enum.reduce(tool_reliability, 0, fn {_, data}, acc -> acc + data.total_calls end)
+
+      total_successes =
+        Enum.reduce(tool_reliability, 0, fn {_, data}, acc -> acc + data.success_count end)
 
       if total_calls > 0 do
         total_successes / total_calls
@@ -327,7 +336,9 @@ defmodule Acs.MetaHarness.Analyzer do
 
   defp find_slowest_tool(latency_analysis) do
     case latency_analysis do
-      %{} when map_size(latency_analysis) == 0 -> nil
+      %{} when map_size(latency_analysis) == 0 ->
+        nil
+
       _ ->
         Enum.max_by(latency_analysis, fn {_, data} -> data.avg_latency end)
         |> elem(0)
@@ -336,7 +347,9 @@ defmodule Acs.MetaHarness.Analyzer do
 
   defp find_most_failed_tool(tool_reliability) do
     case tool_reliability do
-      %{} when map_size(tool_reliability) == 0 -> nil
+      %{} when map_size(tool_reliability) == 0 ->
+        nil
+
       _ ->
         Enum.max_by(tool_reliability, fn {_, data} -> data.failure_count end)
         |> elem(0)

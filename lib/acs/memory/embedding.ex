@@ -93,13 +93,18 @@ defmodule Acs.Memory.Embedding do
       iex> length(embeddings)
       2
   """
-@spec embed_texts([String.t()]) :: {:ok, [[float()]]} | {:error, String.t()}
+  @spec embed_texts([String.t()]) :: {:ok, [[float()]]} | {:error, String.t()}
   def embed_texts(texts) when is_list(texts) do
     if texts == [] do
       {:ok, []}
     else
       results = Enum.map(texts, &embed_text/1)
-      errors = Enum.filter(results, fn {:ok, _} -> false; {:error, _} -> true end)
+
+      errors =
+        Enum.filter(results, fn
+          {:ok, _} -> false
+          {:error, _} -> true
+        end)
 
       case errors do
         [] ->
@@ -168,7 +173,9 @@ defmodule Acs.Memory.Embedding do
         0.0
 
       true ->
-        dot_product = Enum.zip(vector1, vector2) |> Enum.reduce(0.0, fn {a, b}, acc -> a * b + acc end)
+        dot_product =
+          Enum.zip(vector1, vector2) |> Enum.reduce(0.0, fn {a, b}, acc -> a * b + acc end)
+
         magnitude1 = :math.sqrt(Enum.reduce(vector1, 0.0, fn x, acc -> x * x + acc end))
         magnitude2 = :math.sqrt(Enum.reduce(vector2, 0.0, fn x, acc -> x * x + acc end))
 
@@ -301,6 +308,7 @@ defmodule Acs.Memory.Embedding do
   end
 
   defp retry_available?(0, _delay), do: available?()
+
   defp retry_available?(n, delay) do
     if available?() do
       true
@@ -367,7 +375,10 @@ defmodule Acs.Memory.Embedding do
       failed: failed_count
     }
 
-    Logger.info("[Embedding] ensure_embeddings: #{total} total, #{existing} existing, #{embedded_count} new, #{failed_count} failed")
+    Logger.info(
+      "[Embedding] ensure_embeddings: #{total} total, #{existing} existing, #{embedded_count} new, #{failed_count} failed"
+    )
+
     {:ok, stats}
   end
 

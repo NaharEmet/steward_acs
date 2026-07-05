@@ -5,9 +5,61 @@ defmodule Acs.MCP.Tools do
   alias Acs.MCP.Tools.MemoryHandlers
   alias Acs.MCP.Tools.ErrorHandlers
   alias Acs.MCP.Tools.DiagnosticHandlers
-  alias Acs.MCP.Tools.ClusterHandlers
+  alias Acs.MCP.Tools.SkillHandlers
   alias Acs.MCP.Tools.QueryAgent
   require Logger
+
+  @tool_categories %{
+    # ACS Core (workflow) tools
+    "claim_work" => "acs_core",
+    "release_work" => "acs_core",
+    "create_work" => "acs_core",
+    "lock_file" => "acs_core",
+    "unlock_file" => "acs_core",
+    "get_present_status" => "acs_core",
+    "get_locked_files" => "acs_core",
+    "list_tasks" => "acs_core",
+    "time" => "acs_core",
+    "get_logs" => "acs_core",
+    "list_orgs" => "acs_core",
+    "list_plugins" => "acs_core",
+    "app_list" => "acs_core",
+    "app_configure" => "acs_core",
+    "app_remove" => "acs_core",
+    "write_tool" => "acs_core",
+    # Knowledge (memory) tools
+    "save_memory" => "knowledge",
+    "query_memories" => "knowledge",
+    "set_memory_status" => "knowledge",
+    "generate_guidance_packet" => "knowledge",
+    "ask" => "knowledge",
+    # Specs tools
+    "specs_get" => "specs",
+    "query_specs" => "specs",
+    "specs_propose" => "specs",
+    "specs_approve" => "specs",
+    "specs_reject" => "specs",
+    # Diagnostic tools
+    "help" => "diagnostic",
+    "query" => "diagnostic",
+    "config_lookup" => "diagnostic",
+    "connection_diagnostic" => "diagnostic",
+    "memory_health_check" => "diagnostic",
+    # Error tools
+    "list_error_traces" => "error",
+    "ack_error_trace" => "error",
+    "resolve_error_trace" => "error",
+    "create_task_from_error_trace" => "error",
+    "submit_task_feedback" => "error",
+    # Skill tools
+    "skill_get" => "skills",
+    "skill_save" => "skills",
+    "skill_audit_status" => "skills"
+  }
+
+  def tool_category(name) do
+    Map.get(@tool_categories, name)
+  end
 
   def list_tools do
     [
@@ -15,7 +67,11 @@ defmodule Acs.MCP.Tools do
         "claim_work",
         "Claim a task for an agent. Returns task status, task_id, and a guidance packet with relevant knowledge memory for context. Optionally pass scope_path for targeted guidance.",
         %{
-          "agent_id" => %{"type" => "string", "description" => "Your team member name (e.g., 'alice'). Used as your identity in the ACS."},
+          "agent_id" => %{
+            "type" => "string",
+            "description" =>
+              "Your team member name (e.g., 'alice'). Used as your identity in the ACS."
+          },
           "task_id" => %{"type" => "string"},
           "scope_path" => %{
             "type" => "string",
@@ -38,10 +94,17 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "create_work",
-        "Create a new task with warnings about similar tasks, and optionally lock files",
+        "Create a new task. Set claim=true to immediately claim it (sets status to in_progress and locks it to you). Without claim, the task is created as todo and dispatched to a sleeping agent if available.",
         %{
-          "agent_id" => %{"type" => "string", "description" => "Your team member name who creates this task."},
+          "agent_id" => %{
+            "type" => "string",
+            "description" => "Your team member name who creates this task."
+          },
           "title" => %{"type" => "string"},
+          "claim" => %{
+            "type" => "boolean",
+            "description" => "Set to true to immediately claim the task (returns guidance packet)"
+          },
           "description" => %{"type" => "string"},
           "file_paths" => %{"type" => "array", "items" => %{"type" => "string"}},
           "application" => %{"type" => "string"},
@@ -92,35 +155,11 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "list_tasks",
-        "List all tasks",
+        "List all tasks. Optionally filter by status (todo, in_progress, in_review, done, blocked).",
         %{
-          "agent_id" => %{"type" => "string"},
-          "status_filter" => %{"type" => "string"}
+          "status_filter" => %{"type" => "string", "description" => "Optional: filter by status (todo, in_progress, in_review, done, blocked, all)"}
         },
-        ["agent_id"]
-      ),
-      tool_def(
-        "sleep",
-        "Put the calling agent to sleep until a task is created. " <>
-          "The agent blocks (long-poll) until a task is dispatched, then wakes with a task_id. " <>
-          "Call claim_work to claim the task. Returns immediately if a pending task exists.",
-        %{
-          "agent_id" => %{"type" => "string"},
-          "timeout" => %{
-            "type" => "integer",
-            "description" =>
-              "Max sleep time in milliseconds (default: 300000 = 5 min, 0 = infinite)"
-          }
-        },
-        ["agent_id"]
-      ),
-      tool_def(
-        "wake",
-        "Manually wake a sleeping agent by sending a cancellation.",
-        %{
-          "agent_id" => %{"type" => "string"}
-        },
-        ["agent_id"]
+        []
       ),
       tool_def(
         "get_logs",
@@ -184,7 +223,10 @@ defmodule Acs.MCP.Tools do
         "list_orgs",
         "List organizations from a configured app. Specify app_name to target a specific app, or omit for the default.",
         %{
-          "app_name" => %{"type" => "string", "description" => "Optional: target a specific app (e.g. 'my_app')"}
+          "app_name" => %{
+            "type" => "string",
+            "description" => "Optional: target a specific app (e.g. 'my_app')"
+          }
         },
         []
       ),
@@ -246,14 +288,27 @@ defmodule Acs.MCP.Tools do
         ["kind", "title", "content", "scope_path"]
       ),
       tool_def(
-        "list_memories",
-        "List memories with optional filters by scope_path, kind, or status. USE WHEN: browsing what knowledge exists for a component, or checking the status of previously proposed memories.",
+        "query_memories",
+        "Query memories with optional filters. If `query` is provided, performs hybrid search (semantic + FTS) across titles, summaries, and content. If `query` is omitted, lists memories by filters. USE WHEN: starting a task that might have prior art, browsing what knowledge exists for a component, or checking status of proposed memories.",
         %{
+          "query" => %{
+            "type" => "string",
+            "description" => "Search query text (optional — if provided, does hybrid search; if omitted, lists by filters)"
+          },
+          "mode" => %{
+            "type" => "string",
+            "description" =>
+              "Search mode: 'auto' (default, hybrid), 'keyword' (FTS only), 'semantic' (vector only). Only used when query is provided."
+          },
+          "min_relevance" => %{
+            "type" => "number",
+            "description" => "Minimum relevance score (0.0-1.0) to filter results. Only used when query is provided."
+          },
           "scope_path" => %{
             "type" => "string",
             "description" => "Filter by scope path prefix"
           },
-          "kind" => %{"type" => "string", "description" => "Filter by kind"},
+          "kind" => %{"type" => "string", "description" => "Filter by memory kind"},
           "status" => %{
             "type" => "string",
             "description" =>
@@ -262,17 +317,6 @@ defmodule Acs.MCP.Tools do
           "limit" => %{"type" => "integer", "description" => "Max results"}
         },
         []
-      ),
-      tool_def(
-        "search_memories",
-        "Full-text search across memory titles, summaries, and content. USE WHEN: starting a task that might have prior art, or when you need to check if something has been tried before. Essential for avoiding repeated mistakes.",
-        %{
-          "query" => %{"type" => "string", "description" => "Search query text"},
-          "scope" => %{"type" => "string", "description" => "Optional scope filter"},
-          "kind" => %{"type" => "string", "description" => "Optional kind filter"},
-          "limit" => %{"type" => "integer", "description" => "Max results"}
-        },
-        ["query"]
       ),
       tool_def(
         "set_memory_status",
@@ -304,7 +348,8 @@ defmodule Acs.MCP.Tools do
           },
           "mode" => %{
             "type" => "string",
-            "description" => "Output mode: 'mcp' for coding agents with tool references, 'knowledge' for chat agents without tool references",
+            "description" =>
+              "Output mode: 'mcp' for coding agents with tool references, 'knowledge' for chat agents without tool references",
             "enum" => ["mcp", "knowledge"]
           }
         },
@@ -316,17 +361,92 @@ defmodule Acs.MCP.Tools do
         %{
           "kind" => %{
             "type" => "string",
-            "description" => "Memory kind filter: context, status, work_note, activity, observation, learning, warning, pattern, bug, decision, invariant, axiom"
+            "description" =>
+              "Memory kind filter: context, status, work_note, activity, observation, learning, warning, pattern, bug, decision, invariant, axiom"
           },
           "team" => %{"type" => "string", "description" => "Team scope filter"},
           "project" => %{"type" => "string", "description" => "Project scope filter"},
-          "content_query" => %{"type" => "string", "description" => "Full-text search string for memories and documents"},
-          "document_type" => %{"type" => "string", "description" => "Document type: policy, process, guideline, reference, spec"},
-          "limit" => %{"type" => "integer", "description" => "Max results per category (default 10, max 50)"},
-          "include_documents" => %{"type" => "boolean", "description" => "Include documents in results (default true)"},
-          "include_agent_status" => %{"type" => "boolean", "description" => "Include agent presence (default true)"}
+          "content_query" => %{
+            "type" => "string",
+            "description" => "Full-text search string for memories and documents"
+          },
+          "document_type" => %{
+            "type" => "string",
+            "description" => "Document type: policy, process, guideline, reference, spec"
+          },
+          "limit" => %{
+            "type" => "integer",
+            "description" => "Max results per category (default 10, max 50)"
+          },
+          "include_documents" => %{
+            "type" => "boolean",
+            "description" => "Include documents in results (default true)"
+          },
+          "include_agent_status" => %{
+            "type" => "boolean",
+            "description" => "Include agent presence (default true)"
+          }
         },
         []
+      ),
+      # Specs Tools
+      tool_def(
+        "specs_get",
+        "Load a single spec entry by app and path. Specs contain structured documentation about modules.",
+        %{
+          "app" => %{"type" => "string", "description" => "App name (e.g., 'my_app')"},
+          "path" => %{
+            "type" => "string",
+            "description" => "Spec path (e.g., 'engine/orchestrator')"
+          }
+        },
+        ["app", "path"]
+      ),
+      tool_def(
+        "query_specs",
+        "Query specs: search, list, or find undocumented. If `query` is provided, does full-text search. If `undocumented` is true, finds modules missing specs. Otherwise lists specs with optional filters.",
+        %{
+          "query" => %{"type" => "string", "description" => "Search query text (optional)"},
+          "app" => %{"type" => "string", "description" => "Optional app filter"},
+          "status" => %{"type" => "string", "description" => "Optional status filter"},
+          "undocumented" => %{
+            "type" => "boolean",
+            "description" => "Set to true to find modules without spec entries"
+          },
+          "limit" => %{"type" => "integer", "description" => "Max results"}
+        },
+        []
+      ),
+      tool_def(
+        "specs_propose",
+        "Create or update a spec entry. Sets status to 'proposed'. Includes deduplication warnings for similar entries.",
+        %{
+          "app" => %{"type" => "string", "description" => "App name"},
+          "path" => %{"type" => "string", "description" => "Spec path"},
+          "title" => %{"type" => "string", "description" => "Human-readable title"},
+          "purpose" => %{"type" => "string", "description" => "Why this module exists"},
+          "content" => %{"type" => "string", "description" => "Full spec content"}
+        },
+        ["app", "path"]
+      ),
+      tool_def(
+        "specs_approve",
+        "Approve a proposed spec entry. Sets status to 'approved'.",
+        %{
+          "app" => %{"type" => "string", "description" => "App name"},
+          "path" => %{"type" => "string", "description" => "Spec path"},
+          "reviewer" => %{"type" => "string", "description" => "Reviewer identifier"}
+        },
+        ["app", "path", "reviewer"]
+      ),
+      tool_def(
+        "specs_reject",
+        "Soft-reject a spec entry. Reverts status to 'under_review'.",
+        %{
+          "app" => %{"type" => "string", "description" => "App name"},
+          "path" => %{"type" => "string", "description" => "Spec path"}
+        },
+        ["app", "path"]
       ),
       # Error Trace Tools
       tool_def(
@@ -378,6 +498,7 @@ defmodule Acs.MCP.Tools do
         "Submit task feedback that auto-generates knowledge memories from your learnings. Use after completing a task to share discoveries with future agents.",
         %{
           "task_id" => %{"type" => "string", "description" => "The completed task ID"},
+          "agent_id" => %{"type" => "string", "description" => "Your team member name (e.g., 'alice'). Used as your identity in the ACS."},
           "learned_for_agents" => %{
             "type" => "string",
             "description" => "What did you learn that will help agents in the future?"
@@ -418,7 +539,7 @@ defmodule Acs.MCP.Tools do
             "description" => "What guidance was needed but missing from the packet?"
           }
         },
-        ["task_id"]
+        ["task_id", "agent_id"]
       ),
       tool_def(
         "help",
@@ -426,8 +547,7 @@ defmodule Acs.MCP.Tools do
         %{
           "category" => %{
             "type" => "string",
-            "description" =>
-              "Filter tools by category (e.g., 'acs_core', 'knowledge', 'cognition')"
+            "description" => "Filter tools by category (e.g., 'acs_core', 'knowledge', 'specs')"
           },
           "level" => %{
             "type" => "integer",
@@ -441,7 +561,10 @@ defmodule Acs.MCP.Tools do
         "query",
         "Query ACS telemetry data with read-only SQL (SELECT, WITH, EXPLAIN). Aggregates allowed. No writes.",
         %{
-          "sql" => %{"type" => "string", "description" => "Read-only SQL query (SELECT/WITH/EXPLAIN only)"},
+          "sql" => %{
+            "type" => "string",
+            "description" => "Read-only SQL query (SELECT/WITH/EXPLAIN only)"
+          },
           "purpose" => %{"type" => "string", "description" => "What you're trying to find"}
         },
         ["sql"]
@@ -450,7 +573,10 @@ defmodule Acs.MCP.Tools do
         "config_lookup",
         "Look up opencode configuration settings. Returns agent config, skills, plugins, and MCP server settings.",
         %{
-          "path" => %{"type" => "string", "description" => "Config path to look up (e.g. 'agents', 'skills', 'plugins', 'mcp')"},
+          "path" => %{
+            "type" => "string",
+            "description" => "Config path to look up (e.g. 'agents', 'skills', 'plugins', 'mcp')"
+          },
           "key" => %{"type" => "string", "description" => "Specific key to retrieve (optional)"}
         },
         []
@@ -459,26 +585,27 @@ defmodule Acs.MCP.Tools do
         "connection_diagnostic",
         "Check if external services (ACS, database, LLM providers) are reachable. Returns connectivity status for each service.",
         %{
-          "service" => %{"type" => "string", "description" => "Specific service to check: 'acs', 'database', 'llm', or 'all' (default)"},
-          "verbose" => %{"type" => "boolean", "description" => "Include detailed error info (default: false)"}
+          "service" => %{
+            "type" => "string",
+            "description" =>
+              "Specific service to check: 'acs', 'database', 'llm', or 'all' (default)"
+          },
+          "verbose" => %{
+            "type" => "boolean",
+            "description" => "Include detailed error info (default: false)"
+          }
         },
         []
-      ),
-      tool_def(
-        "find_similar_code",
-        "Semantic search across the codebase for similar code patterns. Uses embeddings to find semantically similar code.",
-        %{
-          "query" => %{"type" => "string", "description" => "Code snippet or description to search for"},
-          "limit" => %{"type" => "integer", "description" => "Max results to return (default: 5)"},
-          "scope" => %{"type" => "string", "description" => "Scope path to limit search (optional)"}
-        },
-        ["query"]
       ),
       tool_def(
         "memory_health_check",
         "Check the health status of the Anantha memory system. Returns overall health score, pipeline status, DLQ metrics, data flow statistics, and any issues detected. Use this to verify data has been added correctly and identify problems. Specify org_id to filter by organization, or omit for global view.",
         %{
-          "org_id" => %{"type" => "string", "description" => "Optional org ID to scope the health check to a specific organization"}
+          "org_id" => %{
+            "type" => "string",
+            "description" =>
+              "Optional org ID to scope the health check to a specific organization"
+          }
         },
         []
       ),
@@ -500,11 +627,27 @@ defmodule Acs.MCP.Tools do
         %{
           "name" => %{"type" => "string", "description" => "App name (e.g. 'my_app')"},
           "base_url" => %{"type" => "string", "description" => "Root URL of the app"},
-          "api_key" => %{"type" => "string", "description" => "API key for authenticating with the app"},
-          "auth_endpoint" => %{"type" => "string", "description" => "Auth validation endpoint path (default: /api/auth/validate-key)"},
-          "auth_header_name" => %{"type" => "string", "description" => "HTTP header for API key (default: 'authorization')"},
-          "auth_header_scheme" => %{"type" => "string", "description" => "Auth scheme prefix, e.g. 'Bearer', or '' for raw key (default: 'Bearer')"},
-          "timeout_ms" => %{"type" => "integer", "description" => "Request timeout in milliseconds (default: 30000)"}
+          "api_key" => %{
+            "type" => "string",
+            "description" => "API key for authenticating with the app"
+          },
+          "auth_endpoint" => %{
+            "type" => "string",
+            "description" => "Auth validation endpoint path (default: /api/auth/validate-key)"
+          },
+          "auth_header_name" => %{
+            "type" => "string",
+            "description" => "HTTP header for API key (default: 'authorization')"
+          },
+          "auth_header_scheme" => %{
+            "type" => "string",
+            "description" =>
+              "Auth scheme prefix, e.g. 'Bearer', or '' for raw key (default: 'Bearer')"
+          },
+          "timeout_ms" => %{
+            "type" => "integer",
+            "description" => "Request timeout in milliseconds (default: 30000)"
+          }
         },
         ["name"]
       ),
@@ -516,7 +659,55 @@ defmodule Acs.MCP.Tools do
         },
         ["name"]
       ),
-
+      tool_def(
+        "skill_get",
+        "Retrieve skills. Pass `name` to get one skill, `search` to search, `tag` to filter by tag, or nothing to list all.",
+        %{
+          "name" => %{
+            "type" => "string",
+            "description" => "Skill name to retrieve"
+          },
+          "search" => %{
+            "type" => "string",
+            "description" => "Search query across skill names, descriptions, tags, and content"
+          },
+          "tag" => %{
+            "type" => "string",
+            "description" => "Filter skills by tag"
+          }
+        },
+        []
+      ),
+      tool_def(
+        "skill_save",
+        "Create or update a skill. Agents use this to store workflows, guides, and know-how for other agents.",
+        %{
+          "name" => %{
+            "type" => "string",
+            "description" => "Unique skill name (e.g. 'secrets-management')"
+          },
+          "content" => %{
+            "type" => "string",
+            "description" => "Skill body content (markdown)"
+          },
+          "tags" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "description" => "Tags for categorization"
+          },
+          "description" => %{
+            "type" => "string",
+            "description" => "Short description of what this skill covers"
+          }
+        },
+        ["name", "content"]
+      ),
+      tool_def(
+        "skill_audit_status",
+        "Run a quality audit on all skills and return results. Checks frontmatter completeness, content length, description quality, and tags.",
+        %{},
+        []
+      )
     ]
   end
 
@@ -537,14 +728,11 @@ defmodule Acs.MCP.Tools do
     "get_present_status" => &CoreHandlers.acs_get_present_status/1,
     "get_locked_files" => &CoreHandlers.acs_get_locked_files/1,
     "list_tasks" => &CoreHandlers.acs_list_tasks/1,
-    "sleep" => &CoreHandlers.acs_sleep/1,
-    "wake" => &CoreHandlers.acs_wake/1,
     "get_logs" => &CoreHandlers.get_logs/1,
     "list_orgs" => &CoreHandlers.list_orgs/1,
     "time" => &CoreHandlers.acs_time/1,
     "save_memory" => &MemoryHandlers.save_memory/1,
-    "list_memories" => &MemoryHandlers.list_memories/1,
-    "search_memories" => &MemoryHandlers.search_memories/1,
+    "query_memories" => &MemoryHandlers.query_memories/1,
     "set_memory_status" => &MemoryHandlers.set_memory_status/1,
     "generate_guidance_packet" => &MemoryHandlers.generate_guidance_packet/1,
     "ask" => &QueryAgent.ask/1,
@@ -557,21 +745,25 @@ defmodule Acs.MCP.Tools do
     "query" => &DiagnosticHandlers.acs_query/1,
     "config_lookup" => &DiagnosticHandlers.config_lookup/1,
     "connection_diagnostic" => &DiagnosticHandlers.connection_diagnostic/1,
-    "find_similar_code" => &DiagnosticHandlers.find_similar_code/1,
     "memory_health_check" => &DiagnosticHandlers.memory_health_check/1,
     "list_plugins" => &CoreHandlers.list_plugins/1,
     "app_list" => &CoreHandlers.app_list/1,
     "app_configure" => &CoreHandlers.app_configure/1,
     "app_remove" => &CoreHandlers.app_remove/1,
-    "read_file" => &ClusterHandlers.read_file/1,
-    "write_file" => &ClusterHandlers.write_file/1,
-    "read_dir" => &ClusterHandlers.read_dir/1
+    "skill_get" => &SkillHandlers.skill_get/1,
+    "skill_save" => &SkillHandlers.skill_save/1,
+    "skill_audit_status" => &SkillHandlers.skill_audit_status/1
   }
 
   defp dispatch_map do
     # Tools needing closures (partial application) built at runtime
     %{
-      "write_tool" => &DynamicTools.call_tool("write_tool", &1)
+      "write_tool" => &DynamicTools.call_tool("write_tool", &1),
+      "specs_get" => &Acs.Specs.Tools.call_tool("specs_get", &1),
+      "query_specs" => &Acs.Specs.Tools.call_tool("query_specs", &1),
+      "specs_propose" => &Acs.Specs.Tools.call_tool("specs_propose", &1),
+      "specs_approve" => &Acs.Specs.Tools.call_tool("specs_approve", &1),
+      "specs_reject" => &Acs.Specs.Tools.call_tool("specs_reject", &1)
     }
   end
 
@@ -582,11 +774,9 @@ defmodule Acs.MCP.Tools do
       if agent_id = Map.get(args, "agent_id") do
         case Acs.Acs.Cache.get_agent_status(agent_id) do
           {:ok, nil} ->
-            Acs.Acs.Cache.put_agent_status(agent_id, %{
+            Acs.Acs.put_agent_status(agent_id, %{
               purpose: "active",
-              current_task_id: nil,
-              application: nil,
-              component: nil
+              current_task_id: nil
             })
 
           _ ->
@@ -657,9 +847,6 @@ defmodule Acs.MCP.Tools do
   defp tool_response_summary(_name, {:error, reason}), do: "error: #{inspect(reason)}"
   defp tool_response_summary(_name, :ok), do: "ok"
 
-  defp tool_response_summary("sleep", {:sleep, agent_id, _timeout}),
-    do: "sleep: agent=#{agent_id}"
-
   defp tool_action_summary("claim_work", %{"task_id" => task_id, "agent_id" => agent_id}),
     do: "claim task=#{task_id} for agent=#{agent_id}"
 
@@ -690,12 +877,6 @@ defmodule Acs.MCP.Tools do
   defp tool_action_summary("list_tasks", %{"agent_id" => agent_id, "status_filter" => status}),
     do: "list tasks for agent=#{agent_id} filter=#{status}"
 
-  defp tool_action_summary("sleep", %{"agent_id" => agent_id}),
-    do: "sleep agent=#{agent_id}"
-
-  defp tool_action_summary("wake", %{"agent_id" => agent_id}),
-    do: "wake agent=#{agent_id}"
-
   defp tool_action_summary("get_logs", args),
     do: "get logs (mode=#{Map.get(args, "mode", "list")}, filters: #{map_size(args)} params)"
 
@@ -711,6 +892,24 @@ defmodule Acs.MCP.Tools do
   defp tool_action_summary("app_remove", %{"name" => name}),
     do: "remove app: #{name}"
 
+  defp tool_action_summary("skill_get", %{"name" => name}),
+    do: "get skill: #{name}"
+
+  defp tool_action_summary("skill_get", %{"search" => query}),
+    do: "search skills: #{query}"
+
+  defp tool_action_summary("skill_get", %{"tag" => tag}),
+    do: "list skills (tag=#{tag})"
+
+  defp tool_action_summary("skill_get", _),
+    do: "list all skills"
+
+  defp tool_action_summary("skill_save", %{"name" => name}),
+    do: "save skill: #{name}"
+
+  defp tool_action_summary("skill_audit_status", _),
+    do: "audit skills"
+
   defp tool_action_summary("time", %{"action" => "get"}),
     do: "get time info"
 
@@ -723,14 +922,14 @@ defmodule Acs.MCP.Tools do
   defp tool_action_summary("save_memory", %{"title" => title}),
     do: "save memory: #{title}"
 
-  defp tool_action_summary("list_memories", %{"scope_path" => scope}),
+  defp tool_action_summary("query_memories", %{"query" => query}),
+    do: "search memories: #{query}"
+
+  defp tool_action_summary("query_memories", %{"scope_path" => scope}),
     do: "list memories for scope=#{scope}"
 
-  defp tool_action_summary("list_memories", args),
-    do: "list memories: #{inspect(args)}"
-
-  defp tool_action_summary("search_memories", %{"query" => query}),
-    do: "search memories: #{query}"
+  defp tool_action_summary("query_memories", args),
+    do: "query memories: #{inspect(args)}"
 
   defp tool_action_summary("set_memory_status", %{"memory_id" => id, "status" => status}),
     do: "set memory #{id} status=#{status}"
@@ -765,20 +964,27 @@ defmodule Acs.MCP.Tools do
   defp tool_action_summary("submit_task_feedback", %{"task_id" => task_id}),
     do: "submit feedback for task=#{task_id}"
 
-  # Cluster tools
-  defp tool_action_summary("read_file", %{"path" => path}),
-    do: "read: #{path}"
+  # Specs tools
+  defp tool_action_summary("specs_get", %{"app" => app, "path" => path}),
+    do: "specs_get: #{app}/#{path}"
 
-  defp tool_action_summary("write_file", %{"path" => path}),
-    do: "write: #{path}"
+  defp tool_action_summary("query_specs", %{"query" => query}),
+    do: "query_specs search: #{query}"
 
-  defp tool_action_summary("read_dir", %{"path" => path}),
-    do: "ls: #{path}"
+  defp tool_action_summary("query_specs", %{"undocumented" => true}),
+    do: "query_specs: find undocumented"
 
-  defp tool_action_summary("read_file", _args), do: "read file"
-  defp tool_action_summary("write_file", _args), do: "write file"
-  defp tool_action_summary("read_dir", _args), do: "list dir"
+  defp tool_action_summary("query_specs", args),
+    do: "query_specs list: #{inspect(args)}"
+
+  defp tool_action_summary("specs_propose", %{"app" => app, "path" => path}),
+    do: "specs_propose: #{app}/#{path}"
+
+  defp tool_action_summary("specs_approve", %{"app" => app, "path" => path}),
+    do: "specs_approve: #{app}/#{path}"
+
+  defp tool_action_summary("specs_reject", %{"app" => app, "path" => path}),
+    do: "specs_reject: #{app}/#{path}"
 
   defp tool_action_summary(_name, _args), do: "called"
-
 end

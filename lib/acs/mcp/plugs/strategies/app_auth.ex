@@ -37,7 +37,13 @@ defmodule Acs.MCP.Plugs.Strategies.AppAuth do
         case Req.post(url, json: %{api_key: key}, receive_timeout: 5_000) do
           {:ok, %{status: 200, body: %{"valid" => true} = body}} ->
             Logger.debug("[MCPAuth] authenticated via app auth as #{body["role"]}")
-            {:ok, %{role: body["role"], org_id: body["org_id"], permissions: Map.get(body, "permissions")}}
+
+            {:ok,
+             %{
+               role: body["role"],
+               org_id: body["org_id"],
+               permissions: Map.get(body, "permissions")
+             }}
 
           {:ok, %{status: 200, body: body}} ->
             Logger.warning("[MCPAuth] invalid app key: #{inspect(body["reason"])}")

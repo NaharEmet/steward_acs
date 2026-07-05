@@ -52,7 +52,7 @@ Status as of 2026-07-02. Items marked **DONE** were fixed in this pass.
 
 | ID | Issue | Notes |
 |----|-------|-------|
-| L1 | OAuth Bearer stub | **DONE** | Removed from default auth chain; opt-in via `OAUTH_BEARER_ENABLED=true` |
+| L1 | OAuth Bearer (Auth0) | **DONE** | JWT validation via Auth0 JWKS when `OAUTH_BEARER_ENABLED=true`; RFC 9728 metadata at `/.well-known/oauth-protected-resource/mcp/sse` |
 | L2 | Core-tool RBAC inconsistent with YAML | **DONE** | `Acs.MCP.CoreToolRoles` used by `authorize_tool` and `list_tools_mcp` |
 | L4 | `acs_time` clock manipulation | **DONE** | `set` restricted to admin/service; collaborators may `get` only |
 | L5 | Postgres default credentials | **DONE** | `runtime.exs` raises if default `postgres` password in prod |
@@ -67,12 +67,13 @@ After deploying fixes:
 - [ ] `POST /mcp/v1/messages` without key returns 401
 - [ ] `query` tool rejects `INSERT`, `DELETE`, `DROP`
 - [ ] Collaborator key with no team list sees only `visibility=org` memories
-- [ ] `read_file` rejects `/tmp_extra/...` when `/tmp` is allowed
+- [ ] (Cluster tools read_file/write_file/read_dir removed)
 - [ ] `save_memory` rejects `scope_path: "../../etc"`
 - [ ] Docker healthcheck passes without MCP API key
 
 ## Next recommended sprint
 
-1. Implement OAuth Bearer OIDC validation when `OAUTH_BEARER_ENABLED=true`
+1. ~~Implement OAuth Bearer OIDC validation when `OAUTH_BEARER_ENABLED=true`~~ **DONE** (Auth0)
 2. Align dynamically written YAML tools with role defaults on approval
 3. Rotate `ACS_PASSWORD` / `PGPASSWORD` in deployed environments
+4. Deploy prod with Auth0 vars from `.env.remote` and verify Claude Connector OAuth flow

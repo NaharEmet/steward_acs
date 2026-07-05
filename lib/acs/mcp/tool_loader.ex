@@ -30,7 +30,9 @@ defmodule Acs.MCP.ToolLoader do
 
     config_paths =
       case Application.get_env(:steward_acs, Acs.MCP.ToolLoader) do
-        nil -> []
+        nil ->
+          []
+
         config ->
           (config[:tools_paths] || [config[:tools_path]] |> List.wrap())
           |> Enum.filter(& &1)
@@ -72,7 +74,9 @@ defmodule Acs.MCP.ToolLoader do
       paths
       |> Enum.reduce({:ok, %{}}, fn path, {:ok, acc} ->
         case load_from_path(path) do
-          {:ok, app_configs} -> {:ok, merge_configs(acc, app_configs)}
+          {:ok, app_configs} ->
+            {:ok, merge_configs(acc, app_configs)}
+
           {:error, reason} ->
             Logger.warning("Failed to load tools from #{path}: #{reason}")
             {:ok, acc}
@@ -89,17 +93,19 @@ defmodule Acs.MCP.ToolLoader do
       case load_file(file) do
         {:ok, app_config} ->
           app_name = app_config["app"]
-          {:ok, Map.update(acc, app_name, app_config, fn existing ->
-          if existing["version"] != app_config["version"] do
-            Logger.warning(
-              "Version mismatch for app '#{app_name}': existing '#{existing["version"]}', file '#{file}' has '#{app_config["version"]}' — using existing version"
-            )
-          end
 
-          Map.update(existing, "tools", app_config["tools"], fn existing_tools ->
-            existing_tools ++ app_config["tools"]
-          end)
-        end)}
+          {:ok,
+           Map.update(acc, app_name, app_config, fn existing ->
+             if existing["version"] != app_config["version"] do
+               Logger.warning(
+                 "Version mismatch for app '#{app_name}': existing '#{existing["version"]}', file '#{file}' has '#{app_config["version"]}' — using existing version"
+               )
+             end
+
+             Map.update(existing, "tools", app_config["tools"], fn existing_tools ->
+               existing_tools ++ app_config["tools"]
+             end)
+           end)}
 
         {:error, reason} ->
           Logger.warning("Failed to load tool file #{file}: #{reason}")
@@ -179,8 +185,11 @@ defmodule Acs.MCP.ToolLoader do
           |> Enum.with_index()
           |> Enum.reduce([], fn {tool, idx}, acc ->
             case validate_tool(tool) do
-              :ok -> acc
-              {:error, reason} -> ["Tool ##{idx + 1} (#{tool["name"] || "unnamed"}): #{reason}" | acc]
+              :ok ->
+                acc
+
+              {:error, reason} ->
+                ["Tool ##{idx + 1} (#{tool["name"] || "unnamed"}): #{reason}" | acc]
             end
           end)
           |> Enum.reverse()
@@ -199,7 +208,8 @@ defmodule Acs.MCP.ToolLoader do
     errors = []
 
     errors =
-      if is_map_key(config, "version") and not (is_binary(config["version"]) and config["version"] != "") do
+      if is_map_key(config, "version") and
+           not (is_binary(config["version"]) and config["version"] != "") do
         ["'version' must be a string" | errors]
       else
         errors
@@ -273,7 +283,8 @@ defmodule Acs.MCP.ToolLoader do
       is_map_key(tool, "permissions") and not is_list(tool["permissions"]) ->
         {:error, "Tool '#{tool["name"]}' 'permissions' must be a list"}
 
-      is_map_key(tool, "permissions") and Enum.any?(tool["permissions"], fn p -> not is_binary(p) end) ->
+      is_map_key(tool, "permissions") and
+          Enum.any?(tool["permissions"], fn p -> not is_binary(p) end) ->
         {:error, "Tool '#{tool["name"]}' 'permissions' must be a list of strings"}
 
       is_map_key(tool, "params") and not is_list(tool["params"]) ->
@@ -288,7 +299,10 @@ defmodule Acs.MCP.ToolLoader do
       true ->
         # Validate params if present (not needed for input_schema)
         params = tool["params"] || []
-        errors = if is_nil(tool["input_schema"]), do: validate_params(tool["name"], params, 0), else: []
+
+        errors =
+          if is_nil(tool["input_schema"]), do: validate_params(tool["name"], params, 0), else: []
+
         if errors == [], do: :ok, else: {:error, Enum.join(errors, "; ")}
     end
   end
@@ -352,11 +366,12 @@ defmodule Acs.MCP.ToolLoader do
         end
 
       %{
-        "name" => if app_config["prefix"] == false do
-          tool["name"]
-        else
-          "#{app_name}_#{tool["name"]}"
-        end,
+        "name" =>
+          if app_config["prefix"] == false do
+            tool["name"]
+          else
+            "#{app_name}_#{tool["name"]}"
+          end,
         "description" => tool["description"],
         "inputSchema" => input_schema,
         "category" => tool["category"] || "uncategorized",
@@ -419,5 +434,4 @@ defmodule Acs.MCP.ToolLoader do
     Enum.filter(params, & &1["required"])
     |> Enum.map(& &1["name"])
   end
-
 end

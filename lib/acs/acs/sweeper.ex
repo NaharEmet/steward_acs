@@ -133,7 +133,9 @@ defmodule Acs.Acs.Sweeper do
           # Clear agent status if it was set
           if original_agent do
             case Repo.get(AgentStatus, original_agent) do
-              nil -> :ok
+              nil ->
+                :ok
+
               status ->
                 case Repo.delete(status) do
                   {:ok, _} ->
@@ -160,9 +162,14 @@ defmodule Acs.Acs.Sweeper do
 
           :ok
 
-        {:error, :skip} -> :skip
+        {:error, :skip} ->
+          :skip
+
         {:error, reason} ->
-          Logger.warning("[Acs.Sweeper] Transaction failed for task #{task.id}: #{inspect(reason)}")
+          Logger.warning(
+            "[Acs.Sweeper] Transaction failed for task #{task.id}: #{inspect(reason)}"
+          )
+
           :error
       end
     end

@@ -109,7 +109,9 @@ defmodule Acs.Memory.HybridSearchTest do
 
   defp cleanup_test_memories(id) do
     case Acs.Memory.Indexer.get_memory(id) do
-      nil -> :ok
+      nil ->
+        :ok
+
       schema ->
         Acs.Memory.Indexer.remove_memory(id)
         Acs.Memory.Loader.delete(Acs.Memory.new(Map.from_struct(schema)))

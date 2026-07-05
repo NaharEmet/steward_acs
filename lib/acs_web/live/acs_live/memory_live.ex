@@ -49,6 +49,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   def handle_params(params, url, socket) do
     view = Map.get(params, "view", "pending")
     path = url |> URI.parse() |> Map.get(:path, "/")
+
     status_filter =
       case view do
         "quarantined" -> "parse_error"
@@ -86,17 +87,26 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
   @impl true
   def handle_event("approve", %{"id" => id}, socket) do
-    update_memory_status(socket, id, "approved", %{info: "Memory '#{id}' approved ✓", action: "approve"})
+    update_memory_status(socket, id, "approved", %{
+      info: "Memory '#{id}' approved ✓",
+      action: "approve"
+    })
   end
 
   @impl true
   def handle_event("reject", %{"id" => id}, socket) do
-    update_memory_status(socket, id, "rejected", %{info: "Memory '#{id}' rejected ✗", action: "reject"})
+    update_memory_status(socket, id, "rejected", %{
+      info: "Memory '#{id}' rejected ✗",
+      action: "reject"
+    })
   end
 
   @impl true
   def handle_event("mark-stale", %{"id" => id}, socket) do
-    update_memory_status(socket, id, "stale", %{info: "Memory '#{id}' marked as stale ⟳", action: "mark stale"})
+    update_memory_status(socket, id, "stale", %{
+      info: "Memory '#{id}' marked as stale ⟳",
+      action: "mark stale"
+    })
   end
 
   @impl true
@@ -144,7 +154,9 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     approved = Enum.count(results, fn r -> match?({:ok, _}, r) end)
     failed = Enum.count(results, fn r -> match?({:error, _, _}, r) end)
 
-    flash_msg = "Approved #{approved} memories" <> if failed > 0, do: " (#{failed} failed)", else: ""
+    flash_msg =
+      "Approved #{approved} memories" <> if failed > 0, do: " (#{failed} failed)", else: ""
+
     socket = socket |> put_flash(:info, flash_msg) |> load_data()
     {:noreply, socket}
   end
@@ -186,7 +198,9 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
       {:error, reason} ->
         Logger.error("[MemoryLive] Failed to #{flash_opts[:action]}: #{inspect(reason)}")
-        {:noreply, put_flash(socket, :error, "Failed to #{flash_opts[:action]}: #{inspect(reason)}")}
+
+        {:noreply,
+         put_flash(socket, :error, "Failed to #{flash_opts[:action]}: #{inspect(reason)}")}
     end
   end
 
@@ -232,13 +246,16 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         nil ->
           # Default: only proposed (pending approval)
           Keyword.put(memories_opts, :status, "proposed")
+
         "all" ->
           # Show only active/good memories — exclude rejected and quarantined
           # The Indexer.list_memories accepts a list of statuses
           Keyword.put(memories_opts, :status, ["approved", "proposed", "stale"])
+
         "review" ->
           # Special: fetch memories needing human review — handled separately below
           memories_opts
+
         _ ->
           Keyword.put(memories_opts, :status, status_filter)
       end
@@ -295,7 +312,10 @@ defmodule AcsWeb.AcsLive.MemoryLive do
               end
             rescue
               exception ->
-                Logger.warning("Conflict check failed for memory #{memory.id}: #{inspect(exception)}")
+                Logger.warning(
+                  "Conflict check failed for memory #{memory.id}: #{inspect(exception)}"
+                )
+
                 acc
             end
           else
@@ -581,12 +601,14 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   defp format_datetime(%NaiveDateTime{} = ndt), do: Calendar.strftime(ndt, "%b %d, %H:%M")
 
   defp parse_tags_json(nil), do: []
+
   defp parse_tags_json(json) when is_binary(json) do
     case Jason.decode(json) do
       {:ok, tags} when is_list(tags) -> tags
       _ -> []
     end
   end
+
   defp parse_tags_json(_), do: []
 
   defp get_conflict_count(alerts, id) when is_map(alerts) do

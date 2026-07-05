@@ -62,21 +62,7 @@ If they say yes, continue to Step 2.
 
 ---
 
-## Step 2: Run the Setup Script
-
-If they have `bin/setup.sh` (from the ACS repo), run it:
-
-```bash
-bash bin/setup.sh
-```
-
-The script asks 4 questions. The user answers them. You help them decide.
-
-If they don't have `bin/setup.sh`, generate the files manually — the next section tells you what to ask.
-
----
-
-## Step 3: Ask the 4 Questions
+## Step 2: Ask the 4 Questions
 
 Walk through each question with the user. Offer defaults when they're unsure.
 
@@ -158,7 +144,7 @@ For direct integration apps, document the endpoint and offer to help add log shi
 
 ---
 
-## Step 4: Handle the Output
+## Step 3: Handle the Output
 
 After answering the 4 questions, the setup script generates:
 
@@ -189,7 +175,7 @@ Then say:
 
 ---
 
-## Step 5: After ACS Starts
+## Step 4: After ACS Starts
 
 Once they run `docker compose --env-file steward.env -f steward.docker-compose.yml up -d`, tell them to come back. Then:
 
@@ -199,7 +185,7 @@ Once they run `docker compose --env-file steward.env -f steward.docker-compose.y
 
 ---
 
-## Step 6: What to Do When the User Says "Just Make It Work"
+## Step 5: What to Do When the User Says "Just Make It Work"
 
 Default config ACS uses:
 - Port: `4001`
@@ -234,7 +220,7 @@ PORT=4001
 
 ---
 
-## Step 7: Log Streaming (If They Need It Later)
+## Step 6: Log Streaming (If They Need It Later)
 
 If the user asks about log streaming at a later time, explain the options:
 
@@ -302,7 +288,7 @@ Query logs with `get_logs(service: "my-app", level: "error", search: "timeout", 
 
 ---
 
-## Step 8: If the User Asks About Configuration Values
+## Step 7: If the User Asks About Configuration Values
 
 Default `steward.docker-compose.yml`:
 ```yaml
@@ -331,7 +317,7 @@ For specific config options, check `.env.example` in the ACS repo.
 
 ---
 
-## Step 9: Wrapping External Apps via MCP
+## Step 8: Wrapping External Apps via MCP
 
 If the user asks about connecting other apps to ACS:
 

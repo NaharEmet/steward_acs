@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "acs": {
+      "type": "sse",
+      "url": "http://localhost:4001/mcp/sse",
+      "headers": {
+        "x-api-key": "4d2da8adbd8d9d768e80260d34070d561db28ba6d61bbf626d1f46ce3e873d2d"
+      }
+    }
+  }
+}

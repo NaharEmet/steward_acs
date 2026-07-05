@@ -52,10 +52,15 @@ defmodule Acs.MCP.ToolBuilder do
   def list_tools_from_decls(decls) do
     Enum.map(decls, fn {name, opts} ->
       params = build_params_schema(opts[:params] || %{}, opts[:required] || [])
+
       %{
         "name" => to_string(name),
         "description" => opts[:description] || "",
-        "inputSchema" => %{"type" => "object", "properties" => params[:properties], "required" => params[:required]}
+        "inputSchema" => %{
+          "type" => "object",
+          "properties" => params[:properties],
+          "required" => params[:required]
+        }
       }
     end)
   end

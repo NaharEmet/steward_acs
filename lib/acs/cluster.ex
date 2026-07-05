@@ -44,4 +44,13 @@ defmodule Acs.Cluster do
   def developer_name do
     Application.get_env(:steward_acs, :developer_name, "unknown")
   end
+
+  @doc """
+  Returns the project name from config.
+  Set via ACS_PROJECT_NAME env var. Defaults to empty string if not configured.
+  Used to identify which project/instance this ACS belongs to in the dashboard.
+  """
+  def project_name do
+    Application.get_env(:steward_acs, :project_name, "")
+  end
 end

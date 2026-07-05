@@ -5,14 +5,23 @@ defmodule Acs.Log.LogRepoTest do
 
   describe "insert_raw/5" do
     test "inserts a log entry" do
-      assert {:ok, entry} = LogRepo.insert_raw("info", "test-service", "test-component", "test message", %{key: "val"})
+      assert {:ok, entry} =
+               LogRepo.insert_raw("info", "test-service", "test-component", "test message", %{
+                 key: "val"
+               })
+
       assert entry.level == "info"
       assert entry.message == "test message"
       assert entry.service == "test-service"
     end
 
     test "accepts optional workflow_id and execution_id" do
-      assert {:ok, entry} = LogRepo.insert_raw("error", "svc", "cmp", "err", %{}, workflow_id: "wf-1", execution_id: "exec-1")
+      assert {:ok, entry} =
+               LogRepo.insert_raw("error", "svc", "cmp", "err", %{},
+                 workflow_id: "wf-1",
+                 execution_id: "exec-1"
+               )
+
       assert entry.workflow_id == "wf-1"
       assert entry.execution_id == "exec-1"
     end
@@ -22,7 +31,7 @@ defmodule Acs.Log.LogRepoTest do
     test "returns inserted logs" do
       LogRepo.insert_raw("info", "svc", "cmp", "hello", %{})
       results = LogRepo.query(limit: 10)
-      assert length(results) > 0
+      assert results != []
       assert Enum.any?(results, fn e -> e.message == "hello" end)
     end
 
@@ -37,7 +46,7 @@ defmodule Acs.Log.LogRepoTest do
     test "filters by search" do
       LogRepo.insert_raw("info", "svc", "cmp", "unique_search_term_xyz", %{})
       results = LogRepo.query(search: "unique_search_term_xyz", limit: 10)
-      assert length(results) >= 1
+      assert results != []
     end
 
     test "filters by cluster" do

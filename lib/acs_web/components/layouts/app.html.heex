@@ -6,6 +6,9 @@
         <div style="display: flex; align-items: center; gap: 32px;">
           <div class="logo">
             <span class="logo-mark">Steward</span>
+            <%= if Acs.Cluster.project_name() != "" do %>
+              <span class="project-sub"><%= Acs.Cluster.project_name() %></span>
+            <% end %>
           </div>
           <nav style="display: flex; align-items: center; gap: 4px;">
             <.link navigate={~p"/"} class={"nav-tab #{if nav_current_path == "/", do: "active"}"}>Dashboard</.link>

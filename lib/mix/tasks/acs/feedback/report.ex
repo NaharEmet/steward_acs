@@ -390,11 +390,16 @@ defmodule Mix.Tasks.Acs.Feedback.Report do
 
     Mix.Shell.IO.info("=== GUIDANCE EFFECTIVENESS ===")
     Mix.Shell.IO.info("  Agents found guidance USEFUL: #{useful}/#{total} (#{useful_rate})")
-    Mix.Shell.IO.info("  Agents found guidance NOT USEFUL: #{not_useful}/#{total} (#{not_useful_rate})")
+
+    Mix.Shell.IO.info(
+      "  Agents found guidance NOT USEFUL: #{not_useful}/#{total} (#{not_useful_rate})"
+    )
+
     Mix.Shell.IO.info("  Agents didn't rate guidance: #{unset} (#{percentage(unset, total)})")
 
     # Summary verdict
     Mix.Shell.IO.info("")
+
     if useful > not_useful && useful > 0 do
       Mix.Shell.IO.info("  [OK] GUIDANCE IS HELPING - More agents find it useful than not")
     else

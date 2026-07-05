@@ -19,35 +19,51 @@ defmodule Acs.Memory do
   @slug_cleanup_regex ~r/[^a-z0-9]+/
 
   defstruct [
-    :id, :kind, :status, :title, :summary, :content,
-    :scope_path, :importance, :tags, :triggers, :failure_modes,
-    :related_memories, :verification, :revalidation, :created_by,
-    :team, :project, :visibility,
-    :created_at, :updated_at
+    :id,
+    :kind,
+    :status,
+    :title,
+    :summary,
+    :content,
+    :scope_path,
+    :importance,
+    :tags,
+    :triggers,
+    :failure_modes,
+    :related_memories,
+    :verification,
+    :revalidation,
+    :created_by,
+    :team,
+    :project,
+    :visibility,
+    :created_at,
+    :updated_at
   ]
 
   @type t :: %__MODULE__{
-    id: String.t(),
-    kind: String.t(),
-    status: String.t(),
-    title: String.t(),
-    summary: String.t() | nil,  # intentionally optional — not validated
-    content: String.t(),
-    scope_path: String.t(),
-    importance: non_neg_integer(),
-    tags: [String.t()],
-    triggers: [String.t()],
-    failure_modes: [String.t()],
-    related_memories: [String.t()],
-    verification: map(),
-    revalidation: map(),
-    created_by: map(),
-    team: String.t() | nil,
-    project: String.t() | nil,
-    visibility: String.t(),
-    created_at: String.t(),
-    updated_at: String.t()
-  }
+          id: String.t(),
+          kind: String.t(),
+          status: String.t(),
+          title: String.t(),
+          # intentionally optional — not validated
+          summary: String.t() | nil,
+          content: String.t(),
+          scope_path: String.t(),
+          importance: non_neg_integer(),
+          tags: [String.t()],
+          triggers: [String.t()],
+          failure_modes: [String.t()],
+          related_memories: [String.t()],
+          verification: map(),
+          revalidation: map(),
+          created_by: map(),
+          team: String.t() | nil,
+          project: String.t() | nil,
+          visibility: String.t(),
+          created_at: String.t(),
+          updated_at: String.t()
+        }
 
   @doc """
   Creates a new Memory struct from validated attributes.
@@ -69,24 +85,34 @@ defmodule Acs.Memory do
       triggers: attrs["triggers"] || [],
       failure_modes: attrs["failure_modes"] || [],
       related_memories: attrs["related_memories"] || [],
-      verification: attrs["verification"] || %{
-        "status" => "proposed",
-        "approved_by" => nil,
-        "approved_at" => nil
-      },
-      revalidation: attrs["revalidation"] || %{
-        "interval_days" => 30,
-        "last_checked_at" => nil
-      },
-      created_by: attrs["created_by"] || %{
-        "type" => "agent",
-        "id" => "unknown"
-      },
+      verification:
+        attrs["verification"] ||
+          %{
+            "status" => "proposed",
+            "approved_by" => nil,
+            "approved_at" => nil
+          },
+      revalidation:
+        attrs["revalidation"] ||
+          %{
+            "interval_days" => 30,
+            "last_checked_at" => nil
+          },
+      created_by:
+        attrs["created_by"] ||
+          %{
+            "type" => "agent",
+            "id" => "unknown"
+          },
       team: attrs["team"],
       project: attrs["project"],
       visibility: attrs["visibility"] || "org",
-      created_at: attrs["created_at"] || get_in(attrs, ["timestamps", "created_at"]) || DateTime.utc_now() |> DateTime.to_iso8601(),
-      updated_at: attrs["updated_at"] || get_in(attrs, ["timestamps", "updated_at"]) || DateTime.utc_now() |> DateTime.to_iso8601()
+      created_at:
+        attrs["created_at"] || get_in(attrs, ["timestamps", "created_at"]) ||
+          DateTime.utc_now() |> DateTime.to_iso8601(),
+      updated_at:
+        attrs["updated_at"] || get_in(attrs, ["timestamps", "updated_at"]) ||
+          DateTime.utc_now() |> DateTime.to_iso8601()
     })
   end
 
@@ -96,26 +122,45 @@ defmodule Acs.Memory do
   def validate(memory_map) when is_map(memory_map) do
     errors = []
 
-    errors = if is_nil(memory_map["id"]) or memory_map["id"] == "",
-      do: ["Missing required field: id" | errors], else: errors
+    errors =
+      if is_nil(memory_map["id"]) or memory_map["id"] == "",
+        do: ["Missing required field: id" | errors],
+        else: errors
 
-    errors = if is_nil(memory_map["kind"]) or memory_map["kind"] == "",
-      do: ["Missing required field: kind" | errors], else: errors
+    errors =
+      if is_nil(memory_map["kind"]) or memory_map["kind"] == "",
+        do: ["Missing required field: kind" | errors],
+        else: errors
 
-    errors = if memory_map["kind"] && memory_map["kind"] != "" && memory_map["kind"] not in @kind_types,
-      do: ["Invalid kind '#{memory_map["kind"]}'. Must be one of: #{Enum.join(@kind_types, ", ")}" | errors], else: errors
+    errors =
+      if memory_map["kind"] && memory_map["kind"] != "" && memory_map["kind"] not in @kind_types,
+        do: [
+          "Invalid kind '#{memory_map["kind"]}'. Must be one of: #{Enum.join(@kind_types, ", ")}"
+          | errors
+        ],
+        else: errors
 
-    errors = if memory_map["status"] == "",
-      do: ["Missing required field: status" | errors], else: errors
+    errors =
+      if memory_map["status"] == "", do: ["Missing required field: status" | errors], else: errors
 
-    errors = if memory_map["status"] && memory_map["status"] != "" && memory_map["status"] not in @status_types,
-      do: ["Invalid status '#{memory_map["status"]}'. Must be one of: #{Enum.join(@status_types, ", ")}" | errors], else: errors
+    errors =
+      if memory_map["status"] && memory_map["status"] != "" &&
+           memory_map["status"] not in @status_types,
+         do: [
+           "Invalid status '#{memory_map["status"]}'. Must be one of: #{Enum.join(@status_types, ", ")}"
+           | errors
+         ],
+         else: errors
 
-    errors = if is_nil(memory_map["title"]) or memory_map["title"] == "",
-      do: ["Missing required field: title" | errors], else: errors
+    errors =
+      if is_nil(memory_map["title"]) or memory_map["title"] == "",
+        do: ["Missing required field: title" | errors],
+        else: errors
 
-    errors = if is_nil(memory_map["scope_path"]) or memory_map["scope_path"] == "",
-      do: ["Missing required field: scope_path" | errors], else: errors
+    errors =
+      if is_nil(memory_map["scope_path"]) or memory_map["scope_path"] == "",
+        do: ["Missing required field: scope_path" | errors],
+        else: errors
 
     errors =
       case memory_map["scope_path"] do
@@ -135,16 +180,26 @@ defmodule Acs.Memory do
           errors
       end
 
-    errors = cond do
-      is_nil(memory_map["importance"]) -> ["Missing required field: importance" | errors]
-      !is_integer(memory_map["importance"]) -> ["importance must be an integer, got: #{inspect(memory_map["importance"])}" | errors]
-      memory_map["importance"] < 1 or memory_map["importance"] > 5 -> ["importance must be between 1 and 5, got: #{memory_map["importance"]}" | errors]
-      true -> errors
-    end
+    errors =
+      cond do
+        is_nil(memory_map["importance"]) ->
+          ["Missing required field: importance" | errors]
 
-    errors = if memory_map["verification"] && memory_map["verification"]["status"] &&
-      memory_map["verification"]["status"] not in @valid_verification_statuses,
-      do: ["Invalid verification status: #{memory_map["verification"]["status"]}" | errors], else: errors
+        !is_integer(memory_map["importance"]) ->
+          ["importance must be an integer, got: #{inspect(memory_map["importance"])}" | errors]
+
+        memory_map["importance"] < 1 or memory_map["importance"] > 5 ->
+          ["importance must be between 1 and 5, got: #{memory_map["importance"]}" | errors]
+
+        true ->
+          errors
+      end
+
+    errors =
+      if memory_map["verification"] && memory_map["verification"]["status"] &&
+           memory_map["verification"]["status"] not in @valid_verification_statuses,
+         do: ["Invalid verification status: #{memory_map["verification"]["status"]}" | errors],
+         else: errors
 
     if errors == [], do: :ok, else: {:error, Enum.reverse(errors)}
   end
@@ -187,11 +242,13 @@ defmodule Acs.Memory do
   → "team/project/memory_id"
   """
   def derive_scope_from_path(file_path) do
-    path = file_path
+    path =
+      file_path
       |> String.replace_prefix("priv/acs_memory/", "")
       |> String.replace_suffix(".yaml", "")
       |> String.replace_suffix(".yml", "")
       |> String.replace_suffix(".md", "")
+
     path
   end
 
@@ -203,7 +260,8 @@ defmodule Acs.Memory do
     title = attrs["title"] || "untitled"
     scope = attrs["scope_path"] || "global"
 
-    title_slug = title
+    title_slug =
+      title
       |> String.downcase()
       |> String.replace(@slug_cleanup_regex, "_")
       |> String.trim("_")

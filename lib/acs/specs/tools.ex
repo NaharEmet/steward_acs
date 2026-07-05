@@ -1,25 +1,24 @@
-defmodule Acs.Cognition.Tools do
+defmodule Acs.Specs.Tools do
   @moduledoc """
-  MCP tool dispatchers for the Cognition Spec / Document System.
+  MCP tool dispatchers for the Specs / Document System.
 
   Implements 7 tools that wrap the Cognition API
   (Entry, Loader, Search) and expose them as MCP-callable tools.
 
   ## Tools
 
-    - `document_get` — Load a single entry by app and path
-    - `document_search` — Search entries by query text
-    - `document_propose` — Create or update an entry (set status to proposed)
-    - `document_approve` — Approve a proposed entry
-    - `document_reject` — Soft-reject an entry (reverts to under_review)
-    - `document_list` — List entries, optionally filtered by app or status
-    - `document_list_undocumented` — Find modules without entries
+    - `specs_get` — Load a single entry by app and path
+    - `query_specs` — Unified query: search, list, or find undocumented specs
+    - `specs_propose` — Create or update an entry (set status to proposed)
+    - `specs_approve` — Approve a proposed entry
+    - `specs_reject` — Soft-reject an entry (reverts to under_review)
+
   """
 
   alias Acs.Abac
-  alias Acs.Cognition.Entry
-  alias Acs.Cognition.Loader
-  alias Acs.Cognition.Search
+  alias Acs.Specs.Entry
+  alias Acs.Specs.Loader
+  alias Acs.Specs.Search
 
   require Logger
 
@@ -31,28 +30,19 @@ defmodule Acs.Cognition.Tools do
   Returns `{:ok, result}` on success or `{:error, reason}` on failure.
   """
   def call_tool(name, args) do
-    Logger.info("Cognition tool: #{name}")
+    Logger.info("Specs tool: #{name}")
 
     result =
       case name do
-        "document_get" -> cognition_get(args)
-        "document_search" -> cognition_search(args)
-        "document_propose" -> cognition_propose(args)
-        "document_approve" -> cognition_approve(args)
-        "document_reject" -> cognition_reject(args)
-        "document_list" -> cognition_list(args)
-        "document_list_undocumented" -> cognition_list_undocumented(args)
-        "cognition_get" -> cognition_get(args)
-        "cognition_search" -> cognition_search(args)
-        "cognition_propose" -> cognition_propose(args)
-        "cognition_approve" -> cognition_approve(args)
-        "cognition_reject" -> cognition_reject(args)
-        "cognition_list" -> cognition_list(args)
-        "cognition_list_undocumented" -> cognition_list_undocumented(args)
-        _ -> {:error, "Unknown cognition tool: #{name}"}
+        "specs_get" -> specs_get(args)
+        "query_specs" -> query_specs(args)
+        "specs_propose" -> specs_propose(args)
+        "specs_approve" -> specs_approve(args)
+        "specs_reject" -> specs_reject(args)
+        _ -> {:error, "Unknown specs tool: #{name}"}
       end
 
-    Logger.info("Cognition tool response: #{name} - #{response_summary(result)}")
+    Logger.info("Specs tool response: #{name} - #{response_summary(result)}")
     result
   end
 
@@ -65,9 +55,9 @@ defmodule Acs.Cognition.Tools do
 
   defp response_summary({:error, reason}), do: "error: #{inspect(reason)}"
 
-  # ── cognition_get ──
+  # ── specs_get ──
 
-  defp cognition_get(args) do
+  defp specs_get(args) do
     ctx = Abac.from_args(args)
 
     with :ok <- require_params!(args, ~w(app path)) do
@@ -80,33 +70,6 @@ defmodule Acs.Cognition.Tools do
 
         {:error, reason} ->
           {:error, "Failed to load spec: #{inspect(reason)}"}
-      end
-    end
-  end
-
-  # ── cognition_search ──
-
-  defp cognition_search(args) do
-    query = args["query"]
-
-    if is_nil(query) or query == "" do
-      {:error, "Missing required param: query"}
-    else
-      opts = build_search_opts(args)
-
-      ctx = Abac.from_args(args)
-
-      case Search.search(query, opts) do
-        {:ok, entries} ->
-          result =
-            entries
-            |> Abac.filter(ctx)
-            |> Enum.map(&Entry.to_map/1)
-
-          {:ok, result}
-
-        {:error, reason} ->
-          {:error, "Search failed: #{inspect(reason)}"}
       end
     end
   end
@@ -131,9 +94,9 @@ defmodule Acs.Cognition.Tools do
     opts
   end
 
-  # ── cognition_propose ──
+  # ── specs_propose ──
 
-  defp cognition_propose(args) do
+  defp specs_propose(args) do
     ctx = Abac.from_args(args)
 
     with :ok <- require_params!(args, ~w(app path)),
@@ -176,7 +139,8 @@ defmodule Acs.Cognition.Tools do
       |> Enum.map(fn entry ->
         %{
           type: "same_space",
-          message: "Other specs exist in '#{path_prefix(path)}': #{Enum.map_join(all_same_space(entry.id, all_entries), ", ", &"#{&1}")}",
+          message:
+            "Other specs exist in '#{path_prefix(path)}': #{Enum.map_join(all_same_space(entry.id, all_entries), ", ", &"#{&1}")}",
           conflicting_id: entry.id
         }
       end)
@@ -193,7 +157,8 @@ defmodule Acs.Cognition.Tools do
       |> Enum.map(fn %{entry: entry, score: score} ->
         %{
           type: "similar_title",
-          message: "Similar spec exists with title '#{entry.title}' (Jaccard: #{:erlang.float_to_binary(score, [{:decimals, 2}])}",
+          message:
+            "Similar spec exists with title '#{entry.title}' (Jaccard: #{:erlang.float_to_binary(score, [{:decimals, 2}])}",
           conflicting_id: entry.id,
           score: score
         }
@@ -215,6 +180,7 @@ defmodule Acs.Cognition.Tools do
 
   defp all_same_space(path, entries) do
     prefix = path_prefix(path)
+
     entries
     |> Enum.filter(fn e -> path_prefix(e.id) == prefix && e.id != path end)
     |> Enum.map(fn e -> e.id end)
@@ -235,7 +201,9 @@ defmodule Acs.Cognition.Tools do
 
     if MapSet.size(MapSet.union(words1, words2)) == 0,
       do: 0.0,
-      else: MapSet.size(MapSet.intersection(words1, words2)) / MapSet.size(MapSet.union(words1, words2))
+      else:
+        MapSet.size(MapSet.intersection(words1, words2)) /
+          MapSet.size(MapSet.union(words1, words2))
   end
 
   defp propose_update(existing_entry, attrs) do
@@ -272,9 +240,9 @@ defmodule Acs.Cognition.Tools do
     end
   end
 
-  # ── cognition_approve ──
+  # ── specs_approve ──
 
-  defp cognition_approve(args) do
+  defp specs_approve(args) do
     ctx = Abac.from_args(args)
 
     with :ok <- require_params!(args, ~w(app path reviewer)) do
@@ -314,9 +282,9 @@ defmodule Acs.Cognition.Tools do
     end
   end
 
-  # ── cognition_reject ──
+  # ── specs_reject ──
 
-  defp cognition_reject(args) do
+  defp specs_reject(args) do
     ctx = Abac.from_args(args)
 
     with :ok <- require_params!(args, ~w(app path)) do
@@ -346,22 +314,50 @@ defmodule Acs.Cognition.Tools do
     end
   end
 
-  # ── cognition_list ──
+  # ── query_specs (unified: search / list / undocumented) ──
 
-  defp cognition_list(args) do
+  defp query_specs(args) do
+    query = args["query"]
+    undocumented = args["undocumented"] || args["include_undocumented"]
     ctx = Abac.from_args(args)
-    app_filter = args["app"]
-    status_filter = args["status"]
 
-    {:ok, entries} = Loader.load_all(app: app_filter)
+    cond do
+      undocumented ->
+        app_filter = args["app"]
+        lib_dir = default_lib_dir()
+        results = Loader.find_undocumented(lib_dir, app: app_filter)
+        {:ok, %{undocumented: results, count: length(results)}}
 
-    filtered =
-      entries
-      |> Abac.filter(ctx)
-      |> Enum.filter(fn entry -> matches_status?(entry.status, status_filter) end)
+      query && query != "" ->
+        opts = build_search_opts(args)
 
-    summaries = Enum.map(filtered, &entry_summary/1)
-    {:ok, %{entries: summaries, count: length(summaries)}}
+        case Search.search(query, opts) do
+          {:ok, entries} ->
+            result =
+              entries
+              |> Abac.filter(ctx)
+              |> Enum.map(&Entry.to_map/1)
+
+            {:ok, %{specs: result, count: length(result)}}
+
+          {:error, reason} ->
+            {:error, "Search failed: #{inspect(reason)}"}
+        end
+
+      true ->
+        app_filter = args["app"]
+        status_filter = args["status"]
+
+        {:ok, entries} = Loader.load_all(app: app_filter)
+
+        filtered =
+          entries
+          |> Abac.filter(ctx)
+          |> Enum.filter(fn entry -> matches_status?(entry.status, status_filter) end)
+
+        summaries = Enum.map(filtered, &entry_summary/1)
+        {:ok, %{specs: summaries, count: length(summaries)}}
+    end
   end
 
   defp ensure_entry_writable(ctx, app, path) do
@@ -390,16 +386,6 @@ defmodule Acs.Cognition.Tools do
       purpose: entry.purpose,
       verification_status: entry.verification_status
     }
-  end
-
-  # ── cognition_list_undocumented ──
-
-  defp cognition_list_undocumented(args) do
-    app_filter = args["app"]
-    lib_dir = default_lib_dir()
-
-    results = Loader.find_undocumented(lib_dir, app: app_filter)
-    {:ok, %{undocumented: results, count: length(results)}}
   end
 
   defp require_params!(args, required) do

@@ -5,7 +5,9 @@ defmodule Acs.LLMTest do
 
   describe "extract_json_content/1" do
     test "returns decoded map for valid JSON" do
-      content = ~S({"quality_score": 4, "title_quality": 5, "is_noise": false, "recommendation": "approve", "reasoning": "Good memory entry.", "improvements": "None", "suggested_title": "Test title", "is_duplicate_of": null})
+      content =
+        ~S({"quality_score": 4, "title_quality": 5, "is_noise": false, "recommendation": "approve", "reasoning": "Good memory entry.", "improvements": "None", "suggested_title": "Test title", "is_duplicate_of": null})
+
       assert {:ok, decoded} = LLM.extract_json_content(content)
       assert decoded["recommendation"] == "approve"
       assert decoded["is_duplicate_of"] == nil
@@ -24,6 +26,7 @@ defmodule Acs.LLMTest do
       {"quality_score": 5, "recommendation": "approve"}
       ```
       """
+
       assert {:ok, decoded} = LLM.extract_json_content(content)
       assert decoded["quality_score"] == 5
     end
@@ -33,6 +36,7 @@ defmodule Acs.LLMTest do
       <thinking>Let me evaluate this memory...</thinking>
       {"quality_score": 3, "recommendation": "human_review"}
       """
+
       assert {:ok, decoded} = LLM.extract_json_content(content)
       assert decoded["quality_score"] == 3
     end
