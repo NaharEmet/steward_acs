@@ -19,8 +19,8 @@ defmodule Acs.Acs do
   @doc """
   Claims a task for an agent. Delegates to Acs.claim_task.
   """
-  def claim_task(task_id, agent_id) do
-    case Acs.claim_task(task_id, agent_id) do
+  def claim_task(task_id, agent_id, opts \\ []) do
+    case Acs.claim_task(task_id, agent_id, opts) do
       {:ok, task, guidance} ->
         {:ok, task, guidance}
 
@@ -97,15 +97,15 @@ defmodule Acs.Acs do
   end
 
   @doc """
-  Lists tasks with optional status filter and cluster scope.
+  Lists tasks with optional status filter and org scope.
   """
-  def list_tasks(status_filter \\ nil, cluster \\ nil) do
-    cluster = cluster || Acs.Cluster.current()
+  def list_tasks(status_filter \\ nil, org \\ nil) do
+    org = org || Acs.Org.current()
     import Ecto.Query
 
     query =
       from(t in Task,
-        where: t.cluster == ^cluster,
+        where: t.org == ^org,
         order_by: [desc: t.inserted_at]
       )
 

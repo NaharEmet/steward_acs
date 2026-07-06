@@ -42,7 +42,10 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   end
 
   def acs_claim_work(%{"agent_id" => agent_id, "task_id" => task_id} = args) do
-    case Acs.claim_task(task_id, agent_id) do
+    scope_path = args["scope_path"]
+    opts = if scope_path, do: [skip_guidance: true], else: []
+
+    case Acs.claim_task(task_id, agent_id, opts) do
       {:ok, _task, guidance} ->
         application = args["application"]
         component = args["component"]
@@ -52,7 +55,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         end
 
         final_guidance =
-          if scope_path = args["scope_path"] do
+          if scope_path do
             Acs.Memory.Guidance.generate(scope_path, tier: :claim)
           else
             guidance
@@ -74,78 +77,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   def acs_release_work(%{"agent_id" => agent_id, "task_id" => task_id}) do
     case Acs.release_task(task_id, agent_id) do
       {:ok, _task} ->
-        {:ok,
-         %{
-           status: "done",
-           task_id: task_id,
-           agent_id: agent_id,
-           feedback_prompt: %{
-             message:
-               "Task completed! Please share what you learned AND propose any specs. Also rate how helpful the guidance packet was for this task.",
-             next_step: %{
-               tool: "submit_task_feedback",
-               prompt: "Call this tool with the task_id and any learnings you want to share:",
-               params: %{
-                 task_id: task_id,
-                 agent_id: agent_id,
-                 learned_for_agents:
-                   "(optional) What did you learn that will help future agents?",
-                 had_issues: "(optional) What issues or obstacles did you encounter?",
-                 improvements: "(optional) What could have made this task easier?",
-                 guidance_useful: "Was the guidance packet helpful? (true/false)",
-                 guidance_items_helpful:
-                   "(optional) List memory IDs from guidance that were helpful",
-                 guidance_items_confusing:
-                   "(optional) List memory IDs from guidance that were confusing",
-                 guidance_missing: "(optional) What guidance was needed but not provided?"
-               }
-             },
-             specs_reminder: %{
-                prompt:
-                  "For each module you worked on, check if it has a spec. If not, call specs_propose to document it. Use query_specs(undocumented: true) to find modules missing specs.",
-                actions: [
-                  %{
-                    tool: "query_specs",
-                    description: "Find modules without specs",
-                    params: %{undocumented: true}
-                  },
-                 %{
-                   tool: "specs_propose",
-                   description: "Document any undocumented modules",
-                   params: %{
-                     app: "<app_name>",
-                     path: "module_path",
-                     title: "Module name",
-                     purpose: "Why this module exists",
-                     invariants: ["truth1", "truth2"],
-                     workflows: ["expected execution"],
-                     failure_modes: ["known failure scenario"],
-                     constraints: ["non-goals"],
-                     tags: ["category"]
-                   }
-                 }
-               ]
-             },
-             error_response_protocol: %{
-               prompt:
-                 "If you encountered errors during this task, use the error trace tools to document them:",
-               actions: [
-                 %{
-                   tool: "list_error_traces",
-                   description: "Check for known error traces"
-                 },
-                 %{
-                   tool: "ack_error_trace",
-                   description: "Mark an error as being investigated"
-                 },
-                 %{
-                   tool: "resolve_error_trace",
-                   description: "Mark an error as resolved"
-                 }
-               ]
-             }
-           }
-         }}
+        {:ok, %{status: "done", task_id: task_id, agent_id: agent_id, message: "Task released. Now call submit_task_feedback to formally close it."}}
 
       {:error, :not_owner} ->
         {:ok, %{status: "not_owner", message: "Task locked by another agent"}}
@@ -223,13 +155,16 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         {:ok, Map.put(result, :guidance, final_guidance)}
 
       {:error, :file_locked_by_other} ->
-        {:ok, %{status: "busy", message: "File already locked by another agent"}}
+        {:error,
+         "File already locked by another agent. Wait and retry, or use `get_locked_files()` to check current locks."}
 
       {:error, :task_not_locked_by_agent} ->
-        {:ok, %{status: "busy", message: "Task not locked by this agent"}}
+        {:error,
+         "Task not locked by this agent. Claim the task first with `claim_work(\"<agent_id>\", task_id: \"#{task_id}\")` before locking files."}
 
       {:error, :task_not_found} ->
-        {:error, "Task not found"}
+        {:error,
+         "Task not found. The task may have been released or never existed. Create and claim a new task: `create_work(\"<agent_id>\", \"<title>\", claim: true)`"}
 
       {:error, :already_locked} ->
         {:ok, %{status: "already_locked", message: "File already locked"}}
@@ -266,6 +201,63 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     {:error, "Either file_path or task_id is required"}
   end
 
+  def acs_get_started(_args) do
+    {:ok,
+     %{
+       general:
+         "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings as memories, release. Every response includes `_next` with suggested next tools.",
+       get_started:
+         "1) `get_present_status(agent_id: \"your_name\")` — register  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check module docs  5) `lock_file` files  6) do work  7) `save_memory` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback`",
+       tools: [
+         %{
+           tool: "get_present_status",
+           description: "Register and see all active agents",
+           params: %{agent_id: "your_name"}
+         },
+         %{
+           tool: "create_work",
+           description: "Create and self-claim a task (default flow)",
+           params: %{agent_id: "your_name", title: "...", claim: true}
+         },
+         %{
+           tool: "list_tasks",
+           description: "Find existing tasks to claim",
+           params: %{status_filter: "todo"}
+         },
+         %{
+           tool: "claim_work",
+           description: "Claim an existing task",
+           params: %{agent_id: "your_name", task_id: "<id>"}
+         },
+         %{
+           tool: "generate_guidance_packet",
+           description: "Get detailed guidance for a scope path",
+           params: %{scope_path: "agent_coordination_system"}
+         },
+         %{
+           tool: "help",
+           description: "List all tools with full descriptions",
+           params: %{level: 1}
+         },
+         %{
+           tool: "skill_get",
+           description: "Find or list reusable workflow guides",
+           params: %{search: "...", tag: "..."}
+         },
+         %{
+           tool: "skill_save",
+           description: "Create a reusable workflow guide for other agents",
+           params: %{name: "...", content: "...", tags: ["..."]}
+         },
+         %{
+           tool: "skill_audit_status",
+           description: "Audit all skills for quality and completeness",
+           params: %{}
+         }
+       ]
+     }}
+  end
+
   def acs_get_present_status(%{"status_filter" => "sleeping"}) do
     agents = SleepRegistry.list_sleeping_agents()
     {:ok, %{sleeping_agents: agents, count: length(agents)}}
@@ -273,17 +265,23 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   def acs_get_present_status(%{"agent_id" => agent_id})
       when agent_id != nil and agent_id != "" do
-    {:ok, Acs.Acs.get_present_status()}
+    statuses = Acs.Acs.get_present_status()
+    my_status = Enum.find(statuses, %{}, fn s -> s.agent_id == agent_id end)
+    {:ok, %{agents: statuses, agent: my_status, agent_id: agent_id}}
   end
 
   def acs_get_present_status(%{"status_filter" => _filter}) do
     {:ok, Acs.Acs.get_present_status()}
   end
 
-  def acs_get_present_status(_args) do
-    agent_name = Cache.get_and_increment_agent_index()
+  def acs_get_present_status(args) do
+    agent_name =
+      case Map.get(args, "_auth_agent_id") do
+        nil -> Cache.get_and_increment_agent_index()
+        "" -> Cache.get_and_increment_agent_index()
+        auth_id -> auth_id
+      end
 
-    # Auto-register agent if not already in AgentStatus
     case Acs.Acs.get_agent_status(agent_name) do
       nil -> Acs.Acs.put_agent_status(agent_name, %{current_task_id: nil, purpose: "active"})
       _ -> :ok
@@ -311,19 +309,21 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   def acs_list_tasks(args) when is_map(args) do
     status_filter = Map.get(args, "status_filter")
     status_filter = if status_filter == "all", do: nil, else: status_filter
-    cluster = Map.get(args, "cluster", Acs.Cluster.current())
-    tasks = Acs.Acs.list_tasks(status_filter, cluster)
+    org = Map.get(args, "org", Acs.Org.current())
+    tasks = Acs.Acs.list_tasks(status_filter, org)
 
-    {:ok,
-     Enum.map(tasks, fn t ->
-       %{
-         id: t.id,
-         title: t.title,
-         description: t.description,
-         status: t.status,
-         locked_by_agent: t.locked_by_agent
-       }
-     end)}
+    formatted =
+      Enum.map(tasks, fn t ->
+        %{
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          status: t.status,
+          locked_by_agent: t.locked_by_agent
+        }
+      end)
+
+    {:ok, %{tasks: formatted, count: length(formatted)}}
   end
 
   defp do_wait_for_task(ref, agent_id, timeout) do
@@ -376,14 +376,14 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   end
 
   defp has_active_task?(agent_id) do
-    cluster = Acs.Cluster.current()
+    org = Acs.Org.current()
 
     count =
       Acs.Repo.one(
         from t in Acs.Acs.Task,
           where: t.locked_by_agent == ^agent_id,
           where: t.status == "in_progress",
-          where: t.cluster == ^cluster,
+          where: t.org == ^org,
           select: count()
       )
 

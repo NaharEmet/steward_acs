@@ -5,6 +5,7 @@ defmodule Acs.Accounts.User do
   schema "users" do
     field :email, :string
     field :confirmed_at, :utc_datetime
+    field :org, :string, default: "default"
 
     timestamps(type: :utc_datetime)
   end
@@ -12,7 +13,7 @@ defmodule Acs.Accounts.User do
   @doc false
   def changeset(user, attrs) do
     user
-    |> cast(attrs, [:email])
+    |> cast(attrs, [:email, :org])
     |> validate_required([:email])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:email, max: 160)

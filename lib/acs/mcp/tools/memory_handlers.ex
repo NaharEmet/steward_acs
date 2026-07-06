@@ -38,6 +38,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     project = args["project"]
     visibility = args["visibility"] || "org"
 
+    org = Acs.Org.current()
+
     memory_map = %{
       "id" => Acs.Memory.generate_id(%{"kind" => kind, "title" => title}),
       "kind" => kind,
@@ -52,8 +54,9 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       "created_by" => %{
         "type" => "developer",
         "id" => Acs.Cluster.developer_name(),
-        "cluster" => Acs.Cluster.current()
+        "org" => org
       },
+      "org" => org,
       "team" => team,
       "project" => project,
       "visibility" => visibility
@@ -88,6 +91,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       kind: args["kind"],
       status: args["status"],
       limit: args["limit"] || 50,
+      org: Acs.Org.current(),
       allowed_teams: args["_auth_allowed_teams"],
       allowed_projects: args["_auth_allowed_projects"],
       agent_role: args["_auth_role"]
@@ -158,7 +162,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
         {:error, "Invalid status '#{status}'. Must be one of: #{Enum.join(valid_statuses, ", ")}"}
 
       true ->
-        case Acs.Memory.Indexer.update_status(memory_id, status) do
+        case Acs.Memory.Indexer.update_status(memory_id, status, Acs.Org.current()) do
           {:ok, schema} ->
             attrs =
               case status do
@@ -247,12 +251,23 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
           true ->
             %{
               scope: nil,
+              scope_category: nil,
               tier: :full,
               mode: mode,
               critical_axioms: [],
               warnings: [],
               relevant_patterns: [],
-              compressed_knowledge: ""
+              compressed_knowledge: "",
+              maintenance_instructions: "",
+              tool_reference: "",
+              specs_instructions: "",
+              specs_mismatch_protocol: "",
+              workflow_basics: "",
+              file_locking_protocol: "",
+              memory_protocol: "",
+              error_response_protocol: "",
+              sleep_wake_protocol: "",
+              agent_identity: "Find your agent_id: `get_present_status(agent_id: \"\")` returns your assigned name. Use it in all tool calls."
             }
         end
 
@@ -269,7 +284,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
   # Layer 1: Check for exact duplicate by ID (same kind + same normalized title)
   defp check_exact_memory_duplicate(id) do
-    case Acs.Memory.Indexer.get_memory(id) do
+    case Acs.Memory.Indexer.get_memory(id, Acs.Org.current()) do
       nil ->
         :ok
 
@@ -311,7 +326,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
   defp check_lexical_memory_duplicate(title, scope_path) do
     title_lower = String.downcase(title)
 
-    existing = Acs.Memory.Indexer.list_memories(scope_path: scope_path)
+    existing = Acs.Memory.Indexer.list_memories(scope_path: scope_path, org: Acs.Org.current())
 
     case Enum.find(existing, fn m ->
            m.scope_path == scope_path && String.downcase(m.title) == title_lower

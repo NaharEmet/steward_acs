@@ -462,7 +462,7 @@ MIX_ENV=prod mix distillery.release
 PORT=4001 \
   SECRET_KEY_BASE=<span class="str">"your-secret"</span> \
   DATABASE_URL=<span class="str">"ecto://user:pass@host:5432/acs"</span> \
-  ACS_CLUSTER_NAME=<span class="str">"production"</span> \
+  ACS_ORG_NAME=<span class="str">"production"</span> \
   POOL_SIZE=<span class="num">20</span> \
   _build/prod/rel/steward_acs/bin/steward_acs start</code></pre>
             </div>
@@ -651,10 +651,10 @@ submit_task_feedback(
                   <td>Database connection string.</td>
                 </tr>
                 <tr>
-                  <td>ACS_CLUSTER_NAME</td>
+                  <td>ACS_ORG_NAME</td>
                   <td>No</td>
                   <td><code>default</code></td>
-                  <td>Cluster identity for multi-cluster deployments.</td>
+                  <td>Org identity for multi-tenant deployments.</td>
                 </tr>
                 <tr>
                   <td>ACS_DEVELOPER_NAME</td>
@@ -864,8 +864,8 @@ submit_task_feedback(
               └──────────────────────┘</code></pre>
             </div>
 
-            <h3>Multi-Cluster Architecture</h3>
-            <p>Steward ACS supports multiple independent clusters. Each cluster is identified by <code>ACS_CLUSTER_NAME</code> and maintains its own isolated task, lock, and memory namespace. This enables separate environments for development, staging, and production — or independent clusters per team within the same organization.</p>
+            <h3>Multi-Tenant Architecture</h3>
+            <p>Steward ACS supports multiple independent orgs. Each org is identified by <code>ACS_ORG_NAME</code> and maintains its own isolated task, lock, and memory namespace. This enables separate environments for development, staging, and production — or independent orgs per team within the same organization.</p>
           </section>
 
         </div>

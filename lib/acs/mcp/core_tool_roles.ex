@@ -20,6 +20,10 @@ defmodule Acs.MCP.CoreToolRoles do
     ack_error_trace
     resolve_error_trace
     create_task_from_error_trace
+    generate_developer_key
+    list_developer_keys
+    revoke_developer_key
+    create_user
   )
 
   @admin_collaborator ~w(

@@ -49,6 +49,12 @@ defmodule Acs.MCP.SSESessionManager do
   @impl true
   def handle_cast({:unregister, session_id}, state) do
     Logger.debug("SSE session unregistered: #{session_id}")
+
+    case Map.get(state, session_id) do
+      nil -> :ok
+      pid -> Process.demonitor(pid, [:flush])
+    end
+
     {:noreply, Map.delete(state, session_id)}
   end
 

@@ -8,6 +8,7 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/etc/caddy/certs:ro
       - caddy_data:/data
     environment:
       DOMAIN: "${DOMAIN:?Set DOMAIN to your domain}"
@@ -39,7 +40,7 @@ services:
       SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
       DATABASE_URL: "ecto://${DB_USER:-postgres}:${DB_PASSWORD:?Set DB_PASSWORD}@db:5432/${DB_NAME:-acs_prod}"
       POOL_SIZE: "10"
-      ACS_CLUSTER_NAME: "${ACS_CLUSTER_NAME:-default}"
+      ACS_ORG_NAME: "${ACS_ORG_NAME:-default}"
       ACS_DEVELOPER_NAME: "${ACS_DEVELOPER_NAME:-unknown}"
       ACS_USERNAME: "${ACS_USERNAME:-admin}"
       ACS_PASSWORD: "${ACS_PASSWORD:?Set ACS_PASSWORD}"
@@ -48,6 +49,9 @@ services:
       OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-false}"
       AUTH0_DOMAIN: "${AUTH0_DOMAIN:-dev-jw5wgp2b.us.auth0.com}"
       AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-https://prod.stewardacs.xyz/mcp/sse}"
+      AUTH0_MGMT_CLIENT_ID: "${AUTH0_MGMT_CLIENT_ID:-}"
+      AUTH0_MGMT_CLIENT_SECRET: "${AUTH0_MGMT_CLIENT_SECRET:-}"
+      AUTH0_CONNECTION: "${AUTH0_CONNECTION:-email}"
       MCP_PUBLIC_URL: "${MCP_PUBLIC_URL:-https://${DOMAIN}}"
       MCP_RESOURCE_URL: "${MCP_RESOURCE_URL:-https://${DOMAIN}/mcp/sse}"
       SERVICE_API_KEY: "${SERVICE_API_KEY:?Set SERVICE_API_KEY}"

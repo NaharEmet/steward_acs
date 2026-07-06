@@ -16,12 +16,11 @@ defmodule Acs.MCP.ToolRequest do
     field :name, :string
     field :description, :string
     field :category, :string, default: "requested"
-    # JSON-encoded tool definition
     field :definition, :string
-    # pending | approved | rejected
     field :status, :string, default: "pending"
     field :agent_id, :string
     field :approved_by, :string
+    field :org, :string, default: "default"
 
     timestamps(type: :utc_datetime)
   end
@@ -29,7 +28,7 @@ defmodule Acs.MCP.ToolRequest do
   @doc false
   def changeset(request, attrs) do
     request
-    |> cast(attrs, [:name, :description, :category, :definition, :status, :agent_id, :approved_by])
+    |> cast(attrs, [:name, :description, :category, :definition, :status, :agent_id, :approved_by, :org])
     |> validate_required([:name, :definition, :agent_id])
     |> validate_inclusion(:status, ["pending", "approved", "rejected"])
     |> unique_constraint(:name, name: :tool_requests_name_index)

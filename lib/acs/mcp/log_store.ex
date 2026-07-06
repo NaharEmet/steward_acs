@@ -89,7 +89,7 @@ defmodule Acs.MCP.LogStore do
   # by a DB failure.
   defp persist_to_db(level, service, component, message, metadata) do
     Task.start(fn ->
-      try do
+      result =
         Acs.Log.LogRepo.insert_raw(
           level,
           service,
@@ -97,12 +97,19 @@ defmodule Acs.MCP.LogStore do
           message,
           metadata
         )
-      rescue
-        _ -> :ok
-      catch
-        _, _ -> :ok
+
+      case result do
+        {:error, reason} ->
+          Logger.warning("[LogStore] DB persistence failed: #{inspect(reason)}")
+
+        _ ->
+          :ok
       end
     end)
+  rescue
+    _ -> :ok
+  catch
+    _, _ -> :ok
   end
 
   # Use negative monotonic IDs so that ETS ordered_set forward iteration

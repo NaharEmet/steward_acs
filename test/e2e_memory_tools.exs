@@ -1,3 +1,5 @@
+# MOVED to scripts/e2e_memory_tools.exs
+# This file is kept as a reference. Run via: mix run scripts/e2e_memory_tools.exs
 # test/e2e_memory_tools.exs
 #
 # End-to-end test for ALL ACS Memory System MCP tools via Acs.MCP.Tools.call_tool/2.

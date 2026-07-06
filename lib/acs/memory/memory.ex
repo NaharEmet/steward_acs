@@ -37,6 +37,7 @@ defmodule Acs.Memory do
     :team,
     :project,
     :visibility,
+    :org,
     :created_at,
     :updated_at
   ]
@@ -61,6 +62,7 @@ defmodule Acs.Memory do
           team: String.t() | nil,
           project: String.t() | nil,
           visibility: String.t(),
+          org: String.t() | nil,
           created_at: String.t(),
           updated_at: String.t()
         }
@@ -107,6 +109,7 @@ defmodule Acs.Memory do
       team: attrs["team"],
       project: attrs["project"],
       visibility: attrs["visibility"] || "org",
+      org: attrs["org"] || Acs.Org.current(),
       created_at:
         attrs["created_at"] || get_in(attrs, ["timestamps", "created_at"]) ||
           DateTime.utc_now() |> DateTime.to_iso8601(),

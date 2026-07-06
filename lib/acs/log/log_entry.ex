@@ -20,7 +20,7 @@ defmodule Acs.Log.LogEntry do
     field :metadata, :map, default: %{}
     field :workflow_id, :string
     field :execution_id, :string
-    field :cluster, :string
+    field :org, :string
 
     timestamps(type: :utc_datetime)
   end
@@ -40,7 +40,7 @@ defmodule Acs.Log.LogEntry do
       :metadata,
       :workflow_id,
       :execution_id,
-      :cluster
+      :org
     ])
     |> validate_required([:timestamp, :level, :message])
     |> validate_inclusion(:level, ~w(debug info warning error))

@@ -5,6 +5,7 @@ defmodule Acs.Acs.TaskCompletionFeedback do
   schema "task_completion_feedback" do
     field :task_id, :binary_id
     field :agent_id, :string
+    field :org, :string, default: "default"
     field :most_surprising, :string
     field :most_time_consuming, :string
     field :improvements_needed, :string
@@ -22,6 +23,7 @@ defmodule Acs.Acs.TaskCompletionFeedback do
     |> cast(attrs, [
       :task_id,
       :agent_id,
+      :org,
       :most_surprising,
       :most_time_consuming,
       :improvements_needed,

@@ -16,6 +16,7 @@ defmodule Acs.MetaHarness.Generator do
       report = build_report(data, baseline)
       plan = build_plan(data)
 
+      File.mkdir_p!("metaanalysis")
       report_path = write_report(report)
       plan_path = write_plan(plan)
 
@@ -108,15 +109,15 @@ defmodule Acs.MetaHarness.Generator do
   end
 
   defp query_feedback do
-    case query_sql("SELECT * FROM task_completion_feedback ORDER BY inserted_at DESC LIMIT 100") do
+    case query_sql("SELECT * FROM task_completion_feedback ORDER BY inserted_at DESC LIMIT 100", []) do
       {:ok, rows} -> rows
       _ -> []
     end
   end
 
-  defp query_sql(sql) do
+  defp query_sql(sql, params) do
     try do
-      {:ok, result} = Ecto.Adapters.SQL.query(Acs.Repo, sql, [], log: false)
+      {:ok, result} = Ecto.Adapters.SQL.query(Acs.Repo, sql, params, log: false)
 
       {:ok,
        Enum.map(result.rows, fn row ->
@@ -145,19 +146,17 @@ defmodule Acs.MetaHarness.Generator do
   end
 
   defp query_errors_since(baseline_timestamp) do
-    # baseline_timestamp comes from a local JSON file we write, not user input.
-    # SQL injection is not a concern — use string interpolation directly.
     sql = """
     SELECT tool_name, error_type, COUNT(*) as count
     FROM acs_tool_operations
     WHERE status IN ('failure', 'error')
-      AND created_at > '#{baseline_timestamp}'
+      AND created_at > ?1
     GROUP BY tool_name, error_type
     ORDER BY count DESC
     LIMIT 20
     """
 
-    case query_sql(sql) do
+    case query_sql(sql, [baseline_timestamp]) do
       {:ok, rows} -> rows
       _ -> []
     end

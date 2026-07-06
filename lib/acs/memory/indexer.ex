@@ -92,7 +92,8 @@ defmodule Acs.Memory.Indexer do
       updated_at: parse_datetime(memory.updated_at),
       team: memory.team,
       project: memory.project,
-      visibility: memory.visibility
+      visibility: memory.visibility,
+      org: memory.org
     }
 
     result =
@@ -134,12 +135,13 @@ defmodule Acs.Memory.Indexer do
 
   @doc """
   Updates the status of a memory in the index.
+  Optionally scoped to an org.
   """
-  def update_status(memory_id, new_status)
+  def update_status(memory_id, new_status, org \\ nil)
       when new_status in ~w(proposed approved rejected stale deprecated archived parse_error) do
     result =
       Retry.with_busy_retry(fn ->
-        case Repo.get(Schema, memory_id) do
+        case get_memory(memory_id, org) do
           nil ->
             {:error, "Memory not found: #{memory_id}"}
 
@@ -164,11 +166,13 @@ defmodule Acs.Memory.Indexer do
   @doc """
   Updates a specific field on a memory in the index.
   Returns {:ok, schema} or {:error, reason}.
+  Optionally scoped to an org.
   """
-  def update_field(memory_id, field, value) when field in ~w(title content)a do
+  def update_field(memory_id, field, value, org \\ nil)
+      when field in ~w(title content)a do
     result =
       Retry.with_busy_retry(fn ->
-        case Repo.get(Schema, memory_id) do
+        case get_memory(memory_id, org) do
           nil ->
             {:error, "Memory not found: #{memory_id}"}
 
@@ -196,19 +200,37 @@ defmodule Acs.Memory.Indexer do
   end
 
   @doc """
-  Gets a memory from the index by id.
+  Gets a memory from the index by id, optionally filtered by org.
   """
-  def get_memory(memory_id) do
+  def get_memory(memory_id, org \\ nil)
+
+  def get_memory(memory_id, nil) do
     Repo.get(Schema, memory_id)
+  end
+
+  def get_memory(memory_id, org) do
+    import Ecto.Query
+
+    Repo.one(from m in Schema, where: m.id == ^memory_id and m.org == ^org)
   end
 
   @doc """
   Fetches memories by a list of IDs and returns a map of %{id => schema}.
+  Optionally filtered by org.
   """
-  def get_memories_by_ids(ids) when is_list(ids) do
+  def get_memories_by_ids(ids, org \\ nil)
+
+  def get_memories_by_ids(ids, nil) when is_list(ids) do
     import Ecto.Query
 
     Repo.all(from m in Schema, where: m.id in ^ids)
+    |> Enum.into(%{}, fn m -> {m.id, m} end)
+  end
+
+  def get_memories_by_ids(ids, org) when is_list(ids) do
+    import Ecto.Query
+
+    Repo.all(from m in Schema, where: m.id in ^ids and m.org == ^org)
     |> Enum.into(%{}, fn m -> {m.id, m} end)
   end
 
@@ -252,6 +274,7 @@ defmodule Acs.Memory.Indexer do
 
     query = apply_scope_path_filter(query, opts[:scope_path])
     query = if opts[:limit], do: from(m in query, limit: ^opts[:limit]), else: query
+    query = if opts[:org], do: from(m in query, where: m.org == ^opts[:org]), else: query
     query = build_abac_filter(query, opts)
 
     Repo.all(query)
@@ -361,6 +384,13 @@ defmodule Acs.Memory.Indexer do
         from m in search_query, limit: 50
       end
 
+    search_query =
+      if opts[:org] do
+        from m in search_query, where: m.org == ^opts[:org]
+      else
+        search_query
+      end
+
     search_query = build_abac_filter(search_query, opts)
 
     Repo.all(search_query)
@@ -386,6 +416,7 @@ defmodule Acs.Memory.Indexer do
       "related_memories" => decode_json_field(schema.related_memories_json),
       "verification" => decode_json_field(schema.verification_json),
       "revalidation" => decode_json_field(schema.revalidation_json),
+      "org" => schema.org,
       "created_by" => decode_json_field(schema.created_by_json),
       "created_at" => format_datetime(schema.created_at),
       "updated_at" => format_datetime(schema.updated_at)

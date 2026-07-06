@@ -5,9 +5,9 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
   alias Acs.Developers
 
   describe "call/2" do
-    test "sets agent_cluster and role on request with valid developer key" do
+    test "sets agent_org_id and role on request with valid developer key" do
       {:ok, %{key: raw_key}} =
-        Developers.generate_key("mcp-auth-test", role: "admin", cluster: "dev")
+        Developers.generate_key("mcp-auth-test", role: "admin", org: "dev")
 
       conn =
         Plug.Test.conn(:get, "/mcp/v1/messages")
@@ -15,8 +15,8 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
 
       result = MCPAuth.call(conn, [])
       assert result.assigns.agent_role == "admin"
-      assert result.assigns.agent_cluster == Acs.Cluster.current()
       assert result.assigns.agent_org_id == "dev"
+      refute Map.has_key?(result.assigns, :agent_cluster)
     end
 
     test "requires log ingest key for ingestion endpoint" do
@@ -32,11 +32,12 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
 
       result = MCPAuth.call(conn, [])
       assert result.assigns.agent_role == "service"
-      assert result.assigns.agent_cluster == Acs.Cluster.current()
+      assert result.assigns.agent_org_id == "default"
+      refute Map.has_key?(result.assigns, :agent_cluster)
     end
 
     test "does not accept api_key from query params by default" do
-      {:ok, %{key: raw_key}} = Developers.generate_key("query-auth-test", cluster: "staging")
+      {:ok, %{key: raw_key}} = Developers.generate_key("query-auth-test", org: "staging")
 
       conn =
         Plug.Test.conn(:get, "/mcp/v1/messages", %{"api_key" => raw_key})
@@ -53,7 +54,7 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       end)
 
       {:ok, %{key: raw_key}} =
-        Developers.generate_key("query-auth-enabled-test", role: "admin", cluster: "dev")
+        Developers.generate_key("query-auth-enabled-test", role: "admin", org: "dev")
 
       conn =
         Plug.Test.conn(:get, "/mcp/v1/messages", %{"api_key" => raw_key})
@@ -65,7 +66,7 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
 
     test "accepts Bearer token with developer key" do
       {:ok, %{key: raw_key}} =
-        Developers.generate_key("bearer-auth-test", role: "admin", cluster: "dev")
+        Developers.generate_key("bearer-auth-test", role: "admin", org: "dev")
 
       conn =
         Plug.Test.conn(:get, "/mcp/v1/messages")

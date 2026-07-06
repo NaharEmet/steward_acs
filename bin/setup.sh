@@ -241,7 +241,7 @@ $( [ "$DB" = "postgres" ] && echo "DATABASE_URL=${DATABASE_URL}" || echo "# DATA
 $( [ "$DB" = "sqlite" ] && echo "DATABASE_PATH=./var/acs.sqlite" || echo "# DATABASE_PATH=./var/acs.sqlite" )
 
 # Optional
-# ACS_CLUSTER_NAME=default
+# ACS_ORG_NAME=default
 # ACS_DEVELOPER_NAME=unknown
 # ADMIN_EMAILS=
 ENV

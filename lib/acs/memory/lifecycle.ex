@@ -29,7 +29,7 @@ defmodule Acs.Memory.Lifecycle do
   """
   @spec tier_for(String.t()) :: retention_tier()
   def tier_for(kind) when is_binary(kind) do
-    kind_atom = kind |> String.to_atom()
+    kind_atom = String.to_existing_atom(kind)
     Map.get(@retention_map, kind_atom, :permanent)
   rescue
     ArgumentError -> :permanent

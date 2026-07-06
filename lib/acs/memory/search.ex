@@ -57,6 +57,11 @@ defmodule Acs.Memory.Search do
     end
   end
 
+  defp fetch_memories_by_ids_with_org(memory_ids, opts) do
+    org = Keyword.get(opts, :org)
+    Acs.Memory.Indexer.get_memories_by_ids(memory_ids, org)
+  end
+
   defp search_auto(query, opts) do
     if hybrid_available?() do
       hybrid_results = Acs.Memory.HybridSearch.search(query, opts)
@@ -65,7 +70,7 @@ defmodule Acs.Memory.Search do
       if memory_ids == [] do
         []
       else
-        memories_map = Acs.Memory.Indexer.get_memories_by_ids(memory_ids)
+        memories_map = fetch_memories_by_ids_with_org(memory_ids, opts)
 
         memory_ids
         |> Enum.map(fn id -> Map.get(memories_map, id) end)
@@ -85,7 +90,7 @@ defmodule Acs.Memory.Search do
       if memory_ids == [] do
         {[], %{}}
       else
-        memories_map = Acs.Memory.Indexer.get_memories_by_ids(memory_ids)
+        memories_map = fetch_memories_by_ids_with_org(memory_ids, opts)
         scores_map = Map.new(hybrid_results.results, fn r -> {r.memory_id, r.total_score} end)
 
         memories =
@@ -112,7 +117,7 @@ defmodule Acs.Memory.Search do
           if memory_ids == [] do
             []
           else
-            memories_map = Acs.Memory.Indexer.get_memories_by_ids(memory_ids)
+            memories_map = fetch_memories_by_ids_with_org(memory_ids, opts)
 
             memory_ids
             |> Enum.map(fn id -> Map.get(memories_map, id) end)
@@ -140,7 +145,7 @@ defmodule Acs.Memory.Search do
           if memory_ids == [] do
             {[], %{}}
           else
-            memories_map = Acs.Memory.Indexer.get_memories_by_ids(memory_ids)
+            memories_map = fetch_memories_by_ids_with_org(memory_ids, opts)
             scores_map = Map.new(similar, fn s -> {s.memory_id, s.similarity} end)
 
             memories =

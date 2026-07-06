@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Trigger OpenCode to analyze Meta-Harness plan
 
 PLAN_FILE=$(ls -t metaanalysis/plan_*.md 2>/dev/null | head -1)

@@ -12,7 +12,7 @@ defmodule Acs.Developers do
 
   @doc """
   Authenticate a developer by raw key.
-  Returns `{:ok, %{role: role, cluster: cluster}}` or `{:error, reason}`.
+  Returns `{:ok, %{role: role, org: org}}` or `{:error, reason}`.
   """
   def authenticate(key) do
     hash = hash_key(key)
@@ -22,7 +22,6 @@ defmodule Acs.Developers do
         {:error, "Invalid API key"}
 
       dev_key ->
-        # Update last_used_at (synchronous, fast single-row update)
         Repo.update_all(
           from(d in DeveloperApiKey, where: d.id == ^dev_key.id),
           set: [last_used_at: DateTime.utc_now() |> DateTime.truncate(:second)]
@@ -31,7 +30,7 @@ defmodule Acs.Developers do
         {:ok,
          %{
            role: dev_key.role,
-           cluster: dev_key.cluster,
+           org: dev_key.org,
            developer_name: dev_key.developer_name,
            allowed_teams: decode_json(dev_key.allowed_teams_json),
            allowed_projects: decode_json(dev_key.allowed_projects_json)
@@ -49,7 +48,7 @@ defmodule Acs.Developers do
   """
   def generate_key(name, opts \\ []) do
     role = Keyword.get(opts, :role, "collaborator")
-    cluster = Keyword.get(opts, :cluster, "default")
+    org = Keyword.get(opts, :org) || Keyword.get(opts, :cluster, "default")
     allowed_teams = Keyword.get(opts, :allowed_teams)
     allowed_projects = Keyword.get(opts, :allowed_projects)
 
@@ -63,7 +62,7 @@ defmodule Acs.Developers do
            key_prefix: prefix,
            developer_name: name,
            role: role,
-           cluster: cluster,
+           org: org,
            active: true,
            allowed_teams_json: encode_json(allowed_teams),
            allowed_projects_json: encode_json(allowed_projects)
@@ -74,6 +73,43 @@ defmodule Acs.Developers do
 
       {:error, changeset} ->
         {:error, "Failed to create developer key: #{inspect(changeset.errors)}"}
+    end
+  end
+
+  @doc """
+  Get a developer by id.
+  """
+  def get_developer(id) do
+    Repo.get(DeveloperApiKey, id)
+  end
+
+  @doc """
+  Update a developer's attributes (name, role, org, allowed_teams, allowed_projects).
+  Cannot change key_hash or key_prefix.
+  """
+  def update_developer(id, attrs) do
+    case Repo.get(DeveloperApiKey, id) do
+      nil ->
+        {:error, :not_found}
+
+      dev ->
+        attrs =
+          attrs
+          |> Map.drop([:key_hash, :key_prefix])
+          |> maybe_encode_json(:allowed_teams)
+          |> maybe_encode_json(:allowed_projects)
+
+        dev
+        |> DeveloperApiKey.changeset(attrs)
+        |> Repo.update()
+    end
+  end
+
+  defp maybe_encode_json(attrs, field) do
+    case Map.fetch(attrs, field) do
+      {:ok, list} when is_list(list) -> Map.put(attrs, :"#{field}_json", encode_json(list))
+      {:ok, nil} -> Map.put(attrs, :"#{field}_json", nil)
+      _ -> attrs
     end
   end
 

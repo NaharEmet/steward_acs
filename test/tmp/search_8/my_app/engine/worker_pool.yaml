@@ -1,0 +1,35 @@
+app: my_app
+
+created_at: 2026-07-05T15:01:55.922800Z
+
+failure_modes:
+  - Worker becomes unresponsive during task processing and does not report
+  - Pool exhaustion leads to task queuing and increased latency
+
+id: engine/worker_pool
+
+invariants:
+  - Workers must report status periodically to enable health monitoring
+  - Pool size must remain within configured bounds at all times
+
+parent_version: 0
+
+purpose: Manages a configurable pool of workers for parallel task execution across cores
+
+status: approved
+
+tags:
+  - core
+  - workers
+  - concurrency
+
+title: Worker Pool Manager
+
+updated_at: 2026-07-05T15:01:55.922800Z
+
+version: 1
+
+visibility: org
+
+workflows:
+  - acquire worker from pool -> process task -> release worker back to pool

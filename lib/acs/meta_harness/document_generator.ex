@@ -52,7 +52,8 @@ defmodule Acs.MetaHarness.DocumentGenerator do
 
     ## Summary
     - Tools Analyzed: #{map_size(analysis.tool_reliability)}
-    - Overall Success Rate: #{format_rate(calculate_overall_success_rate(analysis.tool_reliability))}
+    - Execution Success Rate: #{format_rate(calculate_overall_success_rate(analysis.tool_reliability))}
+    - Total Executions: #{total_execution_count(analysis)} (plus #{total_discovery_count(analysis)} discovery probes)
     - Slowest Tool: #{format_tool(analysis.latency_analysis)}
     - Most Failed Tool: #{format_tool(analysis.tool_reliability)}
     - Error Clusters: #{length(analysis.error_clusters)}
@@ -210,7 +211,8 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     |> Enum.sort_by(fn {_, d} -> d.failure_count end, :desc)
     |> Enum.take(10)
     |> Enum.map(fn {name, data} ->
-      "  - **#{name}**: #{data.total_calls} calls, #{format_rate(data.success_rate)} success, #{data.failure_count} failures"
+      failures = if data.failure_count > 0, do: ", #{data.failure_count} failures", else: ""
+      "  - **#{name}**: #{data.total_calls} executions, #{format_rate(data.success_rate)} success#{failures}, #{data.discovery_count} discovery probes"
     end)
     |> Enum.join("\n")
   end
@@ -251,7 +253,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     |> Enum.sort_by(fn {_, d} -> d.total_operations end, :desc)
     |> Enum.take(10)
     |> Enum.map(fn {agent_id, data} ->
-      "  - **#{agent_id}**: #{data.total_operations} ops, #{format_rate(data.success_rate)} success, #{data.unique_tools_used} tools"
+      "  - **#{agent_id}**: #{data.success_count} execs, #{data.discovery_count} discoveries, #{format_rate(data.success_rate)} success, #{data.unique_tools_used} tools"
     end)
     |> Enum.join("\n")
   end
@@ -494,5 +496,15 @@ defmodule Acs.MetaHarness.DocumentGenerator do
       end
 
     if recs == [], do: ["  _No specific recommendations (system healthy)_"], else: recs
+  end
+
+  defp total_discovery_count(analysis) do
+    analysis.tool_reliability
+    |> Enum.reduce(0, fn {_, d}, acc -> acc + (d.discovery_count || 0) end)
+  end
+
+  defp total_execution_count(analysis) do
+    analysis.tool_reliability
+    |> Enum.reduce(0, fn {_, d}, acc -> acc + d.total_calls end)
   end
 end

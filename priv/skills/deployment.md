@@ -2,7 +2,7 @@
 audit_reasoning: All checks passed
 audit_score: 10
 audit_status: ok
-audited_at: 2026-07-04T19:45:21.346841Z
+audited_at: 2026-07-05T11:19:22.724487Z
 description: ACS deployment styles: code development vs org memory
 name: deployment
 tags: ["deployment", "ops", "admin"]

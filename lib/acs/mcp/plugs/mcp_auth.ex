@@ -13,7 +13,7 @@ defmodule Acs.MCP.Plugs.MCPAuth do
   `:log_ingest_key` config.
 
   Sets `conn.assigns.agent_role`, `conn.assigns.agent_org_id`,
-  `conn.assigns.agent_cluster`, `conn.assigns.agent_permissions`, and
+  `conn.assigns.agent_permissions`, and
   `conn.assigns.agent_identity` on success.
   """
   import Plug.Conn
@@ -41,10 +41,11 @@ defmodule Acs.MCP.Plugs.MCPAuth do
 
         case authenticate_with_strategies(key, conn, strategies) do
           {:ok, result} ->
+            org_id = result.org_id || conn.assigns[:current_org] || Acs.Org.current()
+
             conn
             |> assign(:agent_role, result.role)
-            |> assign(:agent_org_id, result.org_id)
-            |> assign(:agent_cluster, Acs.Cluster.current())
+            |> assign(:agent_org_id, org_id)
             |> assign(:agent_permissions, result.permissions)
             |> assign(:agent_allowed_teams, result[:allowed_teams])
             |> assign(:agent_allowed_projects, result[:allowed_projects])
@@ -75,8 +76,7 @@ defmodule Acs.MCP.Plugs.MCPAuth do
       secure_compare(ingest_key, expected) ->
         conn
         |> assign(:agent_role, "service")
-        |> assign(:agent_org_id, nil)
-        |> assign(:agent_cluster, Acs.Cluster.current())
+        |> assign(:agent_org_id, conn.assigns[:current_org] || Acs.Org.current())
         |> assign(:agent_permissions, nil)
         |> assign(:agent_identity, "service")
 

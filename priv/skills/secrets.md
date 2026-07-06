@@ -2,7 +2,7 @@
 audit_reasoning: All checks passed
 audit_score: 10
 audit_status: ok
-audited_at: 2026-07-04T19:45:21.391886Z
+audited_at: 2026-07-05T11:19:22.725162Z
 description: Managing secrets with pass (password-store)
 name: secrets
 tags: ["secrets", "pass", "deploy"]

@@ -49,12 +49,12 @@ defmodule Acs.Log.LogRepoTest do
       assert results != []
     end
 
-    test "filters by cluster" do
-      LogRepo.insert_raw("info", "svc", "cmp", "cluster-test", %{}, cluster: "test-cluster-a")
-      LogRepo.insert_raw("info", "svc", "cmp", "cluster-other", %{}, cluster: "test-cluster-b")
+    test "filters by org" do
+      LogRepo.insert_raw("info", "svc", "cmp", "cluster-test", %{}, org: "test-org-a")
+      LogRepo.insert_raw("info", "svc", "cmp", "cluster-other", %{}, org: "test-org-b")
 
-      results = LogRepo.query(cluster: "test-cluster-a", limit: 10)
-      assert Enum.all?(results, fn e -> e.cluster == "test-cluster-a" end)
+      results = LogRepo.query(org: "test-org-a", limit: 10)
+      assert Enum.all?(results, fn e -> e.org == "test-org-a" end)
     end
   end
 

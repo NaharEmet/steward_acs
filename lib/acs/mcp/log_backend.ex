@@ -127,7 +127,9 @@ defmodule Acs.MCP.LogBackend do
       )
     end
   rescue
-    _ -> nil
+    e ->
+      Logger.warning("[LogBackend] Failed to store log: #{inspect(e)}")
+      nil
   end
 
   defp extract_component(metadata) do

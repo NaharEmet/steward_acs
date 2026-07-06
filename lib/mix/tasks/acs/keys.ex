@@ -10,7 +10,7 @@ defmodule Mix.Tasks.Acs.Keys do
         strict: [
           name: :string,
           role: :string,
-          cluster: :string,
+          org: :string,
           id: :string
         ]
       )
@@ -29,17 +29,16 @@ defmodule Mix.Tasks.Acs.Keys do
   defp generate(opts) do
     name = opts[:name] || "developer"
     role = opts[:role] || "collaborator"
-    cluster = opts[:cluster] || "default"
+    org = opts[:org] || "default"
 
-    # Ensure repo is started
     Mix.Task.run("app.start")
 
-    case Acs.Developers.generate_key(name, role: role, cluster: cluster) do
+    case Acs.Developers.generate_key(name, role: role, org: org) do
       {:ok, %{key: raw_key, developer: dev}} ->
         IO.puts("""
         Developer: #{dev.developer_name}
         Role:      #{dev.role}
-        Cluster:   #{dev.cluster}
+        Org:       #{dev.org}
         Key ID:    #{dev.id}
         API Key:   #{raw_key}
 
@@ -60,7 +59,7 @@ defmodule Mix.Tasks.Acs.Keys do
       IO.puts("No developer keys configured.")
     else
       IO.puts(
-        "ID                                   Name        Role    Cluster   Active  Last Used"
+        "ID                                   Name        Role    Org      Active  Last Used"
       )
 
       IO.puts(
@@ -75,7 +74,7 @@ defmodule Mix.Tasks.Acs.Keys do
           end
 
         IO.puts(
-          "#{dev.id}  #{String.pad_trailing(dev.developer_name, 10)}  #{String.pad_trailing(dev.role, 6)}  #{String.pad_trailing(dev.cluster, 8)}  #{if dev.active, do: "yes", else: "no "}  #{last}"
+          "#{dev.id}  #{String.pad_trailing(dev.developer_name, 10)}  #{String.pad_trailing(dev.role, 6)}  #{String.pad_trailing(dev.org, 8)}  #{if dev.active, do: "yes", else: "no "}  #{last}"
         )
       end
     end
@@ -98,7 +97,7 @@ defmodule Mix.Tasks.Acs.Keys do
   defp print_help do
     IO.puts("""
     Usage:
-      mix acs.keys.generate --name <name> [--role admin|service|reader] [--cluster <cluster>]
+      mix acs.keys.generate --name <name> [--role admin|service|reader] [--org <org>]
       mix acs.keys.list
       mix acs.keys.revoke --id <key_id>
     """)

@@ -10,6 +10,7 @@ defmodule AcsWeb.Router do
     plug :put_root_layout, html: {AcsWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug AcsWeb.Plugs.ResolveOrg
     plug :fetch_current_user
   end
 

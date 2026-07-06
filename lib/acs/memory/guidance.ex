@@ -26,242 +26,75 @@ defmodule Acs.Memory.Guidance do
   @knowledge_max_chars 2000
 
   @maintenance_instructions """
-  ## Maintenance Instructions
-
-  If you find any of the above items are incorrect or outdated while working:
-  1. Mark old items as stale: use set_memory_status(memory_id: "...", status: "stale", notes: "reason")
-  2. Save a corrected version: use save_memory(kind: "...", title: "...", content: "...", scope_path: "...")
-  3. For outdated specs: use specs_propose(app, path, updated_attrs) with corrected invariants
-  """
+Outdated items? 1) `set_memory_status(id, "stale", notes)` 2) `save_memory(kind, title, content, scope_path)` for corrected version 3) `specs_propose` for outdated specs
+"""
 
   @tool_reference """
-  ## Tool Reference - Use these when stuck
-
-  ### How Tool Discovery Works
-  Tools are organized in 3 progressive levels for organizational clarity. The MCP `tools/list`
-  endpoint returns **ALL tools at every level** — no level
-  filtering is applied at the MCP listing layer. Every registered tool is always visible and
-  callable by name.
-
-  - **Level 1**: Core workflow tools — `claim_work`, `release_work`,
-    `create_work`, `lock_file`, `unlock_file`, `get_present_status`, `get_locked_files`,
-    `list_tasks`, `sleep`, `wake`, `submit_task_feedback`, `help`, `save_memory`,
-    `query_memories`, `generate_guidance_packet`, `specs_get`,
-    `query_specs`
-  - **Level 2**: `get_logs`, `refresh_tools`, `list_orgs`, `set_memory_status`, `specs_propose`,
-    `specs_approve`, `specs_reject`
-  - **Level 3**: `list_error_traces`, `ack_error_trace`,
-    `resolve_error_trace`, `create_task_from_error_trace`, `time`, `submit_task_feedback`,
-    `app_list`, `app_configure`, `app_remove`
-
-  ### How to Discover and Organize Tools
-
-  - All tools are **always available and callable by name** — levels are purely organizational,
-    not access control. If you know a tool name, call it directly.
-  - **`help`** — Lists ALL available tools with their levels, categories, and parameters from all
-    levels. Always start here when unsure.
-
-  ### Getting Unstuck
-  - **get_logs(level: "error", limit: 50)** — Get recent error logs. First stop when something fails.
-  - All tools can be invoked directly by name. If you know a tool exists (e.g., from `help`),
-    call it — it will execute.
-  """
+All tools callable by name. `help(category, level)` for filtered listing. `get_logs(level: "error")` first when stuck. Tools are organized by category (acs_core, knowledge, specs, error, diagnostic, skills).
+"""
 
   @specs_instructions """
-  ## Specs System
-
-  Specs document WHY modules exist, what invariants must hold, how they work, and what can go wrong.
-
-  ### When to Propose a Spec
-
-  - **After completing implementation of any new module**: Always propose a spec using `specs_propose(app, path, attrs)` unless one already exists
-  - **When modules change**: Update the corresponding spec to reflect new behavior
-  - **Before approving a spec**: Review invariants, workflows, failure_modes carefully
-
-  ### Spec Quality Checklist
-
-  Before proposing a spec, ensure it meets these minimum requirements:
-
-  - [ ] **purpose**: Clear explanation of WHY this module exists (1-2 sentences)
-  - [ ] **invariants**: List 2-3 truths that must ALWAYS hold about this module
-  - [ ] **workflows**: Document the expected execution sequences (normal path)
-  - [ ] **failure_modes**: Document at least 2 known failure scenarios
-  - [ ] **constraints**: Document what this module does NOT do (non-goals, limitations)
-  - [ ] **tags**: Add categorization tags to make specs searchable
-
-  ### Available Tools
-
-  | Tool | Level | Behavior |
-  |------|-------|----------|
-  | `specs_get` | 1 | Get full spec by app + path |
-  | `query_specs` | 1 | Search, list, or find undocumented specs |
-  | `specs_propose` | 2 | Create/update spec (status="proposed") |
-  | `specs_approve` | 2 | Set status="approved" |
-  | `specs_reject` | 2 | Set status="under_review" |
-
-  > Note: Level 2+ tools require explicit access. Call directly by name to use them.
-  """
+`specs_propose(app, path, purpose, invariants, workflows, failure_modes, constraints, tags)` after implementing a module. `query_specs(undocumented: true)` to find gaps. `specs_get(app, path)` to read.
+"""
 
   @specs_instructions_short """
-  ## Specs System
-
-  After completing work on a module, use `specs_propose(app, path, attrs)` to document it if one doesn't exist already. Use `query_specs(undocumented: true)` to find modules missing specs.
-  """
+After completing work, `specs_propose(app, path, attrs)` if no spec exists. `query_specs(undocumented: true)` to find gaps.
+"""
 
   @specs_mismatch_protocol """
-  ## Code vs. Spec Mismatch Protocol
-
-  When working on a module that has an existing spec, you may discover the code behavior differs from what the spec documents.
-
-  **When this happens:**
-
-  1. **PAUSE** — Do not proceed with your original implementation plan
-  2. **IDENTIFY** — Document specifically what differs:
-     - What does the spec say should happen?
-     - What does the code actually do?
-     - Which one needs to change?
-  3. **ASK THE USER** — Present the mismatch:
-     ```
-     SPECS MISMATCH: [module_name]
-     
-     Spec says: [what spec documents]
-     Code does: [what code actually does]
-     
-     Options:
-     A) Update code to match spec — implement [X] instead
-     B) Update spec to match code — change spec to reflect [Y]
-     C) Update both — spec describes [Z], code will be changed to [Z]
-     ```
-  4. **WAIT** — Do not proceed until the user decides
-  5. **EXECUTE** — Update whichever source the user indicated
-
-  **Important**: Never assume the spec is wrong or that the code is wrong. Ask the user.
-  """
+Code differs from spec? 1) Pause. 2) Identify what differs (spec says X, code does Y). 3) Ask user which to update. 4) Execute decision. Never assume one is wrong.
+"""
 
   @workflow_basics """
-  ## Workflow Basics
-
-  After claiming this task:
-
-  1. **LOCK FILES** — `acs_lock_file(agent_id, task_id, file_path)` before each edit
-  2. **DO THE WORK** — Write code, run tests, research
-  3. **SAVE LEARNINGS** — `acs_save_memory(kind: "learning", ...)` before release
-  4. **UNLOCK FILES** — `acs_unlock_file(agent_id, file_path: file_path)` when done editing
-  5. **RELEASE** — `acs_release_work(agent_id, task_id)`
-  6. **FEEDBACK** — `acs_submit_task_feedback(task_id, agent_id, learned_for_agents: "...")`
-
-  If no tasks available: `acs_sleep(agent_id: "YourAgentName")`
-  """
+Start: create or claim a task in ACS before work. After claiming: 1) `lock_file`  2) do work  3) `save_memory`  4) `unlock_file`  5) `release_work`  6) `submit_task_feedback`
+Finish: always `release_work` + `submit_task_feedback` before declaring done. Never skip these.
+Every response includes `_next` with suggested next tools. No tasks? `sleep`
+"""
 
   @file_locking_protocol """
-  ## File Locking
-
-  - Edit the file
-  - When done: `acs_unlock_file(agent_id, file_path: file_path)` or `acs_unlock_file(agent_id, task_id: task_id)`
-  - 10-minute auto-release if you go silent
-  - `acs_get_locked_files()` to see all locked files
-  """
+`lock_file` before edit, `unlock_file` when done (by path or task_id). 10-min auto-release. `get_locked_files()` to check.
+"""
 
   @memory_protocol """
-  ## Knowledge Memory
-
-  When you discover something useful: `acs_save_memory(kind: "learning", title: "...", content: "...", scope_path: "...")`
-  - Memory kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom
-  - Save when: you found a pattern, encountered a pitfall, made a decision
-  - Don't save: temporary state, obvious things, one-off events
-  """
+`save_memory(kind, title, content, scope_path)` — eternal truths only (patterns, decisions, invariants). Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom. Not one-off events.
+"""
 
   @error_response_protocol """
-  ## Error Handling
-
-  1. Try to resolve it
-  2. If persistent:
-     - `acs_list_error_traces()` — check if known
-     - `acs_ack_error_trace(trace_id)` — mark as investigating
-  3. Fix it
-  4. `acs_resolve_error_trace(trace_id)` — mark as resolved
-
-  Debugging: `get_logs(level: "error", limit: 50)` → `memory_health_check()` → `connection_diagnostic()`
-  """
+1) `list_error_traces()`  2) `ack_error_trace(id)` — investigating  3) fix → `resolve_error_trace(id)`  4) debug: `get_logs(level:"error")` → `connection_diagnostic()`
+"""
 
   @sleep_wake_protocol """
-  ## Sleep/Wake
-
-  - `acs_sleep(agent_id: "MyAgent", timeout: 300)` — wait for tasks
-  - You'll be woken when a task is dispatched to you
-  - `acs_wake(agent_id: "MyAgent")` — cancel sleep manually
-  - Release any active tasks before sleeping
-  """
+`sleep(agent_id, timeout)` — blocks until task dispatched. `wake(agent_id)` to cancel. Release active tasks first.
+"""
 
   @agent_identity """
-  ## Agent Identity
-
-  - Your agent_id persists across sessions
-  - Multiple agents can work simultaneously
-  - `acs_get_present_status()` to see who's working
-  """
+Find your agent_id: `get_present_status(agent_id: "")` auto-registers and returns `assigned_agent_id`. Then use that name in all tool calls. The assigned name persists across sessions.
+"""
 
   @knowledge_workflow """
-  ## Workflow Basics
-
-  This project uses structured workflows:
-
-  1. **Claim work** before editing files — ensures no conflicts
-  2. **Lock files** before each edit — prevents simultaneous modifications
-  3. **Save learnings** when you discover something useful — helps future agents
-  4. **Unlock files** when done editing — frees the file for others
-  5. **Release work** when task is complete — signals completion
-  6. **Provide feedback** to help future agents — improves the system
-
-  Follow these patterns to maintain consistency with the team.
-  """
+Start: claim a task before work. After claiming: lock files → do work → save learnings → unlock files → release → submit feedback. Finish: always release + submit feedback before declaring done.
+No tasks? `sleep`.
+"""
 
   @knowledge_file_locking """
-  ## File Locking
-
-  - Only one agent should edit a file at a time
-  - Check for conflicts before starting
-  - Release locks when done (10-minute auto-release if silent)
-  - Use: get_locked_files() to check current locks
-  """
+`lock_file` before editing. `unlock_file` when done. 10-min auto-release if silent. `get_locked_files()` to check.
+"""
 
   @knowledge_memory """
-  ## Knowledge Memory
-
-  Save learnings when you discover:
-  - Patterns that others should follow
-  - Pitfalls others should avoid
-  - Decisions that should be documented
-
-  Memory kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom
-
-  Use: save_memory() to persist knowledge
-  """
+`save_memory(kind, title, content, scope_path)` for patterns, pitfalls, decisions. Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom.
+"""
 
   @knowledge_error """
-  ## Error Handling
-
-  When encountering errors:
-  1. Check if it's a known error pattern — use list_error_traces()
-  2. If persistent, escalate debugging — use get_logs() then connection_diagnostic()
-  3. Document what you learned — use save_memory()
-  """
+1) `list_error_traces()` — check known  2) `get_logs()` → `connection_diagnostic()` to debug  3) `save_memory()` to document what you learned
+"""
 
   @knowledge_sleep """
-  ## Task Availability
-
-  When no tasks are available, wait for new assignments.
-  Release any active tasks before switching focus.
-  Use: sleep() to wait, wake() to cancel
-  """
+No tasks? `sleep()` blocks until dispatched. Release active tasks first. `wake()` to cancel.
+"""
 
   @knowledge_identity """
-  ## Agent Identity
-
-  Multiple agents can work simultaneously.
-  Each agent has a unique identifier that persists across sessions.
-  Use: get_present_status() to see who's working
-  """
+Find your agent_id: `get_present_status(agent_id: "")` returns your assigned name. Use it in all tool calls — it persists across sessions.
+"""
 
   @doc """
   Generates a guidance packet for a given scope_path.
@@ -297,7 +130,7 @@ defmodule Acs.Memory.Guidance do
     allowed_projects = Keyword.get(opts, :allowed_projects)
     agent_role = Keyword.get(opts, :agent_role)
 
-    search_opts = [{:scope_path, scope_path}, {:status, "approved"}]
+    search_opts = [{:scope_path, scope_path}, {:status, "approved"}, {:org, Acs.Org.current()}]
 
     search_opts =
       if allowed_teams, do: search_opts ++ [allowed_teams: allowed_teams], else: search_opts
@@ -322,6 +155,7 @@ defmodule Acs.Memory.Guidance do
         if mode == :knowledge do
           %{
             scope: scope_path,
+            scope_category: scope_path,
             tier: :claim,
             mode: :knowledge,
             critical_axioms:
@@ -354,6 +188,7 @@ defmodule Acs.Memory.Guidance do
         else
           %{
             scope: scope_path,
+            scope_category: scope_path,
             tier: :claim,
             mode: :mcp,
             critical_axioms:
@@ -389,6 +224,7 @@ defmodule Acs.Memory.Guidance do
         if mode == :knowledge do
           %{
             scope: scope_path,
+            scope_category: scope_path,
             tier: :full,
             mode: :knowledge,
             critical_axioms:
@@ -422,6 +258,7 @@ defmodule Acs.Memory.Guidance do
         else
           %{
             scope: scope_path,
+            scope_category: scope_path,
             tier: :full,
             mode: :mcp,
             critical_axioms:
@@ -467,6 +304,9 @@ defmodule Acs.Memory.Guidance do
   def for_task(task_id, opts \\ []) do
     tier = Keyword.get(opts, :tier, :full)
     mode = Keyword.get(opts, :mode, :mcp)
+    allowed_teams = Keyword.get(opts, :allowed_teams)
+    allowed_projects = Keyword.get(opts, :allowed_projects)
+    agent_role = Keyword.get(opts, :agent_role)
 
     task = Acs.Acs.get_task(task_id)
 
@@ -524,13 +364,20 @@ defmodule Acs.Memory.Guidance do
           |> List.first()
           |> scope_from_path()
 
-        guidance = generate(scope_path, tier: tier, mode: mode)
+        abac_opts =
+          []
+          |> then(fn o -> if allowed_teams, do: o ++ [allowed_teams: allowed_teams], else: o end)
+          |> then(fn o ->
+            if allowed_projects, do: o ++ [allowed_projects: allowed_projects], else: o
+          end)
+          |> then(fn o -> if agent_role, do: o ++ [agent_role: agent_role], else: o end)
+
+        guidance = generate(scope_path, Keyword.merge([tier: tier, mode: mode], abac_opts))
 
         title = (task_map[:title] || "") |> String.downcase()
         task_context = build_task_context(title)
 
         guidance
-        |> Map.put(:scope_category, scope_path)
         |> Map.put(:task_context, task_context)
     end
   end

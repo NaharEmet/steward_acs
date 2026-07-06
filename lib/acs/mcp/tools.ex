@@ -6,6 +6,7 @@ defmodule Acs.MCP.Tools do
   alias Acs.MCP.Tools.ErrorHandlers
   alias Acs.MCP.Tools.DiagnosticHandlers
   alias Acs.MCP.Tools.SkillHandlers
+  alias Acs.MCP.Tools.AdminHandlers
   alias Acs.MCP.Tools.QueryAgent
   require Logger
 
@@ -54,7 +55,13 @@ defmodule Acs.MCP.Tools do
     # Skill tools
     "skill_get" => "skills",
     "skill_save" => "skills",
-    "skill_audit_status" => "skills"
+    "skill_audit_status" => "skills",
+    "get_started" => "acs_core",
+    # Admin tools
+    "generate_developer_key" => "acs_core",
+    "list_developer_keys" => "acs_core",
+    "revoke_developer_key" => "acs_core",
+    "create_user" => "acs_core"
   }
 
   def tool_category(name) do
@@ -63,6 +70,17 @@ defmodule Acs.MCP.Tools do
 
   def list_tools do
     [
+      tool_def(
+        "get_started",
+        "Call this when you receive new instructions to refresh context. Returns general ACS instructions, entry-point tools, and recommended next steps.",
+        %{
+          "agent_id" => %{
+            "type" => "string",
+            "description" => "Optional: your agent name. If provided, returns personalized suggestions."
+          }
+        },
+        []
+      ),
       tool_def(
         "claim_work",
         "Claim a task for an agent. Returns task status, task_id, and a guidance packet with relevant knowledge memory for context. Optionally pass scope_path for targeted guidance.",
@@ -707,6 +725,61 @@ defmodule Acs.MCP.Tools do
         "Run a quality audit on all skills and return results. Checks frontmatter completeness, content length, description quality, and tags.",
         %{},
         []
+      ),
+      tool_def(
+        "generate_developer_key",
+        "Generate a new developer API key (acs_dev_... prefix). The key is scoped to the caller's org. Admin only.",
+        %{
+          "developer_name" => %{
+            "type" => "string",
+            "description" => "Human-readable name identifying the developer"
+          },
+          "role" => %{
+            "type" => "string",
+            "description" => "Role: admin, service, reader, or collaborator (default: collaborator)"
+          }
+        },
+        ["developer_name"]
+      ),
+      tool_def(
+        "list_developer_keys",
+        "List all developer API keys with their metadata (name, role, org, active status, last used). Admin only.",
+        %{},
+        []
+      ),
+      tool_def(
+        "revoke_developer_key",
+        "Revoke a developer API key by ID. The key will no longer authenticate. Admin only.",
+        %{
+          "id" => %{
+            "type" => "string",
+            "description" => "ID of the developer key to revoke"
+          }
+        },
+        ["id"]
+      ),
+      tool_def(
+        "create_user",
+        "Create a user in Auth0 via the Management API. Scoped to the caller's org. Only available in remote ACS deployments with OAuth enabled. Admin only.",
+        %{
+          "name" => %{
+            "type" => "string",
+            "description" => "Display name for the user"
+          },
+          "email" => %{
+            "type" => "string",
+            "description" => "Email address for the user"
+          },
+          "role" => %{
+            "type" => "string",
+            "description" => "Role for the user (default: collaborator)"
+          },
+          "password" => %{
+            "type" => "string",
+            "description" => "Optional password for the user. If omitted, a secure random password is generated."
+          }
+        },
+        ["name", "email"]
       )
     ]
   end
@@ -752,7 +825,12 @@ defmodule Acs.MCP.Tools do
     "app_remove" => &CoreHandlers.app_remove/1,
     "skill_get" => &SkillHandlers.skill_get/1,
     "skill_save" => &SkillHandlers.skill_save/1,
-    "skill_audit_status" => &SkillHandlers.skill_audit_status/1
+    "skill_audit_status" => &SkillHandlers.skill_audit_status/1,
+    "get_started" => &CoreHandlers.acs_get_started/1,
+    "generate_developer_key" => &AdminHandlers.generate_key/1,
+    "list_developer_keys" => &AdminHandlers.list_keys/1,
+    "revoke_developer_key" => &AdminHandlers.revoke_key/1,
+    "create_user" => &AdminHandlers.create_user/1
   }
 
   defp dispatch_map do
@@ -799,8 +877,9 @@ defmodule Acs.MCP.Tools do
             end
         end
 
-      Logger.info("MCP tool response: #{name} - #{tool_response_summary(name, result)}")
-      result
+      decorated = add_next(name, args, result)
+      Logger.info("MCP tool response: #{name} - #{tool_response_summary(name, decorated)}")
+      decorated
     end
   end
 
@@ -846,6 +925,9 @@ defmodule Acs.MCP.Tools do
   defp tool_response_summary(_name, {:ok, result}), do: "ok: #{inspect(result)}"
   defp tool_response_summary(_name, {:error, reason}), do: "error: #{inspect(reason)}"
   defp tool_response_summary(_name, :ok), do: "ok"
+
+  defp tool_action_summary("get_started", args),
+    do: "get started (agent_id=#{Map.get(args, "agent_id", "none")})"
 
   defp tool_action_summary("claim_work", %{"task_id" => task_id, "agent_id" => agent_id}),
     do: "claim task=#{task_id} for agent=#{agent_id}"
@@ -987,4 +1069,220 @@ defmodule Acs.MCP.Tools do
     do: "specs_reject: #{app}/#{path}"
 
   defp tool_action_summary(_name, _args), do: "called"
+
+  # ── _next system: injects next-step suggestions into every tool response ──
+
+  defp add_next(name, args, {:ok, map}) when is_map(map) do
+    {:ok, Map.put(map, :_next, next_steps(name, args, map))}
+  end
+
+  defp add_next(_name, _args, result), do: result
+
+  defp next_steps(tool_name, args, result) do
+    agent_id = Map.get(args, "agent_id", "")
+    task_id = Map.get(result, :task_id) || Map.get(args, "task_id", "")
+
+    case tool_name do
+      "get_started" ->
+        [
+          %{tool: "get_present_status", prompt: "Register yourself to get an agent_id", params: %{agent_id: "your_name"}},
+          %{tool: "create_work", prompt: "Create and self-claim a task to track your work", params: %{agent_id: agent_id, title: "<describe work>", claim: true}},
+          %{tool: "list_tasks", prompt: "Find existing todo tasks to claim", params: %{status_filter: "todo"}},
+          %{tool: "generate_guidance_packet", prompt: "Get detailed workflow instructions", params: %{scope_path: "agent_coordination_system"}},
+          %{tool: "help", prompt: "See all available tools with descriptions", params: %{level: 1}}
+        ]
+
+      "create_work" ->
+        if Map.get(result, :status) == "claimed" do
+          file_paths = Map.get(args, "file_paths", [])
+          lock_step = fn fp -> %{tool: "lock_file", prompt: "Lock file to prevent concurrent edits", params: %{agent_id: agent_id, task_id: task_id, file_path: fp}} end
+          lock_steps = if file_paths != [], do: [lock_step.(hd(file_paths)) | Enum.drop(file_paths, 1) |> Enum.map(lock_step)], else: []
+          [
+            %{tool: "skill_get", prompt: "Find relevant workflow guides for this task", params: %{search: Map.get(args, "title", "")}},
+            %{tool: "query_specs", prompt: "Check specs for the modules you'll be working on", params: %{query: Map.get(args, "title", "")}}
+          ] ++ lock_steps
+        else
+          [
+            %{tool: "claim_work", prompt: "Claim the task to start working on it", params: %{agent_id: agent_id, task_id: task_id}},
+            %{tool: "sleep", prompt: "No agent working now — sleep to wait for dispatch", params: %{agent_id: agent_id, timeout: 300}}
+          ]
+        end
+
+      "claim_work" ->
+        [
+          %{tool: "lock_file", prompt: "Lock file to prevent concurrent edits", params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}},
+          %{tool: "generate_guidance_packet", prompt: "Get detailed guidance for the scope before starting", params: %{scope_path: "<scope_path>"}}
+        ]
+
+      "release_work" ->
+        [
+          %{tool: "submit_task_feedback", prompt: "Share learnings so other agents benefit — formally closes the task", params: %{task_id: task_id, agent_id: agent_id, learned_for_agents: "...", guidance_useful: true}},
+          %{tool: "specs_propose", prompt: "Document any module you changed that lacks a spec", params: %{app: "<app>", path: "<path>", title: "...", purpose: "..."}},
+          %{tool: "save_memory", prompt: "Save eternal truths you discovered during this task", params: %{kind: "learning", title: "...", content: "...", scope_path: "<scope_path>"}},
+          %{tool: "skill_save", prompt: "Create a reusable workflow guide if this task had a repeatable pattern", params: %{name: "...", content: "...", tags: ["..."]}}
+        ]
+
+      "lock_file" ->
+        [
+          %{tool: "unlock_file", prompt: "Release file lock so others can edit", params: %{agent_id: agent_id, file_path: Map.get(args, "file_path", "")}}
+        ]
+
+      "unlock_file" ->
+        [
+          %{tool: "release_work", prompt: "All files done? Mark task complete", params: %{agent_id: agent_id, task_id: task_id}},
+          %{tool: "lock_file", prompt: "Lock another file for this task", params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}}
+        ]
+
+      "get_present_status" ->
+        [
+          %{tool: "list_tasks", prompt: "List todo tasks to find work items", params: %{status_filter: "todo"}},
+          %{tool: "sleep", prompt: "No tasks found — sleep to wait for dispatch", params: %{agent_id: agent_id, timeout: 300}}
+        ]
+
+      "list_tasks" ->
+        todo = Map.get(result, :tasks, []) |> Enum.filter(fn t -> t[:status] == "todo" end)
+        if todo != [] do
+          [%{tool: "claim_work", prompt: "Claim a todo task to start working", params: %{agent_id: agent_id, task_id: hd(todo)[:id]}}]
+        else
+          [%{tool: "sleep", prompt: "No tasks available — sleep to wait for dispatch", params: %{agent_id: agent_id, timeout: 300}}]
+        end
+
+      "sleep" ->
+        []
+
+      "wake" ->
+        [
+          %{tool: "list_tasks", prompt: "Check for available tasks", params: %{}},
+          %{tool: "get_present_status", prompt: "See who's working", params: %{}}
+        ]
+
+      "get_locked_files" ->
+        []
+
+      "save_memory" ->
+        [
+          %{tool: "query_memories", prompt: "Verify the saved memory is findable by search", params: %{query: Map.get(args, "title", ""), scope_path: Map.get(args, "scope_path", "")}},
+          %{tool: "set_memory_status", prompt: "No conflicts? Approve to make visible to all agents", params: %{memory_id: Map.get(result, :id, ""), status: "approved"}}
+        ]
+
+      "query_memories" ->
+        if Map.get(result, :count, 0) == 0 do
+          [%{tool: "save_memory", prompt: "No results — document your knowledge so others find it", params: %{kind: "learning", title: "...", content: "...", scope_path: "<scope_path>"}}]
+        else
+          []
+        end
+
+      "set_memory_status" ->
+        [
+          %{tool: "query_memories", prompt: "Verify the updated memory appears correctly", params: %{scope_path: Map.get(args, "scope_path", "")}}
+        ]
+
+      "generate_guidance_packet" ->
+        []
+
+      "list_error_traces" ->
+        if Map.get(result, :total, 0) > 0 do
+          trace = Map.get(result, :traces, []) |> List.first()
+          [
+            %{tool: "ack_error_trace", prompt: "Claim an error to investigate", params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}},
+            %{tool: "create_task_from_error_trace", prompt: "Turn this error into a fix task", params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}}
+          ]
+        else
+          [%{tool: "get_logs", prompt: "No error traces found — check logs directly for clues", params: %{level: "error", limit: 50}}]
+        end
+
+      "ack_error_trace" ->
+        [%{tool: "resolve_error_trace", prompt: "Mark as resolved once the root cause is fixed", params: %{trace_id: Map.get(args, "trace_id", "")}}]
+
+      "resolve_error_trace" ->
+        []
+
+      "create_task_from_error_trace" ->
+        [%{tool: "claim_work", prompt: "Claim the error-fix task to start investigating", params: %{agent_id: agent_id, task_id: Map.get(result, :task_id, "")}}]
+
+      "submit_task_feedback" ->
+        [
+          %{tool: "sleep", prompt: "Task done — sleep to wait for next assignment", params: %{agent_id: agent_id, timeout: 300}},
+          %{tool: "list_tasks", prompt: "See if more work is waiting", params: %{status_filter: "todo"}}
+        ]
+
+      "help" ->
+        []
+
+      "query" ->
+        []
+
+      "config_lookup" ->
+        []
+
+      "connection_diagnostic" ->
+        [
+          %{tool: "get_logs", prompt: "Issues found? Check error logs for details", params: %{level: "error", limit: 50}}
+        ]
+
+      "memory_health_check" ->
+        [
+          %{tool: "get_logs", prompt: "Memory issues found? Check error logs", params: %{level: "error", limit: 50}}
+        ]
+
+      "specs_get" ->
+        [
+          %{tool: "specs_propose", prompt: "No spec yet? Document the module so others understand it", params: %{app: Map.get(args, "app", ""), path: Map.get(args, "path", ""), title: "...", purpose: "..."}},
+          %{tool: "specs_approve", prompt: "Spec looks correct? Approve it", params: %{app: Map.get(args, "app", ""), path: Map.get(args, "path", ""), reviewer: agent_id}}
+        ]
+
+      "query_specs" ->
+        [
+          %{tool: "specs_propose", prompt: "Fill undocumented gaps by proposing specs", params: %{app: "<app>", path: "<path>", title: "...", purpose: "..."}}
+        ]
+
+      "specs_propose" ->
+        [
+          %{tool: "specs_approve", prompt: "Proposed spec ready? Approve to make it official", params: %{app: Map.get(args, "app", ""), path: Map.get(args, "path", ""), reviewer: agent_id}}
+        ]
+
+      "specs_approve" ->
+        []
+
+      "specs_reject" ->
+        []
+
+      "skill_get" ->
+        [
+          %{tool: "skill_save", prompt: "Need a workflow guide? Create a skill so others reuse it", params: %{name: "<name>", content: "..."}},
+          %{tool: "skill_audit_status", prompt: "Audit all skills for quality gaps", params: %{}}
+        ]
+
+      "skill_save" ->
+        [
+          %{tool: "skill_audit_status", prompt: "Verify new skill meets quality standards", params: %{}}
+        ]
+
+      "skill_audit_status" ->
+        [
+          %{tool: "skill_save", prompt: "Fix low-scoring skills to improve quality", params: %{name: "<name>", content: "..."}}
+        ]
+
+      "app_list" ->
+        [%{tool: "app_configure", prompt: "Need a new external service? Configure an app", params: %{name: "<app_name>"}}]
+
+      "app_configure" ->
+        [%{tool: "app_list", prompt: "Verify the app was configured correctly", params: %{}}]
+
+      "app_remove" ->
+        [%{tool: "app_list", prompt: "Verify the app was removed", params: %{}}]
+
+      "list_plugins" ->
+        []
+
+      "list_orgs" ->
+        []
+
+      "time" ->
+        []
+
+      _ ->
+        []
+    end
+  end
 end

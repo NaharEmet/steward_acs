@@ -13,7 +13,7 @@ defmodule Acs do
   alias Acs.Acs.Cache
   alias Acs.Acs.Similarity
   alias Acs.Memory.Guidance
-  alias Acs.Cluster
+  alias Acs.Cluster, as: Org
 
   @doc false
   def broadcast(event, payload) do
@@ -40,12 +40,12 @@ defmodule Acs do
       :ok ->
         similar = Similarity.find_similar_tasks(title, file_paths)
 
-        cluster = attrs["cluster"] || Cluster.current()
+        org = attrs["org"] || attrs["cluster"] || Org.current()
 
         task_attrs =
           Map.merge(attrs, %{
             "created_by_agent" => agent_id,
-            "cluster" => cluster,
+            "org" => org,
             "status" => Map.get(attrs, "status", "todo")
           })
 
@@ -73,7 +73,7 @@ defmodule Acs do
   Returns `{:ok, updated_task}` or `{:error, reason}`.
   """
   def bump_task(task_id, updates) when is_binary(task_id) do
-    case Repo.get(AcsTask, task_id) do
+    case Repo.one(from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())) do
       nil ->
         {:error, :task_not_found}
 
@@ -102,10 +102,11 @@ defmodule Acs do
   @doc """
   Claims a task for an agent.
   """
-  def claim_task(task_id, agent_id) when is_binary(task_id) and is_binary(agent_id) do
+  def claim_task(task_id, agent_id, opts \\ []) when is_binary(task_id) and is_binary(agent_id) do
     result =
       Repo.transaction(fn ->
-        task = Repo.get(AcsTask, task_id, lock: "FOR UPDATE")
+        query = from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())
+        task = Repo.one(query, lock: "FOR UPDATE")
 
         case task do
           nil ->
@@ -138,7 +139,12 @@ defmodule Acs do
         Cache.put_task(task.id, to_task_map(task))
         broadcast(:task_claimed, %{task_id: task.id, agent_id: agent_id})
         broadcast(:agent_updated, %{agent_id: agent_id, status: "working"})
-        guidance = Acs.Memory.Guidance.for_task(task.id, tier: :claim)
+
+        guidance =
+          unless opts[:skip_guidance] do
+            Acs.Memory.Guidance.for_task(task.id, tier: :claim)
+          end
+
         {:ok, task, guidance}
 
       {:error, {:error, reason}} ->
@@ -152,7 +158,9 @@ defmodule Acs do
   def release_task(task_id, agent_id) when is_binary(task_id) and is_binary(agent_id) do
     result =
       Repo.transaction(fn ->
-        case Repo.get(AcsTask, task_id, lock: "FOR UPDATE") do
+        query = from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())
+
+        case Repo.one(query, lock: "FOR UPDATE") do
           nil ->
             nil
 
@@ -201,7 +209,8 @@ defmodule Acs do
       when is_binary(task_id) and is_binary(agent_id) do
     result =
       Repo.transaction(fn ->
-        task = Repo.get(AcsTask, task_id, lock: "FOR UPDATE")
+        query = from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())
+        task = Repo.one(query, lock: "FOR UPDATE")
 
         case task do
           nil ->
@@ -236,13 +245,13 @@ defmodule Acs do
   @doc """
   Lists all tasks, optionally filtered by status.
   """
-  def list_tasks(status_filter \\ nil, cluster \\ nil) do
-    cluster = cluster || Cluster.current()
+  def list_tasks(status_filter \\ nil, org \\ nil) do
+    org = org || Org.current()
 
     query =
       AcsTask
       |> order_by(desc: :inserted_at)
-      |> where([t], t.cluster == ^cluster)
+      |> where([t], t.org == ^org)
 
     query = if status_filter, do: where(query, [t], t.status == ^status_filter), else: query
     Repo.all(query) |> Enum.map(&to_task_map/1)
@@ -251,7 +260,9 @@ defmodule Acs do
   @doc """
   Gets a single task by ID.
   """
-  def get_task(task_id) when is_binary(task_id), do: Repo.get(AcsTask, task_id)
+  def get_task(task_id) when is_binary(task_id) do
+    Repo.one(from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current()))
+  end
 
   @doc """
   Resets ALL ACS data.
@@ -281,7 +292,7 @@ defmodule Acs do
     task = get_task(task_id)
 
     # Idempotent: already locked by this agent for this file = success
-    case Repo.get_by(FileLock, file_path: file_path, locked_by_agent: agent_id) do
+    case Repo.get_by(FileLock, file_path: file_path, locked_by_agent: agent_id, org: Org.current()) do
       %FileLock{task_id: ^task_id} ->
         {:ok, %{status: "already_locked", file_path: file_path}}
 
@@ -316,7 +327,7 @@ defmodule Acs do
               "file_path" => file_path,
               "locked_by_agent" => agent_id,
               "task_id" => task_id,
-              "cluster" => Cluster.current(),
+              "org" => Org.current(),
               "locked_at" => now,
               "auto_release_at" => auto_release
             })
@@ -355,7 +366,7 @@ defmodule Acs do
   Unlocks a file.
   """
   def unlock_file(file_path, agent_id) when is_binary(file_path) and is_binary(agent_id) do
-    lock = Repo.get_by(FileLock, file_path: file_path)
+    lock = Repo.get_by(FileLock, file_path: file_path, org: Org.current())
 
     case lock do
       nil ->
@@ -396,16 +407,16 @@ defmodule Acs do
   @doc """
   Gets all currently locked files.
   """
-  def get_locked_files(cluster \\ nil) do
-    cluster = cluster || Cluster.current()
-    Repo.all(from(f in FileLock, where: f.cluster == ^cluster)) |> Enum.map(&to_file_lock_map/1)
+  def get_locked_files(org \\ nil) do
+    org = org || Org.current()
+    Repo.all(from(f in FileLock, where: f.org == ^org)) |> Enum.map(&to_file_lock_map/1)
   end
 
   @doc """
   Checks if a specific file is locked.
   """
   def check_file_lock(file_path) do
-    {:ok, Repo.get_by(FileLock, file_path: file_path)}
+    {:ok, Repo.get_by(FileLock, file_path: file_path, org: Org.current())}
   end
 
   # ============================================================================
@@ -429,9 +440,11 @@ defmodule Acs do
         %{}
       end
 
+    org = Org.current()
+
     locks_map =
       if task_ids != [] do
-        Repo.all(from(f in FileLock, where: f.task_id in ^task_ids))
+        Repo.all(from(f in FileLock, where: f.task_id in ^task_ids and f.org == ^org))
         |> Enum.group_by(& &1.task_id)
       else
         %{}
@@ -465,7 +478,7 @@ defmodule Acs do
 
     if status && status.current_task_id do
       task = get_task(status.current_task_id) |> to_task_map()
-      locks = Repo.all(from(f in FileLock, where: f.task_id == ^status.current_task_id))
+      locks = Repo.all(from(f in FileLock, where: f.task_id == ^status.current_task_id and f.org == ^Org.current()))
       locked_files = Enum.map(locks, fn l -> l.file_path end)
 
       %{
@@ -521,7 +534,7 @@ defmodule Acs do
           "purpose" => purpose,
           "application" => application,
           "component" => component,
-          "cluster" => Cluster.current()
+          "org" => Org.current()
         })
         |> Repo.insert()
 
@@ -532,7 +545,7 @@ defmodule Acs do
           "purpose" => purpose,
           "application" => application,
           "component" => component,
-          "cluster" => Cluster.current()
+          "org" => Org.current()
         })
         |> Repo.update()
     end
@@ -566,11 +579,13 @@ defmodule Acs do
 
   defp check_no_duplicate_title(title) when is_binary(title) do
     import Ecto.Query
+    org = Org.current()
 
     case Repo.one(
            from(t in Acs.Acs.Task,
              where: fragment("LOWER(?)", t.title) == ^String.downcase(title),
              where: t.status not in ^["done"],
+             where: t.org == ^org,
              limit: 1
            )
          ) do
@@ -595,7 +610,7 @@ defmodule Acs do
       inserted_at: t.inserted_at,
       event_count: t.event_count,
       file_paths: t.file_paths || [],
-      cluster: t.cluster
+      org: t.org
     }
   end
 
@@ -607,7 +622,7 @@ defmodule Acs do
       locked_at: l.locked_at,
       auto_release_at: l.auto_release_at,
       task_id: l.task_id,
-      cluster: l.cluster
+      org: l.org
     }
   end
 
@@ -618,7 +633,7 @@ defmodule Acs do
       purpose: s.purpose,
       application: s.application,
       component: s.component,
-      cluster: s.cluster
+      org: s.org
     }
   end
 
@@ -633,7 +648,7 @@ defmodule Acs do
           "application" => application,
           "component" => component,
           "purpose" => purpose,
-          "cluster" => Cluster.current()
+          "org" => Org.current()
         })
         |> Repo.insert()
 
@@ -643,7 +658,7 @@ defmodule Acs do
           "application" => application,
           "component" => component,
           "purpose" => purpose || status.purpose,
-          "cluster" => Cluster.current()
+          "org" => Org.current()
         })
         |> Repo.update()
     end

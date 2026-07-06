@@ -36,6 +36,7 @@ defmodule Mix.Tasks.Acs.MetaHarness.Baseline do
     }
 
     path = "metaanalysis/baseline.json"
+    File.mkdir_p!("metaanalysis")
     File.write!(path, Jason.encode!(baseline, pretty: true))
 
     Mix.Shell.IO.info("""

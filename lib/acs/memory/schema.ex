@@ -34,6 +34,7 @@ defmodule Acs.Memory.Schema do
     field :team, :string
     field :project, :string
     field :visibility, :string, default: "org"
+    field :org, :string, default: "default"
     timestamps(type: :utc_datetime, inserted_at: :created_at)
   end
 
@@ -61,7 +62,8 @@ defmodule Acs.Memory.Schema do
       :auditor_flags,
       :team,
       :project,
-      :visibility
+      :visibility,
+      :org
     ])
     |> validate_required([:id, :kind, :title, :content, :scope_path])
     |> validate_inclusion(

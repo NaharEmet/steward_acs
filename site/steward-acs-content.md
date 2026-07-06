@@ -364,7 +364,7 @@ services:
     ports:
       - "4001:4001"
     environment:
-      ACS_CLUSTER_NAME: ${ACS_CLUSTER_NAME:-dev}
+      ACS_ORG_NAME: ${ACS_ORG_NAME:-dev}
       DATABASE_URL: ${DATABASE_URL:-ecto://postgres:postgres@localhost:5432/acs}
       POOL_SIZE: "10"
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
@@ -386,7 +386,7 @@ volumes:
 | ------------------------ | -------- | -------------------------------------------------------- | -------------------------------------- |
 | `SECRET_KEY_BASE`          | **Yes**  | —                                                        | Phoenix session signing secret. Generate with `mix phx.gen.secret`. |
 | `DATABASE_URL`            | **Yes**  | `ecto://postgres:postgres@localhost:5432/acs`             | Full database connection string        |
-| `ACS_CLUSTER_NAME`        | No       | `default`                                                | Cluster identity. Scopes all operations. Use separate names for dev/staging/prod. |
+| `ACS_ORG_NAME`            | No       | `default`                                                | Org identity. Scopes all operations. Use separate names for dev/staging/prod. |
 | `ACS_DEVELOPER_NAME`      | No       | `unknown`                                                | Developer identity tag for memory creation attribution |
 | `POOL_SIZE`               | No       | `10`                                                     | Database connection pool size          |
 | `AUDITOR_INTERVAL`        | No       | `30000`                                                  | Memory auditor polling interval (milliseconds) |
@@ -692,7 +692,7 @@ A: Version 0.1.0 — actively developed. Core features (tasks, locks, memory, MC
 A: The prefix is defined in the YAML tool definitions (`acs/acstools/acs.yaml`). You can change it by editing the tool names there and in all agent prompts that reference them.
 
 **Q: Can I run multiple instances?**
-A: Yes — use different `ACS_CLUSTER_NAME` values to isolate namespaces. Each instance needs its own database.
+A: Yes — use different `ACS_ORG_NAME` values to isolate namespaces. Each instance needs its own database.
 
 **Q: Is there a web UI for humans?**
 A: There's a minimal LiveView dashboard at port 4001 for development monitoring. It's agent-first — the primary interface is the MCP tool API.

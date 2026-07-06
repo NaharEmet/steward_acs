@@ -122,7 +122,7 @@ defmodule Acs.Acs.Cache do
         purpose: s.purpose,
         application: s.application,
         component: s.component,
-        cluster: s.cluster,
+        org: s.org,
         updated_at: s.updated_at
       }
 
@@ -151,7 +151,7 @@ defmodule Acs.Acs.Cache do
         inserted_at: t.inserted_at,
         event_count: t.event_count,
         file_paths: t.file_paths || [],
-        cluster: t.cluster
+        org: t.org
       }
 
       :ets.insert(@tasks_table, {t.id, map})
@@ -174,7 +174,7 @@ defmodule Acs.Acs.Cache do
         locked_at: l.locked_at,
         auto_release_at: l.auto_release_at,
         task_id: l.task_id,
-        cluster: l.cluster
+        org: l.org
       }
 
       :ets.insert(@file_locks_table, {l.file_path, map})

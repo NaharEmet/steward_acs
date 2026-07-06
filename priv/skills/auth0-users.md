@@ -1,4 +1,8 @@
 ---
+audit_reasoning: All checks passed
+audit_score: 10
+audit_status: ok
+audited_at: 2026-07-05T11:19:22.723653Z
 description: Create Auth0 users for Claude MCP Connectors on prod ACS
 name: auth0-users
 tags: ["auth0", "oauth", "users", "admin", "connectors"]

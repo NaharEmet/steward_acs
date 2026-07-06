@@ -39,6 +39,8 @@ defmodule AcsWeb.Endpoint do
 
   plug :put_security_headers
 
+  plug AcsWeb.Plugs.ResolveOrg
+
   plug :route_mcp_or_dashboard
 
   defp put_security_headers(conn, _opts) do

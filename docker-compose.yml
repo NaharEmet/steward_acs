@@ -12,11 +12,12 @@ services:
     environment:
       MIX_ENV: dev
       PORT: "4001"
-      ACS_CLUSTER_NAME: default
+      ACS_ORG_NAME: default
       ACS_PROJECT_NAME: steward
       DATABASE_PATH: /app/priv/acs.sqlite
       ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-mimo,nim}"
       MCP_AUTH_LOCAL_FALLBACK: "false"
+      META_HARNESS_ENABLED: "true"
 
       # Dashboard credentials (default: admin/admin)
       ACS_USERNAME: "${ACS_USERNAME:-admin}"

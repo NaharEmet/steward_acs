@@ -12,6 +12,8 @@ defmodule Acs.Log.LogRepo do
   and to this repository (persistent storage across restarts). This module
   handles only the persistent DB path.
   """
+  require Logger
+
   alias Acs.Log.LogEntry
   alias Acs.Repo
 
@@ -44,7 +46,7 @@ defmodule Acs.Log.LogRepo do
       metadata: metadata_map,
       workflow_id: Keyword.get(opts, :workflow_id),
       execution_id: Keyword.get(opts, :execution_id),
-      cluster: Keyword.get(opts, :cluster, Acs.Cluster.current()),
+      org: Keyword.get(opts, :org, Acs.Org.current()),
       inserted_at: now,
       updated_at: now
     }
@@ -64,7 +66,7 @@ defmodule Acs.Log.LogRepo do
     * `level` - Atom or list of level strings to match (e.g. `:error`, `["error", "warning"]`)
     * `component` - Substring match on component field
     * `search` - Substring match on message (LIKE %search%)
-    * `cluster` - Exact match on cluster field
+    * `org` - Exact match on org field
     * `workflow_id` - Exact match
     * `execution_id` - Exact match
     * `since` - `%DateTime{}` or ISO8601 string (timestamp >= since)
@@ -79,7 +81,7 @@ defmodule Acs.Log.LogRepo do
     base = apply_level_filter(base, filters[:level])
     base = apply_component_filter(base, filters[:component])
     base = apply_search_filter(base, filters[:search])
-    base = apply_cluster_filter(base, filters[:cluster])
+    base = apply_org_filter(base, filters[:org])
     base = apply_field_filter(base, :workflow_id, filters[:workflow_id])
     base = apply_field_filter(base, :execution_id, filters[:execution_id])
     base = apply_since_filter(base, filters[:since])
@@ -107,7 +109,7 @@ defmodule Acs.Log.LogRepo do
     base = from(e in LogEntry)
 
     base = apply_level_filter(base, filters[:level])
-    base = apply_cluster_filter(base, filters[:cluster])
+    base = apply_org_filter(base, filters[:org])
 
     Repo.aggregate(base, :count, :id)
   end
@@ -156,10 +158,10 @@ defmodule Acs.Log.LogRepo do
     from(e in query, where: like(e.message, ^"%#{search}%"))
   end
 
-  defp apply_cluster_filter(query, nil), do: query
+  defp apply_org_filter(query, nil), do: query
 
-  defp apply_cluster_filter(query, cluster) do
-    from(e in query, where: e.cluster == ^cluster)
+  defp apply_org_filter(query, org) do
+    from(e in query, where: e.org == ^org)
   end
 
   defp apply_field_filter(query, _field, nil), do: query
@@ -187,7 +189,9 @@ defmodule Acs.Log.LogRepo do
   defp parse_datetime(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> dt
-      _ -> raise ArgumentError, "Invalid datetime: #{str}"
+      _ ->
+        Logger.warning("[LogRepo] Invalid datetime: #{str}")
+        raise ArgumentError, "Invalid datetime: #{str}"
     end
   end
 

@@ -1,12 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-# ─── Config ───────────────────────────────────────────────────────────────────
-REGISTRY="naharemete/steward_acs"
-TAG="cloudflare-$(date +%s)"
-SERVER="ubuntu@139.99.172.4"
+# ─── Config (override via env vars) ──────────────────────────────────────────
+REGISTRY="${REGISTRY:-naharemete/steward_acs}"
+TAG="deploy-$(date +%s)"
+SERVER="${SERVER:-}"
 DOMAIN="${DOMAIN:-prod.stewardacs.xyz}"
-COMPOSE_FILE="docker-compose.cloudflare.yml"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.cloudflare.yml}"
+
+if [ -z "$SERVER" ]; then
+  echo "ERROR: SERVER env var must be set (e.g. ubuntu@1.2.3.4)"
+  exit 1
+fi
 
 # Colors
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; NC='\033[0m'

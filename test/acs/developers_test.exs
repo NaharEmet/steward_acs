@@ -14,12 +14,12 @@ defmodule Acs.DevelopersTest do
       assert dev.active == true
     end
 
-    test "accepts custom role and cluster options" do
+    test "accepts custom role and org options" do
       assert {:ok, %{developer: dev}} =
-               Developers.generate_key("svc-user", role: "service", cluster: "prod")
+               Developers.generate_key("svc-user", role: "service", org: "prod")
 
       assert dev.role == "service"
-      assert dev.cluster == "prod"
+      assert dev.org == "prod"
     end
 
     test "stores SHA-256 hash not raw key" do
@@ -37,11 +37,11 @@ defmodule Acs.DevelopersTest do
   end
 
   describe "authenticate/1" do
-    test "returns role and cluster on valid key" do
+    test "returns role and org on valid key" do
       {:ok, %{key: raw_key}} =
-        Developers.generate_key("auth-test", role: "admin", cluster: "staging")
+        Developers.generate_key("auth-test", role: "admin", org: "staging")
 
-      assert {:ok, %{role: "admin", cluster: "staging"}} = Developers.authenticate(raw_key)
+      assert {:ok, %{role: "admin", org: "staging"}} = Developers.authenticate(raw_key)
     end
 
     test "returns error on invalid key" do

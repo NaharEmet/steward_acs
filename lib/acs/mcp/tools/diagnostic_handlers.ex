@@ -196,7 +196,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
          stuck: %{count: 0, sample: []},
          pending: %{},
          pipeline_states: [],
-         log_db: %{total: 0, errors_24h: 0, warnings_24h: 0, clusters: []},
+          log_db: %{total: 0, errors_24h: 0, warnings_24h: 0, orgs: []},
          timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
        }}
     end
@@ -655,10 +655,10 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
         total: count_logs(),
         errors_24h: count_logs(level: "error", since: hours_ago(24)),
         warnings_24h: count_logs(level: "warning", since: hours_ago(24)),
-        clusters: count_log_clusters()
+        orgs: count_log_clusters()
       }
     rescue
-      _ -> %{total: 0, errors_24h: 0, warnings_24h: 0, clusters: []}
+      _ -> %{total: 0, errors_24h: 0, warnings_24h: 0, orgs: []}
     end
   end
 
@@ -671,8 +671,8 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
       import Ecto.Query
 
       Acs.Log.LogEntry
-      |> group_by(:cluster)
-      |> select([e], %{cluster: e.cluster, count: count(e.id)})
+      |> group_by(:org)
+      |> select([e], %{org: e.org, count: count(e.id)})
       |> Acs.Repo.all()
     rescue
       _ -> []

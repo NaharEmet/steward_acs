@@ -10,6 +10,7 @@ defmodule Acs.Accounts.UserToken do
     field :token, :binary
     field :context, :string
     field :sent_to, :string
+    field :org, :string, default: "default"
     belongs_to :user, Acs.Accounts.User
 
     timestamps(type: :utc_datetime, updated_at: false)

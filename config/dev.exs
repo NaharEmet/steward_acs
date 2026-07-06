@@ -61,15 +61,16 @@ config :steward_acs, Acs.MCP.ToolLoader,
 config :steward_acs, Acs.Cognition.Loader,
   specs_path: Path.expand("../../../_build/acs/specs", __DIR__)
 
-config :steward_acs, :mcp_api_key, System.get_env("MCP_API_KEY", "dev-api-key")
-config :steward_acs, :service_api_key, System.get_env("SERVICE_API_KEY", "dev-service-key")
-config :steward_acs, :log_ingest_key, System.get_env("LOG_INGEST_KEY", "dev-log-ingest-key")
+config :steward_acs, :mcp_api_key, System.get_env("MCP_API_KEY", "dev-mcp-key-change-me")
+config :steward_acs, :service_api_key, System.get_env("SERVICE_API_KEY", "dev-svc-key-change-me")
+config :steward_acs, :log_ingest_key, System.get_env("LOG_INGEST_KEY", "dev-log-key-change-me")
 
 config :steward_acs,
        :mcp_auth_local_fallback,
        System.get_env("MCP_AUTH_LOCAL_FALLBACK", "false") == "true"
 
-config :steward_acs, :cluster_name, System.get_env("ACS_CLUSTER_NAME", "dev")
+config :steward_acs, :org_name,
+  System.get_env("ACS_ORG_NAME") || System.get_env("ACS_CLUSTER_NAME", "dev")
 config :steward_acs, :admin_emails, [System.get_env("ACS_ADMIN_EMAIL", "admin@localhost")]
 
 config :steward_acs, :basic_auth,

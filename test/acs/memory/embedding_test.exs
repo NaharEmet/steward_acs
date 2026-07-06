@@ -4,83 +4,71 @@ defmodule Acs.Memory.EmbeddingTest do
   alias Acs.Memory.Embedding
 
   setup do
-    ollama_url =
-      Application.get_env(:steward_acs, Acs.Memory.Embedding, [])
-      |> Keyword.get(:ollama_url, "http://localhost:11434")
-
-    ollama_available = ollama_available?(ollama_url)
-
-    {:ok, ollama_available: ollama_available}
+    {:ok, ollama_available: ollama_available?()}
   end
 
+  setup :check_ollama
+
+  defp check_ollama(%{ollama_available: false, tags: %{needs_ollama: true}}) do
+    {:skip, "Ollama not available in this environment"}
+  end
+
+  defp check_ollama(_), do: :ok
+
   describe "embed_text/1" do
+    @tag :needs_ollama
     test "generates embedding for text", ctx do
-      if ctx[:ollama_available] do
-        {:ok, embedding} = Embedding.embed_text("cache release ordering")
-        assert is_list(embedding)
-        assert embedding != []
-        assert Enum.all?(embedding, &is_float/1)
-      else
-        assert true
-      end
+      {:ok, embedding} = Embedding.embed_text("cache release ordering")
+      assert is_list(embedding)
+      assert embedding != []
+      assert Enum.all?(embedding, &is_float/1)
     end
 
+    @tag :needs_ollama
     test "generates consistent embeddings for same text", ctx do
-      if ctx[:ollama_available] do
-        text = "test memory content"
+      text = "test memory content"
 
-        {:ok, embedding1} = Embedding.embed_text(text)
-        {:ok, embedding2} = Embedding.embed_text(text)
+      {:ok, embedding1} = Embedding.embed_text(text)
+      {:ok, embedding2} = Embedding.embed_text(text)
 
-        assert length(embedding1) == length(embedding2)
+      assert length(embedding1) == length(embedding2)
 
-        diff =
-          Enum.zip(embedding1, embedding2)
-          |> Enum.map(fn {a, b} -> abs(a - b) end)
-          |> Enum.sum()
+      diff =
+        Enum.zip(embedding1, embedding2)
+        |> Enum.map(fn {a, b} -> abs(a - b) end)
+        |> Enum.sum()
 
-        assert diff < 0.001, "Embeddings should be nearly identical"
-      else
-        result = Embedding.embed_text("test")
-        assert match?({:error, _}, result) or match?({:ok, _}, result)
-      end
+      assert diff < 0.001, "Embeddings should be nearly identical"
     end
 
+    @tag :needs_ollama
     test "different texts produce different embeddings", ctx do
-      if ctx[:ollama_available] do
-        {:ok, embedding1} = Embedding.embed_text("cache release ordering")
-        {:ok, embedding2} = Embedding.embed_text("task assignment conflict")
+      {:ok, embedding1} = Embedding.embed_text("cache release ordering")
+      {:ok, embedding2} = Embedding.embed_text("task assignment conflict")
 
-        diff_count =
-          Enum.zip(embedding1, embedding2)
-          |> Enum.count(fn {a, b} -> abs(a - b) > 0.01 end)
+      diff_count =
+        Enum.zip(embedding1, embedding2)
+        |> Enum.count(fn {a, b} -> abs(a - b) > 0.01 end)
 
-        assert diff_count > length(embedding1) * 0.5,
-               "Different texts should produce different embeddings"
-      else
-        result = Embedding.embed_text("different text")
-        assert match?({:error, _}, result) or match?({:ok, _}, result)
-      end
+      assert diff_count > length(embedding1) * 0.5,
+             "Different texts should produce different embeddings"
     end
   end
 
   describe "embed_texts/1" do
+    @tag :needs_ollama
     test "generates embeddings for multiple texts", ctx do
-      if ctx[:ollama_available] do
-        texts = [
-          "cache release ordering",
-          "task assignment conflict",
-          "file lock management"
-        ]
+      texts = [
+        "cache release ordering",
+        "task assignment conflict",
+        "file lock management"
+      ]
 
-        {:ok, embeddings} = Embedding.embed_texts(texts)
+      {:ok, embeddings} = Embedding.embed_texts(texts)
 
-        assert length(embeddings) == 3
-        assert Enum.all?(embeddings, &is_list/1)
-        assert Enum.all?(embeddings, fn e -> length(e) == length(hd(embeddings)) end)
-      else
-        assert true
-      end
+      assert length(embeddings) == 3
+      assert Enum.all?(embeddings, &is_list/1)
+      assert Enum.all?(embeddings, fn e -> length(e) == length(hd(embeddings)) end)
     end
 
     test "handles empty list" do
@@ -159,18 +147,17 @@ defmodule Acs.Memory.EmbeddingTest do
 
   describe "error handling" do
     test "handles Ollama connection failure gracefully" do
-      result =
-        case Embedding.embed_text("test") do
-          {:ok, _} -> :ok
-          {:error, reason} when is_binary(reason) -> :error_handled
-          {:error, _} -> :error_handled
-        end
-
-      assert result in [:ok, :error_handled]
+      result = Embedding.embed_text("test")
+      assert match?({:ok, _} when elem(result, 0) == :ok, result) or
+               match?({:error, _}, result)
     end
   end
 
-  defp ollama_available?(url) do
+  defp ollama_available? do
+    url =
+      Application.get_env(:steward_acs, Acs.Memory.Embedding, [])
+      |> Keyword.get(:ollama_url, "http://localhost:11434")
+
     case :httpc.request(:get, {String.to_charlist(url <> "/api/tags"), []}, [], []) do
       {:ok, {{_version, 200, _reason}, _headers, _body}} -> true
       _ -> false

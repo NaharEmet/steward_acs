@@ -67,7 +67,16 @@ defmodule Acs.MetaHarness.Analyzer do
   # ── Tool Reliability Analysis ────────────────────────────────────────────────
 
   defp analyze_tool_reliability(start_time, end_time, min_sample) do
-    query = """
+    discovery_query = """
+      SELECT tool_name, COUNT(*) as discovery_count
+      FROM acs_tool_operations
+      WHERE datetime(created_at) >= datetime(?1)
+        AND datetime(created_at) <= datetime(?2)
+        AND status = 'discovery'
+      GROUP BY tool_name
+    """
+
+    exec_query = """
       SELECT
         tool_name,
         COUNT(*) as total_calls,
@@ -77,19 +86,31 @@ defmodule Acs.MetaHarness.Analyzer do
         AVG(latency_ms) as avg_latency,
         MAX(latency_ms) as max_latency
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime('#{format_datetime(start_time)}')
-        AND datetime(created_at) <= datetime('#{format_datetime(end_time)}')
+      WHERE datetime(created_at) >= datetime(?1)
+        AND datetime(created_at) <= datetime(?2)
+        AND status != 'discovery'
       GROUP BY tool_name
-      HAVING COUNT(*) >= #{min_sample}
+      HAVING COUNT(*) >= ?3
       ORDER BY failure_count DESC, total_calls DESC
     """
 
-    case run_query(query) do
-      {:ok, results} ->
-        Enum.into(results, %{}, fn row ->
+    dt_start = format_datetime(start_time)
+    dt_end = format_datetime(end_time)
+
+    case {run_query(exec_query, [dt_start, dt_end, min_sample]),
+          run_query(discovery_query, [dt_start, dt_end])} do
+      {{:ok, exec_results}, {:ok, discovery_results}} ->
+        discovery_map =
+          Enum.into(discovery_results, %{}, fn row ->
+            {row["tool_name"], row["discovery_count"]}
+          end)
+
+        Enum.into(exec_results, %{}, fn row ->
           tool_name = row["tool_name"]
           total = row["total_calls"] || 0
           success = row["success_count"] || 0
+          exec_total = success + (row["failure_count"] || 0) + (row["error_count"] || 0)
+          discovery_count = Map.get(discovery_map, tool_name, 0)
 
           {tool_name,
            %{
@@ -97,13 +118,14 @@ defmodule Acs.MetaHarness.Analyzer do
              success_count: success,
              failure_count: row["failure_count"] || 0,
              error_count: row["error_count"] || 0,
-             success_rate: if(total > 0, do: success / total, else: 0.0),
+             discovery_count: discovery_count,
+             success_rate: if(exec_total > 0, do: success / exec_total, else: 0.0),
              avg_latency: row["avg_latency"] || 0,
              max_latency: row["max_latency"] || 0
            }}
         end)
 
-      {:error, _} ->
+      _ ->
         %{}
     end
   end
@@ -120,25 +142,29 @@ defmodule Acs.MetaHarness.Analyzer do
         MIN(latency_ms) as min_latency,
         MAX(latency_ms) as max_latency
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime('#{format_datetime(start_time)}')
-        AND datetime(created_at) <= datetime('#{format_datetime(end_time)}')
+      WHERE datetime(created_at) >= datetime(?1)
+        AND datetime(created_at) <= datetime(?2)
         AND latency_ms IS NOT NULL
       GROUP BY tool_name
-      HAVING COUNT(*) >= #{min_sample}
+      HAVING COUNT(*) >= ?3
       ORDER BY avg_latency DESC
     """
+
+    params = [format_datetime(start_time), format_datetime(end_time), min_sample]
 
     # Get raw latency values per tool for percentile calculation
     percentile_query = """
       SELECT tool_name, latency_ms
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime('#{format_datetime(start_time)}')
-        AND datetime(created_at) <= datetime('#{format_datetime(end_time)}')
+      WHERE datetime(created_at) >= datetime(?1)
+        AND datetime(created_at) <= datetime(?2)
         AND latency_ms IS NOT NULL
       ORDER BY tool_name, latency_ms
     """
 
-    case {run_query(query), run_query(percentile_query)} do
+    p_params = [format_datetime(start_time), format_datetime(end_time)]
+
+    case {run_query(query, params), run_query(percentile_query, p_params)} do
       {{:ok, stats_results}, {:ok, raw_results}} ->
         # Group raw latencies by tool_name
         latencies_by_tool = Enum.group_by(raw_results, & &1["tool_name"], & &1["latency_ms"])
@@ -175,17 +201,17 @@ defmodule Acs.MetaHarness.Analyzer do
         COUNT(*) as occurrence_count,
         GROUP_CONCAT(DISTINCT agent_id) as agents
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime('#{format_datetime(start_time)}')
-        AND datetime(created_at) <= datetime('#{format_datetime(end_time)}')
+      WHERE datetime(created_at) >= datetime(?1)
+        AND datetime(created_at) <= datetime(?2)
         AND status IN ('failure', 'error')
         AND error_type IS NOT NULL
       GROUP BY tool_name, error_type
-      HAVING COUNT(*) >= #{min_occurrences}
+      HAVING COUNT(*) >= ?3
       ORDER BY occurrence_count DESC
       LIMIT 20
     """
 
-    case run_query(query) do
+    case run_query(query, [format_datetime(start_time), format_datetime(end_time), min_occurrences]) do
       {:ok, results} ->
         Enum.map(results, fn row ->
           %{
@@ -212,33 +238,36 @@ defmodule Acs.MetaHarness.Analyzer do
         COUNT(*) as total_operations,
         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success_count,
         SUM(CASE WHEN status IN ('failure', 'error') THEN 1 ELSE 0 END) as failure_count,
+        SUM(CASE WHEN status = 'discovery' THEN 1 ELSE 0 END) as discovery_count,
         COUNT(DISTINCT tool_name) as unique_tools_used,
         AVG(latency_ms) as avg_latency,
         MIN(created_at) as first_seen,
         MAX(created_at) as last_seen
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime('#{format_datetime(start_time)}')
-        AND datetime(created_at) <= datetime('#{format_datetime(end_time)}')
+      WHERE datetime(created_at) >= datetime(?1)
+        AND datetime(created_at) <= datetime(?2)
         AND agent_id IS NOT NULL
       GROUP BY agent_id
       ORDER BY total_operations DESC
     """
 
-    case run_query(query) do
+    case run_query(query, [format_datetime(start_time), format_datetime(end_time)]) do
       {:ok, results} ->
         results
         |> Enum.into(%{}, fn row ->
           agent_id = row["agent_id"]
-          total = row["total_operations"] || 0
           success = row["success_count"] || 0
+          failure = row["failure_count"] || 0
+          exec_total = success + failure + (row["error_count"] || 0)
 
           {agent_id,
            %{
-             total_operations: total,
+             total_operations: row["total_operations"] || 0,
              success_count: success,
-             failure_count: row["failure_count"] || 0,
+             failure_count: failure,
+             discovery_count: row["discovery_count"] || 0,
              unique_tools_used: row["unique_tools_used"] || 0,
-             success_rate: if(total > 0, do: success / total, else: 0.0),
+             success_rate: if(exec_total > 0, do: success / exec_total, else: 0.0),
              avg_latency: row["avg_latency"] || 0,
              first_seen: row["first_seen"],
              last_seen: row["last_seen"]
@@ -293,10 +322,10 @@ defmodule Acs.MetaHarness.Analyzer do
     Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S")
   end
 
-  defp run_query(query) do
+  defp run_query(query, params) do
     if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
       try do
-        case Ecto.Adapters.SQL.query(Acs.Repo, query, []) do
+        case Ecto.Adapters.SQL.query(Acs.Repo, query, params) do
           {:ok, %Exqlite.Result{} = result} ->
             {:ok,
              Enum.map(result.rows, fn row ->

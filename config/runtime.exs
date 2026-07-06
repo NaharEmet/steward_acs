@@ -130,6 +130,18 @@ if auth0_issuer = System.get_env("AUTH0_ISSUER") do
   config :steward_acs, :auth0_issuer, auth0_issuer
 end
 
+if mgmt_client_id = System.get_env("AUTH0_MGMT_CLIENT_ID") do
+  config :steward_acs, :auth0_mgmt_client_id, mgmt_client_id
+end
+
+if mgmt_client_secret = System.get_env("AUTH0_MGMT_CLIENT_SECRET") do
+  config :steward_acs, :auth0_mgmt_client_secret, mgmt_client_secret
+end
+
+if connection = System.get_env("AUTH0_CONNECTION") do
+  config :steward_acs, :auth0_connection, connection
+end
+
 if mcp_public_url = System.get_env("MCP_PUBLIC_URL") do
   config :steward_acs, :mcp_public_url, mcp_public_url
 end
@@ -240,7 +252,10 @@ end
 config :steward_acs, Acs.Memory.Embedding,
   ollama_url: System.get_env("OLLAMA_URL", "http://localhost:11434")
 
-config :steward_acs, :cluster_name, System.get_env("ACS_CLUSTER_NAME", "default")
+config :steward_acs, :org_name,
+  System.get_env("ACS_ORG_NAME") || System.get_env("ACS_CLUSTER_NAME", "default")
+
+config :steward_acs, :multi_tenant, System.get_env("MULTI_TENANT", "false") == "true"
 
 config :steward_acs, :project_name, System.get_env("ACS_PROJECT_NAME", "")
 

@@ -41,7 +41,7 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
 
     %{
       role: role,
-      org_id: Acs.Cluster.current(),
+      org_id: nil,
       permissions: permissions,
       agent_identity: identity,
       allowed_teams: nil,

@@ -15,7 +15,7 @@ defmodule Acs.Developers.DeveloperApiKey do
     field :key_prefix, :string
     field :developer_name, :string
     field :role, :string, default: "collaborator"
-    field :cluster, :string, default: "default"
+    field :org, :string, default: "default"
     field :active, :boolean, default: true
     field :last_used_at, :utc_datetime
     field :allowed_teams_json, :string
@@ -30,7 +30,7 @@ defmodule Acs.Developers.DeveloperApiKey do
       :key_prefix,
       :developer_name,
       :role,
-      :cluster,
+      :org,
       :active,
       :last_used_at,
       :allowed_teams_json,

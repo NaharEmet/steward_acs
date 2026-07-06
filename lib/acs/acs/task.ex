@@ -14,10 +14,10 @@ defmodule Acs.Acs.Task do
              :auto_release_at,
              :event_count,
              :file_paths,
-             :cluster,
-             :inserted_at,
-             :updated_at
-           ]}
+              :org,
+              :inserted_at,
+              :updated_at
+            ]}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -31,7 +31,7 @@ defmodule Acs.Acs.Task do
     field(:auto_release_at, :utc_datetime)
     field(:event_count, :integer, default: 1)
     field(:file_paths, {:array, :string}, default: [])
-    field(:cluster, :string, default: "default")
+    field(:org, :string, default: "default")
     timestamps(type: :utc_datetime)
   end
 
@@ -49,7 +49,7 @@ defmodule Acs.Acs.Task do
       :auto_release_at,
       :event_count,
       :file_paths,
-      :cluster
+      :org
     ])
     |> validate_required([:title, :created_by_agent])
     |> validate_inclusion(:status, statuses())

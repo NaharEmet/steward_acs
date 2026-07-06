@@ -1,0 +1,38 @@
+app: my_app
+
+constraints:
+  - Must not consume more than 1GB memory per worker instance
+
+created_at: 2026-07-05T14:20:14.191069Z
+
+failure_modes:
+  - Worker crash during long-running workflow execution
+  - Timeout during validation phase of workflow
+
+id: engine/orchestrator
+
+invariants:
+  - Workflow definitions must be idempotent under repeated execution
+  - Retry logic must be configurable and bounded
+
+parent_version: 0
+
+purpose: Coordinates execution of multi-step workflows across worker processes
+
+status: approved
+
+tags:
+  - core
+  - workflow
+  - orchestration
+
+title: Workflow Orchestrator
+
+updated_at: 2026-07-05T14:20:14.191069Z
+
+version: 1
+
+visibility: org
+
+workflows:
+  - call_orchestrate -> validate -> execute -> complete the workflow cycle

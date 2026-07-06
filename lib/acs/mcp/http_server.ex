@@ -49,7 +49,6 @@ defmodule Acs.MCP.HTTPServer do
         sse_loop(conn, session_id)
 
       {:error, _reason} ->
-        :ok = Acs.MCP.SSESessionManager.register(session_id, self())
         handle_sse_close(session_id, conn)
     end
   end

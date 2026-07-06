@@ -286,7 +286,7 @@ defmodule Acs.MCP.ToolRegistry do
 
       "help" ->
         result = safe_execute(fn -> acs_help(state, args) end)
-        {:reply, result, state}
+        {:reply, add_next(result, args), state}
 
       _ ->
         # Check if tool exists
@@ -301,8 +301,26 @@ defmodule Acs.MCP.ToolRegistry do
         case tool_def do
           nil ->
             if Acs.MCP.Tools.has_tool?(name) do
+              start_time = System.monotonic_time(:millisecond)
               result = safe_execute(fn -> Acs.MCP.Tools.call_tool(name, args) end)
-              {:reply, result, state}
+              latency_ms = System.monotonic_time(:millisecond) - start_time
+              agent_id = Map.get(args, "agent_id") || Map.get(args, :agent_id)
+              execution_id = Map.get(args, "execution_id") || Map.get(args, :execution_id)
+              {new_execution_chain, sequence_order} = get_or_create_execution_chain(state)
+              is_error = match?({:error, _}, result)
+              {new_last_error_at, error_burst} = detect_error_burst(state.last_error_at, is_error)
+              params_hash = generate_params_hash(args)
+              attempt = get_attempt_number(state, name, is_error)
+              maybe_log_operation(name, result, latency_ms, agent_id, execution_id,
+                execution_chain_id: new_execution_chain,
+                sequence_order: sequence_order,
+                attempt: attempt,
+                tool_discovered: true,
+                error_burst: error_burst,
+                params_hash: params_hash
+              )
+              new_state = %{state | execution_chain: new_execution_chain, sequence_order: sequence_order, last_error_at: new_last_error_at}
+              {:reply, result, new_state}
             else
               {:reply, {:error, "Unknown tool: #{name}"}, state}
             end
@@ -602,12 +620,38 @@ defmodule Acs.MCP.ToolRegistry do
     fun.()
   rescue
     e ->
-      Logger.error("ToolRegistry tool crash: #{Exception.message(e)}")
-      {:error, "Tool execution failed"}
+      msg = Exception.message(e)
+      Logger.error("ToolRegistry tool crash: #{msg}")
+
+      guidance = """
+      Tool crashed: #{msg}
+      Possible causes:
+        - The task or resource may have been released (create+claim a new task first)
+        - A required service (DB, cache) may be unavailable
+        - Arguments may be invalid
+
+      Next steps:
+        1. Create and claim a task: `create_work(agent_id, title, claim: true)`
+        2. Lock files for the new task
+        3. Retry the failed operation
+      """
+
+      {:error, guidance}
   catch
     :exit, reason ->
       Logger.error("ToolRegistry tool exit: #{inspect(reason)}")
-      {:error, "Tool execution failed"}
+
+      guidance = """
+      Tool exited: #{inspect(reason)}
+      This usually means a required service is unavailable or the tool timed out.
+
+      Next steps:
+        1. Wait a moment, then retry
+        2. If it persists, check service connectivity: `connection_diagnostic()`
+        3. Create/claim a task first if you haven't: `create_work(agent_id, title, claim: true)`
+      """
+
+      {:error, guidance}
   end
 
   defp execute_tool(tool_def, args, state) do
@@ -717,6 +761,17 @@ defmodule Acs.MCP.ToolRegistry do
        tools: tools_by_category
      }}
   end
+
+  defp add_next({:ok, map}, _args) when is_map(map) do
+    suggestions = [
+      %{tool: "get_started", prompt: "New here? Get oriented with the entry-point tool", params: %{}},
+      %{tool: "generate_guidance_packet", prompt: "Get detailed workflow guidance for any scope", params: %{scope_path: "agent_coordination_system"}},
+      %{tool: "list_tasks", prompt: "Find work to do", params: %{status_filter: "todo"}}
+    ]
+    {:ok, Map.put(map, :_next, suggestions)}
+  end
+
+  defp add_next(result, _args), do: result
 
   defp execute_external_tool(tool_def, args, _state) do
     cond do

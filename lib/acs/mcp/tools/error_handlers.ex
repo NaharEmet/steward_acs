@@ -48,7 +48,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         generate_memories_from_feedback(feedback, args)
 
         {:ok,
-         %{feedback_id: feedback.id, message: "Feedback submitted - continue with your work"}}
+         %{feedback_id: feedback.id, message: "Task complete. Feedback submitted — you're done."}}
 
       {:error, reason} ->
         {:error, "Failed to submit feedback: #{inspect(reason)}"}
@@ -281,6 +281,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
   end
 
   defp save_feedback_memory(kind, title, content, scope_path) do
+    org = Acs.Org.current()
+
     memory_map = %{
       "id" => Acs.Memory.generate_id(%{"kind" => kind, "title" => title}),
       "kind" => kind,
@@ -296,8 +298,9 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
       "created_by" => %{
         "type" => "developer",
         "id" => Acs.Cluster.developer_name(),
-        "cluster" => Acs.Cluster.current()
-      }
+        "org" => org
+      },
+      "org" => org
     }
 
     case Acs.Memory.validate(memory_map) do
