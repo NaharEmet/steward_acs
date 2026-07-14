@@ -38,7 +38,9 @@ defmodule Acs.Acs do
   Gets a task by ID. Returns the task struct or nil.
   """
   def get_task(task_id) when is_binary(task_id) do
-    Repo.get(Task, task_id)
+    import Ecto.Query
+    org = Acs.Org.current()
+    Repo.one(from t in Task, where: t.id == ^task_id and t.org == ^org)
   end
 
   @doc """
@@ -142,25 +144,18 @@ defmodule Acs.Acs do
   Unlocks a file. Returns :ok or {:error, reason}.
   """
   def unlock_file(file_path, agent_id) do
-    case Cache.get_file_lock(file_path) do
-      {:ok, nil} ->
-        # Not locked, consider it success
+    org = Acs.Org.current()
+
+    case Repo.get_by(FileLock, file_path: file_path, org: org) do
+      nil ->
         :ok
 
-      {:ok, lock} when lock.locked_by_agent == agent_id ->
-        # Delete from DB
-        case Repo.get_by(FileLock, file_path: file_path) do
-          nil ->
-            Cache.delete_file_lock(file_path)
-            :ok
+      %FileLock{locked_by_agent: ^agent_id} = lock_record ->
+        Repo.delete(lock_record)
+        Cache.delete_file_lock(file_path, org)
+        :ok
 
-          lock_record ->
-            Repo.delete(lock_record)
-            Cache.delete_file_lock(file_path)
-            :ok
-        end
-
-      {:ok, lock} ->
+      %FileLock{} = lock ->
         Logger.error("[Acs.Acs] unlock_file failed: not owner",
           agent_id: agent_id,
           file_path: file_path,
@@ -224,6 +219,8 @@ defmodule Acs.Acs do
   Updates agent status.
   """
   def put_agent_status(agent_id, attrs) do
+    org = Acs.Org.current()
+
     new_status =
       Map.merge(
         %{
@@ -231,14 +228,16 @@ defmodule Acs.Acs do
           current_task_id: nil,
           purpose: nil,
           application: nil,
-          component: nil
+          component: nil,
+          org: org
         },
         attrs
       )
+      |> Map.put(:org, org)
 
     # Get existing record or create new one for insert_or_update
     status_record =
-      case Repo.get(AgentStatus, agent_id) do
+      case Repo.get_by(AgentStatus, agent_id: agent_id, org: org) do
         nil -> %AgentStatus{}
         existing -> existing
       end
@@ -260,13 +259,15 @@ defmodule Acs.Acs do
   Clears agent status (removes current_task_id).
   """
   def clear_agent_status(agent_id) do
-    case Repo.get(AgentStatus, agent_id) do
+    org = Acs.Org.current()
+
+    case Repo.get_by(AgentStatus, agent_id: agent_id, org: org) do
       nil ->
-        Cache.delete_agent_status(agent_id)
+        Cache.delete_agent_status(agent_id, org)
 
       status ->
         Repo.delete(status)
-        Cache.delete_agent_status(agent_id)
+        Cache.delete_agent_status(agent_id, org)
     end
 
     Acs.broadcast(:agent_removed, %{agent_id: agent_id})

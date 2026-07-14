@@ -121,6 +121,8 @@ defmodule Acs.Memory.Loader do
   end
 
   defp validate_and_build(memory_map, file_path) do
+    memory_map = enforce_path_org(memory_map, file_path)
+
     case Acs.Memory.validate(memory_map) do
       :ok ->
         memory = Acs.Memory.new(memory_map)
@@ -128,6 +130,24 @@ defmodule Acs.Memory.Loader do
 
       {:error, reasons} ->
         {:error, "Validation failed for #{file_path}: #{Enum.join(reasons, "; ")}"}
+    end
+  end
+
+  defp enforce_path_org(memory_map, file_path) do
+    relative = Path.relative_to(file_path, memory_dir())
+
+    case Path.split(relative) do
+      ["orgs", path_org | _] ->
+        case Map.get(memory_map, "org") do
+          nil -> Map.put(memory_map, "org", path_org)
+          ^path_org -> memory_map
+          other -> raise ArgumentError, "memory org #{inspect(other)} does not match path org"
+        end
+
+      _ ->
+        # The legacy root layout belongs only to the configured single-tenant
+        # instance. Refuse to re-attribute files to another request org.
+        Map.put(memory_map, "org", Acs.Org.configured())
     end
   end
 
@@ -554,15 +574,58 @@ defmodule Acs.Memory.Loader do
   """
   def memory_to_path(%Acs.Memory{} = memory) do
     ext = store_extension()
-    Path.join([memory_dir(), safe_scope_path(memory.scope_path), memory.id <> ext])
+
+    scoped_memory_path(
+      memory.org || Acs.Org.current(),
+      memory.scope_path,
+      memory.id,
+      ext
+    )
   end
 
   def memory_to_path(attrs) when is_map(attrs) do
     scope_path = Map.get(attrs, "scope_path", "unknown")
     id = Map.get(attrs, "id", "unknown")
+    org = Map.get(attrs, "org") || Acs.Org.current()
     ext = store_extension()
-    Path.join([memory_dir(), safe_scope_path(scope_path), id <> ext])
+    scoped_memory_path(org, scope_path, id, ext)
   end
+
+  defp scoped_memory_path(org, scope_path, id, ext)
+       when org == "default" or org == nil do
+    # Preserve the legacy single-tenant layout for existing installations.
+    Path.join([memory_dir(), safe_scope_path(scope_path), safe_id(id) <> ext])
+  end
+
+  defp scoped_memory_path(org, scope_path, id, ext) do
+    Path.join([
+      memory_dir(),
+      "orgs",
+      safe_org(org),
+      safe_scope_path(scope_path),
+      safe_id(id) <> ext
+    ])
+  end
+
+  defp safe_id(id) when is_binary(id) and id != "" do
+    if Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_.-]*\z/, id) and not String.contains?(id, "..") do
+      id
+    else
+      raise ArgumentError, "invalid memory id: #{inspect(id)}"
+    end
+  end
+
+  defp safe_id(id), do: raise(ArgumentError, "invalid memory id: #{inspect(id)}")
+
+  defp safe_org(org) when is_binary(org) and org != "" do
+    if Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, org) do
+      org
+    else
+      raise ArgumentError, "invalid org: #{inspect(org)}"
+    end
+  end
+
+  defp safe_org(org), do: raise(ArgumentError, "invalid org: #{inspect(org)}")
 
   defp safe_scope_path(scope_path) when is_binary(scope_path) do
     if String.contains?(scope_path, "..") or String.starts_with?(scope_path, "/") do

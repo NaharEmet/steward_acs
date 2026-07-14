@@ -376,7 +376,12 @@ defmodule Acs.MCP.HTTPServer do
     case body do
       %{"title" => title, "created_by_agent" => agent_id}
       when is_binary(title) and is_binary(agent_id) ->
-        case Acs.create_task(body, agent_id) do
+        safe_body =
+          body
+          |> Map.drop(["org", "org_id", "cluster"])
+          |> Map.put("org", conn.assigns[:agent_org_id])
+
+        case Acs.create_task(safe_body, agent_id) do
           {:ok, task} ->
             conn
             |> put_resp_content_type("application/json")

@@ -17,8 +17,8 @@ defmodule Acs.Accounts.User do
     |> validate_required([:email])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:email, max: 160)
-    |> unsafe_validate_unique(:email, Acs.Repo)
-    |> unique_constraint(:email)
+    |> unsafe_validate_unique([:email, :org], Acs.Repo)
+    |> unique_constraint([:email, :org], name: :users_email_org_index)
   end
 
   @doc false

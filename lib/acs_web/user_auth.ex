@@ -43,7 +43,8 @@ defmodule AcsWeb.UserAuth do
 
   def fetch_current_user(conn, _opts) do
     user_token = get_session(conn, @session_key)
-    user = user_token && Accounts.get_user_by_session_token(user_token)
+    org = conn.assigns[:current_org] || Acs.Org.current()
+    user = user_token && Accounts.get_user_by_session_token(user_token, org)
     assign(conn, :current_user, user)
   end
 
@@ -66,14 +67,22 @@ defmodule AcsWeb.UserAuth do
   defp maybe_store_return_to(conn), do: conn
 
   def fetch_user_token(conn) do
-    %{"user_token" => get_session(conn, @session_key)}
+    %{
+      "user_token" => get_session(conn, @session_key),
+      "org" => conn.assigns[:current_org] || Acs.Org.current()
+    }
   end
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
+    org = session["org"] || Acs.Org.current()
+    :ok = Acs.Org.put_current(org)
+
     socket =
-      assign_new(socket, :current_user, fn ->
+      socket
+      |> Phoenix.Component.assign(:current_org, org)
+      |> assign_new(:current_user, fn ->
         if user_token = session["user_token"] do
-          Accounts.get_user_by_session_token(user_token)
+          Accounts.get_user_by_session_token(user_token, org)
         end
       end)
 
@@ -88,7 +97,7 @@ defmodule AcsWeb.UserAuth do
     socket =
       assign_new(socket, :current_user, fn ->
         if user_token = session["user_token"] do
-          Accounts.get_user_by_session_token(user_token)
+          Accounts.get_user_by_session_token(user_token, session["org"] || Acs.Org.current())
         end
       end)
 

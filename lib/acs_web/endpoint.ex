@@ -8,6 +8,8 @@ defmodule AcsWeb.Endpoint do
     key: "_acs_web_key",
     signing_salt:
       Application.compile_env(:steward_acs, :session_signing_salt, "acs_cookie_session_v1"),
+    http_only: true,
+    secure: Application.compile_env(:steward_acs, :secure_session_cookie, false),
     same_site: "Lax"
   ]
 

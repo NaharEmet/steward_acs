@@ -333,7 +333,16 @@ defmodule Acs.MCP.Protocol do
     else
       case ToolRegistry.authorize_tool(name, agent_role, agent_permissions) do
         :ok ->
-          case ToolRegistry.call_tool(name, arguments) do
+          call_result =
+            if is_binary(agent_org_id) and agent_org_id != "" do
+              Acs.Org.with_current(agent_org_id, fn ->
+                ToolRegistry.call_tool(name, arguments)
+              end)
+            else
+              {:error, "Missing organization authentication context"}
+            end
+
+          case call_result do
             {:ok, result} ->
               {:ok,
                success_response(id, %{

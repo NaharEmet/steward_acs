@@ -45,7 +45,7 @@ services:
       ACS_USERNAME: "${ACS_USERNAME:-admin}"
       ACS_PASSWORD: "${ACS_PASSWORD:?Set ACS_PASSWORD}"
       MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
-      MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-true}"
+      MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-false}"
       OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-false}"
       AUTH0_DOMAIN: "${AUTH0_DOMAIN:-dev-jw5wgp2b.us.auth0.com}"
       AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-https://prod.stewardacs.xyz/mcp/sse}"
@@ -114,7 +114,7 @@ services:
   #   hostname: steward_acs
   #   restart: unless-stopped
   #   ports:
-  #     - "8384:8384"
+  #     - "127.0.0.1:8384:8384" # admin UI: loopback/SSH tunnel only
   #     - "22000:22000"
   #     - "21027:21027/udp"
   #   volumes:

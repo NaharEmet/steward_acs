@@ -111,7 +111,7 @@ defmodule Acs.Memory.Search do
       case Acs.Memory.Embedding.embed_text(query) do
         {:ok, embedding} ->
           limit = Keyword.get(opts, :limit, 20)
-          similar = Acs.Memory.VectorIndex.search_similar(embedding, limit: limit)
+          similar = tenant_similar(embedding, opts, limit)
           memory_ids = Enum.map(similar, & &1.memory_id)
 
           if memory_ids == [] do
@@ -138,7 +138,7 @@ defmodule Acs.Memory.Search do
       case Acs.Memory.Embedding.embed_text(query) do
         {:ok, embedding} ->
           limit = Keyword.get(opts, :limit, 20)
-          similar = Acs.Memory.VectorIndex.search_similar(embedding, limit: limit)
+          similar = tenant_similar(embedding, opts, limit)
 
           memory_ids = Enum.map(similar, & &1.memory_id)
 
@@ -163,6 +163,20 @@ defmodule Acs.Memory.Search do
       Logger.warning("[Search] Embeddings unavailable for semantic search")
       {[], %{}}
     end
+  end
+
+  defp tenant_similar(embedding, opts, limit) do
+    org = Keyword.get(opts, :org)
+
+    Acs.Memory.VectorIndex.search_similar(embedding, limit: max(limit * 10, 100))
+    |> Enum.filter(fn result ->
+      cond do
+        org == Acs.Org.configured() -> not String.contains?(result.memory_id, ":")
+        is_binary(org) -> String.starts_with?(result.memory_id, org <> ":")
+        true -> false
+      end
+    end)
+    |> Enum.take(limit)
   end
 
   defp hybrid_available? do

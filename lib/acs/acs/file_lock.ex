@@ -10,10 +10,10 @@ defmodule Acs.Acs.FileLock do
              :locked_at,
              :auto_release_at,
              :task_id,
-              :org,
-              :inserted_at,
-              :updated_at
-            ]}
+             :org,
+             :inserted_at,
+             :updated_at
+           ]}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -38,6 +38,6 @@ defmodule Acs.Acs.FileLock do
       :org
     ])
     |> validate_required([:file_path, :locked_by_agent])
-    |> unique_constraint(:file_path, name: :acs_file_locks_file_path_index)
+    |> unique_constraint([:org, :file_path], name: :acs_file_locks_org_file_path_index)
   end
 end

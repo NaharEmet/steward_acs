@@ -40,10 +40,12 @@ defmodule Acs do
       :ok ->
         similar = Similarity.find_similar_tasks(title, file_paths)
 
-        org = attrs["org"] || attrs["cluster"] || Org.current()
+        org = Org.current()
 
         task_attrs =
-          Map.merge(attrs, %{
+          attrs
+          |> Map.drop(["org", "org_id", "cluster"])
+          |> Map.merge(%{
             "created_by_agent" => agent_id,
             "org" => org,
             "status" => Map.get(attrs, "status", "todo")
@@ -268,14 +270,15 @@ defmodule Acs do
   Resets ALL ACS data.
   """
   def reset_all do
-    Repo.delete_all(FileLock)
-    Repo.delete_all(AgentStatus)
-    Repo.delete_all(AcsTask)
-    :ets.delete_all_objects(:acs_tasks)
-    :ets.delete_all_objects(:acs_file_locks)
-    :ets.delete_all_objects(:acs_agent_status)
-    :ets.delete_all_objects(:acs_next_agent)
-    Logger.info("[Acs] All ACS data reset")
+    org = Org.current()
+    Repo.delete_all(from f in FileLock, where: f.org == ^org)
+    Repo.delete_all(from s in AgentStatus, where: s.org == ^org)
+    Repo.delete_all(from t in AcsTask, where: t.org == ^org)
+
+    Cache.get_all_tasks(org) |> Enum.each(&Cache.delete_task(&1.id))
+    Cache.get_all_file_locks(org) |> Enum.each(&Cache.delete_file_lock(&1.file_path, org))
+    Cache.get_all_agent_statuses(org) |> Enum.each(&Cache.delete_agent_status(&1.agent_id, org))
+    Logger.info("[Acs] ACS data reset for org=#{org}")
     broadcast(:acs_reset, %{})
     :ok
   end
@@ -292,7 +295,11 @@ defmodule Acs do
     task = get_task(task_id)
 
     # Idempotent: already locked by this agent for this file = success
-    case Repo.get_by(FileLock, file_path: file_path, locked_by_agent: agent_id, org: Org.current()) do
+    case Repo.get_by(FileLock,
+           file_path: file_path,
+           locked_by_agent: agent_id,
+           org: Org.current()
+         ) do
       %FileLock{task_id: ^task_id} ->
         {:ok, %{status: "already_locked", file_path: file_path}}
 
@@ -431,16 +438,16 @@ defmodule Acs do
 
     task_ids = statuses |> Enum.map(& &1.current_task_id) |> Enum.reject(&is_nil/1)
 
+    org = Org.current()
+
     tasks_map =
       if task_ids != [] do
-        Repo.all(from(t in AcsTask, where: t.id in ^task_ids))
+        Repo.all(from(t in AcsTask, where: t.id in ^task_ids and t.org == ^org))
         |> Enum.map(&to_task_map/1)
         |> Enum.into(%{}, fn t -> {t.id, t} end)
       else
         %{}
       end
-
-    org = Org.current()
 
     locks_map =
       if task_ids != [] do
@@ -474,11 +481,18 @@ defmodule Acs do
   Gets the present status of a specific agent.
   """
   def get_agent_present_status(agent_id) do
-    status = Repo.get(AgentStatus, agent_id)
+    status = Repo.get_by(AgentStatus, agent_id: agent_id, org: Org.current())
 
     if status && status.current_task_id do
       task = get_task(status.current_task_id) |> to_task_map()
-      locks = Repo.all(from(f in FileLock, where: f.task_id == ^status.current_task_id and f.org == ^Org.current()))
+
+      locks =
+        Repo.all(
+          from(f in FileLock,
+            where: f.task_id == ^status.current_task_id and f.org == ^Org.current()
+          )
+        )
+
       locked_files = Enum.map(locks, fn l -> l.file_path end)
 
       %{
@@ -526,7 +540,7 @@ defmodule Acs do
   end
 
   defp upsert_agent_status(agent_id, task_id, purpose, application, component) do
-    case Repo.get(AgentStatus, agent_id) do
+    case Repo.get_by(AgentStatus, agent_id: agent_id, org: Org.current()) do
       nil ->
         %AgentStatus{agent_id: agent_id}
         |> AgentStatus.changeset(%{
@@ -556,7 +570,7 @@ defmodule Acs do
   end
 
   defp clear_agent_status(agent_id) do
-    case Repo.get(AgentStatus, agent_id) do
+    case Repo.get_by(AgentStatus, agent_id: agent_id, org: Org.current()) do
       nil ->
         :ok
 
@@ -641,7 +655,7 @@ defmodule Acs do
   Updates agent application and component context.
   """
   def update_agent_context(agent_id, application, component, purpose \\ nil) do
-    case Repo.get(AgentStatus, agent_id) do
+    case Repo.get_by(AgentStatus, agent_id: agent_id, org: Org.current()) do
       nil ->
         %AgentStatus{agent_id: agent_id}
         |> AgentStatus.changeset(%{
