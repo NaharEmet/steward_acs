@@ -6,6 +6,7 @@ defmodule AcsWeb.Plugs.ResolveOrg do
   def call(conn, _opts) do
     subdomain = extract_subdomain(conn)
     org = Acs.Org.from_subdomain(subdomain)
+    :ok = Acs.Org.put_current(org)
     assign(conn, :current_org, org)
   end
 

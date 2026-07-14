@@ -232,6 +232,7 @@ defmodule Acs.Memory do
       "team" => memory.team,
       "project" => memory.project,
       "visibility" => memory.visibility,
+      "org" => memory.org,
       "created_at" => memory.created_at,
       "updated_at" => memory.updated_at
     }

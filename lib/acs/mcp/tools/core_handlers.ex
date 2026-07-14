@@ -77,7 +77,13 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   def acs_release_work(%{"agent_id" => agent_id, "task_id" => task_id}) do
     case Acs.release_task(task_id, agent_id) do
       {:ok, _task} ->
-        {:ok, %{status: "done", task_id: task_id, agent_id: agent_id, message: "Task released. Now call submit_task_feedback to formally close it."}}
+        {:ok,
+         %{
+           status: "done",
+           task_id: task_id,
+           agent_id: agent_id,
+           message: "Task released. Now call submit_task_feedback to formally close it."
+         }}
 
       {:error, :not_owner} ->
         {:ok, %{status: "not_owner", message: "Task locked by another agent"}}
@@ -107,7 +113,8 @@ defmodule Acs.MCP.Tools.CoreHandlers do
               {:ok, %{status: "claimed", task_id: task.id, title: task.title, guidance: guidance}}
 
             {:error, reason} ->
-              {:ok, %{status: "created", task_id: task.id, title: task.title, claim_error: reason}}
+              {:ok,
+               %{status: "created", task_id: task.id, title: task.title, claim_error: reason}}
           end
         else
           SleepRegistry.try_dispatch(task.id)
@@ -118,10 +125,24 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         if claim do
           case Acs.claim_task(task.id, agent_id) do
             {:ok, _task, guidance} ->
-              {:ok, %{status: "claimed", task_id: task.id, title: task.title, guidance: guidance, similar_tasks: similar}}
+              {:ok,
+               %{
+                 status: "claimed",
+                 task_id: task.id,
+                 title: task.title,
+                 guidance: guidance,
+                 similar_tasks: similar
+               }}
 
             {:error, reason} ->
-              {:ok, %{status: "created", task_id: task.id, title: task.title, similar_tasks: similar, claim_error: reason}}
+              {:ok,
+               %{
+                 status: "created",
+                 task_id: task.id,
+                 title: task.title,
+                 similar_tasks: similar,
+                 claim_error: reason
+               }}
           end
         else
           SleepRegistry.try_dispatch(task.id)
@@ -309,7 +330,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   def acs_list_tasks(args) when is_map(args) do
     status_filter = Map.get(args, "status_filter")
     status_filter = if status_filter == "all", do: nil, else: status_filter
-    org = Map.get(args, "org", Acs.Org.current())
+    org = authenticated_org(args)
     tasks = Acs.Acs.list_tasks(status_filter, org)
 
     formatted =
@@ -324,6 +345,13 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       end)
 
     {:ok, %{tasks: formatted, count: length(formatted)}}
+  end
+
+  defp authenticated_org(args) do
+    case Map.get(args, "_auth_org_id") do
+      org when is_binary(org) and org != "" -> org
+      _ -> Acs.Org.current()
+    end
   end
 
   defp do_wait_for_task(ref, agent_id, timeout) do

@@ -7,10 +7,5 @@
     }
 }
 
-obsidian.stewardacs.xyz:80 {
-    basic_auth {
-        syncuser {$SYNC_BCRYPT_PASS}
-    }
-
-    reverse_proxy http://steward_syncthing:8384
-}
+# Do not publish Syncthing's administrative UI through the public reverse
+# proxy. Access it over loopback, SSH forwarding, or a private VPN instead.

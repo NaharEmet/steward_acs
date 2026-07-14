@@ -25,7 +25,8 @@ defmodule Acs.Accounts.UserToken do
        token: hashed_token,
        context: "session",
        sent_to: user.email,
-       user_id: user.id
+       user_id: user.id,
+       org: user.org
      }}
   end
 
@@ -33,11 +34,11 @@ defmodule Acs.Accounts.UserToken do
     Application.get_env(:steward_acs, :session_validity_in_days, 7)
   end
 
-  def verify_session_token_query(token) do
-    verify_token_query(token, "session", session_validity_days(), :day)
+  def verify_session_token_query(token, org \\ Acs.Org.current()) do
+    verify_token_query(token, "session", session_validity_days(), :day, org)
   end
 
-  defp verify_token_query(token, context, validity, unit) do
+  defp verify_token_query(token, context, validity, unit, org) do
     case Base.url_decode64(token, padding: false) do
       {:ok, decoded_token} ->
         hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
@@ -47,6 +48,7 @@ defmodule Acs.Accounts.UserToken do
           from token in token_and_context_query(hashed_token, context),
             join: user in assoc(token, :user),
             where: token.inserted_at > ^cutoff,
+            where: token.org == ^org and user.org == ^org,
             select: user
 
         {:ok, query}

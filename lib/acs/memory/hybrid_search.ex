@@ -94,7 +94,11 @@ defmodule Acs.Memory.HybridSearch do
   defp fetch_semantic_scores(nil, _), do: %{}
 
   defp fetch_semantic_scores(embedding, memory_ids) do
-    all_similar = VectorIndex.search_similar(embedding, limit: 100)
+    allowed_ids = MapSet.new(memory_ids)
+
+    all_similar =
+      VectorIndex.search_similar(embedding, limit: 1000)
+      |> Enum.filter(&MapSet.member?(allowed_ids, &1.memory_id))
 
     memory_ids
     |> Enum.map(fn id ->

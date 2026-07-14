@@ -83,9 +83,13 @@ defmodule Acs.Acs.Cache do
         end)
 
       Enum.each(stale, fn s ->
-        :ets.delete(@agent_status_table, s.agent_id)
+        :ets.delete(@agent_status_table, {s.org, s.agent_id})
 
-        Repo.delete_all(from(t in Acs.Acs.AgentStatus, where: t.agent_id == ^s.agent_id))
+        Repo.delete_all(
+          from(t in Acs.Acs.AgentStatus,
+            where: t.agent_id == ^s.agent_id and t.org == ^s.org
+          )
+        )
       end)
 
       if stale != [],
@@ -126,7 +130,7 @@ defmodule Acs.Acs.Cache do
         updated_at: s.updated_at
       }
 
-      :ets.insert(@agent_status_table, {s.agent_id, map})
+      :ets.insert(@agent_status_table, {{s.org, s.agent_id}, map})
     end)
 
     if statuses != [],
@@ -177,7 +181,7 @@ defmodule Acs.Acs.Cache do
         org: l.org
       }
 
-      :ets.insert(@file_locks_table, {l.file_path, map})
+      :ets.insert(@file_locks_table, {{l.org, l.file_path}, map})
     end)
 
     if locks != [],
@@ -254,16 +258,18 @@ defmodule Acs.Acs.Cache do
     :ok
   end
 
-  def get_all_tasks do
+  def get_all_tasks(org \\ Acs.Org.current()) do
     if table_exists?(@tasks_table) do
-      :ets.tab2list(@tasks_table) |> Enum.map(fn {_, t} -> t end)
+      :ets.tab2list(@tasks_table)
+      |> Enum.map(fn {_, task} -> task end)
+      |> Enum.filter(&(&1.org == org))
     else
       []
     end
   end
 
-  def get_tasks_by_status(status) do
-    get_all_tasks() |> Enum.filter(fn t -> t.status == status end)
+  def get_tasks_by_status(status, org \\ Acs.Org.current()) do
+    get_all_tasks(org) |> Enum.filter(fn t -> t.status == status end)
   end
 
   def invalidate_task(task_id) do
@@ -273,51 +279,58 @@ defmodule Acs.Acs.Cache do
   end
 
   # File lock operations
-  def get_file_lock(file_path) do
+  def get_file_lock(file_path, org \\ Acs.Org.current()) do
     ensure_table(@file_locks_table)
+    key = {org, file_path}
 
-    case :ets.lookup(@file_locks_table, file_path) do
-      [{^file_path, lock}] -> {:ok, lock}
+    case :ets.lookup(@file_locks_table, key) do
+      [{^key, lock}] -> {:ok, lock}
       [] -> {:ok, nil}
     end
   end
 
   def put_file_lock(file_path, lock_map) do
     ensure_table(@file_locks_table)
-    :ets.insert(@file_locks_table, {file_path, lock_map})
+    org = Map.get(lock_map, :org) || Acs.Org.current()
+    :ets.insert(@file_locks_table, {{org, file_path}, lock_map})
     :ok
   end
 
-  def delete_file_lock(file_path) do
+  def delete_file_lock(file_path, org \\ Acs.Org.current()) do
     ensure_table(@file_locks_table)
-    :ets.delete(@file_locks_table, file_path)
+    :ets.delete(@file_locks_table, {org, file_path})
     :ok
   end
 
-  def get_all_file_locks do
+  def get_all_file_locks(org \\ Acs.Org.current()) do
     ensure_table(@file_locks_table)
-    :ets.tab2list(@file_locks_table) |> Enum.map(fn {_, l} -> l end)
+
+    :ets.tab2list(@file_locks_table)
+    |> Enum.map(fn {_, lock} -> lock end)
+    |> Enum.filter(&(&1.org == org))
   end
 
-  def get_file_locks_for_task(task_id) do
+  def get_file_locks_for_task(task_id, org \\ Acs.Org.current()) do
     ensure_table(@file_locks_table)
-    get_all_file_locks() |> Enum.filter(fn l -> l.task_id == task_id end)
+    get_all_file_locks(org) |> Enum.filter(fn l -> l.task_id == task_id end)
   end
 
-  def get_file_locks_for_agent(agent_id) do
+  def get_file_locks_for_agent(agent_id, org \\ Acs.Org.current()) do
     ensure_table(@file_locks_table)
-    get_all_file_locks() |> Enum.filter(fn l -> l.locked_by_agent == agent_id end)
+    get_all_file_locks(org) |> Enum.filter(fn l -> l.locked_by_agent == agent_id end)
   end
 
-  def invalidate_file_lock(file_path) do
-    :ets.delete(@file_locks_table, file_path)
+  def invalidate_file_lock(file_path, org \\ Acs.Org.current()) do
+    :ets.delete(@file_locks_table, {org, file_path})
     :ok
   end
 
   # Agent status operations
-  def get_agent_status(agent_id) do
-    case :ets.lookup(@agent_status_table, agent_id) do
-      [{^agent_id, status}] -> {:ok, status}
+  def get_agent_status(agent_id, org \\ Acs.Org.current()) do
+    key = {org, agent_id}
+
+    case :ets.lookup(@agent_status_table, key) do
+      [{^key, status}] -> {:ok, status}
       [] -> {:ok, nil}
     end
   end
@@ -327,13 +340,19 @@ defmodule Acs.Acs.Cache do
   Updates DB separately via `Acs.Acs.put_agent_status/2` — this is the ETS-only layer.
   """
   def put_agent_status(agent_id, status_map) do
-    status_map_with_time = Map.put(status_map, :updated_at, DateTime.utc_now())
-    :ets.insert(@agent_status_table, {agent_id, status_map_with_time})
+    org = Map.get(status_map, :org) || Acs.Org.current()
+
+    status_map_with_time =
+      status_map
+      |> Map.put(:org, org)
+      |> Map.put(:updated_at, DateTime.utc_now())
+
+    :ets.insert(@agent_status_table, {{org, agent_id}, status_map_with_time})
     :ok
   end
 
-  def delete_agent_status(agent_id) do
-    :ets.delete(@agent_status_table, agent_id)
+  def delete_agent_status(agent_id, org \\ Acs.Org.current()) do
+    :ets.delete(@agent_status_table, {org, agent_id})
     :ok
   end
 
@@ -342,12 +361,14 @@ defmodule Acs.Acs.Cache do
   Called on every tool call for existing agents to track liveness.
   Returns `:ok` if agent found, `{:ok, nil}` if not found.
   """
-  def touch_agent_status(agent_id) do
-    case :ets.lookup(@agent_status_table, agent_id) do
-      [{^agent_id, status}] ->
+  def touch_agent_status(agent_id, org \\ Acs.Org.current()) do
+    key = {org, agent_id}
+
+    case :ets.lookup(@agent_status_table, key) do
+      [{^key, status}] ->
         :ets.insert(
           @agent_status_table,
-          {agent_id, Map.put(status, :updated_at, DateTime.utc_now())}
+          {key, Map.put(status, :updated_at, DateTime.utc_now())}
         )
 
         :ok
@@ -357,8 +378,12 @@ defmodule Acs.Acs.Cache do
     end
   end
 
-  def get_all_agent_statuses do
-    :ets.tab2list(@agent_status_table) |> Enum.map(fn {aid, s} -> Map.put(s, :agent_id, aid) end)
+  def get_all_agent_statuses(org \\ Acs.Org.current()) do
+    :ets.tab2list(@agent_status_table)
+    |> Enum.flat_map(fn
+      {{^org, agent_id}, status} -> [Map.put(status, :agent_id, agent_id)]
+      _ -> []
+    end)
   end
 
   def get_and_increment_agent_index do
@@ -409,9 +434,9 @@ defmodule Acs.Acs.Cache do
     File.write(@agent_index_file, Integer.to_string(n))
   end
 
-  def invalidate_agent_status(agent_id) do
+  def invalidate_agent_status(agent_id, org \\ Acs.Org.current()) do
     ensure_table(@agent_status_table)
-    :ets.delete(@agent_status_table, agent_id)
+    :ets.delete(@agent_status_table, {org, agent_id})
     :ok
   end
 

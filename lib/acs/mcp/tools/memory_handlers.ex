@@ -267,7 +267,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
               memory_protocol: "",
               error_response_protocol: "",
               sleep_wake_protocol: "",
-              agent_identity: "Find your agent_id: `get_present_status(agent_id: \"\")` returns your assigned name. Use it in all tool calls."
+              agent_identity:
+                "Find your agent_id: `get_present_status(agent_id: \"\")` returns your assigned name. Use it in all tool calls."
             }
         end
 
@@ -301,13 +302,18 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     case Acs.Memory.Embedding.embed_text(retrieval_text) do
       {:ok, embedding} ->
         # Layer 2: Vector similarity search with high threshold
-        similar = Acs.Memory.VectorIndex.search_threshold(embedding, 0.92)
+        current_storage_id = Acs.Memory.Indexer.storage_id(memory.org, memory.id)
+
+        similar =
+          Acs.Memory.VectorIndex.search_threshold(embedding, 0.92)
+          |> Enum.filter(&tenant_embedding?(&1.memory_id, memory.org))
 
         # Exclude the memory itself (in case of re-save) and find strongest match
-        case Enum.reject(similar, fn s -> s.memory_id == memory.id end) do
+        case Enum.reject(similar, fn s -> s.memory_id == current_storage_id end) do
           [most_similar | _] ->
-            other = Acs.Memory.Indexer.get_memory(most_similar.memory_id)
-            other_title = if other, do: other.title, else: most_similar.memory_id
+            public_id = Acs.Memory.Indexer.public_id(most_similar.memory_id, memory.org)
+            other = Acs.Memory.Indexer.get_memory(public_id, memory.org)
+            other_title = if other, do: other.title, else: public_id
 
             {:error,
              "A similar memory already exists (cosine similarity: #{Float.round(most_similar.similarity, 4)}): '#{other_title}'. Please review existing memories before creating a new one."}
@@ -340,13 +346,24 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     end
   end
 
+  defp tenant_embedding?(memory_id, org) do
+    org = org || Acs.Org.current()
+
+    if org == Acs.Org.configured() do
+      not String.contains?(memory_id, ":")
+    else
+      String.starts_with?(memory_id, org <> ":")
+    end
+  end
+
   defp store_memory_embedding(%Acs.Memory{} = memory) do
     if memory.kind in Acs.Memory.embeddable_kinds() do
       retrieval_text = Acs.Memory.Embedding.memory_to_retrieval_text(memory)
 
       case Acs.Memory.Embedding.embed_text(retrieval_text) do
         {:ok, embedding} ->
-          Acs.Memory.VectorIndex.upsert_embedding(memory.id, embedding)
+          storage_id = Acs.Memory.Indexer.storage_id(memory.org, memory.id)
+          Acs.Memory.VectorIndex.upsert_embedding(storage_id, embedding)
 
         {:error, reason} ->
           Logger.warning("[Tools] Could not store embedding for #{memory.id}: #{reason}")

@@ -6,8 +6,8 @@ defmodule Acs.Accounts do
   alias Acs.Repo
   alias Acs.Accounts.{User, UserToken}
 
-  def get_user_by_email(email) when is_binary(email) do
-    Repo.get_by(User, email: email)
+  def get_user_by_email(email, org \\ Acs.Org.current()) when is_binary(email) do
+    Repo.get_by(User, email: email, org: org)
   end
 
   def get_user!(id), do: Repo.get!(User, id)
@@ -18,10 +18,10 @@ defmodule Acs.Accounts do
     |> Repo.insert()
   end
 
-  def get_or_register_user(email) do
-    case get_user_by_email(email) do
+  def get_or_register_user(email, org \\ Acs.Org.current()) do
+    case get_user_by_email(email, org) do
       %User{} = user -> {:ok, user}
-      nil -> register_user(%{email: email})
+      nil -> register_user(%{email: email, org: org})
     end
   end
 
@@ -31,8 +31,8 @@ defmodule Acs.Accounts do
     token
   end
 
-  def get_user_by_session_token(token) do
-    case UserToken.verify_session_token_query(token) do
+  def get_user_by_session_token(token, org \\ Acs.Org.current()) do
+    case UserToken.verify_session_token_query(token, org) do
       {:ok, query} -> Repo.one(query)
       :error -> nil
     end

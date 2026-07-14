@@ -130,11 +130,12 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   @impl true
   def handle_event("approve-all-proposed", _, socket) do
     # Fetch all proposed memories (up to 500)
-    proposed_memories = Indexer.list_memories(status: "proposed", limit: 500)
+    org = socket.assigns.current_org
+    proposed_memories = Indexer.list_memories(status: "proposed", limit: 500, org: org)
 
     results =
       Enum.map(proposed_memories, fn memory ->
-        case Indexer.update_status(memory.id, "approved") do
+        case Indexer.update_status(Indexer.public_id(memory.id, org), "approved", org) do
           {:ok, schema} ->
             attrs = build_verification_attrs("approved")
 
@@ -182,7 +183,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   end
 
   defp update_memory_status(socket, id, new_status, flash_opts) do
-    case Indexer.update_status(id, new_status) do
+    case Indexer.update_status(id, new_status, socket.assigns.current_org) do
       {:ok, schema} ->
         # Persist to YAML with verification metadata
         attrs = build_verification_attrs(new_status)
@@ -237,14 +238,15 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     query = socket.assigns.search_query
     status_filter = socket.assigns.status_filter
 
-    counts = Indexer.count_by_status()
+    org = socket.assigns.current_org
+    counts = Indexer.count_by_status(org)
     pending_count = Map.get(counts, "proposed", 0)
     approved_count = Map.get(counts, "approved", 0)
     rejected_count = Map.get(counts, "rejected", 0)
     quarantined_count = Map.get(counts, "parse_error", 0)
-    review_count = Indexer.count_memories_needing_review()
+    review_count = Indexer.count_memories_needing_review(org)
 
-    memories_opts = [limit: 100]
+    memories_opts = [limit: 100, org: org]
 
     memories_opts =
       case status_filter do
@@ -267,7 +269,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
     memories =
       if status_filter == "review" do
-        Indexer.list_memories_needing_review(limit: 100)
+        Indexer.list_memories_needing_review(limit: 100, org: org)
       else
         if query && query != "" do
           Search.search(query, memories_opts)
@@ -301,7 +303,12 @@ defmodule AcsWeb.AcsLive.MemoryLive do
       proposed = Enum.filter(memories, fn m -> m.status == "proposed" end)
 
       if proposed != [] do
-        all_approved = Acs.Memory.Search.list(scope_path: nil, status: "approved")
+        all_approved =
+          Acs.Memory.Search.list(
+            scope_path: nil,
+            status: "approved",
+            org: Acs.Org.current()
+          )
 
         Enum.reduce(proposed, %{}, fn memory, acc ->
           tags = parse_tags_json(memory.tags_json)

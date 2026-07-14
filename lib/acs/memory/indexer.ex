@@ -71,7 +71,7 @@ defmodule Acs.Memory.Indexer do
   """
   def upsert_memory(%Acs.Memory{} = memory, opts \\ []) do
     attrs = %{
-      id: memory.id,
+      id: storage_id(memory.org, memory.id),
       kind: memory.kind,
       status: memory.status,
       title: memory.title,
@@ -211,7 +211,10 @@ defmodule Acs.Memory.Indexer do
   def get_memory(memory_id, org) do
     import Ecto.Query
 
-    Repo.one(from m in Schema, where: m.id == ^memory_id and m.org == ^org)
+    Repo.one(
+      from m in Schema,
+        where: m.id == ^storage_id(org, memory_id) and m.org == ^org
+    ) || Repo.one(from m in Schema, where: m.id == ^memory_id and m.org == ^org)
   end
 
   @doc """
@@ -230,7 +233,9 @@ defmodule Acs.Memory.Indexer do
   def get_memories_by_ids(ids, org) when is_list(ids) do
     import Ecto.Query
 
-    Repo.all(from m in Schema, where: m.id in ^ids and m.org == ^org)
+    storage_ids = Enum.map(ids, &storage_id(org, &1))
+
+    Repo.all(from m in Schema, where: m.id in ^(ids ++ storage_ids) and m.org == ^org)
     |> Enum.into(%{}, fn m -> {m.id, m} end)
   end
 
@@ -238,11 +243,12 @@ defmodule Acs.Memory.Indexer do
   Returns a map of status -> count for all memories in the index.
   Uses a single query with GROUP BY instead of N individual queries.
   """
-  def count_by_status do
+  def count_by_status(org \\ Acs.Org.current()) do
     import Ecto.Query
 
     query =
       from m in Schema,
+        where: m.org == ^org,
         group_by: m.status,
         select: %{status: m.status, count: count(m.id)}
 
@@ -288,7 +294,8 @@ defmodule Acs.Memory.Indexer do
     limit = opts[:limit] || 100
 
     # Fetch proposed memories (the ones the auditor processes)
-    proposed = list_memories(status: "proposed", limit: limit * 2)
+    proposed =
+      list_memories(status: "proposed", limit: limit * 2, org: opts[:org] || Acs.Org.current())
 
     # Filter to only those with audit error flags
     proposed
@@ -316,8 +323,8 @@ defmodule Acs.Memory.Indexer do
   @doc """
   Count memories needing review (have audit error count > 0).
   """
-  def count_memories_needing_review do
-    proposed = list_memories(status: "proposed", limit: 500)
+  def count_memories_needing_review(org \\ Acs.Org.current()) do
+    proposed = list_memories(status: "proposed", limit: 500, org: org)
 
     proposed
     |> Enum.count(fn m ->
@@ -402,7 +409,7 @@ defmodule Acs.Memory.Indexer do
   """
   def schema_to_memory_attrs(%Acs.Memory.Schema{} = schema) do
     %{
-      "id" => schema.id,
+      "id" => public_id(schema.id, schema.org),
       "kind" => schema.kind,
       "status" => schema.status,
       "title" => schema.title,
@@ -421,6 +428,21 @@ defmodule Acs.Memory.Indexer do
       "created_at" => format_datetime(schema.created_at),
       "updated_at" => format_datetime(schema.updated_at)
     }
+  end
+
+  @doc false
+  def storage_id(org, memory_id) when is_binary(memory_id) do
+    org = org || Acs.Org.current()
+    if org == Acs.Org.configured(), do: memory_id, else: org <> ":" <> memory_id
+  end
+
+  @doc false
+  def public_id(storage_id, org) when is_binary(storage_id) do
+    org = org || Acs.Org.current()
+
+    if org == Acs.Org.configured(),
+      do: storage_id,
+      else: String.replace_prefix(storage_id, org <> ":", "")
   end
 
   defp decode_json_field(nil), do: nil

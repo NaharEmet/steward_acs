@@ -41,7 +41,7 @@ services:
       SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
       COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT}"
       MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
-      MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-true}"
+      MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-false}"
       OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-false}"
       AUTH0_DOMAIN: "${AUTH0_DOMAIN:-dev-jw5wgp2b.us.auth0.com}"
       AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-https://prod.stewardacs.xyz/mcp/sse}"
