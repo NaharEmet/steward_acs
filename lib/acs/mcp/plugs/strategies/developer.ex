@@ -23,7 +23,8 @@ defmodule Acs.MCP.Plugs.Strategies.Developer do
           subdomain_org = conn.assigns[:current_org]
 
           if subdomain_org && subdomain_org != "default" && key_org != subdomain_org do
-            {:error, "Developer key org '#{key_org}' does not match subdomain org '#{subdomain_org}'"}
+            {:error,
+             "Developer key org '#{key_org}' does not match subdomain org '#{subdomain_org}'"}
           else
             Logger.debug(
               "[MCPAuth] authenticated via developer key: role=#{result.role} org=#{key_org}"
@@ -33,7 +34,7 @@ defmodule Acs.MCP.Plugs.Strategies.Developer do
              %{
                role: result.role,
                org_id: key_org,
-               permissions: nil,
+               permissions: ["mcp:cross_org_analysis"],
                agent_identity: result.developer_name,
                allowed_teams: result[:allowed_teams],
                allowed_projects: result[:allowed_projects]

@@ -168,16 +168,17 @@ defmodule Acs.MCP.Protocol do
   defp handle_request(
          id,
          "tools/list",
-         _params,
+         params,
          agent_role,
          agent_org_id,
-         _agent_permissions,
+         agent_permissions,
          _agent_allowed_teams,
          _agent_allowed_projects,
          _agent_identity
        ) do
     with :ok <- require_agent_role(agent_role) do
-      tools = ToolRegistry.list_tools_mcp(agent_role, agent_org_id)
+      effective_org = analysis_org(params, agent_org_id, agent_permissions)
+      tools = ToolRegistry.list_tools_mcp(agent_role, effective_org)
       {:ok, success_response(id, %{"tools" => tools})}
     else
       {:error, reason} ->
@@ -307,6 +308,17 @@ defmodule Acs.MCP.Protocol do
   defp require_agent_role(role) when is_binary(role) and role != "", do: :ok
   defp require_agent_role(_), do: {:error, "Missing authentication context"}
 
+  defp analysis_org(params, credential_org, permissions) do
+    requested_org = params["analysis_org"] || params["_analysis_org_id"]
+
+    if is_binary(requested_org) and requested_org != "" and
+         is_list(permissions) and "mcp:cross_org_analysis" in permissions do
+      requested_org
+    else
+      credential_org
+    end
+  end
+
   defp do_tools_call(
          id,
          params,
@@ -319,10 +331,14 @@ defmodule Acs.MCP.Protocol do
        ) do
     name = params["name"]
 
+    requested_arguments = params["arguments"] || %{}
+    effective_org = analysis_org(requested_arguments, agent_org_id, agent_permissions)
+
     arguments =
-      (params["arguments"] || %{})
+      requested_arguments
       |> Map.put("_auth_role", agent_role)
-      |> Map.put("_auth_org_id", agent_org_id)
+      |> Map.put("_auth_org_id", effective_org)
+      |> Map.put("_auth_credential_org_id", agent_org_id)
       |> Map.put("_auth_permissions", agent_permissions)
       |> Map.put("_auth_allowed_teams", agent_allowed_teams)
       |> Map.put("_auth_allowed_projects", agent_allowed_projects)
@@ -334,8 +350,8 @@ defmodule Acs.MCP.Protocol do
       case ToolRegistry.authorize_tool(name, agent_role, agent_permissions) do
         :ok ->
           call_result =
-            if is_binary(agent_org_id) and agent_org_id != "" do
-              Acs.Org.with_current(agent_org_id, fn ->
+            if is_binary(effective_org) and effective_org != "" do
+              Acs.Org.with_current(effective_org, fn ->
                 ToolRegistry.call_tool(name, arguments)
               end)
             else

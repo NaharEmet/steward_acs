@@ -124,7 +124,6 @@ defmodule Acs.MCP.ToolRegistry do
   Returns `{:ok, request}` on success, `{:error, reason}` on failure.
   """
   def approve_request(request_id, approved_by, org \\ Acs.Org.current()) do
-    # This is called externally (from dashboard), so GenServer.call is fine.
     GenServer.call(__MODULE__, {:approve_request, request_id, approved_by, org})
   end
 
