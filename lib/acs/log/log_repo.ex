@@ -39,7 +39,7 @@ defmodule Acs.Log.LogRepo do
     attrs = %{
       id: Ecto.UUID.generate(),
       timestamp: now_usec,
-      level: level,
+      level: normalize_level(level),
       service: service,
       component: component,
       message: message,
@@ -76,7 +76,8 @@ defmodule Acs.Log.LogRepo do
     * `order` - `:newest` (default, timestamp DESC) or `:oldest` (timestamp ASC)
   """
   def query(filters \\ []) do
-    base = from(e in LogEntry)
+    org = Keyword.get(filters, :org, Acs.Org.current())
+    base = from(e in LogEntry, where: e.org == ^org)
 
     base = apply_level_filter(base, filters[:level])
     base = apply_component_filter(base, filters[:component])
@@ -106,7 +107,8 @@ defmodule Acs.Log.LogRepo do
   Returns integer count.
   """
   def count(filters \\ []) do
-    base = from(e in LogEntry)
+    org = Keyword.get(filters, :org, Acs.Org.current())
+    base = from(e in LogEntry, where: e.org == ^org)
 
     base = apply_level_filter(base, filters[:level])
     base = apply_org_filter(base, filters[:org])
@@ -138,6 +140,9 @@ defmodule Acs.Log.LogRepo do
   end
 
   # -- Filter helpers --
+
+  defp normalize_level(:warn), do: "warning"
+  defp normalize_level(level), do: to_string(level)
 
   defp apply_level_filter(query, nil), do: query
 
@@ -188,7 +193,9 @@ defmodule Acs.Log.LogRepo do
 
   defp parse_datetime(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
-      {:ok, dt, _} -> dt
+      {:ok, dt, _} ->
+        dt
+
       _ ->
         Logger.warning("[LogRepo] Invalid datetime: #{str}")
         raise ArgumentError, "Invalid datetime: #{str}"

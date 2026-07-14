@@ -71,6 +71,7 @@ defmodule Acs.MCP.ErrorTrace do
     * `:limit` - Max entries to return (default: 50)
   """
   def list_traces(opts \\ []) do
+    org = Keyword.get(opts, :org, Acs.Org.current())
     status_filter = opts[:status]
     service_filter = opts[:service]
     component_filter = opts[:component]
@@ -83,6 +84,7 @@ defmodule Acs.MCP.ErrorTrace do
       :acs_error_traces
       |> :ets.tab2list()
       |> Enum.map(fn {_id, entry} -> entry end)
+      |> Enum.filter(&(&1.org == org))
       |> Enum.filter(&matches_status?(&1, status_filter))
       |> Enum.filter(&matches_service?(&1, service_filter))
       |> Enum.filter(&matches_component?(&1, component_filter))
@@ -95,13 +97,13 @@ defmodule Acs.MCP.ErrorTrace do
   @doc """
   Gets a single error trace by its trace ID.
   """
-  def get_trace(trace_id) when is_binary(trace_id) do
+  def get_trace(trace_id, org \\ Acs.Org.current()) when is_binary(trace_id) do
     if not table_exists?() do
       nil
     else
       case :ets.lookup(@table_name, trace_id) do
-        [{^trace_id, entry}] -> entry
-        [] -> nil
+        [{^trace_id, %{org: ^org} = entry}] -> entry
+        _ -> nil
       end
     end
   end
@@ -109,15 +111,15 @@ defmodule Acs.MCP.ErrorTrace do
   @doc """
   Sets a trace's status to `:acknowledged`.
   """
-  def acknowledge_trace(trace_id) when is_binary(trace_id) do
-    update_status(trace_id, :acknowledged)
+  def acknowledge_trace(trace_id, org \\ Acs.Org.current()) when is_binary(trace_id) do
+    update_status(trace_id, :acknowledged, org)
   end
 
   @doc """
   Sets a trace's status to `:resolved`.
   """
-  def resolve_trace(trace_id) when is_binary(trace_id) do
-    update_status(trace_id, :resolved)
+  def resolve_trace(trace_id, org \\ Acs.Org.current()) when is_binary(trace_id) do
+    update_status(trace_id, :resolved, org)
   end
 
   @doc """
@@ -127,14 +129,16 @@ defmodule Acs.MCP.ErrorTrace do
     if not table_exists?() do
       {:error, :no_table}
     else
+      org = Acs.Org.current()
+
       case :ets.lookup(@table_name, trace_id) do
-        [{^trace_id, entry}] ->
+        [{^trace_id, %{org: ^org} = entry}] ->
           updated = %{entry | status: :tasked, task_id: task_id}
           :ets.insert(@table_name, {trace_id, updated})
           broadcast_update()
           {:ok, updated}
 
-        [] ->
+        _ ->
           {:error, :not_found}
       end
     end
@@ -147,8 +151,10 @@ defmodule Acs.MCP.ErrorTrace do
     if not table_exists?() do
       {:error, :no_table}
     else
+      org = Acs.Org.current()
+
       case :ets.lookup(@table_name, trace_id) do
-        [{^trace_id, entry}] ->
+        [{^trace_id, %{org: ^org} = entry}] ->
           updated = %{
             entry
             | status: :failed,
@@ -159,7 +165,7 @@ defmodule Acs.MCP.ErrorTrace do
           broadcast_update()
           {:ok, updated}
 
-        [] ->
+        _ ->
           {:error, :not_found}
       end
     end
@@ -238,6 +244,7 @@ defmodule Acs.MCP.ErrorTrace do
   defp do_store_or_update(service, component, message_pattern, sample_message, metadata) do
     now = DateTime.utc_now()
     now_epoch = DateTime.to_unix(now)
+    org = Map.get(metadata, :org) || Map.get(metadata, "org") || Acs.Org.current()
 
     # Normalise message_pattern to first 100 chars
     norm_pattern = String.slice(message_pattern, 0, 100)
@@ -247,9 +254,10 @@ defmodule Acs.MCP.ErrorTrace do
       :ets.select(@table_name, [
         {{:"$1", :"$2"},
          [
-           {:andalso, {:==, {:map_get, :service, :"$2"}, service},
-            {:andalso, {:==, {:map_get, :component, :"$2"}, component},
-             {:==, {:map_get, :message_pattern, :"$2"}, norm_pattern}}}
+           {:andalso, {:==, {:map_get, :org, :"$2"}, org},
+            {:andalso, {:==, {:map_get, :service, :"$2"}, service},
+             {:andalso, {:==, {:map_get, :component, :"$2"}, component},
+              {:==, {:map_get, :message_pattern, :"$2"}, norm_pattern}}}}
          ], [:"$_"]}
       ])
 
@@ -262,6 +270,7 @@ defmodule Acs.MCP.ErrorTrace do
           norm_pattern,
           sample_message,
           metadata,
+          org,
           now,
           now_epoch
         )
@@ -307,6 +316,7 @@ defmodule Acs.MCP.ErrorTrace do
             norm_pattern,
             sample_message,
             metadata,
+            org,
             now,
             now_epoch
           )
@@ -320,6 +330,7 @@ defmodule Acs.MCP.ErrorTrace do
          message_pattern,
          sample_message,
          metadata,
+         org,
          now,
          now_epoch
        ) do
@@ -328,6 +339,7 @@ defmodule Acs.MCP.ErrorTrace do
     entry = %{
       id: trace_id,
       timestamp: now,
+      org: org,
       service: service,
       component: component,
       message_pattern: message_pattern,
@@ -345,18 +357,19 @@ defmodule Acs.MCP.ErrorTrace do
     {:ok, :created, entry}
   end
 
-  defp update_status(trace_id, new_status) when new_status in [:acknowledged, :resolved] do
+  defp update_status(trace_id, new_status, org)
+       when new_status in [:acknowledged, :resolved] do
     if not table_exists?() do
       {:error, :no_table}
     else
       case :ets.lookup(@table_name, trace_id) do
-        [{^trace_id, entry}] ->
+        [{^trace_id, %{org: ^org} = entry}] ->
           updated = %{entry | status: new_status}
           :ets.insert(@table_name, {trace_id, updated})
           broadcast_update()
           {:ok, updated}
 
-        [] ->
+        _ ->
           {:error, :not_found}
       end
     end

@@ -75,10 +75,11 @@ defmodule Acs.MCP.LogStore do
     if not table_exists?() do
       {:error, :no_table}
     else
-      result = do_store_log(level, service, component, message, metadata)
+      org = Map.get(metadata, :org) || Map.get(metadata, "org") || Acs.Org.current()
+      result = do_store_log(level, service, component, message, metadata, org)
 
       # DB persistence (fire-and-forget, don't block ETS write)
-      persist_to_db(level, service, component, message, metadata)
+      persist_to_db(level, service, component, message, metadata, org)
 
       result
     end
@@ -87,7 +88,7 @@ defmodule Acs.MCP.LogStore do
   # Persist log to the database asynchronously.
   # Errors are caught silently — the ETS write path must never be disrupted
   # by a DB failure.
-  defp persist_to_db(level, service, component, message, metadata) do
+  defp persist_to_db(level, service, component, message, metadata, org) do
     Task.start(fn ->
       result =
         Acs.Log.LogRepo.insert_raw(
@@ -95,7 +96,8 @@ defmodule Acs.MCP.LogStore do
           service,
           component,
           message,
-          metadata
+          metadata,
+          org: org
         )
 
       case result do
@@ -114,7 +116,7 @@ defmodule Acs.MCP.LogStore do
 
   # Use negative monotonic IDs so that ETS ordered_set forward iteration
   # gives newest-first order (most negative = most recent = first key).
-  defp do_store_log(level, service, component, message, metadata) do
+  defp do_store_log(level, service, component, message, metadata, org) do
     id = -System.unique_integer([:positive, :monotonic])
 
     entry = %{
@@ -128,7 +130,8 @@ defmodule Acs.MCP.LogStore do
       message: message,
       metadata: metadata,
       workflow_id: metadata[:workflow_id],
-      execution_id: metadata[:execution_id]
+      execution_id: metadata[:execution_id],
+      org: org
     }
 
     :ets.insert(@table_name, {entry.id, entry})
@@ -183,6 +186,7 @@ defmodule Acs.MCP.LogStore do
   Returns `%{summary: %{total: integer, by_level: map, top_components: list, recent_errors: list}}` for summary mode.
   """
   def get_logs(opts \\ [], mode \\ "list") do
+    org = Keyword.get(opts, :org, Acs.Org.current())
     level_filter = parse_level(opts[:level])
     component_filter = opts[:component]
     module_filter = opts[:module]
@@ -221,6 +225,7 @@ defmodule Acs.MCP.LogStore do
         # Apply filters to the cursor results
         filtered =
           cursor_entries
+          |> Enum.filter(&(&1.org == org))
           |> Enum.filter(&matches_level?(&1.level_num, level_filter))
           |> Enum.filter(&matches_component?(&1.component, component_filter))
           |> Enum.filter(&matches_module?(&1.component, module_filter))
@@ -253,6 +258,7 @@ defmodule Acs.MCP.LogStore do
         filtered =
           selected
           |> Enum.map(fn {_id, entry} -> entry end)
+          |> Enum.filter(&(&1.org == org))
           |> Enum.filter(&matches_module?(&1.component, module_filter))
           |> Enum.filter(&matches_search?(&1.message, search_filter))
           |> Enum.filter(&matches_tags?(&1.metadata, tags_filter))
@@ -274,7 +280,7 @@ defmodule Acs.MCP.LogStore do
         formatted =
           case mode do
             "errors_with_context" ->
-              format_errors_with_context(entries, context_size)
+              format_errors_with_context(entries, context_size, org)
 
             _ ->
               Enum.map(entries, &format_entry(&1, compact_mode))
@@ -284,7 +290,7 @@ defmodule Acs.MCP.LogStore do
           logs: formatted,
           count: length(formatted),
           filtered_total: total_matching,
-          total: :ets.info(@table_name, :size)
+          total: tenant_log_count(org)
         }
 
         # Add helpful note when no results match
@@ -349,8 +355,11 @@ defmodule Acs.MCP.LogStore do
 
   Returns `%{logs: list, count: integer}`.
   """
-  def get_context_before(entry_id, limit \\ 30) when is_integer(entry_id) and limit > 0 do
-    entries = collect_previous_entries(@table_name, entry_id, limit, [])
+  def get_context_before(entry_id, limit \\ 30, org \\ Acs.Org.current())
+
+  def get_context_before(entry_id, limit, org)
+      when is_integer(entry_id) and limit > 0 and is_binary(org) do
+    entries = collect_previous_entries(@table_name, entry_id, limit, [], org)
 
     formatted = Enum.map(entries, &format_entry/1)
 
@@ -435,10 +444,10 @@ defmodule Acs.MCP.LogStore do
 
   # -- ETS collection helpers --
 
-  defp collect_previous_entries(_table, _key, 0, acc), do: acc
-  defp collect_previous_entries(_table, :"$end_of_table", _limit, acc), do: acc
+  defp collect_previous_entries(_table, _key, 0, acc, _org), do: acc
+  defp collect_previous_entries(_table, :"$end_of_table", _limit, acc, _org), do: acc
 
-  defp collect_previous_entries(table, key, limit, acc) do
+  defp collect_previous_entries(table, key, limit, acc, org) do
     # With negative monotonic IDs, more negative = more recent, so the
     # chronologically *previous* entries have larger (less negative) IDs.
     # Use :ets.next to walk forward to larger keys.
@@ -448,8 +457,11 @@ defmodule Acs.MCP.LogStore do
 
       next_key ->
         case :ets.lookup(table, next_key) do
-          [{^next_key, entry}] ->
-            collect_previous_entries(table, next_key, limit - 1, [entry | acc])
+          [{^next_key, %{org: ^org} = entry}] ->
+            collect_previous_entries(table, next_key, limit - 1, [entry | acc], org)
+
+          [{^next_key, _entry}] ->
+            collect_previous_entries(table, next_key, limit, acc, org)
 
           _ ->
             acc
@@ -676,17 +688,28 @@ defmodule Acs.MCP.LogStore do
 
   # -- Errors-with-context formatting --
 
-  defp format_errors_with_context(entries, context_size) do
+  defp format_errors_with_context(entries, context_size, org) do
     errors = Enum.filter(entries, &(&1.level == :error)) |> Enum.take(10)
 
     if errors == [] do
       []
     else
       Enum.flat_map(errors, fn error ->
-        context = get_context_before(error.id, context_size).logs
+        context = get_context_before(error.id, context_size, org).logs
         context ++ [format_entry(error, true)]
       end)
     end
+  end
+
+  defp tenant_log_count(org) do
+    :ets.foldl(
+      fn
+        {_id, %{org: ^org}}, count -> count + 1
+        _entry, count -> count
+      end,
+      0,
+      @table_name
+    )
   end
 
   # -- Nil-stripping helper --

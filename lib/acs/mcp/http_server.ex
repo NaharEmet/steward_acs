@@ -204,7 +204,7 @@ defmodule Acs.MCP.HTTPServer do
 
     params = conn.query_params
 
-    opts = []
+    opts = [org: conn.assigns[:agent_org_id]]
 
     opts =
       case params["level"] do
@@ -339,7 +339,7 @@ defmodule Acs.MCP.HTTPServer do
           end
       end
 
-    result = LogStore.get_context_before(entry_id, window_size)
+    result = LogStore.get_context_before(entry_id, window_size, conn.assigns[:agent_org_id])
 
     conn
     |> put_resp_content_type("application/json")
@@ -463,8 +463,13 @@ defmodule Acs.MCP.HTTPServer do
 
             Logger.info("MCP SSE: agent #{agent_id} sleeping (timeout=#{inspect(timeout)})")
 
+            org = conn.assigns[:agent_org_id]
+
             Task.start(fn ->
-              result = Acs.MCP.Tools.CoreHandlers.sleep_and_wait(agent_id, timeout)
+              result =
+                Acs.Org.with_current(org, fn ->
+                  Acs.MCP.Tools.CoreHandlers.sleep_and_wait(agent_id, timeout)
+                end)
 
               response =
                 case result do
@@ -482,7 +487,7 @@ defmodule Acs.MCP.HTTPServer do
                     })
                 end
 
-              Acs.MCP.SSESessionManager.send_response(session_id, response)
+              Acs.MCP.SSESessionManager.send_response(session_id, response, org)
             end)
 
             conn |> send_resp(202, "")
@@ -564,6 +569,7 @@ defmodule Acs.MCP.HTTPServer do
       |> Map.get("metadata", %{})
       |> normalize_metadata()
       |> enrich_metadata(service, component)
+      |> Map.put(:org, Acs.Org.current())
 
     LogStore.store_log(level, service, component, message, metadata)
   end

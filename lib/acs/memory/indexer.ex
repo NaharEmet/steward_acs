@@ -116,10 +116,10 @@ defmodule Acs.Memory.Indexer do
   @doc """
   Removes a memory from the index by id.
   """
-  def remove_memory(memory_id) do
+  def remove_memory(memory_id, org \\ Acs.Org.current()) do
     result =
       Retry.with_busy_retry(fn ->
-        case Repo.get(Schema, memory_id) do
+        case get_memory(memory_id, org) do
           nil -> :ok
           schema -> Repo.delete(schema)
         end
@@ -137,7 +137,7 @@ defmodule Acs.Memory.Indexer do
   Updates the status of a memory in the index.
   Optionally scoped to an org.
   """
-  def update_status(memory_id, new_status, org \\ nil)
+  def update_status(memory_id, new_status, org \\ Acs.Org.current())
       when new_status in ~w(proposed approved rejected stale deprecated archived parse_error) do
     result =
       Retry.with_busy_retry(fn ->
@@ -168,7 +168,7 @@ defmodule Acs.Memory.Indexer do
   Returns {:ok, schema} or {:error, reason}.
   Optionally scoped to an org.
   """
-  def update_field(memory_id, field, value, org \\ nil)
+  def update_field(memory_id, field, value, org \\ Acs.Org.current())
       when field in ~w(title content)a do
     result =
       Retry.with_busy_retry(fn ->
@@ -202,11 +202,7 @@ defmodule Acs.Memory.Indexer do
   @doc """
   Gets a memory from the index by id, optionally filtered by org.
   """
-  def get_memory(memory_id, org \\ nil)
-
-  def get_memory(memory_id, nil) do
-    Repo.get(Schema, memory_id)
-  end
+  def get_memory(memory_id, org \\ Acs.Org.current())
 
   def get_memory(memory_id, org) do
     import Ecto.Query
@@ -221,14 +217,7 @@ defmodule Acs.Memory.Indexer do
   Fetches memories by a list of IDs and returns a map of %{id => schema}.
   Optionally filtered by org.
   """
-  def get_memories_by_ids(ids, org \\ nil)
-
-  def get_memories_by_ids(ids, nil) when is_list(ids) do
-    import Ecto.Query
-
-    Repo.all(from m in Schema, where: m.id in ^ids)
-    |> Enum.into(%{}, fn m -> {m.id, m} end)
-  end
+  def get_memories_by_ids(ids, org \\ Acs.Org.current())
 
   def get_memories_by_ids(ids, org) when is_list(ids) do
     import Ecto.Query
@@ -263,7 +252,8 @@ defmodule Acs.Memory.Indexer do
     import Ecto.Query
 
     order_by = opts[:order_by] || [desc: :updated_at]
-    query = from m in Schema, order_by: ^order_by
+    org = opts[:org] || Acs.Org.current()
+    query = from m in Schema, where: m.org == ^org, order_by: ^order_by
 
     query = if opts[:kind], do: from(m in query, where: m.kind == ^opts[:kind]), else: query
 
@@ -280,7 +270,6 @@ defmodule Acs.Memory.Indexer do
 
     query = apply_scope_path_filter(query, opts[:scope_path])
     query = if opts[:limit], do: from(m in query, limit: ^opts[:limit]), else: query
-    query = if opts[:org], do: from(m in query, where: m.org == ^opts[:org]), else: query
     query = build_abac_filter(query, opts)
 
     Repo.all(query)
@@ -355,9 +344,11 @@ defmodule Acs.Memory.Indexer do
     import Ecto.Query
 
     search_term = "%#{query_text}%"
+    org = opts[:org] || Acs.Org.current()
 
     search_query =
       from m in Schema,
+        where: m.org == ^org,
         where:
           like(m.title, ^search_term) or
             like(m.content, ^search_term) or
@@ -389,13 +380,6 @@ defmodule Acs.Memory.Indexer do
         from m in search_query, limit: ^opts[:limit]
       else
         from m in search_query, limit: 50
-      end
-
-    search_query =
-      if opts[:org] do
-        from m in search_query, where: m.org == ^opts[:org]
-      else
-        search_query
       end
 
     search_query = build_abac_filter(search_query, opts)

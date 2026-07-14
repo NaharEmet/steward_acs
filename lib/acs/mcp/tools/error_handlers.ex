@@ -24,34 +24,45 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
   require Logger
 
   def acs_submit_task_feedback(args) do
-    agent_id = args["agent_id"]
+    agent_id = args["_auth_agent_id"] || args["agent_id"]
     task_id = args["task_id"]
+    org = Acs.Org.current()
 
-    changeset =
-      %FeedbackSchema{}
-      |> FeedbackSchema.changeset(%{
-        task_id: task_id,
-        agent_id: agent_id,
-        learned_for_agents: args["learned_for_agents"],
-        had_issues: args["had_issues"],
-        improvements: args["improvements"],
-        tools_wish_list: args["tools_wish_list"],
-        info_needed: args["info_needed"],
-        guidance_useful: args["guidance_useful"],
-        guidance_items_helpful: encode_array_field(args["guidance_items_helpful"]),
-        guidance_items_confusing: encode_array_field(args["guidance_items_confusing"]),
-        guidance_missing: args["guidance_missing"]
-      })
+    task = Acs.Acs.get_task(task_id)
 
-    case Acs.Repo.insert(changeset) do
-      {:ok, feedback} ->
-        generate_memories_from_feedback(feedback, args)
+    if is_nil(task) do
+      {:error, "Task not found"}
+    else
+      changeset =
+        %FeedbackSchema{}
+        |> FeedbackSchema.changeset(%{
+          task_id: task_id,
+          agent_id: agent_id,
+          org: org,
+          learned_for_agents: args["learned_for_agents"],
+          had_issues: args["had_issues"],
+          improvements: args["improvements"],
+          tools_wish_list: args["tools_wish_list"],
+          info_needed: args["info_needed"],
+          guidance_useful: args["guidance_useful"],
+          guidance_items_helpful: encode_array_field(args["guidance_items_helpful"]),
+          guidance_items_confusing: encode_array_field(args["guidance_items_confusing"]),
+          guidance_missing: args["guidance_missing"]
+        })
 
-        {:ok,
-         %{feedback_id: feedback.id, message: "Task complete. Feedback submitted — you're done."}}
+      case Acs.Repo.insert(changeset) do
+        {:ok, feedback} ->
+          generate_memories_from_feedback(feedback, args)
 
-      {:error, reason} ->
-        {:error, "Failed to submit feedback: #{inspect(reason)}"}
+          {:ok,
+           %{
+             feedback_id: feedback.id,
+             message: "Task complete. Feedback submitted — you're done."
+           }}
+
+        {:error, reason} ->
+          {:error, "Failed to submit feedback: #{inspect(reason)}"}
+      end
     end
   end
 

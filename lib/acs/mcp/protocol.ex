@@ -170,14 +170,14 @@ defmodule Acs.MCP.Protocol do
          "tools/list",
          _params,
          agent_role,
-         _agent_org_id,
+         agent_org_id,
          _agent_permissions,
          _agent_allowed_teams,
          _agent_allowed_projects,
          _agent_identity
        ) do
     with :ok <- require_agent_role(agent_role) do
-      tools = ToolRegistry.list_tools_mcp(agent_role)
+      tools = ToolRegistry.list_tools_mcp(agent_role, agent_org_id)
       {:ok, success_response(id, %{"tools" => tools})}
     else
       {:error, reason} ->

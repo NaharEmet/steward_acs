@@ -14,11 +14,24 @@ defmodule Acs.Skills.Store do
   def skill_dir do
     obsidian_path = Application.get_env(:steward_acs, :obsidian_vault_path)
 
-    if is_binary(obsidian_path) and obsidian_path != "" do
-      Path.join(obsidian_path, "skills")
-    else
-      Path.join(Application.app_dir(:steward_acs), @builtin_dir)
+    base =
+      if is_binary(obsidian_path) and obsidian_path != "" do
+        Path.join(obsidian_path, "skills")
+      else
+        Path.join(Application.app_dir(:steward_acs), @builtin_dir)
+      end
+
+    tenant_dir(base, Acs.Org.current())
+  end
+
+  defp tenant_dir(base, org) when org == "default" or org == nil, do: base
+
+  defp tenant_dir(base, org) do
+    unless Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, org) do
+      raise ArgumentError, "Invalid organization: #{inspect(org)}"
     end
+
+    Path.join([base, "orgs", org])
   end
 
   defp builtin_dir do
@@ -28,7 +41,12 @@ defmodule Acs.Skills.Store do
   defp search_dirs do
     primary = skill_dir()
     fallback = builtin_dir()
-    if primary == fallback, do: [primary], else: [primary, fallback]
+
+    cond do
+      Acs.Org.current() != Acs.Org.configured() -> [primary]
+      primary == fallback -> [primary]
+      true -> [primary, fallback]
+    end
   end
 
   def list_skills(tag \\ nil) do
@@ -50,6 +68,7 @@ defmodule Acs.Skills.Store do
     search_dirs()
     |> Enum.find_value(fn dir ->
       path = Path.join(dir, "#{safe}.md")
+
       case File.read(path) do
         {:ok, content} -> parse_skill(content)
         {:error, _} -> nil

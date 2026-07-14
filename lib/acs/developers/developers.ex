@@ -79,16 +79,16 @@ defmodule Acs.Developers do
   @doc """
   Get a developer by id.
   """
-  def get_developer(id) do
-    Repo.get(DeveloperApiKey, id)
+  def get_developer(id, org \\ Acs.Org.current()) do
+    Repo.get_by(DeveloperApiKey, id: id, org: org)
   end
 
   @doc """
   Update a developer's attributes (name, role, org, allowed_teams, allowed_projects).
   Cannot change key_hash or key_prefix.
   """
-  def update_developer(id, attrs) do
-    case Repo.get(DeveloperApiKey, id) do
+  def update_developer(id, attrs, org \\ Acs.Org.current()) do
+    case Repo.get_by(DeveloperApiKey, id: id, org: org) do
       nil ->
         {:error, :not_found}
 
@@ -116,15 +116,15 @@ defmodule Acs.Developers do
   @doc """
   List all developers.
   """
-  def list_developers do
-    Repo.all(DeveloperApiKey)
+  def list_developers(org \\ Acs.Org.current()) do
+    Repo.all(from d in DeveloperApiKey, where: d.org == ^org)
   end
 
   @doc """
   Revoke a developer's key by setting active to false.
   """
-  def revoke(id) do
-    case Repo.get(DeveloperApiKey, id) do
+  def revoke(id, org \\ Acs.Org.current()) do
+    case Repo.get_by(DeveloperApiKey, id: id, org: org) do
       nil ->
         {:error, :not_found}
 

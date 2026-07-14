@@ -275,7 +275,7 @@ defmodule Acs do
     Repo.delete_all(from s in AgentStatus, where: s.org == ^org)
     Repo.delete_all(from t in AcsTask, where: t.org == ^org)
 
-    Cache.get_all_tasks(org) |> Enum.each(&Cache.delete_task(&1.id))
+    Cache.get_all_tasks(org) |> Enum.each(&Cache.delete_task(&1.id, org))
     Cache.get_all_file_locks(org) |> Enum.each(&Cache.delete_file_lock(&1.file_path, org))
     Cache.get_all_agent_statuses(org) |> Enum.each(&Cache.delete_agent_status(&1.agent_id, org))
     Logger.info("[Acs] ACS data reset for org=#{org}")
@@ -399,11 +399,12 @@ defmodule Acs do
     if is_nil(task) or task.locked_by_agent != agent_id do
       {:error, :not_owner}
     else
-      locks = Repo.all(from(f in FileLock, where: f.task_id == ^task_id))
+      org = Org.current()
+      locks = Repo.all(from(f in FileLock, where: f.task_id == ^task_id and f.org == ^org))
 
       Enum.each(locks, fn lock ->
         Repo.delete(lock)
-        Cache.delete_file_lock(lock.file_path)
+        Cache.delete_file_lock(lock.file_path, org)
       end)
 
       broadcast(:file_unlocked, %{task_id: task_id})
@@ -531,11 +532,12 @@ defmodule Acs do
   end
 
   defp release_file_locks_for_task(task_id) do
-    locks = Repo.all(from(f in FileLock, where: f.task_id == ^task_id))
+    org = Org.current()
+    locks = Repo.all(from(f in FileLock, where: f.task_id == ^task_id and f.org == ^org))
 
     Enum.each(locks, fn lock ->
       Repo.delete(lock)
-      Cache.delete_file_lock(lock.file_path)
+      Cache.delete_file_lock(lock.file_path, org)
     end)
   end
 

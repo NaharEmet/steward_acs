@@ -75,7 +75,7 @@ defmodule Acs.Acs.Sweeper do
     Enum.each(expired_files, fn lock ->
       Logger.info("[Acs.Sweeper] Auto-releasing expired file lock: #{lock.file_path}")
       Repo.delete(lock)
-      Cache.delete_file_lock(lock.file_path)
+      Cache.delete_file_lock(lock.file_path, lock.org)
       Acs.broadcast(:file_unlocked, %{file_path: lock.file_path})
     end)
 
@@ -120,34 +120,36 @@ defmodule Acs.Acs.Sweeper do
             locked_by_agent: nil,
             locked_at: nil,
             auto_release_at: nil,
-            file_paths: updated.file_paths || []
+            file_paths: updated.file_paths || [],
+            org: updated.org
           })
 
           # Cascade release all file locks for this task
-          locks = Repo.all(from f in FileLock, where: f.task_id == ^task.id)
+          locks =
+            Repo.all(from f in FileLock, where: f.task_id == ^task.id and f.org == ^task.org)
 
           Enum.each(locks, fn lock ->
             Repo.delete(lock)
-            Cache.delete_file_lock(lock.file_path)
+            Cache.delete_file_lock(lock.file_path, lock.org)
           end)
 
           # Clear agent status if it was set
           if original_agent do
-            case Repo.get(AgentStatus, original_agent) do
+            case Repo.get_by(AgentStatus, agent_id: original_agent, org: task.org) do
               nil ->
                 :ok
 
               status ->
                 case Repo.delete(status) do
                   {:ok, _} ->
-                    Cache.delete_agent_status(original_agent)
+                    Cache.delete_agent_status(original_agent, task.org)
 
                   {:error, _} ->
                     Logger.warning(
                       "[Acs.Sweeper] Failed to delete agent status for #{original_agent}"
                     )
 
-                    Cache.delete_agent_status(original_agent)
+                    Cache.delete_agent_status(original_agent, task.org)
                 end
             end
           end
