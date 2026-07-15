@@ -2,11 +2,12 @@ defmodule Acs.Org do
   @moduledoc """
   Org identity and filtering context for multi-tenancy.
 
-  Each request is scoped to an org derived from the URL subdomain
-  (`orgname.stewardacs.xyz` or `orgname.obsidian.stewardacs.xyz`).
+  Each authenticated request is scoped to the org owned by its user, API key,
+  or OAuth token. URL subdomains are optional hints and never establish the
+  active org on their own.
 
-  `put_request_org/1` is set by `AcsWeb.Plugs.ResolveOrg` so that
-  `current/0` returns the request org during HTTP handling.
+  `put_current/1` is called after authentication so that `current/0` returns
+  the validated active org during HTTP handling.
   """
 
   @request_org_key :acs_request_org
@@ -15,7 +16,7 @@ defmodule Acs.Org do
   @doc """
   Returns the active org slug for the current process.
 
-  Priority: request-scoped org (from URL) → config `:org_name` → `"default"`.
+  Priority: authenticated request org → configured deployment org → `"default"`.
   """
   def current do
     Process.get(@request_org_key) ||
@@ -23,15 +24,10 @@ defmodule Acs.Org do
       Application.get_env(:steward_acs, :cluster_name, "default")
   end
 
-  @doc """
-  Sets the org for the current process (request lifetime).
-  Called by `ResolveOrg` after parsing the Host header.
-  """
-  def put_request_org(org) when is_binary(org) do
-    Process.put(@request_org_key, org)
-    :ok
-  end
+  @doc deprecated: "Use put_current/1 after authenticating the request"
+  def put_request_org(org), do: put_current(org)
 
+  @doc "Sets the validated active org for the current process."
   def put_current(org) when is_binary(org) and org != "" do
     Process.put(@request_org_key, org)
     :ok
@@ -44,13 +40,40 @@ defmodule Acs.Org do
     try do
       fun.()
     after
-      if previous, do: Process.put(@request_org_key, previous), else: Process.delete(@request_org_key)
+      if previous,
+        do: Process.put(@request_org_key, previous),
+        else: Process.delete(@request_org_key)
     end
   end
 
   def clear_request_org do
     Process.delete(@request_org_key)
     :ok
+  end
+
+  @doc """
+  Resolves the active org from an authenticated credential.
+
+  The options argument is reserved for a future chat-level selection hook, so
+  callers will not need a new interface when memberships are introduced. For
+  now it is intentionally ignored and the credential remains the only source.
+  """
+  def resolve_active_org(credential, opts \\ []) when is_list(opts) do
+    _ = opts
+
+    case present_org(credential_org(credential)) do
+      nil -> {:error, :missing_credential_org}
+      org -> {:ok, org}
+    end
+  end
+
+  @doc "Validates an optional host hint against an authenticated org."
+  def validate_hint(active_org, hint) when is_binary(active_org) and active_org != "" do
+    case present_org(hint) do
+      nil -> :ok
+      ^active_org -> :ok
+      _ -> {:error, :org_hint_mismatch}
+    end
   end
 
   @doc """
@@ -199,6 +222,21 @@ defmodule Acs.Org do
   end
 
   @doc """
+  Returns the optional org hint encoded in a hostname.
+
+  Known subdomains resolve to their canonical slug. Unknown subdomains remain
+  raw hints so authentication can reject them as mismatches; apex hosts return nil.
+  """
+  def hint_from_host(host) when is_binary(host) do
+    case extract_subdomain(host) do
+      subdomain when is_binary(subdomain) -> from_subdomain(subdomain) || subdomain
+      _ -> nil
+    end
+  end
+
+  def hint_from_host(_), do: nil
+
+  @doc """
   Resolves org slug from a hostname, or nil when unknown/invalid.
   """
   def from_host(host) when is_binary(host) do
@@ -278,6 +316,16 @@ defmodule Acs.Org do
     Application.get_env(:steward_acs, :project_name, "")
   end
 
+  defp credential_org(%{org: org}), do: org
+  defp credential_org(%{org_id: org}), do: org
+  defp credential_org(%{"org" => org}), do: org
+  defp credential_org(%{"org_id" => org}), do: org
+  defp credential_org(org) when is_binary(org), do: org
+  defp credential_org(_), do: nil
+
+  defp present_org(org) when is_binary(org) and org != "", do: org
+  defp present_org(_), do: nil
+
   defp parse_subdomain_prefix(prefix) do
     case String.split(prefix, ".") do
       [org, @obsidian_label] -> org
@@ -291,6 +339,9 @@ defmodule Acs.Org do
     parts = String.split(host, ".")
 
     case parts do
+      [subdomain, "localhost"] when subdomain not in ["www", ""] ->
+        subdomain
+
       [subdomain | _] when subdomain not in ["www", ""] and length(parts) > 2 ->
         subdomain
 

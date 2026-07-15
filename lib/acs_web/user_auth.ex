@@ -18,6 +18,7 @@ defmodule AcsWeb.UserAuth do
     conn
     |> renew_session()
     |> put_session(@session_key, token)
+    |> put_session(:current_org, user.org)
     |> put_session(:live_socket_id, "users_sessions:#{Base.url_encode64(token)}")
     |> redirect(to: ~p"/")
   end
@@ -43,9 +44,20 @@ defmodule AcsWeb.UserAuth do
 
   def fetch_current_user(conn, _opts) do
     user_token = get_session(conn, @session_key)
-    org = conn.assigns[:current_org] || Acs.Org.current()
-    user = user_token && Accounts.get_user_by_session_token(user_token, org)
-    assign(conn, :current_user, user)
+    user = user_token && Accounts.get_user_by_session_token(user_token)
+
+    with %{org: credential_org} <- user,
+         {:ok, org} <- Acs.Org.resolve_active_org(credential_org),
+         :ok <- Acs.Org.validate_hint(org, conn.assigns[:org_hint]) do
+      :ok = Acs.Org.put_current(org)
+
+      conn
+      |> put_session(:current_org, org)
+      |> assign(:current_org, org)
+      |> assign(:current_user, user)
+    else
+      _ -> assign(conn, :current_user, nil)
+    end
   end
 
   def require_authenticated_user(conn, _opts) do
@@ -69,33 +81,35 @@ defmodule AcsWeb.UserAuth do
   def fetch_user_token(conn) do
     %{
       "user_token" => get_session(conn, @session_key),
-      "org" => conn.assigns[:current_org] || Acs.Org.current()
+      "current_org" => get_session(conn, :current_org)
     }
   end
 
   def on_mount(:assign_org, _params, session, socket) do
-    org = session["org"] || Acs.Org.current()
+    org = session["current_org"] || Acs.Org.configured()
     :ok = Acs.Org.put_current(org)
     {:cont, Phoenix.Component.assign(socket, :current_org, org)}
   end
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
-    org = session["org"] || socket.assigns[:current_org] || Acs.Org.current()
-    :ok = Acs.Org.put_current(org)
+    user =
+      if user_token = session["user_token"] do
+        Accounts.get_user_by_session_token(user_token)
+      end
 
-    socket =
-      socket
-      |> Phoenix.Component.assign(:current_org, org)
-      |> assign_new(:current_user, fn ->
-        if user_token = session["user_token"] do
-          Accounts.get_user_by_session_token(user_token, org)
-        end
-      end)
+    with %{org: credential_org} <- user,
+         {:ok, org} <- Acs.Org.resolve_active_org(credential_org),
+         :ok <- Acs.Org.validate_hint(org, socket_org_hint(socket)) do
+      :ok = Acs.Org.put_current(org)
 
-    if socket.assigns.current_user do
+      socket =
+        socket
+        |> Phoenix.Component.assign(:current_org, org)
+        |> assign_new(:current_user, fn -> user end)
+
       {:cont, socket}
     else
-      {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/log_in")}
+      _ -> {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/log_in")}
     end
   end
 
@@ -103,7 +117,7 @@ defmodule AcsWeb.UserAuth do
     socket =
       assign_new(socket, :current_user, fn ->
         if user_token = session["user_token"] do
-          Accounts.get_user_by_session_token(user_token, session["org"] || Acs.Org.current())
+          Accounts.get_user_by_session_token(user_token)
         end
       end)
 
@@ -111,6 +125,16 @@ defmodule AcsWeb.UserAuth do
       {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/")}
     else
       {:cont, socket}
+    end
+  end
+
+  defp socket_org_hint(socket) do
+    case Phoenix.LiveView.get_connect_info(socket, :uri) do
+      %URI{host: host} when is_binary(host) ->
+        Acs.Org.hint_from_host(host)
+
+      _ ->
+        nil
     end
   end
 end

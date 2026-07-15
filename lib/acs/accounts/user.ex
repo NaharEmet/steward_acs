@@ -5,7 +5,7 @@ defmodule Acs.Accounts.User do
   schema "users" do
     field :email, :string
     field :confirmed_at, :utc_datetime
-    field :org, :string, default: "default"
+    field :org, :string
 
     timestamps(type: :utc_datetime)
   end
@@ -14,9 +14,12 @@ defmodule Acs.Accounts.User do
   def changeset(user, attrs) do
     user
     |> cast(attrs, [:email, :org])
-    |> validate_required([:email])
+    |> validate_required([:email, :org])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:email, max: 160)
+    |> validate_format(:org, ~r/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/,
+      message: "must be a non-empty lowercase org slug"
+    )
     |> unsafe_validate_unique([:email, :org], Acs.Repo)
     |> unique_constraint([:email, :org], name: :users_email_org_index)
   end

@@ -18,11 +18,25 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
   def authenticate(_key, conn) do
     with true <- Config.enabled?(),
          token when is_binary(token) <- bearer_token(conn),
-         {:ok, claims} <- JWKS.verify(token, audience: Config.audience_for_conn(conn)) do
-      {:ok, map_claims(claims)}
+         {:ok, claims} <- JWKS.verify(token, audience: Config.audience_for_conn(conn)),
+         {:ok, result} <- from_verified_claims(claims) do
+      {:ok, result}
     else
       false -> {:error, "OAuth not configured"}
       nil -> {:error, "Not a Bearer token"}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc false
+  def from_verified_claims(claims) when is_map(claims) do
+    permissions = permissions_from(claims)
+
+    with :ok <- require_mcp_permission(permissions),
+         org when is_binary(org) <- org_from(claims) do
+      {:ok, map_claims(claims, permissions)}
+    else
+      nil -> {:error, "OAuth token has no organization claim"}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -34,8 +48,7 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
     end
   end
 
-  defp map_claims(claims) do
-    permissions = permissions_from(claims)
+  defp map_claims(claims, permissions) do
     role = role_from(permissions)
     identity = identity_from(claims)
     org_id = org_from(claims)
@@ -55,14 +68,23 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
   end
 
   defp permissions_from(%{"permissions" => perms}) when is_list(perms), do: perms
-  defp permissions_from(%{"scope" => scope}) when is_binary(scope), do: String.split(scope, " ", trim: true)
+
+  defp permissions_from(%{"scope" => scope}) when is_binary(scope),
+    do: String.split(scope, " ", trim: true)
+
   defp permissions_from(_), do: []
+
+  defp require_mcp_permission(permissions) do
+    if Enum.any?(permissions, &(&1 in ["mcp:tools", "mcp:admin"])) do
+      :ok
+    else
+      {:error, "OAuth token lacks required MCP permission"}
+    end
+  end
 
   defp role_from(permissions) when is_list(permissions) do
     cond do
       "mcp:admin" in permissions -> "admin"
-      "mcp:tools" in permissions -> "collaborator"
-      permissions != [] -> "collaborator"
       true -> "collaborator"
     end
   end

@@ -30,7 +30,7 @@ defmodule Acs.Log.LogRepoTest do
   describe "query/1" do
     test "returns inserted logs" do
       LogRepo.insert_raw("info", "svc", "cmp", "hello", %{})
-      results = LogRepo.query(limit: 10)
+      results = LogRepo.query(search: "hello", limit: 10)
       assert results != []
       assert Enum.any?(results, fn e -> e.message == "hello" end)
     end

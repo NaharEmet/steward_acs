@@ -34,7 +34,11 @@ defmodule Acs.Accounts.UserToken do
     Application.get_env(:steward_acs, :session_validity_in_days, 7)
   end
 
-  def verify_session_token_query(token, org \\ Acs.Org.current()) do
+  def verify_session_token_query(token) do
+    verify_token_query(token, "session", session_validity_days(), :day, nil)
+  end
+
+  def verify_session_token_query(token, org) when is_binary(org) do
     verify_token_query(token, "session", session_validity_days(), :day, org)
   end
 
@@ -48,8 +52,15 @@ defmodule Acs.Accounts.UserToken do
           from token in token_and_context_query(hashed_token, context),
             join: user in assoc(token, :user),
             where: token.inserted_at > ^cutoff,
-            where: token.org == ^org and user.org == ^org,
+            where: token.org == user.org,
             select: user
+
+        query =
+          if is_binary(org) do
+            from [token, user] in query, where: token.org == ^org and user.org == ^org
+          else
+            query
+          end
 
         {:ok, query}
 

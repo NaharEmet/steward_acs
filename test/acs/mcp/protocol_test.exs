@@ -51,7 +51,7 @@ defmodule Acs.MCP.ProtocolTest do
       refute Acs.Org.with_current("org-b", fn -> Acs.get_task(task_id) end)
     end
 
-    test "developer analysis permission can target another organization" do
+    test "developer arguments cannot override their credential organization" do
       msg = %{
         "jsonrpc" => "2.0",
         "id" => 4,
@@ -80,8 +80,8 @@ defmodule Acs.MCP.ProtocolTest do
                )
 
       assert %{"task_id" => task_id} = Jason.decode!(text)
-      assert Acs.Org.with_current("org-b", fn -> Acs.get_task(task_id) end)
-      refute Acs.Org.with_current("org-a", fn -> Acs.get_task(task_id) end)
+      assert Acs.Org.with_current("org-a", fn -> Acs.get_task(task_id) end)
+      refute Acs.Org.with_current("org-b", fn -> Acs.get_task(task_id) end)
     end
 
     test "initialize succeeds without agent role" do

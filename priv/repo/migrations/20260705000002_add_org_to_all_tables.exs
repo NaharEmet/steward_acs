@@ -29,11 +29,11 @@ defmodule Acs.Repo.Migrations.AddOrgToAllTables do
     end
 
     alter table(:users) do
-      add :org, :string, default: "default"
+      add :org, :string, default: "default", null: false
     end
 
     alter table(:users_tokens) do
-      add :org, :string, default: "default"
+      add :org, :string, default: "default", null: false
     end
 
     # Update indexes — rename cluster indexes and add org indexes

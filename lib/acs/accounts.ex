@@ -31,7 +31,14 @@ defmodule Acs.Accounts do
     token
   end
 
-  def get_user_by_session_token(token, org \\ Acs.Org.current()) do
+  def get_user_by_session_token(token) do
+    case UserToken.verify_session_token_query(token) do
+      {:ok, query} -> Repo.one(query)
+      :error -> nil
+    end
+  end
+
+  def get_user_by_session_token(token, org) when is_binary(org) do
     case UserToken.verify_session_token_query(token, org) do
       {:ok, query} -> Repo.one(query)
       :error -> nil

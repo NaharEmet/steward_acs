@@ -28,24 +28,26 @@ defmodule AcsWeb.UserSessionController do
   end
 
   def create(conn, %{"user" => %{"username" => username, "password" => password}}) do
-    org = conn.assigns[:current_org] || Acs.Org.current()
-    config = auth_config(org)
-
-    if dashboard_org_allowed?(org) and secure_compare(username, config[:username]) and
-         secure_compare(password, config[:password]) do
-      case Accounts.get_or_register_user("admin@localhost", org) do
-        {:ok, user} ->
-          UserAuth.log_in_user(conn, user)
-
-        {:error, _} ->
-          conn
-          |> put_flash(:error, "Could not create user.")
-          |> redirect(to: ~p"/users/log_in")
-      end
+    with {:ok, credential_org} <- authenticate_dashboard_credentials(username, password),
+         {:ok, org} <- Acs.Org.resolve_active_org(credential_org),
+         :ok <- Acs.Org.validate_hint(org, conn.assigns[:org_hint]),
+         {:ok, user} <- Accounts.get_or_register_user("admin@localhost", org) do
+      UserAuth.log_in_user(conn, user)
     else
-      conn
-      |> put_flash(:error, "Invalid username or password.")
-      |> redirect(to: ~p"/users/log_in")
+      {:error, :org_hint_mismatch} ->
+        conn
+        |> put_flash(:error, "Authenticated organization does not match request host.")
+        |> redirect(to: ~p"/users/log_in")
+
+      {:error, reason} when reason in [:invalid_credentials, :ambiguous_credentials] ->
+        conn
+        |> put_flash(:error, "Invalid username or password.")
+        |> redirect(to: ~p"/users/log_in")
+
+      {:error, _} ->
+        conn
+        |> put_flash(:error, "Could not create user.")
+        |> redirect(to: ~p"/users/log_in")
     end
   end
 
@@ -53,9 +55,23 @@ defmodule AcsWeb.UserSessionController do
     UserAuth.log_out_user(conn)
   end
 
-  defp dashboard_org_allowed?(org) do
+  defp authenticate_dashboard_credentials(username, password) do
+    configured = Acs.Org.configured()
     per_org = Application.get_env(:steward_acs, :basic_auth_by_org, %{})
-    org == Acs.Org.configured() or Map.has_key?(per_org, org)
+
+    matches =
+      [{configured, auth_config(configured)} | Map.to_list(per_org)]
+      |> Enum.filter(fn {_org, config} ->
+        secure_compare(username, config[:username]) and
+          secure_compare(password, config[:password])
+      end)
+      |> Enum.uniq_by(&elem(&1, 0))
+
+    case matches do
+      [{org, _config}] -> {:ok, org}
+      [] -> {:error, :invalid_credentials}
+      _ -> {:error, :ambiguous_credentials}
+    end
   end
 
   defp secure_compare(left, right) when is_binary(left) and is_binary(right) do

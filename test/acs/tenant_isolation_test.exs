@@ -50,10 +50,23 @@ defmodule Acs.TenantIsolationTest do
     assert Indexer.get_memory("shared", "org-b").content == "content for org-b"
   end
 
+  test "dashboard users require a non-empty valid org slug" do
+    assert {:error, changeset} =
+             Acs.Accounts.register_user(%{email: "missing-org@example.test", org: ""})
+
+    assert "can't be blank" in errors_on(changeset).org
+
+    assert {:error, changeset} =
+             Acs.Accounts.register_user(%{email: "invalid-org@example.test", org: "../other"})
+
+    assert "must be a non-empty lowercase org slug" in errors_on(changeset).org
+  end
+
   test "session token is rejected by another org" do
     {:ok, user} = Acs.Accounts.register_user(%{email: "admin@example.test", org: "org-a"})
     token = Acs.Accounts.generate_user_session_token(user)
 
+    assert Acs.Accounts.get_user_by_session_token(token).id == user.id
     assert Acs.Accounts.get_user_by_session_token(token, "org-a").id == user.id
     assert Acs.Accounts.get_user_by_session_token(token, "org-b") == nil
   end
