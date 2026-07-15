@@ -1,7 +1,18 @@
 defmodule Acs.Specs.Entry do
   @moduledoc """
-  A single cognition spec entry — structured documentation about a module's purpose, 
-  invariants, workflows, failure modes, and constraints. All fields optional except `app` and `id`.
+  A specs entry — shareable knowledge stored for agents and humans.
+
+  Two modes:
+
+  1. **Module spec** (`document_type` nil or `"spec"`) — structured documentation
+     about code: purpose, invariants, workflows, failure modes, constraints.
+
+  2. **Document** (`document_type` set) — any long-form artifact the user or agent
+     produced and wants to share: knowledge files, project documents, marketing copy
+     (text + image references in markdown), deliverables, policies, guides.
+
+  Use `content` for the full markdown body on documents. Use `source` for origin
+  (file path, URL, asset folder).
 
   Status lifecycle:
     proposed → under_review → approved → deprecated
@@ -206,15 +217,20 @@ defmodule Acs.Specs.Entry do
     |> remove_empty_lists()
   end
 
-  @valid_document_types ~w(policy process guideline reference spec)
+  @valid_document_types ~w(
+    spec knowledge project marketing deliverable
+    policy process guideline reference
+  )
+
+  def valid_document_types, do: @valid_document_types
 
   @doc """
   Validate an Entry struct.
   Returns :ok or {:error, [reason_strings]}.
 
   Dual-mode validation:
-  - Legacy spec mode (document_type nil): requires purpose, invariants, workflows, failure_modes
-  - Document mode (document_type present): requires document_type, title, content (max 5 paragraphs)
+  - Module spec mode (document_type nil): requires purpose, invariants, workflows, failure_modes
+  - Document mode (document_type present): requires document_type, title, content (any length)
   """
   def validate(%__MODULE__{} = entry) do
     if entry.document_type do

@@ -11,7 +11,7 @@ RUN mix local.hex --force && mix local.rebar --force
 COPY mix.exs mix.lock ./
 RUN --mount=type=cache,target=/root/.mix \
     --mount=type=cache,target=_build \
-    mix deps.get && mix deps.compile
+    HEX_HTTP_TIMEOUT=120 mix deps.get && mix deps.compile
 
 COPY config config
 COPY lib lib

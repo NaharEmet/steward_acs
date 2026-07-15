@@ -48,7 +48,6 @@ defmodule Acs.MixProject do
       {:phoenix_pubsub, "~> 2.2"},
       {:phoenix_live_view, "~> 1.1"},
       {:phoenix_html, "~> 4.1"},
-      {:gettext, "~> 0.26"},
       {:file_system, "~> 1.0", override: true},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:esbuild, "~> 0.8", runtime: false},

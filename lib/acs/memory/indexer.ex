@@ -19,8 +19,51 @@ defmodule Acs.Memory.Indexer do
   memories and quarantined is list of error tuples.
   """
   def sync_all do
-    # First, quarantine any invalid files (writes parse_error status to
-    # valid-YAML-but-invalid-validation files so they can be tracked)
+    if Acs.Org.multi_tenant?() do
+      orgs = Acs.Orgs.list_all()
+
+      {total, all_quarantined} =
+        Enum.reduce(orgs, {0, []}, fn org, {acc_count, acc_q} ->
+          case sync_org(org.slug) do
+            {:ok, count, quarantined} -> {acc_count + count, acc_q ++ quarantined}
+            _ -> {acc_count, acc_q}
+          end
+        end)
+
+      Logger.info(
+        "[Memory.Indexer] Synced #{total} memories across #{length(orgs)} orgs, #{length(all_quarantined)} quarantined"
+      )
+
+      broadcast_memory_updated()
+      {:ok, total, all_quarantined}
+    else
+      do_sync_current_org()
+    end
+  end
+
+  def sync_org(org) when is_binary(org) do
+    vault_dir = Acs.Org.memory_dir(org)
+
+    if File.dir?(vault_dir) do
+      {:ok, memories, quarantined} = Acs.Memory.Loader.load_all_for_org(org)
+
+      count =
+        Enum.reduce(memories, 0, fn memory, acc ->
+          case upsert_memory(memory, broadcast: false) do
+            {:ok, _} -> acc + 1
+            {:error, reason} ->
+              Logger.warning("[Memory.Indexer] Failed to index #{memory.id} org=#{org}: #{reason}")
+              acc
+          end
+        end)
+
+      {:ok, count, quarantined}
+    else
+      {:ok, 0, []}
+    end
+  end
+
+  defp do_sync_current_org do
     Acs.Memory.Loader.quarantine_invalid()
 
     {:ok, memories, quarantined} = Acs.Memory.Loader.load_all()
@@ -51,9 +94,13 @@ defmodule Acs.Memory.Indexer do
   - `{:ok, memory}` — upserted successfully
   - `{:error, reason}` — failed to load or index
   """
-  def upsert_memory_file(file_path) do
+  def upsert_memory_file(file_path, opts \\ []) do
+    org = Keyword.get(opts, :org)
+
     case Acs.Memory.Loader.load_file(file_path) do
       {:ok, memory} ->
+        memory = if org, do: %{memory | org: org}, else: memory
+
         case upsert_memory(memory) do
           {:ok, _} -> {:ok, memory}
           {:error, reason} -> {:error, reason}

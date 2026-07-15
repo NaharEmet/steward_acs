@@ -1,24 +1,20 @@
 defmodule Acs.Skills.Auditor do
   @moduledoc """
-  GenServer that periodically audits skill files for quality and completeness.
+  GenServer that periodically audits skill files using LLM evaluation.
 
-  Runs every 60 seconds by default. Checks each skill for:
-    - Valid YAML frontmatter with name, description, and tags
-    - Non-trivial content (>= 50 characters)
-    - Description doesn't duplicate the name
-    - Content isn't just a reference to another file
-    - Tags contain only valid characters
-
-  Audit results are written back into each skill's YAML frontmatter
-  as `audit_status`, `audit_score`, `audit_reasoning`, and `audited_at`.
+  Audit prompts live in `priv/prompts/skills/evaluate.txt` (or the Obsidian
+  vault `prompts/skills/evaluate.txt`) and are editable without recompilation.
   """
 
   use GenServer
   require Logger
 
+  alias Acs.LLM
+  alias Acs.Skills.Store
+
   @interval 60_000
-  @min_content_length 50
-  @min_tags 1
+  @max_retries 3
+  @backoff_delays [2_000, 5_000, 15_000]
 
   def start_link(_opts \\ []) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
@@ -40,9 +36,7 @@ defmodule Acs.Skills.Auditor do
   end
 
   @impl true
-  def handle_info(:audit, %{running: true} = state) do
-    {:noreply, state}
-  end
+  def handle_info(:audit, %{running: true} = state), do: {:noreply, state}
 
   @impl true
   def handle_info(:audit, state) do
@@ -53,14 +47,15 @@ defmodule Acs.Skills.Auditor do
   end
 
   @impl true
+  def handle_cast(:trigger, %{running: true} = state) do
+    Logger.debug("[Acs.Skills.Auditor] Audit already running, skipping trigger")
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_cast(:trigger, state) do
-    if state.running do
-      Logger.debug("[Acs.Skills.Auditor] Audit already running, skipping trigger")
-      {:noreply, state}
-    else
-      send(self(), :audit)
-      {:noreply, state}
-    end
+    send(self(), :audit)
+    {:noreply, state}
   end
 
   defp schedule_audit do
@@ -68,102 +63,104 @@ defmodule Acs.Skills.Auditor do
   end
 
   def audit_all(skills \\ nil) do
-    skills = skills || Acs.Skills.Store.list_skills()
+    skills =
+      (skills || Store.list_skills())
+      |> Enum.map(fn meta -> Store.get_skill(meta["name"]) end)
+      |> Enum.reject(&is_nil/1)
+
     Logger.info("[Acs.Skills.Auditor] Auditing #{length(skills)} skills")
 
+    max_conc =
+      Application.get_env(:steward_acs, :skill_auditor_max_concurrency, 5)
+
     results =
-      Enum.map(skills, fn meta ->
-        name = meta["name"]
-        skill = Acs.Skills.Store.get_skill(name)
-        if skill, do: audit_one(skill), else: nil
+      skills
+      |> Task.async_stream(&audit_one/1, max_concurrency: max_conc, timeout: :infinity)
+      |> Enum.map(fn
+        {:ok, result} -> result
+        {:error, reason} -> %{audit_status: "error", audit_reasoning: inspect(reason)}
       end)
       |> Enum.reject(&is_nil/1)
 
     ok = Enum.count(results, fn r -> r.audit_status == "ok" end)
-    needs_improvement = Enum.count(results, fn r -> r.audit_status == "needs_improvement" end)
+    needs = Enum.count(results, fn r -> r.audit_status == "needs_improvement" end)
     failing = Enum.count(results, fn r -> r.audit_status == "failing" end)
-    Logger.info("[Acs.Skills.Auditor] Audit complete: #{ok} ok, #{needs_improvement} needs_improvement, #{failing} failing")
+
+    Logger.info(
+      "[Acs.Skills.Auditor] Audit complete: #{ok} ok, #{needs} needs_improvement, #{failing} failing"
+    )
+
     results
   end
 
   defp audit_one(skill) do
-    checks = run_checks(skill)
-    issues = Enum.filter(checks, fn {_check, result} -> result != :ok end)
-    score = compute_score(checks)
-    status = status_from_score(score)
-    reasoning = format_reasoning(issues)
+    case audit_with_retry(skill, @max_retries, @backoff_delays) do
+      {:ok, result} -> result
+      {:error, reason} -> %{name: skill.name, audit_status: "error", audit_reasoning: inspect(reason)}
+    end
+  end
+
+  defp audit_with_retry(_skill, 0, _delays) do
+    {:error, :max_retries}
+  end
+
+  defp audit_with_retry(skill, retries_left, [delay | rest]) do
+    case LLM.evaluate_skill(skill.name, skill_attrs(skill)) do
+      {:ok, evaluation} ->
+        {:ok, apply_evaluation(skill, evaluation)}
+
+      {:error, :no_providers_enabled} ->
+        {:error, :no_providers_enabled}
+
+      {:error, reason} ->
+        Logger.warning(
+          "[Acs.Skills.Auditor] Audit failed for #{skill.name}: #{inspect(reason)}. Retrying..."
+        )
+
+        Process.sleep(delay)
+        audit_with_retry(skill, retries_left - 1, rest)
+    end
+  end
+
+  defp audit_with_retry(skill, retries_left, []) do
+    audit_with_retry(skill, retries_left, @backoff_delays)
+  end
+
+  defp skill_attrs(skill) do
+    %{
+      name: skill.name,
+      description: skill.description || "",
+      content: skill.content || "",
+      tags: skill.tags || []
+    }
+  end
+
+  defp apply_evaluation(skill, evaluation) do
+    recommendation =
+      evaluation["recommendation"] || evaluation[:recommendation] || "needs_improvement"
+
+    quality_score =
+      evaluation["quality_score"] || evaluation[:quality_score] || 3
+
+    audit_status = recommendation_to_status(recommendation)
+    audit_score = min(10, max(0, quality_score * 2))
+
+    reasoning =
+      evaluation["reasoning"] || evaluation[:reasoning] || "LLM audit completed"
 
     result = %{
       name: skill.name,
-      audit_status: status,
-      audit_score: score,
+      audit_status: audit_status,
+      audit_score: audit_score,
       audited_at: DateTime.utc_now() |> DateTime.to_iso8601(),
       audit_reasoning: reasoning
     }
 
-    Acs.Skills.Store.write_audit_fields(skill.name, result)
+    Store.write_audit_fields(skill.name, result)
     result
   end
 
-  def run_checks(skill) do
-    [
-      has_name: if(skill.name && skill.name != "", do: :ok, else: {:fail, "Missing name"}),
-      has_description:
-        if(skill.description && String.trim(skill.description) != "",
-          do: :ok,
-          else: {:fail, "Missing description"}
-        ),
-      has_tags:
-        if(skill.tags && length(skill.tags) >= @min_tags,
-          do: :ok,
-          else: {:fail, "Need at least #{@min_tags} tag"}
-        ),
-      has_content:
-        if(skill.content && String.length(String.trim(skill.content)) >= @min_content_length,
-          do: :ok,
-          else: {:fail, "Content too short (< #{@min_content_length} chars)"}
-        ),
-      description_not_name:
-        if(skill.description && skill.name &&
-             String.downcase(skill.description) != String.downcase(skill.name),
-           do: :ok,
-           else: {:warn, "Description duplicates name"}
-        ),
-      description_not_content:
-        if(skill.description && skill.content &&
-             String.trim(skill.description) !=
-               String.slice(String.trim(skill.content), 0, String.length(String.trim(skill.description))),
-           do: :ok,
-           else: {:warn, "Description appears to duplicate start of content"}
-        )
-    ]
-  end
-
-  defp compute_score(checks) do
-    scores =
-      Enum.map(checks, fn
-        {_, :ok} -> 10
-        {_, {:warn, _}} -> 5
-        {_, {:fail, _}} -> 0
-      end)
-
-    if scores == [], do: 0, else: div(Enum.sum(scores), length(scores))
-  end
-
-  defp status_from_score(score) when score >= 8, do: "ok"
-  defp status_from_score(score) when score >= 4, do: "needs_improvement"
-  defp status_from_score(_), do: "failing"
-
-  defp format_reasoning(issues) do
-    case issues do
-      [] -> "All checks passed"
-      _ ->
-        issues
-        |> Enum.map(fn
-          {_, {:warn, msg}} -> msg
-          {_, {:fail, msg}} -> msg
-        end)
-        |> Enum.join("; ")
-    end
-  end
+  defp recommendation_to_status("ok"), do: "ok"
+  defp recommendation_to_status("failing"), do: "failing"
+  defp recommendation_to_status(_), do: "needs_improvement"
 end

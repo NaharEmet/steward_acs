@@ -57,6 +57,15 @@ defmodule Acs.Memory.Loader do
     end
   end
 
+  @doc "List memory files for a specific org vault directory."
+  def list_files_for_org(org) when is_binary(org) do
+    pattern = Path.join(Acs.Org.memory_dir(org), "**/*.{yaml,yml,md}")
+
+    pattern
+    |> Path.wildcard()
+    |> Enum.filter(&memory_file?/1)
+  end
+
   # Accept .yaml, .YAML, .yml, .YML, .md, .MD extensions.
   defp memory_file?(path) do
     ext = path |> Path.extname() |> String.downcase()
@@ -169,6 +178,33 @@ defmodule Acs.Memory.Loader do
       Enum.map(files, fn file_path ->
         case load_file(file_path) do
           {:ok, memory} -> {:valid, memory}
+          {:error, reason} -> {:invalid, file_path, reason}
+        end
+      end)
+
+    memories =
+      Enum.flat_map(results, fn
+        {:valid, m} -> [m]
+        _ -> []
+      end)
+
+    quarantined_info =
+      Enum.flat_map(results, fn
+        {:valid, _} -> []
+        {:invalid, f, reason} -> [{:quarantine, f, reason}]
+      end)
+
+    {:ok, memories, quarantined_info}
+  end
+
+  @doc "Load all memory files for a specific org."
+  def load_all_for_org(org) when is_binary(org) do
+    files = list_files_for_org(org)
+
+    results =
+      Enum.map(files, fn file_path ->
+        case load_file(file_path) do
+          {:ok, memory} -> {:valid, %{memory | org: org}}
           {:error, reason} -> {:invalid, file_path, reason}
         end
       end)

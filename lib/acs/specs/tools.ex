@@ -1,18 +1,11 @@
 defmodule Acs.Specs.Tools do
+  require Logger
+
   @moduledoc """
   MCP tool dispatchers for the Specs / Document System.
 
-  Implements 7 tools that wrap the Cognition API
-  (Entry, Loader, Search) and expose them as MCP-callable tools.
-
-  ## Tools
-
-    - `specs_get` — Load a single entry by app and path
-    - `query_specs` — Unified query: search, list, or find undocumented specs
-    - `specs_propose` — Create or update an entry (set status to proposed)
-    - `specs_approve` — Approve a proposed entry
-    - `specs_reject` — Soft-reject an entry (reverts to under_review)
-
+  Stores module specs AND shareable documents (project docs, marketing copy,
+  knowledge files, deliverables). See `priv/prompts/specs/instructions.txt`.
   """
 
   alias Acs.Abac
@@ -108,19 +101,54 @@ defmodule Acs.Specs.Tools do
       # Check for duplicates/similars
       {:ok, dedup_warnings} = check_deduplication(args["app"], args["path"], title)
 
-      case Loader.load(args["app"], args["path"]) do
-        {:ok, existing_entry} ->
-          result = propose_update(existing_entry, attrs)
-          wrap_with_warnings(result, dedup_warnings)
+      result =
+        case Loader.load(args["app"], args["path"]) do
+          {:ok, existing_entry} ->
+            result = propose_update(existing_entry, attrs)
+            maybe_generate_embeddings_async(args["app"], args["path"])
+            result
 
-        {:error, :not_found} ->
-          result = propose_new(args["app"], args["path"], attrs)
-          wrap_with_warnings(result, dedup_warnings)
+          {:error, :not_found} ->
+            result = propose_new(args["app"], args["path"], attrs)
+            maybe_generate_embeddings_async(args["app"], args["path"])
+            result
 
-        {:error, reason} ->
-          {:error, "Failed to load existing spec: #{inspect(reason)}"}
-      end
+          {:error, reason} ->
+            {:error, "Failed to load existing spec: #{inspect(reason)}"}
+        end
+
+      wrap_with_warnings(result, dedup_warnings)
     end
+  end
+
+  defp maybe_generate_embeddings_async(app, path) do
+    Task.start(fn ->
+      case Loader.load(app, path) do
+        {:ok, entry} ->
+          chunks = Acs.Specs.VectorSearch.chunk_entry(entry)
+
+          Enum.each(chunks, fn chunk ->
+            case Acs.Memory.Embedding.embed_text(chunk.text) do
+              {:ok, embedding} ->
+                Acs.Specs.VectorSearch.upsert_chunk(
+                  chunk.id,
+                  chunk.app,
+                  chunk.path,
+                  chunk.chunk_index,
+                  chunk.source,
+                  chunk.content,
+                  embedding
+                )
+
+              {:error, reason} ->
+                Logger.warning("[Tools] Failed to embed spec #{app}/#{path}: #{reason}")
+            end
+          end)
+
+        {:error, _} ->
+          :ok
+      end
+    end)
   end
 
   defp wrap_with_warnings({:ok, spec_map}, warnings) when warnings != [],
@@ -330,15 +358,23 @@ defmodule Acs.Specs.Tools do
 
       query && query != "" ->
         opts = build_search_opts(args)
+        mode = args["mode"] || "hybrid"
+        opts = Keyword.put(opts, :mode, mode)
 
         case Search.search(query, opts) do
           {:ok, entries} ->
             result =
               entries
               |> Abac.filter(ctx)
-              |> Enum.map(&Entry.to_map/1)
+              |> Enum.map(fn
+                %{__rag_chunk: true} = chunk ->
+                  chunk
 
-            {:ok, %{specs: result, count: length(result)}}
+                entry ->
+                  Entry.to_map(entry)
+              end)
+
+            {:ok, %{specs: result, count: length(result), mode: mode}}
 
           {:error, reason} ->
             {:error, "Search failed: #{inspect(reason)}"}

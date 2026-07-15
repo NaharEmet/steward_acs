@@ -42,7 +42,7 @@ defmodule Acs.LLM do
   @spec evaluate_memory(String.t(), map()) :: {:ok, map()} | {:error, atom() | String.t()}
   def evaluate_memory(memory_id, memory) when is_map(memory) do
     with {:ok, _} <- validate_required_fields(memory) do
-      do_evaluate(memory_id, memory)
+      do_evaluate_memory(memory_id, memory)
     end
   end
 
@@ -58,6 +58,21 @@ defmodule Acs.LLM do
 
   def evaluate_memory(invalid) do
     {:error, {:invalid_input, "memory must be a map, got: #{inspect(invalid)}"}}
+  end
+
+  @doc """
+  Evaluates a skill for actionability, completeness, and description quality.
+  """
+  @spec evaluate_skill(String.t(), map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def evaluate_skill(skill_name, skill) when is_map(skill) do
+    with :ok <- validate_skill_fields(skill) do
+      do_evaluate_skill(skill_name, skill)
+    end
+  end
+
+  def evaluate_skill(skill_name, invalid) do
+    {:error,
+     {:invalid_input, "skill_name #{skill_name}: skill must be a map, got: #{inspect(invalid)}"}}
   end
 
   # ── Validation ────────────────────────────────────────────────────────
@@ -82,7 +97,23 @@ defmodule Acs.LLM do
 
   # ── Core evaluation logic ───────────────────────────────────────────
 
-  defp do_evaluate(memory_id, memory) do
+  defp validate_skill_fields(skill) do
+    missing =
+      Enum.reduce([:name, :content], [], fn field, acc ->
+        case Map.get(skill, field) do
+          nil -> [field | acc]
+          "" -> [field | acc]
+          _ -> acc
+        end
+      end)
+
+    case missing do
+      [] -> :ok
+      _ -> {:error, {:missing_required_fields, Enum.reverse(missing)}}
+    end
+  end
+
+  defp do_evaluate_memory(memory_id, memory) do
     prompt =
       build_evaluation_prompt(memory, fetch_approved_memories_for_context(memory.scope_path))
 
@@ -92,6 +123,18 @@ defmodule Acs.LLM do
       {:error, :no_providers_enabled}
     else
       try_providers(memory_id, providers, prompt)
+    end
+  end
+
+  defp do_evaluate_skill(skill_name, skill) do
+    context = Acs.Skills.Store.context_for_audit(skill.name)
+    prompt = build_skill_evaluation_prompt(skill, context)
+    providers = get_enabled_providers()
+
+    if providers == [] do
+      {:error, :no_providers_enabled}
+    else
+      try_providers(skill_name, providers, prompt)
     end
   end
 
@@ -292,6 +335,35 @@ defmodule Acs.LLM do
   For recommendation, you MUST use exactly one of: "approve", "reject", or "human_review".
   """
 
+  @default_skill_evaluation_prompt """
+  You are a skill quality auditor. Evaluate skills for actionability and completeness.
+
+  {"skill": {{skill_json}}}
+
+  {"existing_skills": {{existing_skills_json}}}
+
+  Respond ONLY with valid JSON. Fields: quality_score(1-5), description_quality(1-5), is_actionable(bool), recommendation("ok"|"needs_improvement"|"failing"), reasoning, improvements, suggested_description
+  """
+
+  defp build_skill_evaluation_prompt(skill, context_skills) do
+    skill_json =
+      Jason.encode!(%{
+        name: skill.name || "",
+        description: skill.description || "",
+        content: skill.content || "",
+        tags: skill.tags || []
+      })
+
+    existing_skills_json = Jason.encode!(context_skills)
+
+    template =
+      Acs.Prompts.load("skills", "evaluate", default: @default_skill_evaluation_prompt)
+
+    template
+    |> String.replace("{{skill_json}}", skill_json)
+    |> String.replace("{{existing_skills_json}}", existing_skills_json)
+  end
+
   defp build_evaluation_prompt(memory, context_memories) do
     memory_json =
       Jason.encode!(%{
@@ -309,15 +381,20 @@ defmodule Acs.LLM do
   end
 
   defp load_prompt_template do
-    case Application.get_env(:steward_acs, :memory_evaluation_prompt_path) do
-      nil -> @default_evaluation_prompt
-      path ->
-        case File.read(path) do
-          {:ok, content} -> content
-          {:error, reason} ->
-            Logger.warning("[Acs.LLM] Failed to read prompt file #{path}: #{reason}. Using default.")
-            @default_evaluation_prompt
-        end
+    env_override = Application.get_env(:steward_acs, :memory_evaluation_prompt_path)
+
+    if is_binary(env_override) and env_override != "" do
+      case File.read(env_override) do
+        {:ok, content} -> content
+        {:error, reason} ->
+          Logger.warning(
+            "[Acs.LLM] Failed to read prompt file #{env_override}: #{reason}. Using default."
+          )
+
+          Acs.Prompts.load("memory", "evaluate", default: @default_evaluation_prompt)
+      end
+    else
+      Acs.Prompts.load("memory", "evaluate", default: @default_evaluation_prompt)
     end
   end
 

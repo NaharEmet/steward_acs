@@ -19,7 +19,19 @@ defmodule Acs.Specs.Loader do
   2. Application config `:steward_acs, Acs.Specs.Loader, :specs_path`
   3. Default: `../../../acs/specs` relative to ACS app dir
   """
-  def specs_path do
+  def specs_path(org \\ nil)
+
+  def specs_path(org) when is_binary(org) do
+    base =
+      System.get_env("SPECS_PATH") ||
+        Application.get_env(:steward_acs, Acs.Specs.Loader, [])
+        |> Keyword.get(:specs_path) ||
+        default_specs_path()
+
+    tenant_path(base, org)
+  end
+
+  def specs_path(nil) do
     base =
       System.get_env("SPECS_PATH") ||
         Application.get_env(:steward_acs, Acs.Specs.Loader, [])
@@ -287,7 +299,7 @@ defmodule Acs.Specs.Loader do
   end
 
   # Convert a .ex file path to module name + spec path
-  defp file_to_module_path(file_path) do
+  def file_to_module_path(file_path) do
     # Extract the path relative to lib/ and strip .ex
     parts = file_path |> Path.rootname() |> Path.split()
 

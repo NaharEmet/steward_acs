@@ -21,7 +21,6 @@ defmodule AcsWeb do
       use Phoenix.Controller, formats: [:html]
 
       import Plug.Conn
-      use Gettext, backend: AcsWeb.Gettext
 
       unquote(verified_routes())
     end

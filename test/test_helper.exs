@@ -9,6 +9,10 @@ File.mkdir_p!(Path.join(tmp_dir, "test_acs_memory"))
 
 {:ok, _} = Application.ensure_all_started(:steward_acs)
 
+unless Acs.Memory.Embedding.available?() do
+  ExUnit.configure(exclude: [needs_ollama: true])
+end
+
 Ecto.Migrator.run(Acs.Repo, Application.app_dir(:steward_acs, "priv/repo/migrations"), :up,
   all: true
 )

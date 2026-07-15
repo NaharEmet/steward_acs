@@ -1,23 +1,30 @@
 defmodule Acs.Specs.Search do
   @moduledoc """
-  Full-text search across cognition spec entries.
+  Search across cognition spec entries.
 
-  Provides simple in-memory substring matching over loaded spec entries.
-  Scoring is based on which fields match the query terms, with title
-  matches weighted highest and constraint matches weighted lowest.
+  Supports three modes:
+  - `"keyword"` (default): in-memory substring matching with weighted scoring
+  - `"semantic"`: vector search via embeddings for meaning-based retrieval
+  - `"hybrid"`: combines keyword and semantic scores
+
+  For semantic/hybrid modes, results include chunked content with source/origin
+  provenance for RAG (Retrieval Augmented Generation).
   """
+
+  require Logger
 
   alias Acs.Specs.Loader
 
   @max_results 20
 
   @doc """
-  Search across all loaded spec entries. Returns `{:ok, [%Entry{}]}`.
+  Search across all loaded spec entries. Returns `{:ok, [%Entry{}]}` or `{:ok, [%{chunk_map}]}`.
 
   ## Options
     * `:app` — Filter by app (string or nil)
     * `:status` — Filter by status (string or nil)
     * `:limit` — Max results (default: 20)
+    * `:mode` — "keyword" (default), "semantic", or "hybrid"
   """
   def search(query, opts \\ [])
 
@@ -25,6 +32,16 @@ defmodule Acs.Specs.Search do
   def search("", _opts), do: {:ok, []}
 
   def search(query, opts) do
+    mode = Keyword.get(opts, :mode, "hybrid")
+
+    case mode do
+      "semantic" -> search_semantic(query, opts)
+      "hybrid" -> search_hybrid(query, opts)
+      _ -> search_keyword(query, opts)
+    end
+  end
+
+  defp search_keyword(query, opts) do
     app = opts[:app]
     status_filter = opts[:status]
     limit = opts[:limit] || @max_results
@@ -46,6 +63,89 @@ defmodule Acs.Specs.Search do
       {:ok, results}
     end
   end
+
+  defp search_semantic(query, opts) do
+    limit = opts[:limit] || @max_results
+    app = opts[:app]
+
+    case Acs.Specs.VectorSearch.search(query, limit: limit, app: app) do
+      {:ok, results} ->
+        enriched = Enum.map(results, &enrich_rag_result/1)
+        {:ok, enriched}
+
+      {:error, reason} ->
+        Logger.warning("[Specs.Search] Semantic search unavailable: #{reason}")
+        {:ok, []}
+    end
+  end
+
+  defp search_hybrid(query, opts) do
+    limit = opts[:limit] || @max_results
+    app = opts[:app]
+
+    keyword_opts = Keyword.put(opts, :mode, "keyword")
+    {:ok, keyword_results} = search_keyword(query, keyword_opts)
+
+    keyword_ids =
+      keyword_results
+      |> Enum.map(fn e -> "#{e.app}/#{e.id}" end)
+      |> MapSet.new()
+
+    case Acs.Specs.VectorSearch.search(query, limit: limit * 2, app: app) do
+      {:ok, semantic_results} ->
+        max_keyword_score = if keyword_results == [], do: 0.0, else: 1.0
+
+        keyword_scored =
+          keyword_results
+          |> Enum.with_index()
+          |> Enum.map(fn {entry, idx} ->
+            score = max_keyword_score - (idx / (length(keyword_results) + 1)) * 0.3
+            %{type: :entry, entry: entry, score: score}
+          end)
+
+        semantic_scored =
+          semantic_results
+          |> Enum.map(fn result ->
+            id = "#{result.app}/#{result.path}"
+            score_boost = if MapSet.member?(keyword_ids, id), do: 0.2, else: 0.0
+            %{type: :chunk, chunk: result, score: result.similarity + score_boost}
+          end)
+
+        merged =
+          (keyword_scored ++ semantic_scored)
+          |> Enum.sort_by(& &1.score, :desc)
+          |> Enum.take(limit)
+
+        enriched =
+          Enum.map(merged, fn
+            %{type: :entry, entry: entry} ->
+              entry
+
+            %{type: :chunk, chunk: chunk} ->
+              enrich_rag_result(chunk)
+          end)
+
+        {:ok, enriched}
+
+      {:error, _reason} ->
+        {:ok, keyword_results}
+    end
+  end
+
+  defp enrich_rag_result(%{app: app, path: path, chunk_index: idx, source: source, content: content, similarity: sim}) do
+    %{
+      __rag_chunk: true,
+      app: app,
+      path: path,
+      chunk_index: idx,
+      source: source || "#{app}/#{path}",
+      content: content,
+      similarity: Float.round(sim, 4),
+      context: "Spec: #{app}/#{path} | Source: #{source || "#{app}/#{path}"} | Section #{idx}"
+    }
+  end
+
+  defp enrich_rag_result(_), do: nil
 
   # Tokenize a query string into lowercase words.
   defp tokenize(query) do

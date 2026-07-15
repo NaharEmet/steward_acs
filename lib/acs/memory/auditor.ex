@@ -7,14 +7,16 @@ defmodule Acs.Memory.Auditor do
   that have passed their cooling-off period. Each memory goes through:
   1. Cooling-off check (skip if created_at < 30s ago)
   2. Parse error skip (skip if status is parse_error)
-   3. Pre-filter rules (auto-generated task feedback templates, test data patterns, 
+  3. Pre-filter rules (auto-generated task feedback templates, test data patterns, 
       content length, empty scope, title==content, duplicates)
   4. LLM evaluation with context from same-scope approved memories
   5. Decision: approve / reject / human_review
   6. DB update via Indexer
 
-  Supports max 2 concurrent LLM evaluations and retries failed ones up to 3 times
-   with exponential backoff (2s, 5s, 15s).
+  Concurrent LLM evaluations controlled by `AUDITOR_MAX_CONCURRENCY` (default 20).
+  Provider rate limiters naturally cap actual throughput — the NIM limit of 40 req/min
+  is the binding constraint, so higher concurrency just absorbs response time variance.
+  Retries failed ones up to 3 times with exponential backoff (2s, 5s, 15s).
   """
 
   use GenServer
@@ -31,8 +33,11 @@ defmodule Acs.Memory.Auditor do
   # Cooling-off period: 30 seconds
   @cooling_off_seconds 30
 
-  # Max concurrent LLM evaluations via Task.async_stream
-  @max_concurrency 2
+  # Max concurrent LLM evaluations via Task.async_stream.
+  # Provider rate limiters (NIM: 40/min, Mimo: 100/min) are the binding constraint,
+  # so this should be set high enough to keep the pipeline saturated under variance.
+  # Configurable via AUDITOR_MAX_CONCURRENCY env var.
+  @default_max_concurrency 20
 
   # Retry configuration
   @max_retries 3
@@ -140,16 +145,18 @@ defmodule Acs.Memory.Auditor do
     proposed_memories = fetch_auditable_memories()
 
     Logger.info(
-      "[Acs.Memory.Auditor] Found #{length(proposed_memories)} memories to audit (batch size: #{@max_concurrency} concurrent)"
+      "[Acs.Memory.Auditor] Found #{length(proposed_memories)} memories to audit (concurrency: #{audit_max_concurrency()})"
     )
 
     if proposed_memories == [] do
       :ok
     else
+      max_conc = audit_max_concurrency()
+
       # Process with max concurrency via Task.async_stream
       proposed_memories
       |> Task.async_stream(fn memory -> audit_memory_with_retry(memory) end,
-        max_concurrency: @max_concurrency,
+        max_concurrency: max_conc,
         timeout: :infinity
       )
       |> Enum.each(fn
@@ -308,6 +315,10 @@ defmodule Acs.Memory.Auditor do
             {:error, reason}
         end
     end
+  end
+
+  defp audit_max_concurrency do
+    Application.get_env(:steward_acs, :auditor_max_concurrency, @default_max_concurrency)
   end
 
   # ── Config-driven pre-filter helpers ─────────────────────────────────

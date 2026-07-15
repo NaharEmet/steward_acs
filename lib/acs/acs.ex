@@ -12,7 +12,6 @@ defmodule Acs.Acs do
   alias Acs.Acs.FileLock
   alias Acs.Acs.AgentStatus
   alias Acs.Acs.Cache
-  alias Acs.Acs.Time
 
   require Logger
 
@@ -329,20 +328,20 @@ defmodule Acs.Acs do
   Gets the current time offset in seconds.
   """
   def get_time_offset do
-    Time.get_time_offset()
+    Cache.get_time_offset()
   end
 
   @doc """
   Sets the time offset in seconds and persists it.
   """
   def set_time_offset(seconds) when is_integer(seconds) do
-    Time.set_time_offset(seconds)
+    Cache.set_time_offset(seconds)
   end
 
   @doc """
   Returns the current time adjusted by the configured offset.
   """
   def adjusted_now do
-    Time.adjusted_now()
+    Cache.get_time_offset()
   end
 end

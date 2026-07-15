@@ -1,3 +1,16 @@
+x-syncthing-entrypoint: &syncthing_entrypoint
+  - sh
+  - -c
+  - "chown 1000:1000 /var/syncthing/config /var/syncthing/vaults && exec /bin/syncthing"
+
+x-syncthing-base: &syncthing_base
+  image: syncthing/syncthing:latest
+  user: root
+  restart: unless-stopped
+  expose:
+    - "8384"
+  entrypoint: *syncthing_entrypoint
+
 services:
   caddy:
     image: caddy:2-alpine
@@ -38,6 +51,7 @@ services:
       PORT: "4001"
       REPO_ADAPTER: sqlite
       DATABASE_PATH: /data/steward.sqlite
+      ORGS_FILE: /data/orgs.yaml
       SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
       COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT}"
       MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
@@ -53,6 +67,9 @@ services:
       ACS_USERNAME: "${ACS_USERNAME:-admin}"
       ACS_PASSWORD: "${ACS_PASSWORD:?Set ACS_PASSWORD}"
       ACS_PROJECT_NAME: Bhutan
+      MULTI_TENANT: "true"
+      ACS_ORG_NAME: "${ACS_ORG_NAME:-default}"
+      BASE_DOMAIN: stewardacs.xyz
       MIMO_API_KEY: "${MIMO_API_KEY:-}"
       NIM_API_KEY: "${NIM_API_KEY:-}"
       MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
@@ -61,13 +78,13 @@ services:
       OPENAI_MODEL: "${OPENAI_MODEL:-}"
       ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-}"
       PHX_HOST: "prod.stewardacs.xyz"
-      OBSIDIAN_VAULT_PATH: /obsidian
+      OBSIDIAN_VAULT_PATH: /vaults
       MEMORY_STORE: obsidian
       MEMORY_EVALUATION_PROMPT_PATH: /app/priv/evaluation_prompt/evaluate.txt
       META_HARNESS_ENABLED: "${META_HARNESS_ENABLED:-false}"
     volumes:
       - acs_data:/data
-      - obsidian_vault:/obsidian
+      - vaults:/vaults
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4001/mcp/health"]
       interval: 30s
@@ -75,28 +92,55 @@ services:
       retries: 3
       start_period: 15s
 
-  syncthing:
-    image: syncthing/syncthing:latest
-    container_name: steward_syncthing
-    hostname: steward_acs
-    user: root
-    restart: unless-stopped
+  syncthing_default:
+    <<: *syncthing_base
+    container_name: syncthing_default
+    hostname: syncthing_default
     ports:
       - "127.0.0.1:8384:8384"
       - "22000:22000"
       - "21027:21027/udp"
     volumes:
-      - syncthing_config:/var/syncthing/config
-      - obsidian_vault:/var/syncthing/vault
+      - syncthing_config_default:/var/syncthing/config
+      - vaults:/var/syncthing/vaults
     environment:
-      STGUIAPIKEY: ${STGUIAPIKEY}
-    entrypoint:
-      - sh
-      - -c
-      - "chown 1000:1000 /var/syncthing/config /var/syncthing/vault && exec /bin/syncthing"
+      STGUIAPIKEY: ${SYNCTHING_DEFAULT_API_KEY:-${STGUIAPIKEY}}
+
+  syncthing_prod:
+    <<: *syncthing_base
+    container_name: syncthing_prod
+    hostname: syncthing_prod
+    volumes:
+      - syncthing_config_prod:/var/syncthing/config
+      - vaults:/var/syncthing/vaults
+    environment:
+      STGUIAPIKEY: ${SYNCTHING_PROD_API_KEY:?Set SYNCTHING_PROD_API_KEY}
+
+  syncthing_fsgbhutan:
+    <<: *syncthing_base
+    container_name: syncthing_fsgbhutan
+    hostname: syncthing_fsgbhutan
+    volumes:
+      - syncthing_config_fsgbhutan:/var/syncthing/config
+      - vaults:/var/syncthing/vaults
+    environment:
+      STGUIAPIKEY: ${SYNCTHING_FSGBHUTAN_API_KEY:?Set SYNCTHING_FSGBHUTAN_API_KEY}
+
+  syncthing_safetyconnect:
+    <<: *syncthing_base
+    container_name: syncthing_safetyconnect
+    hostname: syncthing_safetyconnect
+    volumes:
+      - syncthing_config_safetyconnect:/var/syncthing/config
+      - vaults:/var/syncthing/vaults
+    environment:
+      STGUIAPIKEY: ${SYNCTHING_SAFETYCONNECT_API_KEY:?Set SYNCTHING_SAFETYCONNECT_API_KEY}
 
 volumes:
   acs_data:
   caddy_data:
-  obsidian_vault:
-  syncthing_config:
+  vaults:
+  syncthing_config_default:
+  syncthing_config_prod:
+  syncthing_config_fsgbhutan:
+  syncthing_config_safetyconnect:

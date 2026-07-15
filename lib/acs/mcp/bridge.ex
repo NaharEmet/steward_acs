@@ -166,7 +166,7 @@ defmodule Acs.MCP.Bridge do
        when is_map(result) and is_binary(api_key) do
     if result["status"] == "ok" and result["org_id"] and result["key_prefix"] do
       ensure_session_table()
-      session_id = "sess_#{random_string(16)}"
+      session_id = "sess_#{Ecto.UUID.generate() |> String.replace("-", "")}"
 
       session = %{
         org_id: result["org_id"],
@@ -188,12 +188,6 @@ defmodule Acs.MCP.Bridge do
   end
 
   defp maybe_store_session(_tool_name, result, _api_key), do: result
-
-  defp random_string(length) do
-    :crypto.strong_rand_bytes(length)
-    |> Base.url_encode64(padding: false)
-    |> binary_part(0, length)
-  end
 
   # --- Private ---
 

@@ -228,63 +228,6 @@ defmodule Acs.MCP.Protocol do
     {:ok, success_response(id, %{})}
   end
 
-  # OpenCode startup methods — return empty/success responses to avoid "Method not found" errors
-  defp handle_request(
-         id,
-         "config.providers",
-         _params,
-         _agent_role,
-         _agent_org_id,
-         _agent_permissions,
-         _agent_allowed_teams,
-         _agent_allowed_projects,
-         _agent_identity
-       ) do
-    {:ok, success_response(id, %{"providers" => []})}
-  end
-
-  defp handle_request(
-         id,
-         "provider.list",
-         _params,
-         _agent_role,
-         _agent_org_id,
-         _agent_permissions,
-         _agent_allowed_teams,
-         _agent_allowed_projects,
-         _agent_identity
-       ) do
-    {:ok, success_response(id, %{"providers" => []})}
-  end
-
-  defp handle_request(
-         id,
-         "app.agents",
-         _params,
-         _agent_role,
-         _agent_org_id,
-         _agent_permissions,
-         _agent_allowed_teams,
-         _agent_allowed_projects,
-         _agent_identity
-       ) do
-    {:ok, success_response(id, %{"agents" => []})}
-  end
-
-  defp handle_request(
-         id,
-         "config.get",
-         _params,
-         _agent_role,
-         _agent_org_id,
-         _agent_permissions,
-         _agent_allowed_teams,
-         _agent_allowed_projects,
-         _agent_identity
-       ) do
-    {:ok, success_response(id, %{})}
-  end
-
   defp handle_request(
          id,
          method,

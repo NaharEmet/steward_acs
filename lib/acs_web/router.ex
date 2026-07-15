@@ -40,7 +40,10 @@ defmodule AcsWeb.Router do
 
     live_session :acs,
       session: {AcsWeb.UserAuth, :fetch_user_token, []},
-      on_mount: [{AcsWeb.UserAuth, :ensure_authenticated}] do
+      on_mount: [
+        {AcsWeb.UserAuth, :assign_org},
+        {AcsWeb.UserAuth, :ensure_authenticated}
+      ] do
       live "/", AcsLive.Index, :index
       live "/tools", AcsLive.Tools, :index
       live "/tools/requests", AcsLive.ToolRequests, :index
@@ -48,12 +51,6 @@ defmodule AcsWeb.Router do
       live "/specs", AcsLive.SpecsLive, :index
       live "/skills", AcsLive.SkillsLive, :index
       live "/error-traces", AcsLive.ErrorTracesLive, :index
-    end
-  end
-
-  if Application.compile_env(:steward_acs, :dev_routes, false) do
-    scope "/dev" do
-      pipe_through [:browser, :localhost_only]
     end
   end
 

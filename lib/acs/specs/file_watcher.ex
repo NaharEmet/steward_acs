@@ -26,7 +26,12 @@ defmodule Acs.Specs.FileWatcher do
 
   @impl true
   def init(_opts) do
-    dir = Acs.Specs.Loader.specs_path()
+    dir =
+      if Acs.Org.multi_tenant?() do
+        Acs.Org.vault_watch_root()
+      else
+        Acs.Specs.Loader.specs_path()
+      end
 
     case File.mkdir_p(dir) do
       :ok ->

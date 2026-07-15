@@ -89,6 +89,32 @@ defmodule Acs.Skills.Store do
     end
   end
 
+  def context_for_audit(exclude_name, limit \\ 5) do
+    list_skills()
+    |> Enum.reject(fn meta -> meta["name"] == exclude_name end)
+    |> Enum.take(limit)
+    |> Enum.map(fn meta ->
+      case get_skill(meta["name"]) do
+        nil -> nil
+        skill -> %{name: skill.name, description: skill.description, tags: skill.tags}
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  def skill_dir(org) when is_binary(org) do
+    obsidian_path = Application.get_env(:steward_acs, :obsidian_vault_path)
+
+    base =
+      if is_binary(obsidian_path) and obsidian_path != "" do
+        Path.join(obsidian_path, "skills")
+      else
+        Path.join(Application.app_dir(:steward_acs), @builtin_dir)
+      end
+
+    tenant_dir(base, org)
+  end
+
   defp builtin_dir, do: Path.join(Application.app_dir(:steward_acs), @builtin_dir)
 
   defp search_dirs do

@@ -2,26 +2,6 @@ import Config
 
 config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
 
-# Load .env file at runtime — must happen before any OTP apps start
-# (needed for ENCRYPTION_KEY which external apps' vault/encryption reads at init)
-if File.exists?(".env") do
-  File.read!(".env")
-  |> String.split("\n")
-  |> Enum.each(fn line ->
-    line = String.trim(line)
-
-    if String.length(line) > 0 and not String.starts_with?(line, "#") do
-      case String.split(line, "=", parts: 2) do
-        [key, value] ->
-          System.put_env(String.trim(key), String.trim(value))
-
-        _ ->
-          :ok
-      end
-    end
-  end)
-end
-
 config :steward_acs, Acs.Repo,
   database: System.get_env("DATABASE_PATH") || Path.expand("../../var/acs.sqlite", __DIR__),
   pool_size: 5,
@@ -45,10 +25,6 @@ config :steward_acs, AcsWeb.Endpoint,
   watchers: [],
   live_view: [signing_salt: signing_salt],
   secret_key_base: secret_key_base
-
-config :steward_acs, Acs.MCP.Server,
-  enabled: true,
-  transport: :http
 
 config :logger, level: :info
 

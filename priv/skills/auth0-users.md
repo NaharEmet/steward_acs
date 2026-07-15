@@ -5,6 +5,8 @@ audit_status: ok
 audited_at: 2026-07-05T11:19:22.723653Z
 description: Create Auth0 users for Claude MCP Connectors on prod ACS
 name: auth0-users
+scope_paths: ["guides/deployment", "lib/acs_web", "auth"]
+when_to_use: When setting up OAuth users for Claude Connectors on production ACS
 tags: ["auth0", "oauth", "users", "admin", "connectors"]
 ---
 

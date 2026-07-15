@@ -1,0 +1,21 @@
+orgs:
+  default:
+    name: Default
+    slug: default
+    subdomain: default
+    plan: free
+  fsgbhutan:
+    name: FSG Bhutan
+    slug: fsgbhutan
+    subdomain: fsgbhutan
+    plan: free
+  prod:
+    name: Production
+    slug: prod
+    subdomain: prod
+    plan: free
+  safetyconnect:
+    name: SafetyConnect
+    slug: safetyconnect
+    subdomain: safetyconnect
+    plan: free

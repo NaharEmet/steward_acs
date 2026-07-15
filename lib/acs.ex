@@ -13,7 +13,7 @@ defmodule Acs do
   alias Acs.Acs.Cache
   alias Acs.Acs.Similarity
   alias Acs.Memory.Guidance
-  alias Acs.Cluster, as: Org
+  alias Acs.Org, as: Org
 
   @doc false
   def broadcast(event, payload) do

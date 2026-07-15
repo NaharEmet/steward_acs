@@ -13,7 +13,8 @@ defmodule Acs.MCP.Tools.QueryAgent do
   - `team` — team scope filter
   - `project` — project scope filter
   - `content_query` — free-text search string for memories and documents
-  - `document_type` — document type filter (policy, process, guideline, reference, spec)
+  - `document_type` — document type filter (spec, knowledge, project, marketing, deliverable, policy, process, guideline, reference)
+  - `status` — memory status filter (default: approved; use "all" for no filter)
   - `limit` — max results per category (default 10)
   - `include_documents` — whether to search documents too (default true)
   - `include_agent_status` — whether to include agent presence (default true)
@@ -43,6 +44,7 @@ defmodule Acs.MCP.Tools.QueryAgent do
   defp search_memories(args, abac_opts, limit) do
     query = args["content_query"]
     kind = args["kind"]
+    status = args["status"]
     team = args["team"]
     project = args["project"]
 
@@ -50,6 +52,7 @@ defmodule Acs.MCP.Tools.QueryAgent do
       abac_opts
       |> Keyword.merge(limit: limit)
       |> maybe_put(:kind, kind)
+      |> maybe_put(:status, status)
 
     case {query, team, project} do
       {q, nil, nil} when is_binary(q) and q != "" ->

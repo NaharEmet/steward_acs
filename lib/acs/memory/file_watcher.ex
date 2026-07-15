@@ -23,7 +23,7 @@ defmodule Acs.Memory.FileWatcher do
 
   @impl true
   def init(_opts) do
-    dir = Acs.Memory.Loader.memory_dir()
+    dir = Acs.Org.vault_watch_root()
 
     case File.mkdir_p(dir) do
       :ok ->
@@ -115,7 +115,7 @@ defmodule Acs.Memory.FileWatcher do
 
     Task.start(fn ->
       try do
-        case Acs.Memory.Indexer.upsert_memory_file(path) do
+        case Acs.Memory.Indexer.upsert_memory_file(path, org: Acs.Org.org_from_vault_path(path)) do
           {:ok, memory} ->
             Logger.info("[Memory.FileWatcher] Upserted: #{memory.id} (#{path})")
 

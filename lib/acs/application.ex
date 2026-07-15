@@ -49,7 +49,7 @@ defmodule Acs.Application do
     # to avoid background tasks conflicting with Ecto sandbox connections.
     children =
       if Application.get_env(:steward_acs, :start_background_workers, true) do
-        [Acs.Memory.Auditor, Acs.Memory.FileWatcher, Acs.Specs.FileWatcher, {Acs.Log.RetentionSweeper, []}, Acs.Skills.Auditor | children]
+        [Acs.Memory.Auditor, Acs.Memory.FileWatcher, Acs.Memory.VaultSweeper, Acs.Specs.FileWatcher, {Acs.Log.RetentionSweeper, []}, Acs.Skills.Auditor | children]
       else
         children
       end
@@ -80,6 +80,36 @@ defmodule Acs.Application do
 
           {:error, reason} ->
             Logger.warning("[Application] Embedding generation skipped: #{reason}")
+        end
+      end)
+
+      Task.start(fn ->
+        Process.sleep(200)
+        Acs.Skills.VectorSearch.create_table()
+
+        case Acs.Skills.VectorSearch.ensure_embeddings() do
+          {:ok, stats} ->
+            Logger.info(
+              "[Application] Skill embeddings: #{stats.embedded} new, #{stats.existing} existing, #{stats.failed} failed out of #{stats.total}"
+            )
+
+          {:error, reason} ->
+            Logger.warning("[Application] Skill embeddings skipped: #{reason}")
+        end
+      end)
+
+      Task.start(fn ->
+        Process.sleep(300)
+        Acs.Specs.VectorSearch.create_table()
+
+        case Acs.Specs.VectorSearch.ensure_embeddings() do
+          {:ok, stats} ->
+            Logger.info(
+              "[Application] Spec embeddings: #{stats.embedded} new, #{stats.existing} existing, #{stats.failed} failed out of #{stats.total_entries} entries / #{stats.total_chunks} chunks"
+            )
+
+          {:error, reason} ->
+            Logger.warning("[Application] Spec embeddings skipped: #{reason}")
         end
       end)
 

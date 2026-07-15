@@ -17,10 +17,7 @@ defmodule Acs.MCP.LogBackend do
     Acs.MCP.LogBackend,
     Acs.MCP.LogStoreServer,
     Acs.MCP.HTTPServer,
-    Acs.MCP.Server,
-    Acs.MCP.STDIServer,
-    Acs.MCP.Protocol,
-    Acs.MCP.STDIOServer
+    Acs.MCP.Protocol
   ]
 
   @impl true
@@ -64,21 +61,6 @@ defmodule Acs.MCP.LogBackend do
   @impl true
   def handle_event(_, state) do
     {:ok, state}
-  end
-
-  @impl true
-  def handle_info(_, state) do
-    {:ok, state}
-  end
-
-  @impl true
-  def code_change(_old, state, _extra) do
-    {:ok, state}
-  end
-
-  @impl true
-  def terminate(_reason, _state) do
-    :ok
   end
 
   # --- Private Functions ---

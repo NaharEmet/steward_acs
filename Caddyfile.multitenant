@@ -1,0 +1,81 @@
+# OAuth routes for Auth0 MCP connector integration
+(oauth_routes) {
+    # Serve OAUTH authorization server metadata (Claude discovers endpoints here)
+    @wk_oauth_auth path /.well-known/oauth-authorization-server*
+    handle @wk_oauth_auth {
+        header Content-Type "application/json"
+        respond `{"issuer":"https://dev-jw5wgp2b.us.auth0.com/","authorization_endpoint":"https://{host}/authorize","token_endpoint":"https://{host}/token","jwks_uri":"https://dev-jw5wgp2b.us.auth0.com/.well-known/jwks.json","response_types_supported":["code"],"response_modes_supported":["query"],"grant_types_supported":["authorization_code","refresh_token"],"scopes_supported":["mcp:tools"]}`
+    }
+
+    # Proxy OAuth token requests to Auth0's token endpoint
+    @token {
+        method POST
+        path /token
+    }
+    handle @token {
+        rewrite * /oauth/token
+        reverse_proxy https://dev-jw5wgp2b.us.auth0.com
+    }
+
+    # Redirect OAuth authorize to Auth0 with audience injected
+    @authz path /authorize*
+    handle @authz {
+        redir https://dev-jw5wgp2b.us.auth0.com{path}?audience=https%3A%2F%2Fprod.stewardacs.xyz%2Fmcp%2Fsse&{query}
+    }
+}
+
+# Wildcard TLS — Cloudflare origin cert must cover *.stewardacs.xyz and *.obsidian.stewardacs.xyz
+{$BASE_DOMAIN} {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+    import oauth_routes
+    reverse_proxy {$ACS_URL} {
+        flush_interval -1
+    }
+}
+
+*.{$BASE_DOMAIN} {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+    import oauth_routes
+    reverse_proxy {$ACS_URL} {
+        flush_interval -1
+    }
+}
+
+# Per-org Syncthing — each org gets its own container + API key + vault mount.
+# Add a block here when provisioning a new org via create_org.
+
+prod.obsidian.{$BASE_DOMAIN} {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+    reverse_proxy http://syncthing_prod:8384 {
+        flush_interval -1
+    }
+}
+
+fsgbhutan.obsidian.{$BASE_DOMAIN} {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+    reverse_proxy http://syncthing_fsgbhutan:8384 {
+        flush_interval -1
+    }
+}
+
+default.obsidian.{$BASE_DOMAIN} {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+    reverse_proxy http://syncthing_default:8384 {
+        flush_interval -1
+    }
+}
+
+safetyconnect.obsidian.{$BASE_DOMAIN} {
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+    reverse_proxy http://syncthing_safetyconnect:8384 {
+        flush_interval -1
+    }
+}
+
+# Legacy apex obsidian host
+obsidian.{$BASE_DOMAIN} {
+    basic_auth {
+        syncuser {$SYNC_BCRYPT_PASS}
+    }
+    reverse_proxy http://syncthing_default:8384
+}

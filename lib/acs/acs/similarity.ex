@@ -13,20 +13,20 @@ defmodule Acs.Acs.Similarity do
 
   def find_similar_tasks(title, file_paths) when is_list(file_paths) do
     try do
-      in_progress_tasks = Cache.get_tasks_by_status("in_progress")
+      org = Acs.Org.current()
+      in_progress_tasks = Cache.get_tasks_by_status("in_progress", org)
 
       if Enum.empty?(in_progress_tasks) do
         []
       else
         similar_by_name = find_similar_by_name(title, in_progress_tasks)
-        similar_by_files = find_similar_by_files(file_paths)
+        similar_by_files = find_similar_by_files(file_paths, org)
 
         (similar_by_name ++ similar_by_files)
         |> Enum.uniq_by(fn t -> t.id end)
       end
     rescue
       _e in _ ->
-        # Cache not available - return empty
         []
     end
   end
@@ -37,48 +37,19 @@ defmodule Acs.Acs.Similarity do
   end
 
   @doc """
-  Levenshtein distance between two strings.
-  """
-  def levenshtein("", ""), do: 0
-  def levenshtein(string, ""), do: String.length(string)
-  def levenshtein("", string), do: String.length(string)
-
-  def levenshtein(string1, string2) do
-    s1 = String.to_charlist(String.downcase(string1))
-    s2 = String.to_charlist(String.downcase(string2))
-    levenshtein_impl(s1, s2, length(s1), length(s2))
-  end
-
-  defp levenshtein_impl(s1, s2, len1, len2) do
-    # Initialize first row and column
-    row0 = Enum.to_list(0..len2)
-    matrix = [row0 | for(_ <- 1..len1, do: [0 | List.duplicate(0, len2)])]
-
-    Enum.reduce(1..len1, matrix, fn i, matrix ->
-      prev_row = Enum.at(matrix, i - 1)
-
-      Enum.reduce(1..len2, {matrix, 0}, fn j, {matrix, last_val} ->
-        cost = if Enum.at(s1, i - 1) == Enum.at(s2, j - 1), do: 0, else: 1
-        del = Enum.at(prev_row, j) + 1
-        ins = last_val + 1
-        sub = Enum.at(prev_row, j - 1) + cost
-        min_val = Enum.min([del, ins, sub])
-        cur_row = Enum.at(matrix, i)
-        new_row = List.update_at(cur_row, j, fn _ -> min_val end)
-        matrix = List.replace_at(matrix, i, new_row)
-        {matrix, min_val}
-      end)
-      |> elem(0)
-    end)
-    |> Enum.at(len1)
-    |> Enum.at(len2)
-  end
-
-  @doc """
-  Checks if two strings are similar (Levenshtein distance within threshold).
+  Checks if two strings are similar (Myers edit distance within threshold).
   """
   def similar_name?(name1, name2) do
-    levenshtein(String.downcase(name1), String.downcase(name2)) <= @name_distance_threshold
+    edit_dist =
+      String.myers_difference(String.downcase(name1), String.downcase(name2))
+      |> elem(1)
+      |> Enum.reduce(0, fn
+        {:del, s}, acc -> acc + String.length(s)
+        {:ins, s}, acc -> acc + String.length(s)
+        _, acc -> acc
+      end)
+
+    edit_dist <= @name_distance_threshold
   end
 
   @doc """
@@ -97,12 +68,12 @@ defmodule Acs.Acs.Similarity do
     end)
   end
 
-  defp find_similar_by_files(file_paths) when is_list(file_paths) do
-    all_tasks = Cache.get_all_tasks()
+  defp find_similar_by_files(file_paths, org) when is_list(file_paths) do
+    all_tasks = Cache.get_tasks_by_status("in_progress", org)
 
     Enum.filter(all_tasks, fn task ->
       if task.status == "in_progress" && task.id do
-        task_locks = Cache.get_file_locks_for_task(task.id)
+        task_locks = Cache.get_file_locks_for_task(task.id, org)
         task_files = Enum.map(task_locks, fn l -> l.file_path end)
 
         Enum.any?(file_paths, fn fp ->

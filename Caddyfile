@@ -1,5 +1,28 @@
-{$DOMAIN} {
+{$DOMAIN}, fsgbhutan.stewardacs.xyz, safetyconnect.stewardacs.xyz {
     tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+
+    # Serve OAUTH authorization server metadata
+    @wk_oauth_auth path /.well-known/oauth-authorization-server*
+    handle @wk_oauth_auth {
+        header Content-Type "application/json"
+        respond `{"issuer":"https://dev-jw5wgp2b.us.auth0.com/","authorization_endpoint":"https://fsgbhutan.stewardacs.xyz/authorize","token_endpoint":"https://fsgbhutan.stewardacs.xyz/token","jwks_uri":"https://dev-jw5wgp2b.us.auth0.com/.well-known/jwks.json","response_types_supported":["code"],"response_modes_supported":["query"],"grant_types_supported":["authorization_code","refresh_token"],"scopes_supported":["mcp:tools"]}`
+    }
+
+    # Proxy OAuth token requests to Auth0's token endpoint
+    @token {
+        method POST
+        path /token
+    }
+    handle @token {
+        rewrite * /oauth/token
+        reverse_proxy https://dev-jw5wgp2b.us.auth0.com
+    }
+
+    # Redirect OAuth authorize to Auth0 with audience injected
+    @authz path /authorize*
+    handle @authz {
+        redir https://dev-jw5wgp2b.us.auth0.com{path}?audience=https%3A%2F%2Fprod.stewardacs.xyz%2Fmcp%2Fsse&{query}
+    }
 
     # Single proxy — separate @mcp_sse handle breaks 401 JSON responses (shows as 500)
     reverse_proxy {$ACS_URL} {

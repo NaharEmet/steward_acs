@@ -3,21 +3,9 @@ defmodule Acs.Memory.EmbeddingTest do
 
   alias Acs.Memory.Embedding
 
-  setup do
-    {:ok, ollama_available: ollama_available?()}
-  end
-
-  setup :check_ollama
-
-  defp check_ollama(%{ollama_available: false, tags: %{needs_ollama: true}}) do
-    {:skip, "Ollama not available in this environment"}
-  end
-
-  defp check_ollama(_), do: :ok
-
   describe "embed_text/1" do
     @tag :needs_ollama
-    test "generates embedding for text", ctx do
+    test "generates embedding for text" do
       {:ok, embedding} = Embedding.embed_text("cache release ordering")
       assert is_list(embedding)
       assert embedding != []
@@ -25,7 +13,7 @@ defmodule Acs.Memory.EmbeddingTest do
     end
 
     @tag :needs_ollama
-    test "generates consistent embeddings for same text", ctx do
+    test "generates consistent embeddings for same text" do
       text = "test memory content"
 
       {:ok, embedding1} = Embedding.embed_text(text)
@@ -42,7 +30,7 @@ defmodule Acs.Memory.EmbeddingTest do
     end
 
     @tag :needs_ollama
-    test "different texts produce different embeddings", ctx do
+    test "different texts produce different embeddings" do
       {:ok, embedding1} = Embedding.embed_text("cache release ordering")
       {:ok, embedding2} = Embedding.embed_text("task assignment conflict")
 
@@ -57,7 +45,7 @@ defmodule Acs.Memory.EmbeddingTest do
 
   describe "embed_texts/1" do
     @tag :needs_ollama
-    test "generates embeddings for multiple texts", ctx do
+    test "generates embeddings for multiple texts" do
       texts = [
         "cache release ordering",
         "task assignment conflict",
@@ -148,21 +136,9 @@ defmodule Acs.Memory.EmbeddingTest do
   describe "error handling" do
     test "handles Ollama connection failure gracefully" do
       result = Embedding.embed_text("test")
+
       assert match?({:ok, _} when elem(result, 0) == :ok, result) or
                match?({:error, _}, result)
     end
-  end
-
-  defp ollama_available? do
-    url =
-      Application.get_env(:steward_acs, Acs.Memory.Embedding, [])
-      |> Keyword.get(:ollama_url, "http://localhost:11434")
-
-    case :httpc.request(:get, {String.to_charlist(url <> "/api/tags"), []}, [], []) do
-      {:ok, {{_version, 200, _reason}, _headers, _body}} -> true
-      _ -> false
-    end
-  rescue
-    _ -> false
   end
 end

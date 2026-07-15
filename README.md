@@ -111,7 +111,7 @@ Builds from the Dockerfile, runs with `MIX_ENV=dev` on port 4001 with SQLite.
 
 ### Remote
 
-See [stewardacs.xyz](https://stewardacs.xyz) for remote deployment guides — production setup with PostgreSQL, Caddy TLS, and domain configuration.
+See [guides/deployment.md](guides/deployment.md) for deployment styles (code dev, org memory, multi-tenant). For remote PostgreSQL + Caddy TLS, also see [stewardacs.xyz](https://stewardacs.xyz).
 
 **Important for SSE:** The `/mcp/sse` endpoint uses Server-Sent Events (long-lived streaming connections). Ensure your reverse proxy does not buffer or timeout these connections.
 
@@ -230,10 +230,14 @@ steward_acs/
 ├── test/
 ├── assets/
 ├── Dockerfile
-├── docker-compose.yml          # Local dev (SQLite, port 4001)
-├── docker-compose.remote.yml   # Remote prod (PostgreSQL, Caddy TLS)
-├── Caddyfile                   # TLS config for remote
-├── .env.remote                 # Remote env var template
+├── docker-compose.yml              # Local dev (SQLite, port 4001)
+├── docker-compose.remote.yml       # Remote prod (PostgreSQL, Caddy TLS)
+├── docker-compose.multitenant.yml  # Multi-tenant (subdomain isolation)
+├── docker-compose.cloudflare.yml   # Prod multi-tenant (stewardacs.xyz)
+├── Caddyfile                       # TLS config for remote / cloudflare
+├── Caddyfile.multitenant           # Wildcard + per-org Obsidian routes
+├── .env.remote                     # Remote env var template
+├── .env.multitenant                # Multi-tenant env var template
 └── mix.exs
 ```
 

@@ -13,7 +13,7 @@ defmodule Acs.MCP.Plugs.Strategies.Default do
            role: "admin",
            org_id: nil,
            permissions: nil,
-           agent_identity: Acs.Cluster.developer_name()
+           agent_identity: Acs.Org.developer_name()
          }}
 
       key && service_key_valid?(key) ->
@@ -31,7 +31,7 @@ defmodule Acs.MCP.Plugs.Strategies.Default do
            role: "admin",
            org_id: nil,
            permissions: nil,
-           agent_identity: Acs.Cluster.developer_name()
+           agent_identity: Acs.Org.developer_name()
          }}
 
       true ->

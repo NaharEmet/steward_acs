@@ -13,6 +13,7 @@ erl_crash.dump
 .env*
 !.env.example
 !.env.remote
+!.env.multitenant
 
 # ACS generated files (local, not committed)
 steward.env

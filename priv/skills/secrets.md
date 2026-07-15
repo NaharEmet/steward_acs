@@ -5,6 +5,8 @@ audit_status: ok
 audited_at: 2026-07-05T11:19:22.725162Z
 description: Managing secrets with pass (password-store)
 name: secrets
+scope_paths: ["guides/secrets", "guides/deployment", "config"]
+when_to_use: Before touching .env, deploying, or storing credentials — never commit secrets to git
 tags: ["secrets", "pass", "deploy"]
 ---
 

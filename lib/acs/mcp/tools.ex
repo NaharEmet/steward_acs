@@ -61,7 +61,8 @@ defmodule Acs.MCP.Tools do
     "generate_developer_key" => "acs_core",
     "list_developer_keys" => "acs_core",
     "revoke_developer_key" => "acs_core",
-    "create_user" => "acs_core"
+    "create_user" => "acs_core",
+    "create_org" => "acs_core"
   }
 
   def tool_category(name) do
@@ -83,7 +84,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "claim_work",
-        "Claim a task for an agent. Returns task status, task_id, and a guidance packet with relevant knowledge memory for context. Optionally pass scope_path for targeted guidance.",
+        "Claim a task for an agent. Returns task status, task_id, and a guidance packet with relevant knowledge memories, relevant_skills, and relevant_specs for context. Review relevant_skills (call skill_get) and relevant_specs (call specs_get) before starting. Optionally pass scope_path for targeted guidance.",
         %{
           "agent_id" => %{
             "type" => "string",
@@ -103,7 +104,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "release_work",
-        "Release a task lock and get a structured feedback prompt with a next_step tool template. The response tells you exactly what to call (submit_task_feedback) with params to submit learnings as knowledge memories.",
+        "Release a task lock. Then save skills/memories/specs, then submit_task_feedback last to formally close. Do not tell the user you're done until feedback is submitted.",
         %{
           "agent_id" => %{"type" => "string", "description" => "Your team member name."},
           "task_id" => %{"type" => "string"}
@@ -330,7 +331,7 @@ defmodule Acs.MCP.Tools do
           "status" => %{
             "type" => "string",
             "description" =>
-              "Filter by status: proposed, approved, rejected, stale, deprecated, archived"
+              "Filter by status (default: approved). Use 'all' for no filter. Values: proposed, approved, rejected, stale, deprecated, archived"
           },
           "limit" => %{"type" => "integer", "description" => "Max results"}
         },
@@ -390,7 +391,7 @@ defmodule Acs.MCP.Tools do
           },
           "document_type" => %{
             "type" => "string",
-            "description" => "Document type: policy, process, guideline, reference, spec"
+            "description" => "Document type: spec, knowledge, project, marketing, deliverable, policy, process, guideline, reference"
           },
           "limit" => %{
             "type" => "integer",
@@ -403,6 +404,11 @@ defmodule Acs.MCP.Tools do
           "include_agent_status" => %{
             "type" => "boolean",
             "description" => "Include agent presence (default true)"
+          },
+          "status" => %{
+            "type" => "string",
+            "description" =>
+              "Memory status filter (default: approved). Use 'all' for no filter. Values: proposed, approved, rejected, stale, deprecated, archived"
           }
         },
         []
@@ -410,19 +416,19 @@ defmodule Acs.MCP.Tools do
       # Specs Tools
       tool_def(
         "specs_get",
-        "Load a single spec entry by app and path. Specs contain structured documentation about modules.",
+        "Load a spec or document by app and path. Returns module specs (purpose, invariants, …) OR long-form documents (marketing copy, project briefs, knowledge files) depending on document_type. USE WHEN: before editing code, reading prior project output, or reviewing shared deliverables.",
         %{
           "app" => %{"type" => "string", "description" => "App name (e.g., 'my_app')"},
           "path" => %{
             "type" => "string",
-            "description" => "Spec path (e.g., 'engine/orchestrator')"
+            "description" => "Entry path (e.g. 'acs/memory/guidance' or 'documents/marketing/q3-launch')"
           }
         },
         ["app", "path"]
       ),
       tool_def(
         "query_specs",
-        "Query specs: search, list, or find undocumented. If `query` is provided, does full-text search. If `undocumented` is true, finds modules missing specs. Otherwise lists specs with optional filters.",
+        "Search specs and documents. Finds module specs, knowledge files, project docs, marketing copy, and other shareable artifacts. Hybrid search by default. Use `undocumented: true` only for code modules missing specs.",
         %{
           "query" => %{"type" => "string", "description" => "Search query text (optional)"},
           "app" => %{"type" => "string", "description" => "Optional app filter"},
@@ -431,19 +437,81 @@ defmodule Acs.MCP.Tools do
             "type" => "boolean",
             "description" => "Set to true to find modules without spec entries"
           },
-          "limit" => %{"type" => "integer", "description" => "Max results"}
+          "limit" => %{"type" => "integer", "description" => "Max results"},
+          "mode" => %{
+            "type" => "string",
+            "description" => "Search mode: 'hybrid' (keyword+vector/RAG, default), 'keyword' (substring), or 'semantic' (vector/RAG with source)",
+            "enum" => ["hybrid", "keyword", "semantic"]
+          }
         },
         []
       ),
       tool_def(
         "specs_propose",
-        "Create or update a spec entry. Sets status to 'proposed'. Includes deduplication warnings for similar entries.",
+        specs_propose_description(),
         %{
-          "app" => %{"type" => "string", "description" => "App name"},
-          "path" => %{"type" => "string", "description" => "Spec path"},
+          "app" => %{"type" => "string", "description" => "App or project name (e.g. steward_acs, acme-corp)"},
+          "path" => %{
+            "type" => "string",
+            "description" =>
+              "Entry path — module path (acs/memory/guidance) or document path (documents/marketing/campaign)"
+          },
           "title" => %{"type" => "string", "description" => "Human-readable title"},
-          "purpose" => %{"type" => "string", "description" => "Why this module exists"},
-          "content" => %{"type" => "string", "description" => "Full spec content"}
+          "document_type" => %{
+            "type" => "string",
+            "description" =>
+              "Document type: spec, knowledge, project, marketing, deliverable, policy, process, guideline, reference. Omit for structured module specs.",
+            "enum" => [
+              "spec",
+              "knowledge",
+              "project",
+              "marketing",
+              "deliverable",
+              "policy",
+              "process",
+              "guideline",
+              "reference"
+            ]
+          },
+          "purpose" => %{
+            "type" => "string",
+            "description" => "For module specs: why this module exists"
+          },
+          "invariants" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "description" => "Truths that must always hold"
+          },
+          "workflows" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "description" => "Expected call sequences / protocols"
+          },
+          "failure_modes" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "description" => "Known failure scenarios and handling"
+          },
+          "constraints" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "description" => "Non-goals, tradeoffs, limits"
+          },
+          "tags" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "description" => "Search tags"
+          },
+          "content" => %{
+            "type" => "string",
+            "description" =>
+              "Full markdown body — required for documents (marketing copy, project docs, long knowledge). Embed images as ![alt](url)."
+          },
+          "source" => %{
+            "type" => "string",
+            "description" => "Origin: file path, URL, or asset folder for attachments"
+          },
+          "project" => %{"type" => "string", "description" => "Project scope for ABAC filtering"}
         },
         ["app", "path"]
       ),
@@ -513,7 +581,7 @@ defmodule Acs.MCP.Tools do
       # Task Completion Feedback
       tool_def(
         "submit_task_feedback",
-        "Submit task feedback that auto-generates knowledge memories from your learnings. Use after completing a task to share discoveries with future agents.",
+        "Submit task feedback to formally close a completed task. Call this LAST — after release_work and after saving skills (skill_save), memories (save_memory), and specs (specs_propose). Auto-generates knowledge memories from your learnings.",
         %{
           "task_id" => %{"type" => "string", "description" => "The completed task ID"},
           "agent_id" => %{"type" => "string", "description" => "Your team member name (e.g., 'alice'). Used as your identity in the ACS."},
@@ -679,11 +747,16 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "skill_get",
-        "Retrieve skills. Pass `name` to get one skill, `search` to search, `tag` to filter by tag, or nothing to list all.",
+        "Retrieve skills — reusable workflow guides with step-by-step procedures. Pass `scope_path` to list skills for a code scope (same as generate_guidance_packet). Pass `name` for one skill, `search` to find by keywords, `tag` to filter, or nothing to get the full `catalog` with when_to_use hints. USE BEFORE: deployment, secrets, install, or any repeatable procedure.",
         %{
           "name" => %{
             "type" => "string",
             "description" => "Skill name to retrieve"
+          },
+          "scope_path" => %{
+            "type" => "string",
+            "description" =>
+              "Scope path (e.g. lib/acs/skills, guides/deployment) — returns skills available for this scope"
           },
           "search" => %{
             "type" => "string",
@@ -692,13 +765,19 @@ defmodule Acs.MCP.Tools do
           "tag" => %{
             "type" => "string",
             "description" => "Filter skills by tag"
+          },
+          "mode" => %{
+            "type" => "string",
+            "description" =>
+              "Search mode when using search: hybrid (keyword+vector, default), keyword, or semantic",
+            "enum" => ["hybrid", "keyword", "semantic"]
           }
         },
         []
       ),
       tool_def(
         "skill_save",
-        "Create or update a skill. Agents use this to store workflows, guides, and know-how for other agents.",
+        skill_save_description(),
         %{
           "name" => %{
             "type" => "string",
@@ -716,13 +795,23 @@ defmodule Acs.MCP.Tools do
           "description" => %{
             "type" => "string",
             "description" => "Short description of what this skill covers"
+          },
+          "when_to_use" => %{
+            "type" => "string",
+            "description" => "When agents should load this skill (one sentence)"
+          },
+          "scope_paths" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "description" =>
+              "Scope paths where this skill applies (e.g. guides/deployment, lib/acs/skills)"
           }
         },
         ["name", "content"]
       ),
       tool_def(
         "skill_audit_status",
-        "Run a quality audit on all skills and return results. Checks frontmatter completeness, content length, description quality, and tags.",
+        "Run LLM quality audit on all skills. Returns audit_status (ok/needs_improvement/failing), score, and reasoning per skill. Audit prompts are editable in priv/prompts/skills/evaluate.txt. Call after skill_save to verify quality.",
         %{},
         []
       ),
@@ -757,6 +846,16 @@ defmodule Acs.MCP.Tools do
           }
         },
         ["id"]
+      ),
+      tool_def(
+        "create_org",
+        "Provision a new organization with subdomain URL. Creates vault directory. Admin only. Multi-tenant mode required.",
+        %{
+          "name" => %{"type" => "string", "description" => "Display name (e.g. Acme Corp)"},
+          "slug" => %{"type" => "string", "description" => "URL slug (e.g. acme)"},
+          "subdomain" => %{"type" => "string", "description" => "Subdomain override (defaults to slug)"}
+        },
+        ["name", "slug"]
       ),
       tool_def(
         "create_user",
@@ -830,7 +929,8 @@ defmodule Acs.MCP.Tools do
     "generate_developer_key" => &AdminHandlers.generate_key/1,
     "list_developer_keys" => &AdminHandlers.list_keys/1,
     "revoke_developer_key" => &AdminHandlers.revoke_key/1,
-    "create_user" => &AdminHandlers.create_user/1
+    "create_user" => &AdminHandlers.create_user/1,
+    "create_org" => &AdminHandlers.create_org/1
   }
 
   defp dispatch_map do
@@ -1095,12 +1195,23 @@ defmodule Acs.MCP.Tools do
       "create_work" ->
         if Map.get(result, :status) == "claimed" do
           file_paths = Map.get(args, "file_paths", [])
-          lock_step = fn fp -> %{tool: "lock_file", prompt: "Lock file to prevent concurrent edits", params: %{agent_id: agent_id, task_id: task_id, file_path: fp}} end
-          lock_steps = if file_paths != [], do: [lock_step.(hd(file_paths)) | Enum.drop(file_paths, 1) |> Enum.map(lock_step)], else: []
-          [
-            %{tool: "skill_get", prompt: "Find relevant workflow guides for this task", params: %{search: Map.get(args, "title", "")}},
-            %{tool: "query_specs", prompt: "Check specs for the modules you'll be working on", params: %{query: Map.get(args, "title", "")}}
-          ] ++ lock_steps
+          guidance = Map.get(result, :guidance, %{})
+
+          lock_step = fn fp ->
+            %{
+              tool: "lock_file",
+              prompt: "Lock file to prevent concurrent edits",
+              params: %{agent_id: agent_id, task_id: task_id, file_path: fp}
+            }
+          end
+
+          lock_steps =
+            if file_paths != [],
+              do: Enum.map(file_paths, lock_step),
+              else: []
+
+          relevant_skill_steps(guidance, Map.get(args, "title", "")) ++
+            relevant_spec_steps(guidance) ++ lock_steps
         else
           [
             %{tool: "claim_work", prompt: "Claim the task to start working on it", params: %{agent_id: agent_id, task_id: task_id}},
@@ -1109,17 +1220,64 @@ defmodule Acs.MCP.Tools do
         end
 
       "claim_work" ->
-        [
-          %{tool: "lock_file", prompt: "Lock file to prevent concurrent edits", params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}},
-          %{tool: "generate_guidance_packet", prompt: "Get detailed guidance for the scope before starting", params: %{scope_path: "<scope_path>"}}
-        ]
+        guidance = Map.get(result, :guidance, %{})
+
+        relevant_skill_steps(guidance, "") ++
+          relevant_spec_steps(guidance) ++
+          [
+            %{
+              tool: "lock_file",
+              prompt: "Lock file to prevent concurrent edits",
+              params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}
+            },
+            %{
+              tool: "generate_guidance_packet",
+              prompt: "Get detailed guidance for the scope before starting",
+              params: %{scope_path: "<scope_path>"}
+            }
+          ]
 
       "release_work" ->
         [
-          %{tool: "submit_task_feedback", prompt: "Share learnings so other agents benefit — formally closes the task", params: %{task_id: task_id, agent_id: agent_id, learned_for_agents: "...", guidance_useful: true}},
-          %{tool: "specs_propose", prompt: "Document any module you changed that lacks a spec", params: %{app: "<app>", path: "<path>", title: "...", purpose: "..."}},
-          %{tool: "save_memory", prompt: "Save eternal truths you discovered during this task", params: %{kind: "learning", title: "...", content: "...", scope_path: "<scope_path>"}},
-          %{tool: "skill_save", prompt: "Create a reusable workflow guide if this task had a repeatable pattern", params: %{name: "...", content: "...", tags: ["..."]}}
+          %{
+            tool: "skill_save",
+            prompt:
+              "Followed a step-by-step workflow with the user? Save it now before feedback",
+            params: %{
+              name: "<kebab-case-name>",
+              content: "# Steps\n1. ...\n2. ...",
+              description: "One-line summary",
+              when_to_use: "When to load this skill",
+              scope_paths: ["<scope_path>"],
+              tags: ["workflow"]
+            }
+          },
+          %{
+            tool: "save_memory",
+            prompt: "Save eternal truths (principles/invariants) discovered during this task",
+            params: %{kind: "learning", title: "...", content: "...", scope_path: "<scope_path>"}
+          },
+          %{
+            tool: "specs_propose",
+            prompt: "Save shareable output — module spec, project doc, marketing copy, or knowledge file",
+            params: %{
+              app: "<app>",
+              path: "<path>",
+              title: "...",
+              document_type: "deliverable",
+              content: "..."
+            }
+          },
+          %{
+            tool: "submit_task_feedback",
+            prompt: "Last step — formally close the task after saving information",
+            params: %{
+              task_id: task_id,
+              agent_id: agent_id,
+              learned_for_agents: "...",
+              guidance_useful: true
+            }
+          }
         ]
 
       "lock_file" ->
@@ -1178,7 +1336,42 @@ defmodule Acs.MCP.Tools do
         ]
 
       "generate_guidance_packet" ->
-        []
+        scope = Map.get(args, "scope_path", "")
+        skills = Map.get(result, :relevant_skills, [])
+
+        skill_steps =
+          skills
+          |> Enum.take(5)
+          |> Enum.map(fn s ->
+            name = s[:name] || s["name"]
+
+            %{
+              tool: "skill_get",
+              prompt: "Read scope workflow: #{name}",
+              params: %{name: name}
+            }
+          end)
+
+        scope_step =
+          if scope != "" do
+            [
+              %{
+                tool: "skill_get",
+                prompt: "Browse all skills available for this scope",
+                params: %{scope_path: scope}
+              }
+            ]
+          else
+            [
+              %{
+                tool: "skill_get",
+                prompt: "Browse full skill catalog — see what's available and when to use each",
+                params: %{}
+              }
+            ]
+          end
+
+        skill_steps ++ scope_step
 
       "list_error_traces" ->
         if Map.get(result, :total, 0) > 0 do
@@ -1202,8 +1395,8 @@ defmodule Acs.MCP.Tools do
 
       "submit_task_feedback" ->
         [
-          %{tool: "sleep", prompt: "Task done — sleep to wait for next assignment", params: %{agent_id: agent_id, timeout: 300}},
-          %{tool: "list_tasks", prompt: "See if more work is waiting", params: %{status_filter: "todo"}}
+          %{tool: "sleep", prompt: "Task formally closed — sleep to wait for next assignment", params: %{agent_id: agent_id, timeout: 300}},
+          %{tool: "list_tasks", prompt: "Or check if more work is waiting", params: %{status_filter: "todo"}}
         ]
 
       "help" ->
@@ -1227,13 +1420,33 @@ defmodule Acs.MCP.Tools do
 
       "specs_get" ->
         [
-          %{tool: "specs_propose", prompt: "No spec yet? Document the module so others understand it", params: %{app: Map.get(args, "app", ""), path: Map.get(args, "path", ""), title: "...", purpose: "..."}},
+          %{
+            tool: "specs_propose",
+            prompt: "Missing or outdated? Propose a module spec or shareable document",
+            params: %{
+              app: Map.get(args, "app", ""),
+              path: Map.get(args, "path", ""),
+              title: "...",
+              document_type: "spec",
+              content: "..."
+            }
+          },
           %{tool: "specs_approve", prompt: "Spec looks correct? Approve it", params: %{app: Map.get(args, "app", ""), path: Map.get(args, "path", ""), reviewer: agent_id}}
         ]
 
       "query_specs" ->
         [
-          %{tool: "specs_propose", prompt: "Fill undocumented gaps by proposing specs", params: %{app: "<app>", path: "<path>", title: "...", purpose: "..."}}
+          %{
+            tool: "specs_propose",
+            prompt: "Save a module spec or shareable document (project, marketing, knowledge)",
+            params: %{
+              app: "<app>",
+              path: "<path>",
+              title: "...",
+              document_type: "deliverable",
+              content: "..."
+            }
+          }
         ]
 
       "specs_propose" ->
@@ -1248,10 +1461,89 @@ defmodule Acs.MCP.Tools do
         []
 
       "skill_get" ->
-        [
-          %{tool: "skill_save", prompt: "Need a workflow guide? Create a skill so others reuse it", params: %{name: "<name>", content: "..."}},
-          %{tool: "skill_audit_status", prompt: "Audit all skills for quality gaps", params: %{}}
-        ]
+        catalog = Map.get(result, :catalog, [])
+        skills = Map.get(result, :skills, [])
+        related = Map.get(result, :related, [])
+        scope_path = Map.get(args, "scope_path", "")
+
+        read_steps =
+          cond do
+            length(skills) == 1 ->
+              name = hd(skills).name || hd(skills)["name"]
+
+              [
+                %{
+                  tool: "skill_get",
+                  prompt: "Follow the steps in skill '#{name}' before proceeding",
+                  params: %{name: name}
+                }
+              ]
+
+            length(skills) > 1 ->
+              skills
+              |> Enum.take(5)
+              |> Enum.map(fn s ->
+                n = s.name || s["name"]
+
+                %{
+                  tool: "skill_get",
+                  prompt: "Read full workflow: #{n}",
+                  params: %{name: n}
+                }
+              end)
+
+            true ->
+              []
+          end
+
+        related_steps =
+          related
+          |> Enum.take(3)
+          |> Enum.map(fn s ->
+            %{
+              tool: "skill_get",
+              prompt: "Related skill: #{s.name} — #{s.when_to_use || s.description}",
+              params: %{name: s.name}
+            }
+          end)
+
+        catalog_steps =
+          if skills == [] and catalog != [] do
+            catalog
+            |> Enum.take(5)
+            |> Enum.map(fn s ->
+              %{
+                tool: "skill_get",
+                prompt: "Available: #{s.name} — #{s.when_to_use || s.description}",
+                params: %{name: s.name}
+              }
+            end)
+          else
+            []
+          end
+
+        scope_browse =
+          if scope_path != "" do
+            []
+          else
+            [
+              %{
+                tool: "skill_get",
+                prompt: "Entering a scope? Pass scope_path to see skills for that area",
+                params: %{scope_path: "<scope_path>"}
+              }
+            ]
+          end
+
+        read_steps ++ related_steps ++ catalog_steps ++ scope_browse ++
+          [
+            %{
+              tool: "skill_save",
+              prompt: "Missing a workflow? Create a skill so others reuse it",
+              params: %{name: "<name>", content: "...", scope_paths: ["<scope_path>"]}
+            },
+            %{tool: "skill_audit_status", prompt: "Audit all skills for quality gaps", params: %{}}
+          ]
 
       "skill_save" ->
         [
@@ -1284,5 +1576,85 @@ defmodule Acs.MCP.Tools do
       _ ->
         []
     end
+  end
+
+  defp relevant_skill_steps(guidance, fallback_title) do
+    skills = Map.get(guidance, :relevant_skills) || []
+
+    if skills == [] and fallback_title != "" do
+      [
+        %{
+          tool: "skill_get",
+          prompt: "Search for workflow guides relevant to this task",
+          params: %{search: fallback_title}
+        }
+      ]
+    else
+      Enum.map(skills, fn skill ->
+        name = skill[:name] || skill["name"]
+
+        %{
+          tool: "skill_get",
+          prompt: "Read relevant workflow guide: #{name}",
+          params: %{name: name}
+        }
+      end)
+    end
+  end
+
+  defp relevant_spec_steps(guidance) do
+    specs = Map.get(guidance, :relevant_specs) || []
+
+    read_steps =
+      specs
+      |> Enum.reject(fn s -> (s[:status] || s["status"]) == "missing" end)
+      |> Enum.map(fn spec ->
+        app = spec[:app] || spec["app"]
+        path = spec[:path] || spec["path"]
+
+        %{
+          tool: "specs_get",
+          prompt: "Read spec for module you'll work on: #{app}/#{path}",
+          params: %{app: app, path: path}
+        }
+      end)
+
+    propose_steps =
+      specs
+      |> Enum.filter(fn s -> (s[:status] || s["status"]) == "missing" end)
+      |> Enum.map(fn spec ->
+        app = spec[:app] || spec["app"]
+        path = spec[:path] || spec["path"]
+
+        %{
+          tool: "specs_propose",
+          prompt: "Module #{path} has no spec — document it before or after implementing",
+          params: %{app: app, path: path, title: path, purpose: "..."}
+        }
+      end)
+
+    read_steps ++ propose_steps
+  end
+
+  defp specs_propose_description do
+    base =
+      "Create or update a spec or shareable document (status → proposed). " <>
+        "MODULE SPECS: purpose, invariants, workflows, failure_modes for code. " <>
+        "DOCUMENTS: set document_type + title + content for project docs, marketing copy, knowledge files, deliverables. " <>
+        "USE WHEN: after code changes, or when the user produced output they want saved/shared. " <>
+        "When code and a module spec disagree, ask the user which to update."
+
+    instructions = Acs.Prompts.instructions("specs")
+    if instructions != "", do: instructions <> "\n\n" <> base, else: base
+  end
+
+  defp skill_save_description do
+    base =
+      "Create or update a skill — a reusable step-by-step workflow for other agents. " <>
+        "USE WHEN: the task follows a repeatable procedure worth documenting (deploy, secrets, install). " <>
+        "NOT for one-line truths (use save_memory). Requires name, description, tags, and actionable markdown steps."
+
+    instructions = Acs.Prompts.instructions("skills")
+    if instructions != "", do: instructions <> "\n\n" <> base, else: base
   end
 end

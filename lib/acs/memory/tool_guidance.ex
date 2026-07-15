@@ -14,6 +14,7 @@ defmodule Acs.Memory.ToolGuidance do
   | `agent_coordination_system/tools/core` | Core ACS workflow tools |
   | `agent_coordination_system/tools/knowledge` | Memory/knowledge system tools |
    | `agent_coordination_system/tools/specs` | Specs tools |
+  | `agent_coordination_system/tools/skills` | Skills tools |
   | `agent_coordination_system/tools/diagnostic` | Diagnostic/telemetry tools |
   | `agent_coordination_system/tools/crm` | CRM integration tools |
 
@@ -23,8 +24,8 @@ defmodule Acs.Memory.ToolGuidance do
   @all_scopes_guidance """
   # ACS Tool Guidance
 
-  The Agent Coordination System provides tools organized into 6 categories:
-  acs_core (workflow), knowledge (memory), specs, diagnostic (telemetry), crm (integrations).
+  The Agent Coordination System provides tools organized into 7 scopes:
+  overview, core workflow, knowledge, specs, skills, diagnostics, and CRM.
 
   Each category has hardcoded guidance for use when the memory store is empty or unavailable.
   Use `Acs.Memory.ToolGuidance.for_scope/1` to retrieve guidance for a specific scope path.
@@ -43,9 +44,9 @@ defmodule Acs.Memory.ToolGuidance do
         },
         %{
           id: "toolguidance_all_axiom_2",
-          title: "Six tool categories",
+          title: "Seven tool guidance scopes",
           summary:
-            "Tool categories group related tools: acs_core (workflow), knowledge (memory), specs, diagnostic (telemetry), crm (integrations).",
+            "Guidance covers the overview plus core workflow, knowledge, specs, skills, diagnostics, and CRM.",
           importance: 4
         },
         %{
@@ -103,7 +104,7 @@ defmodule Acs.Memory.ToolGuidance do
         }
       ],
       compressed_knowledge:
-        "ACS tools: 6 categories. acs_core (Level 1-3): claim_work, release_work, create_work, lock_file, unlock_file, get_present_status, get_locked_files, list_tasks, sleep, wake, submit_task_feedback, help, get_logs, list_orgs, list_categories, list_tools, refresh_tools, list_error_traces, ack_error_trace, resolve_error_trace, create_task_from_error_trace, time. knowledge (Level 1-2): save_memory, query_memories, set_memory_status, generate_guidance_packet, ask. specs (Level 1-2): specs_get, query_specs, specs_propose, specs_approve, specs_reject. diagnostic (Level 1): config_lookup, connection_diagnostic, query_memories, memory_health_check. crm (Level 1-2): crm_sync, crm_sync_object_type, crm_get_sync_state, crm_list_sources, crm_get_scheduler_status, crm_get_field_config, crm_trigger_scheduler. acs (Level 3): write_tool."
+        "ACS guidance has 7 scopes: overview, core workflow, knowledge, specs, skills, diagnostics, and CRM. Use known_scopes/0 for the current paths."
     },
     "agent_coordination_system/tools/core" => %{
       critical_axioms: [
@@ -134,6 +135,13 @@ defmodule Acs.Memory.ToolGuidance do
           summary:
             "Submit_task_feedback after releasing to share learnings as knowledge memories for future agents.",
           importance: 4
+        },
+        %{
+          id: "toolguidance_core_axiom_6",
+          title: "Save skills and memories before feedback",
+          summary:
+            "After release_work, call skill_save and save_memory before submit_task_feedback. Feedback formally closes the task once information is saved.",
+          importance: 5
         },
         %{
           id: "toolguidance_core_axiom_5",
@@ -170,7 +178,7 @@ defmodule Acs.Memory.ToolGuidance do
           id: "toolguidance_core_pattern_1",
           title: "Standard agent workflow",
           summary:
-            "Standard agent workflow: create_work (or claim_work when tasked) → lock_file → edit → unlock_file → release_work → submit_task_feedback.",
+            "Standard agent workflow: create_work (or claim_work when tasked) → lock_file → edit → unlock_file → release_work → skill_save / save_memory / specs_propose → submit_task_feedback (last).",
           importance: 5
         },
         %{
@@ -189,7 +197,7 @@ defmodule Acs.Memory.ToolGuidance do
         }
       ],
       compressed_knowledge:
-        "Core ACS workflow: create_work/claim_work → lock_file → edit → unlock_file → release_work → submit_task_feedback. File locks: 10 min auto-release. Task states: available → claimed → in_progress → completed. Use get_present_status to check agent activity. Use list_tasks(agent_id:, status_filter:) to find work. Sleep() blocks until task dispatch."
+        "Core ACS workflow: create_work/claim_work → lock_file → edit → unlock_file → release_work → skill_save/save_memory/specs_propose → submit_task_feedback (last). File locks: 10 min auto-release. Task states: available → claimed → in_progress → completed. Use get_present_status to check agent activity. Use list_tasks(agent_id:, status_filter:) to find work. Sleep() blocks until task dispatch."
     },
     "agent_coordination_system/tools/knowledge" => %{
       critical_axioms: [
@@ -264,7 +272,7 @@ defmodule Acs.Memory.ToolGuidance do
           id: "toolguidance_knowledge_pattern_2",
           title: "After implementing: save learnings and submit feedback",
           summary:
-            "After implementing: save_memory with key learnings → submit_task_feedback with what you discovered.",
+            "After implementing: skill_save (workflow) and save_memory (truths) → then submit_task_feedback last to close the task.",
           importance: 4
         },
         %{
@@ -282,30 +290,31 @@ defmodule Acs.Memory.ToolGuidance do
       critical_axioms: [
         %{
           id: "toolguidance_specs_axiom_1",
-          title: "Specs document WHY a module exists",
+          title: "Specs are the document store",
           summary:
-            "Specs document WHY a module exists — its purpose, invariants, workflows, failure modes, and constraints.",
+            "Specs hold module docs AND any shareable output: knowledge files, project documents, marketing copy, deliverables. Not just code.",
           importance: 5
         },
         %{
           id: "toolguidance_specs_axiom_2",
-          title: "Every module should have a spec",
+          title: "Module specs vs documents",
           summary:
-            "Every module should have a spec. Use query_specs(undocumented: true) to find modules missing specs.",
-          importance: 4
+            "Module spec: purpose/invariants/workflows for code. Document: document_type + content for project docs, marketing, long knowledge. Use skills for procedures, memories for eternal truths.",
+          importance: 5
         },
         %{
           id: "toolguidance_specs_axiom_3",
-          title: "Ask the user when code and spec disagree",
-          summary: "When code and spec disagree: ASK THE USER. Never assume which one is wrong.",
+          title: "Save documents the user wants to share",
+          summary:
+            "When work produces output the user wants kept (reports, copy, briefs), specs_propose with document_type and full markdown content.",
           importance: 5
         },
         %{
           id: "toolguidance_specs_axiom_4",
-          title: "Specs have versions",
+          title: "When code and spec disagree",
           summary:
-            "Specs have versions. Approving a spec increments the version and recomputes the spec_hash.",
-          importance: 3
+            "When code and a module spec disagree: ASK THE USER. Never assume which one is wrong.",
+          importance: 5
         }
       ],
       warnings: [
@@ -327,21 +336,80 @@ defmodule Acs.Memory.ToolGuidance do
       relevant_patterns: [
         %{
           id: "toolguidance_specs_pattern_1",
-          title: "Check undocumented after implementing",
+          title: "After code work: module spec or document",
           summary:
-            "After implementing a module: use query_specs(undocumented: true) to check if it needs a spec → specs_propose() to document it.",
+            "After code: query_specs(undocumented: true) for missing module specs. After any deliverable: specs_propose with document_type + content.",
           importance: 4
         },
         %{
           id: "toolguidance_specs_pattern_2",
-          title: "Standard spec quality checklist",
+          title: "Document quality checklist",
           summary:
-            "Standard spec quality check: purpose (why), invariants (what must hold), workflows (how), failure_modes (what breaks), constraints (non-goals), tags (search).",
+            "Module spec: purpose, invariants, workflows, failure_modes, constraints. Document: document_type, title, content (markdown, images as links), tags, source.",
           importance: 4
         }
       ],
       compressed_knowledge:
-        "Specs tools: specs_get (read spec), query_specs (search, list, find undocumented), specs_propose (create), specs_approve/reject (review). Every module needs a spec. When code ≠ spec, ask user."
+        "Specs: module docs + shareable documents (knowledge, project, marketing, deliverable). specs_get, query_specs, specs_propose, specs_approve/reject. document_type + content for long docs. skills=procedures, memories=truths."
+    },
+    "agent_coordination_system/tools/skills" => %{
+      critical_axioms: [
+        %{
+          id: "toolguidance_skills_axiom_1",
+          title: "Skills are procedural workflows",
+          summary:
+            "Skills store step-by-step workflows (how to deploy, how to manage secrets). Use save_memory for eternal truths, skill_save for repeatable procedures.",
+          importance: 5
+        },
+        %{
+          id: "toolguidance_skills_axiom_2",
+          title: "Read relevant skills at claim time",
+          summary:
+            "claim_work returns relevant_skills in the guidance packet. Call skill_get(name:) for each before starting procedural work.",
+          importance: 5
+        },
+        %{
+          id: "toolguidance_skills_axiom_3",
+          title: "Every skill needs description and tags",
+          summary:
+            "Skills require a distinct description, at least one tag, and actionable numbered steps — not pointers to other docs.",
+          importance: 4
+        }
+      ],
+      warnings: [
+        %{
+          id: "toolguidance_skills_warning_1",
+          title: "Do not duplicate memories as skills",
+          summary:
+            "A one-line invariant belongs in save_memory, not skill_save. Skills must have steps another agent can follow.",
+          importance: 4
+        },
+        %{
+          id: "toolguidance_skills_warning_2",
+          title: "Run skill_audit_status after saving",
+          summary:
+            "New or updated skills are LLM-audited. Call skill_audit_status() to verify quality before relying on a skill.",
+          importance: 3
+        }
+      ],
+      relevant_patterns: [
+        %{
+          id: "toolguidance_skills_pattern_1",
+          title: "Before procedural work: skill_get then execute",
+          summary:
+            "At claim: review relevant_skills in guidance → skill_get(name:) → follow steps → save_memory for learnings.",
+          importance: 5
+        },
+        %{
+          id: "toolguidance_skills_pattern_2",
+          title: "After discovering a repeatable workflow: skill_save",
+          summary:
+            "Task had ordered steps others will repeat? skill_save with prerequisites, steps, verification, and failure recovery.",
+          importance: 4
+        }
+      ],
+      compressed_knowledge:
+        "Skills tools: skill_get (by name, search, or tag), skill_save (create/update workflow), skill_audit_status (LLM quality audit). Prompts editable in priv/prompts/skills/ or Obsidian vault."
     },
     "agent_coordination_system/tools/diagnostic" => %{
       critical_axioms: [

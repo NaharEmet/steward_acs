@@ -23,6 +23,7 @@ defmodule Acs.MCP.CoreToolRoles do
     generate_developer_key
     list_developer_keys
     revoke_developer_key
+    create_org
     create_user
   )
 

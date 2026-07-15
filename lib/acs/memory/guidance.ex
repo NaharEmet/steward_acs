@@ -34,20 +34,28 @@ All tools callable by name. `help(category, level)` for filtered listing. `get_l
 """
 
   @specs_instructions """
-`specs_propose(app, path, purpose, invariants, workflows, failure_modes, constraints, tags)` after implementing a module. `query_specs(undocumented: true)` to find gaps. `specs_get(app, path)` to read.
+`specs_propose` saves module specs AND shareable documents (project docs, marketing copy, knowledge files). Module spec: purpose, invariants, workflows. Document: document_type + title + content. `query_specs` searches all. `query_specs(undocumented: true)` finds code modules missing specs only.
 """
 
   @specs_instructions_short """
-After completing work, `specs_propose(app, path, attrs)` if no spec exists. `query_specs(undocumented: true)` to find gaps.
+After completing work, `specs_propose` for module changes OR any document the user wants saved (project, marketing, deliverable). Use `document_type` + `content` for long docs. `query_specs(query:)` to find prior artifacts.
 """
+
+  @skills_instructions_short """
+  Check `relevant_skills` in this packet — call `skill_get(name:)` before starting procedural work. Use `skill_save` for repeatable workflows; `save_memory` for eternal truths.
+  """
 
   @specs_mismatch_protocol """
 Code differs from spec? 1) Pause. 2) Identify what differs (spec says X, code does Y). 3) Ask user which to update. 4) Execute decision. Never assume one is wrong.
 """
 
+  @skills_finish_protocol """
+After `release_work`: save your work first — `skill_save` (repeatable user workflow), `save_memory` (eternal truths), `specs_propose` (new/changed modules). Then `submit_task_feedback` to formally close. Feedback comes last, after information is saved.
+"""
+
   @workflow_basics """
-Start: create or claim a task in ACS before work. After claiming: 1) `lock_file`  2) do work  3) `save_memory`  4) `unlock_file`  5) `release_work`  6) `submit_task_feedback`
-Finish: always `release_work` + `submit_task_feedback` before declaring done. Never skip these.
+Start: create or claim a task in ACS before work. After claiming: 1) `lock_file`  2) do work  3) `unlock_file`  4) `release_work`  5) `skill_save` / `save_memory` / `specs_propose` as needed  6) `submit_task_feedback`
+Finish: `release_work` → save skills/memories/specs → `submit_task_feedback` last. Never tell the user you're done until feedback is submitted.
 Every response includes `_next` with suggested next tools. No tasks? `sleep`
 """
 
@@ -72,7 +80,8 @@ Find your agent_id: `get_present_status(agent_id: "")` auto-registers and return
 """
 
   @knowledge_workflow """
-Start: claim a task before work. After claiming: lock files → do work → save learnings → unlock files → release → submit feedback. Finish: always release + submit feedback before declaring done.
+Start: claim a task before work. After claiming: lock files → do work → unlock files → release → save skills/memories/specs → submit feedback last.
+Finish: release → skill_save / save_memory / specs_propose → submit_task_feedback. Feedback closes the task after information is saved.
 No tasks? `sleep`.
 """
 
@@ -116,6 +125,9 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
   - :tool_reference - guidance on using help, list_tools, and get_logs
   - :specs_instructions - specs system instructions
   - :specs_mismatch_protocol - how to handle code vs spec disagreements
+  - :skills_instructions - skills system instructions
+  - :relevant_skills - skills relevant to this task (claim tier)
+  - :relevant_specs - specs relevant to this task (claim tier)
   - :workflow_basics - standard agent workflow (claim tier and above)
   - :file_locking_protocol - file locking rules (full tier only)
   - :memory_protocol - knowledge memory protocol (full tier only)
@@ -150,7 +162,8 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
     # Merge hardcoded tool guidance for known ACS tool scopes
     tool_guidance = Acs.Memory.ToolGuidance.for_scope(scope_path)
 
-    case tier do
+    packet =
+      case tier do
       :claim ->
         if mode == :knowledge do
           %{
@@ -176,8 +189,11 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
             compressed_knowledge: "",
             maintenance_instructions: @maintenance_instructions,
             tool_reference: "",
-            specs_instructions: @specs_instructions_short,
+            specs_instructions: specs_instructions_for_tier(:claim),
             specs_mismatch_protocol: "",
+            skills_instructions: skills_instructions_for_tier(:claim),
+            relevant_skills: [],
+            relevant_specs: [],
             workflow_basics: @knowledge_workflow,
             file_locking_protocol: @knowledge_file_locking,
             memory_protocol: @knowledge_memory,
@@ -209,8 +225,11 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
             compressed_knowledge: "",
             maintenance_instructions: @maintenance_instructions,
             tool_reference: "",
-            specs_instructions: @specs_instructions_short,
+            specs_instructions: specs_instructions_for_tier(:claim),
             specs_mismatch_protocol: "",
+            skills_instructions: skills_instructions_for_tier(:claim),
+            relevant_skills: [],
+            relevant_specs: [],
             workflow_basics: @workflow_basics,
             file_locking_protocol: @file_locking_protocol,
             memory_protocol: @memory_protocol,
@@ -246,8 +265,11 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
             compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
             maintenance_instructions: @maintenance_instructions,
             tool_reference: "",
-            specs_instructions: @specs_instructions,
+            specs_instructions: specs_instructions_for_tier(:full),
             specs_mismatch_protocol: @specs_mismatch_protocol,
+            skills_instructions: skills_instructions_for_tier(:full),
+            relevant_skills: [],
+            relevant_specs: [],
             workflow_basics: @knowledge_workflow,
             file_locking_protocol: @knowledge_file_locking,
             memory_protocol: @knowledge_memory,
@@ -280,8 +302,11 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
             compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
             maintenance_instructions: @maintenance_instructions,
             tool_reference: @tool_reference,
-            specs_instructions: @specs_instructions,
+            specs_instructions: specs_instructions_for_tier(:full),
             specs_mismatch_protocol: @specs_mismatch_protocol,
+            skills_instructions: skills_instructions_for_tier(:full),
+            relevant_skills: [],
+            relevant_specs: [],
             workflow_basics: @workflow_basics,
             file_locking_protocol: @file_locking_protocol,
             memory_protocol: @memory_protocol,
@@ -291,6 +316,8 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
           }
         end
     end
+
+    merge_scope_context(packet, scope_path)
   end
 
   @doc """
@@ -323,8 +350,11 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
             compressed_knowledge: "",
             maintenance_instructions: @maintenance_instructions,
             tool_reference: "",
-            specs_instructions: @specs_instructions_short,
+            specs_instructions: specs_instructions_for_tier(:claim),
             specs_mismatch_protocol: "",
+            skills_instructions: skills_instructions_for_tier(:claim),
+            relevant_skills: [],
+            relevant_specs: [],
             workflow_basics: @knowledge_workflow,
             file_locking_protocol: @knowledge_file_locking,
             memory_protocol: @knowledge_memory,
@@ -344,8 +374,11 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
             compressed_knowledge: "",
             maintenance_instructions: @maintenance_instructions,
             tool_reference: "",
-            specs_instructions: @specs_instructions_short,
+            specs_instructions: specs_instructions_for_tier(:claim),
             specs_mismatch_protocol: "",
+            skills_instructions: skills_instructions_for_tier(:claim),
+            relevant_skills: [],
+            relevant_specs: [],
             workflow_basics: @workflow_basics,
             file_locking_protocol: @file_locking_protocol,
             memory_protocol: @memory_protocol,
@@ -373,12 +406,18 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
           |> then(fn o -> if agent_role, do: o ++ [agent_role: agent_role], else: o end)
 
         guidance = generate(scope_path, Keyword.merge([tier: tier, mode: mode], abac_opts))
+        claim_context = Acs.ClaimContext.for_task(task_map)
 
         title = (task_map[:title] || "") |> String.downcase()
         task_context = build_task_context(title)
 
         guidance
         |> Map.put(:task_context, task_context)
+        |> Map.put(:relevant_skills, claim_context.relevant_skills)
+        |> Map.put(:relevant_specs, claim_context.relevant_specs)
+        |> Map.put(:skills_instructions, skills_instructions_for_tier(tier))
+        |> Map.put(:specs_instructions, specs_instructions_for_tier(tier))
+        |> Map.put(:skills_finish_protocol, @skills_finish_protocol)
     end
   end
 
@@ -620,5 +659,46 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
     hardcoded = Map.get(tool_guidance, :compressed_knowledge, "")
     merged = memory_knowledge <> "\n\n" <> hardcoded
     String.slice(merged, 0, @knowledge_max_chars)
+  end
+
+  defp merge_scope_context(packet, scope_path) when scope_path in [nil, ""], do: packet
+
+  defp merge_scope_context(packet, scope_path) do
+    ctx = Acs.ClaimContext.for_scope(scope_path)
+
+    packet
+    |> Map.put(:relevant_skills, ctx.relevant_skills)
+    |> Map.put(:relevant_specs, ctx.relevant_specs)
+    |> Map.put(:skills_finish_protocol, @skills_finish_protocol)
+  end
+
+  def specs_instructions_for_tier(:claim) do
+    short = Acs.Prompts.instructions("specs")
+
+    if short != "" do
+      String.slice(short, 0, 500) <> "\n\n" <> @specs_instructions_short
+    else
+      @specs_instructions_short
+    end
+  end
+
+  def specs_instructions_for_tier(_tier) do
+    full = Acs.Prompts.instructions("specs")
+    if full != "", do: full, else: @specs_instructions
+  end
+
+  def skills_instructions_for_tier(:claim) do
+    short = Acs.Prompts.instructions("skills")
+
+    if short != "" do
+      String.slice(short, 0, 500) <> "\n\n" <> @skills_instructions_short
+    else
+      @skills_instructions_short
+    end
+  end
+
+  def skills_instructions_for_tier(_tier) do
+    full = Acs.Prompts.instructions("skills")
+    if full != "", do: full, else: @skills_instructions_short
   end
 end

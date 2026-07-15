@@ -34,6 +34,10 @@ config :steward_acs,
        System.get_env("AUDITOR_INTERVAL", "30000") |> String.to_integer()
 
 config :steward_acs,
+       :auditor_max_concurrency,
+       System.get_env("AUDITOR_MAX_CONCURRENCY", "20") |> String.to_integer()
+
+config :steward_acs,
        :session_validity_in_days,
        System.get_env("SESSION_VALIDITY_DAYS", "7") |> String.to_integer()
 
@@ -79,7 +83,6 @@ if System.get_env("BRIDGE_ALLOWED_HOSTS") do
          System.get_env("BRIDGE_ALLOWED_HOSTS")
          |> String.split(",", trim: true)
          |> Enum.map(&String.trim/1)
-         |> Enum.reject(&(&1 == ""))
 end
 
 if mcp_api_key = System.get_env("MCP_API_KEY") do
@@ -159,7 +162,6 @@ if admin_emails_env = System.get_env("ACS_ADMIN_EMAILS") do
     admin_emails_env
     |> String.split(",", trim: true)
     |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
 
   config :steward_acs, :admin_emails, admin_emails
 end
@@ -203,28 +205,33 @@ end
 # ─── Memory Auditor Pre-filter Configuration ───────────────────────────
 # Lists of comma-separated patterns for auto-reject pre-filter rules.
 if prefixes = System.get_env("AUDITOR_REJECT_TITLE_PREFIXES") do
-  config :steward_acs, :auditor_reject_title_prefixes,
-    String.split(prefixes, ",", trim: true) |> Enum.map(&String.trim/1)
+  config :steward_acs,
+         :auditor_reject_title_prefixes,
+         String.split(prefixes, ",", trim: true) |> Enum.map(&String.trim/1)
 end
 
 if exact = System.get_env("AUDITOR_REJECT_TITLE_EXACT") do
-  config :steward_acs, :auditor_reject_title_exact,
-    String.split(exact, ",", trim: true) |> Enum.map(&String.trim/1)
+  config :steward_acs,
+         :auditor_reject_title_exact,
+         String.split(exact, ",", trim: true) |> Enum.map(&String.trim/1)
 end
 
 if scopes = System.get_env("AUDITOR_REJECT_SCOPE_PREFIXES") do
-  config :steward_acs, :auditor_reject_scope_prefixes,
-    String.split(scopes, ",", trim: true) |> Enum.map(&String.trim/1)
+  config :steward_acs,
+         :auditor_reject_scope_prefixes,
+         String.split(scopes, ",", trim: true) |> Enum.map(&String.trim/1)
 end
 
 if id_prefixes = System.get_env("AUDITOR_REJECT_ID_PREFIXES") do
-  config :steward_acs, :auditor_reject_id_prefixes,
-    String.split(id_prefixes, ",", trim: true) |> Enum.map(&String.trim/1)
+  config :steward_acs,
+         :auditor_reject_id_prefixes,
+         String.split(id_prefixes, ",", trim: true) |> Enum.map(&String.trim/1)
 end
 
 if id_contains = System.get_env("AUDITOR_REJECT_ID_CONTAINS") do
-  config :steward_acs, :auditor_reject_id_contains,
-    String.split(id_contains, ",", trim: true) |> Enum.map(&String.trim/1)
+  config :steward_acs,
+         :auditor_reject_id_contains,
+         String.split(id_contains, ",", trim: true) |> Enum.map(&String.trim/1)
 end
 
 if min_len = System.get_env("AUDITOR_MIN_CONTENT_LENGTH") do
@@ -240,22 +247,33 @@ if threshold = System.get_env("AUDITOR_FUZZY_THRESHOLD") do
 end
 
 if System.get_env("AUDITOR_REJECT_EMPTY_SCOPE") do
-  config :steward_acs, :auditor_reject_empty_scope,
-    System.get_env("AUDITOR_REJECT_EMPTY_SCOPE") == "true"
+  config :steward_acs,
+         :auditor_reject_empty_scope,
+         System.get_env("AUDITOR_REJECT_EMPTY_SCOPE") == "true"
 end
 
 if System.get_env("AUDITOR_REJECT_TITLE_EQUALS_CONTENT") do
-  config :steward_acs, :auditor_reject_title_equals_content,
-    System.get_env("AUDITOR_REJECT_TITLE_EQUALS_CONTENT") == "true"
+  config :steward_acs,
+         :auditor_reject_title_equals_content,
+         System.get_env("AUDITOR_REJECT_TITLE_EQUALS_CONTENT") == "true"
 end
 
 config :steward_acs, Acs.Memory.Embedding,
   ollama_url: System.get_env("OLLAMA_URL", "http://localhost:11434")
 
-config :steward_acs, :org_name,
-  System.get_env("ACS_ORG_NAME") || System.get_env("ACS_CLUSTER_NAME", "default")
+config :steward_acs,
+       :org_name,
+       System.get_env("ACS_ORG_NAME") || System.get_env("ACS_CLUSTER_NAME", "default")
 
 config :steward_acs, :multi_tenant, System.get_env("MULTI_TENANT", "false") == "true"
+
+if orgs_file = System.get_env("ORGS_FILE") do
+  config :steward_acs, :orgs_file, orgs_file
+end
+
+if base_domain = System.get_env("BASE_DOMAIN") do
+  config :steward_acs, :base_domain, base_domain
+end
 
 config :steward_acs, :project_name, System.get_env("ACS_PROJECT_NAME", "")
 
@@ -289,9 +307,25 @@ if config_env() == :prod do
     raise "PHX_HOST or DOMAIN environment variable is required in production"
   end
 
+  check_origin =
+    if System.get_env("MULTI_TENANT", "false") == "true" do
+      base =
+        System.get_env("BASE_DOMAIN") ||
+          host |> String.split(".") |> Enum.take(-2) |> Enum.join(".")
+
+      [
+        "https://#{host}",
+        "http://#{host}",
+        "//*.#{base}",
+        "//#{base}"
+      ]
+    else
+      ["https://#{host}", "http://#{host}"]
+    end
+
   config :steward_acs, AcsWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
-    check_origin: ["https://#{host}", "http://#{host}"]
+    check_origin: check_origin
 end
 
 if origins = System.get_env("CORS_ORIGINS") do
@@ -300,5 +334,4 @@ if origins = System.get_env("CORS_ORIGINS") do
       origins
       |> String.split(",", trim: true)
       |> Enum.map(&String.trim/1)
-      |> Enum.reject(&(&1 == ""))
 end

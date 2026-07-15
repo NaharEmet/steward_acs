@@ -44,7 +44,7 @@ defmodule Acs.Memory.VectorIndexTest do
   end
 
   describe "search_similar/2" do
-    test "finds similar memories" do
+    test "finds similar memories within the same org" do
       # Insert test memories with known embeddings
       memory1 = "sim1_#{System.unique_integer([:positive])}"
       memory2 = "sim2_#{System.unique_integer([:positive])}"
@@ -67,6 +67,36 @@ defmodule Acs.Memory.VectorIndexTest do
 
       # First result should be memory1 (identical vector)
       assert hd(results).memory_id == memory1
+    end
+
+    test "scopes search to org in multi-tenant mode" do
+      memory1 = "org1_#{System.unique_integer([:positive])}"
+      memory2 = "org2_#{System.unique_integer([:positive])}"
+      vec = [1.0, 0.0, 0.0, 0.0, 0.0]
+      Application.put_env(:steward_acs, :multi_tenant, true)
+      Application.put_env(:steward_acs, :org_name, "prod")
+
+      on_exit(fn ->
+        Application.delete_env(:steward_acs, :multi_tenant)
+        Application.delete_env(:steward_acs, :org_name)
+      end)
+
+      VectorIndex.upsert_embedding(memory1, vec, "acme")
+      VectorIndex.upsert_embedding(memory2, vec, "beta")
+
+      acme_results = VectorIndex.search_similar(vec, org: "acme", limit: 10)
+      beta_results = VectorIndex.search_similar(vec, org: "beta", limit: 10)
+
+      assert Enum.map(acme_results, & &1.memory_id) == [memory1]
+      assert Enum.map(beta_results, & &1.memory_id) == [memory2]
+
+      assert {:ok, %{rows: [[stored_id]]}} =
+               Acs.Repo.query(
+                 "SELECT memory_id FROM memory_embeddings WHERE org = ?",
+                 ["acme"]
+               )
+
+      assert stored_id == "acme:#{memory1}"
     end
 
     test "returns empty list when no embeddings exist" do

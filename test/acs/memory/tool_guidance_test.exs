@@ -47,11 +47,12 @@ defmodule Acs.Memory.ToolGuidanceTest do
     test "returns list of all known tool scopes" do
       scopes = ToolGuidance.known_scopes()
       assert is_list(scopes)
-      assert length(scopes) == 6
+      assert length(scopes) == 7
       assert "agent_coordination_system/tools" in scopes
       assert "agent_coordination_system/tools/core" in scopes
       assert "agent_coordination_system/tools/knowledge" in scopes
       assert "agent_coordination_system/tools/specs" in scopes
+      assert "agent_coordination_system/tools/skills" in scopes
       assert "agent_coordination_system/tools/diagnostic" in scopes
       assert "agent_coordination_system/tools/crm" in scopes
     end

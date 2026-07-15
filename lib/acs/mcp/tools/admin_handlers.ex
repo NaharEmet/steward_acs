@@ -9,7 +9,7 @@ defmodule Acs.MCP.Tools.AdminHandlers do
   def generate_key(args) do
     name = Map.get(args, "name") || Map.get(args, "developer_name")
     role = Map.get(args, "role", "collaborator")
-    org = Map.get(args, "_auth_org_id", "default")
+    org = Map.get(args, "_auth_org_id", Acs.Org.current())
 
     cond do
       is_nil(name) or name == "" ->
@@ -37,8 +37,9 @@ defmodule Acs.MCP.Tools.AdminHandlers do
     end
   end
 
-  def list_keys(_args) do
-    developers = Developers.list_developers()
+  def list_keys(args) do
+    org = Map.get(args, "_auth_org_id", Acs.Org.current())
+    developers = Developers.list_developers(org)
 
     entries =
       Enum.map(developers, fn dev ->
@@ -63,7 +64,7 @@ defmodule Acs.MCP.Tools.AdminHandlers do
     if is_nil(id) or id == "" do
       {:error, "id is required"}
     else
-      case Developers.revoke(id) do
+      case Developers.revoke(id, Map.get(args, "_auth_org_id", Acs.Org.current())) do
         {:ok, dev} ->
           {:ok,
            %{
@@ -82,12 +83,55 @@ defmodule Acs.MCP.Tools.AdminHandlers do
     end
   end
 
+  def create_org(args) do
+    name = Map.get(args, "name")
+    slug = Map.get(args, "slug")
+    subdomain = Map.get(args, "subdomain", slug)
+    plan = Map.get(args, "plan", "free")
+
+    cond do
+      is_nil(name) or name == "" ->
+        {:error, "name is required"}
+
+      is_nil(slug) or slug == "" ->
+        {:error, "slug is required"}
+
+      true ->
+        case Acs.Orgs.create(%{name: name, slug: slug, subdomain: subdomain, plan: plan}) do
+          {:ok, org} ->
+            vault_base = Application.get_env(:steward_acs, :obsidian_vault_path)
+
+            if Acs.Org.multi_tenant?() and is_binary(vault_base) do
+              File.mkdir_p!(Acs.Org.memory_dir(org.slug))
+              File.mkdir_p!(Acs.Specs.Loader.specs_path(org.slug))
+              File.mkdir_p!(Acs.Skills.Store.skill_dir(org.slug))
+            end
+
+            {:ok,
+             %{
+               id: org.id,
+               name: org.name,
+               slug: org.slug,
+               subdomain: org.subdomain,
+               plan: org.plan,
+               url: "https://#{org.subdomain}.#{Acs.Org.base_domain()}",
+               obsidian_url: "https://#{org.subdomain}.obsidian.#{Acs.Org.base_domain()}",
+               syncthing_note:
+                 "Add syncthing_#{org.subdomain} service to docker-compose and a Caddy route for #{org.subdomain}.obsidian.#{Acs.Org.base_domain()}"
+             }}
+
+          {:error, errors} ->
+            {:error, "Failed to create org: #{inspect(errors)}"}
+        end
+    end
+  end
+
   def create_user(args) do
     name = Map.get(args, "name")
     email = Map.get(args, "email")
     role = Map.get(args, "role", "collaborator")
     password = Map.get(args, "password")
-    org = Map.get(args, "_auth_org_id", "default")
+    org = Map.get(args, "_auth_org_id", Acs.Org.current())
 
     cond do
       is_nil(name) or name == "" ->

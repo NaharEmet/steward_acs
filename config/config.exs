@@ -21,8 +21,6 @@ config :cors_plug,
   ],
   expose: ["x-mcp-session-id"]
 
-config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
-
 config :steward_acs,
   namespace: Acs,
   ecto_repos: [Acs.Repo],
@@ -32,15 +30,12 @@ config :steward_acs, AcsWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: AcsWeb.ErrorHTML, json: AcsWeb.ErrorJSON],
     layout: false
   ],
   pubsub_server: AcsWeb.PubSub,
   code_reloader: false
 
 config :phoenix, :json_library, Jason
-
-config :steward_acs, dev_routes: false
 
 compile_session_salt =
   cond do
@@ -62,7 +57,12 @@ config :steward_acs,
 
 config :steward_acs, :session_validity_in_days, 7
 
-config :steward_acs, AcsWeb.PubSub, name: AcsWeb.PubSub
+# Default prompt paths (overridable via MEMORY_EVALUATION_PROMPT_PATH env at runtime)
+config :steward_acs, :memory_evaluation_prompt_path,
+  Path.expand("../priv/prompts/memory/evaluate.txt", __DIR__)
+
+config :steward_acs, :skill_evaluation_prompt_path,
+  Path.expand("../priv/prompts/skills/evaluate.txt", __DIR__)
 
 config :logger, :console, metadata: [:agent_id, :task_id, :file_path, :locked_by]
 
