@@ -33,6 +33,36 @@ defmodule Acs.MCP.OAuth.WellKnownTest do
     conn =
       :get
       |> Plug.Test.conn(Config.protected_resource_metadata_path())
+      |> Map.put(:host, "prod.stewardacs.xyz")
+      |> WellKnown.call([])
+
+    assert conn.status == 200
+    body = Jason.decode!(conn.resp_body)
+    assert body["resource"] == "https://prod.stewardacs.xyz/mcp/sse"
+  end
+
+  test "serves host-specific resource metadata in multi-tenant mode" do
+    original_mt = Application.get_env(:steward_acs, :multi_tenant)
+    Application.put_env(:steward_acs, :multi_tenant, true)
+
+    on_exit(fn -> Application.put_env(:steward_acs, :multi_tenant, original_mt) end)
+
+    conn =
+      :get
+      |> Plug.Test.conn(Config.protected_resource_metadata_path())
+      |> Map.put(:host, "safetyconnect.stewardacs.xyz")
+      |> WellKnown.call([])
+
+    body = Jason.decode!(conn.resp_body)
+    assert body["resource"] == "https://safetyconnect.stewardacs.xyz/mcp/sse"
+    assert body["authorization_servers"] == ["https://safetyconnect.stewardacs.xyz/"]
+  end
+
+  test "legacy test fields on prod metadata" do
+    conn =
+      :get
+      |> Plug.Test.conn(Config.protected_resource_metadata_path())
+      |> Map.put(:host, "prod.stewardacs.xyz")
       |> WellKnown.call([])
 
     assert conn.status == 200

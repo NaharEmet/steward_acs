@@ -1,10 +1,10 @@
 ---
 name: "deployment"
 description: Deploy and operate Steward ACS (local + multi-tenant prod).
-audit_reasoning: "The skill provides clear, concrete commands and tables for deployment across local and production environments. It includes verification steps and specific failure notes (e.g., not using mix ecto.migrate). The description is distinct and summarizes the scope well. Minor gaps exist in prerequisites and failure recovery details."
+audit_reasoning: "The skill provides clear, concrete commands and tables for deployment scenarios, with verification steps. It is distinct from existing skills (auth0-users, secrets, steward-installer) and covers a unique operational workflow. Minor gaps exist in failure recovery and prerequisites."
 audit_score: 8
 audit_status: "ok"
-audited_at: "2026-07-15T13:36:47.671511Z"
+audited_at: "2026-07-15T14:42:46.889744Z"
 ---
 
 # Deployment

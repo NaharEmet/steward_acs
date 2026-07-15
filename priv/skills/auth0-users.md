@@ -1,8 +1,8 @@
 ---
-audit_reasoning: "The skill is highly actionable with clear, step-by-step instructions for multiple methods (script, dashboard, API), includes prerequisites, verification steps, and a comprehensive troubleshooting table. The description is distinct and accurately summarizes the skill's purpose. It is unique compared to existing skills."
+audit_reasoning: "The skill is highly actionable with clear, step-by-step instructions for multiple methods (script, dashboard, API), includes prerequisites, verification steps, and a comprehensive troubleshooting table. The description is distinct and accurately summarizes the skill's purpose. It is unique and not a duplicate of existing skills."
 audit_score: 10
 audit_status: "ok"
-audited_at: "2026-07-15T13:36:47.615326Z"
+audited_at: "2026-07-15T14:42:46.833335Z"
 description: Create Auth0 users for Claude MCP Connectors on prod ACS
 name: "auth0-users"
 scope_paths: ["guides/deployment", "lib/acs_web", "auth"]
@@ -108,6 +108,8 @@ Revoke active sessions: disconnect the connector in Claude; tokens expire per Au
 | `invalid_request: ID First not enabled for the client` | Enable Identifier First: Auth0 → Authentication → Authentication Profile, or `PATCH /api/v2/prompts` with `identifier_first: true`. Re-run `./scripts/setup-auth0.sh`. |
 | Auth0 “Oops” + password form | Password DB must **not** be domain-level; email passwordless **must** be. Caddy must inject `connection=email` on `/authorize`. |
 | `the connection is not enabled` | Enable **email** connection for first-party Claude apps (`Claude.ai MCP`, `steward_acs_mcp`) — setup script does this. |
+| “Couldn't register with sign-in service” / Auth0 `too_many_entities` on `/oidc/register` | Free Auth0 tenants fill up with Claude DCR apps. Prune with `python3 scripts/cleanup-auth0-dcr-clients.py --delete` (third-party only). |
+| Auth0 `cls` success then `fn` fail: Resend `domain is not verified` | Passwordless **From** and Branding → Email Provider **From** must use a Resend-verified domain (e.g. `noreply@stewardacs.xyz`), **not** an unverified org domain like `@safetyconnect.io`. Recipient can still be `@safetyconnect.io`. Fix: `AUTH0_EMAIL_FROM='Steward ACS <noreply@stewardacs.xyz>' python3 scripts/fix-auth0-email-from.py --fix` |
 | “Couldn't register with sign-in service” | Enable **OIDC Dynamic Application Registration** or use manual Claude Client ID from setup script |
 | User logs in but no MCP tools | Assign **MCP User** role; **reconnect** connector for a fresh token with `permissions` |
 

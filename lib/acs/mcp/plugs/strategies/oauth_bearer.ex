@@ -18,7 +18,7 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
   def authenticate(_key, conn) do
     with true <- Config.enabled?(),
          token when is_binary(token) <- bearer_token(conn),
-         {:ok, claims} <- JWKS.verify(token) do
+         {:ok, claims} <- JWKS.verify(token, audience: Config.audience_for_conn(conn)) do
       {:ok, map_claims(claims)}
     else
       false -> {:error, "OAuth not configured"}

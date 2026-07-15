@@ -195,15 +195,13 @@ defmodule Acs.MCP.Plugs.MCPAuth do
   defp maybe_put_oauth_challenge(conn) do
     alias Acs.MCP.OAuth.Config
 
-    if Config.enabled?() and Config.protected_resource_metadata_url() do
-      metadata_url = Config.protected_resource_metadata_url()
+    case {Config.enabled?(), Config.protected_resource_metadata_url(conn)} do
+      {true, url} when is_binary(url) ->
+        challenge = ~s(Bearer error="invalid_token", resource_metadata="#{url}")
+        Plug.Conn.put_resp_header(conn, "www-authenticate", challenge)
 
-      challenge =
-        ~s(Bearer error="invalid_token", resource_metadata="#{metadata_url}")
-
-      Plug.Conn.put_resp_header(conn, "www-authenticate", challenge)
-    else
-      conn
+      _ ->
+        conn
     end
   end
 end

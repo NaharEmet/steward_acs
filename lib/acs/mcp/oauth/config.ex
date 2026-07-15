@@ -28,7 +28,24 @@ defmodule Acs.MCP.OAuth.Config do
   end
 
   @spec authorization_server() :: String.t() | nil
-  def authorization_server do
+  def authorization_server, do: authorization_server(nil)
+
+  @doc """
+  Authorization server identifier advertised in protected-resource metadata.
+
+  In multi-tenant mode this is the request host (Caddy proxies /authorize,/token
+  and injects the per-host Auth0 audience). Otherwise Auth0's issuer.
+  """
+  @spec authorization_server(Plug.Conn.t() | nil) :: String.t() | nil
+  def authorization_server(%Plug.Conn{} = conn) do
+    if host_aware_oauth?(conn) do
+      "https://#{conn.host}/"
+    else
+      authorization_server(nil)
+    end
+  end
+
+  def authorization_server(nil) do
     case issuer() do
       nil -> nil
       iss -> iss <> "/"
@@ -37,8 +54,40 @@ defmodule Acs.MCP.OAuth.Config do
 
   @doc "Public MCP resource URL (must match Auth0 API identifier and Claude connector URL)."
   @spec resource_url() :: String.t() | nil
-  def resource_url do
+  def resource_url, do: resource_url(nil)
+
+  @spec resource_url(Plug.Conn.t() | nil) :: String.t() | nil
+  def resource_url(%Plug.Conn{} = conn) do
+    if host_aware_oauth?(conn) do
+      resource_url_for_host(conn.host)
+    else
+      legacy_resource_url()
+    end
+  end
+
+  def resource_url(nil), do: legacy_resource_url()
+
+  @doc "Auth0 API audience for JWT validation on this request."
+  @spec audience_for_conn(Plug.Conn.t()) :: String.t() | nil
+  def audience_for_conn(%Plug.Conn{host: host}) do
+    if host_aware_oauth?(%Plug.Conn{host: host}) do
+      resource_url_for_host(host)
+    else
+      audience()
+    end
+  end
+
+  @spec resource_url_for_host(String.t()) :: String.t()
+  def resource_url_for_host(host) when is_binary(host) do
+    "https://#{host}/mcp/sse"
+  end
+
+  defp legacy_resource_url do
     Application.get_env(:steward_acs, :mcp_resource_url) || audience()
+  end
+
+  defp host_aware_oauth?(%Plug.Conn{host: host}) do
+    Acs.Org.multi_tenant?() and is_binary(host) and host != ""
   end
 
   @spec jwks_url() :: String.t() | nil
@@ -55,8 +104,18 @@ defmodule Acs.MCP.OAuth.Config do
   end
 
   @spec protected_resource_metadata_url() :: String.t() | nil
-  def protected_resource_metadata_url do
-    case public_base_url() do
+  def protected_resource_metadata_url, do: protected_resource_metadata_url(nil)
+
+  @spec protected_resource_metadata_url(Plug.Conn.t() | nil) :: String.t() | nil
+  def protected_resource_metadata_url(%Plug.Conn{} = conn) do
+    case public_base_url(conn) do
+      nil -> nil
+      base -> base <> protected_resource_metadata_path()
+    end
+  end
+
+  def protected_resource_metadata_url(nil) do
+    case public_base_url(nil) do
       nil -> nil
       base -> base <> protected_resource_metadata_path()
     end
@@ -67,7 +126,11 @@ defmodule Acs.MCP.OAuth.Config do
     Application.get_env(:steward_acs, :auth0_scopes, ["mcp:tools"])
   end
 
-  defp public_base_url do
+  defp public_base_url(%Plug.Conn{} = conn) do
+    if host_aware_oauth?(conn), do: "https://#{conn.host}", else: public_base_url(nil)
+  end
+
+  defp public_base_url(nil) do
     case Application.get_env(:steward_acs, :mcp_public_url) do
       url when is_binary(url) and url != "" ->
         String.trim_trailing(url, "/")

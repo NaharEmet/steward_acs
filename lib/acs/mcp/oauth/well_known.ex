@@ -13,7 +13,7 @@ defmodule Acs.MCP.OAuth.WellKnown do
     if path == Config.protected_resource_metadata_path() and Config.enabled?() do
       conn
       |> put_resp_content_type("application/json")
-      |> send_resp(200, Jason.encode!(metadata()))
+      |> send_resp(200, Jason.encode!(metadata(conn)))
       |> halt()
     else
       conn
@@ -23,10 +23,10 @@ defmodule Acs.MCP.OAuth.WellKnown do
     end
   end
 
-  defp metadata do
+  defp metadata(conn) do
     %{
-      "resource" => Config.resource_url(),
-      "authorization_servers" => [Config.authorization_server()],
+      "resource" => Config.resource_url(conn),
+      "authorization_servers" => [Config.authorization_server(conn)],
       "bearer_methods_supported" => ["header"],
       "scopes_supported" => Config.scopes_supported()
     }

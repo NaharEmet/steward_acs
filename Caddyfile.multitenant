@@ -1,4 +1,5 @@
-# AUTH0_DOMAIN and AUTH0_AUDIENCE_URLENC must match steward_acs AUTH0_* env vars.
+# AUTH0_DOMAIN must match steward_acs AUTH0_* env vars.
+# Authorize redirects use per-host audience https://{host}/mcp/sse (multi-tenant).
 # Syncthing admin UI is not published here — use SSH tunnel or loopback only.
 
 # OAuth routes for Auth0 MCP connector integration
@@ -20,10 +21,10 @@
         reverse_proxy https://{$AUTH0_DOMAIN}
     }
 
-    # Redirect OAuth authorize to Auth0 with audience + connection injected
+    # Per-host audience must match ACS oauth-protected-resource metadata (multi-tenant).
     @authz path /authorize*
     handle @authz {
-        redir https://{$AUTH0_DOMAIN}{path}?audience={$AUTH0_AUDIENCE_URLENC}&connection=email&{query}
+        redir https://{$AUTH0_DOMAIN}{path}?audience=https%3A%2F%2F{host}%2Fmcp%2Fsse&connection=email&{query}
     }
 
     # DCR: Dynamic Client Registration proxy to Auth0

@@ -1,8 +1,8 @@
 ---
-audit_reasoning: "The skill is highly actionable with clear, sequential steps, concrete commands, and a sensible default configuration. It covers prerequisites (Docker, API keys), verification (register/claim), and failure recovery (fallback to default). The description is distinct and informative. It is not a duplicate of existing skills, which focus on deployment, secrets, or user management."
+audit_reasoning: "The skill is highly actionable with clear, sequential steps, concrete commands, and a default configuration. It covers prerequisites (Docker, API keys), verification (Step 4), and failure recovery (Step 1). The description is distinct and informative. It is not a duplicate of existing skills, which focus on deployment, secrets, and user management, not initial installation."
 audit_score: 8
 audit_status: "ok"
-audited_at: "2026-07-15T13:36:52.260511Z"
+audited_at: "2026-07-15T14:42:51.134989Z"
 description: Installing ACS for new users - step by step setup guide
 name: "steward-installer"
 scope_paths: ["guides/steward-installer", "site", "guides"]

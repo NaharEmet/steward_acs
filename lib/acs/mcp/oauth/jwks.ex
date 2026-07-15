@@ -6,21 +6,25 @@ defmodule Acs.MCP.OAuth.JWKS do
   @cache_key {:acs_mcp_jwks, :keys}
   @cache_ttl_ms 3_600_000
 
-  @spec verify(String.t()) :: {:ok, map()} | {:error, String.t()}
-  def verify(token) when is_binary(token) do
-    with {:ok, header} <- decode_header(token),
-         kid when is_binary(kid) <- header["kid"],
-         {:ok, jwk} <- fetch_jwk(kid),
-         {:ok, claims} <- verify_signature(token, jwk),
-         :ok <- validate_claims(claims) do
-      {:ok, claims}
+  @spec verify(String.t(), keyword()) :: {:ok, map()} | {:error, String.t()}
+  def verify(token, opts \\ []) do
+    if is_binary(token) do
+      expected_audience = Keyword.get(opts, :audience)
+
+      with {:ok, header} <- decode_header(token),
+           kid when is_binary(kid) <- header["kid"],
+           {:ok, jwk} <- fetch_jwk(kid),
+           {:ok, claims} <- verify_signature(token, jwk),
+           :ok <- validate_claims(claims, expected_audience) do
+        {:ok, claims}
+      else
+        nil -> {:error, "JWT missing key id"}
+        {:error, reason} -> {:error, reason}
+      end
     else
-      nil -> {:error, "JWT missing key id"}
-      {:error, reason} -> {:error, reason}
+      {:error, "Invalid bearer token"}
     end
   end
-
-  def verify(_), do: {:error, "Invalid bearer token"}
 
   defp decode_header(token) do
     case String.split(token, ".", parts: 3) do
@@ -47,11 +51,11 @@ defmodule Acs.MCP.OAuth.JWKS do
     end
   end
 
-  defp validate_claims(claims) when is_map(claims) do
+  defp validate_claims(claims, expected_audience) when is_map(claims) do
     now = System.system_time(:second)
 
     with :ok <- validate_issuer(claims),
-         :ok <- validate_audience(claims),
+         :ok <- validate_audience(claims, expected_audience),
          :ok <- validate_expiry(claims, now) do
       :ok
     end
@@ -69,15 +73,21 @@ defmodule Acs.MCP.OAuth.JWKS do
 
   defp validate_issuer(_), do: {:error, "JWT missing issuer"}
 
-  defp validate_audience(%{"aud" => aud}) when is_binary(aud) do
-    if aud == Config.audience(), do: :ok, else: {:error, "Invalid token audience"}
+  defp validate_audience(%{"aud" => aud}, expected) when is_binary(aud) do
+    if aud in accepted_audiences(expected), do: :ok, else: {:error, "Invalid token audience"}
   end
 
-  defp validate_audience(%{"aud" => aud}) when is_list(aud) do
-    if Config.audience() in aud, do: :ok, else: {:error, "Invalid token audience"}
+  defp validate_audience(%{"aud" => aud}, expected) when is_list(aud) do
+    if Enum.any?(aud, &(&1 in accepted_audiences(expected))), do: :ok, else: {:error, "Invalid token audience"}
   end
 
-  defp validate_audience(_), do: {:error, "JWT missing audience"}
+  defp validate_audience(_, _), do: {:error, "JWT missing audience"}
+
+  defp accepted_audiences(expected) when is_binary(expected) and expected != "" do
+    [expected, Config.audience()] |> Enum.uniq()
+  end
+
+  defp accepted_audiences(_), do: [Config.audience()] |> Enum.reject(&is_nil/1)
 
   defp validate_expiry(%{"exp" => exp}, now) when is_integer(exp) do
     if exp > now, do: :ok, else: {:error, "JWT expired"}

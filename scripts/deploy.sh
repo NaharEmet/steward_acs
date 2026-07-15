@@ -47,11 +47,16 @@ if [[ "${WITH_POSTGRES:-false}" == "true" ]]; then
   COMPOSE_ARGS+=(-f docker-compose.postgres.yml)
 fi
 
+info "Pin ACS_IMAGE_TAG=${ACS_IMAGE_TAG} on server so recreates cannot fall back to :multitenant"
+ssh "${SERVER}" "cd '${REMOTE_DIR}' && grep -q '^ACS_IMAGE_TAG=' .env 2>/dev/null && sed -i 's/^ACS_IMAGE_TAG=.*/ACS_IMAGE_TAG=${ACS_IMAGE_TAG}/' .env || echo 'ACS_IMAGE_TAG=${ACS_IMAGE_TAG}' >> .env"
+
 info "Preflight compose config on server"
 ssh "${SERVER}" "cd '${REMOTE_DIR}' && ACS_IMAGE_TAG='${ACS_IMAGE_TAG}' docker compose ${COMPOSE_ARGS[*]} config >/dev/null"
 
-info "Pull + recreate steward_acs (+ caddy if present)"
-ssh "${SERVER}" "cd '${REMOTE_DIR}' && ACS_IMAGE_TAG='${ACS_IMAGE_TAG}' docker compose ${COMPOSE_ARGS[*]} pull steward_acs && ACS_IMAGE_TAG='${ACS_IMAGE_TAG}' docker compose ${COMPOSE_ARGS[*]} up -d --no-build --remove-orphans steward_acs caddy"
+info "Pull + recreate steward_acs; reload caddy (Caddyfile is bind-mounted, force recreate on each deploy)"
+ssh "${SERVER}" "cd '${REMOTE_DIR}' && ACS_IMAGE_TAG='${ACS_IMAGE_TAG}' docker compose ${COMPOSE_ARGS[*]} pull steward_acs"
+ssh "${SERVER}" "cd '${REMOTE_DIR}' && ACS_IMAGE_TAG='${ACS_IMAGE_TAG}' docker compose ${COMPOSE_ARGS[*]} up -d --no-build --remove-orphans steward_acs"
+ssh "${SERVER}" "cd '${REMOTE_DIR}' && ACS_IMAGE_TAG='${ACS_IMAGE_TAG}' docker compose ${COMPOSE_ARGS[*]} up -d --no-build --force-recreate caddy"
 
 # Seed org registry into the data volume when missing (prod historically used a bind mount).
 ssh "${SERVER}" "docker exec steward_acs sh -c 'test -s /data/orgs.yaml' || docker cp '${REMOTE_DIR}/priv/orgs.yaml' steward_acs:/data/orgs.yaml 2>/dev/null || true"
