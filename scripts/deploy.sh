@@ -1,55 +1,70 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Deterministic deploy: build once, tag by Git SHA, push, pull that exact tag on the server.
 set -euo pipefail
 
-# ─── Config (override via env vars) ──────────────────────────────────────────
 REGISTRY="${REGISTRY:-naharemete/steward_acs}"
-TAG="deploy-$(date +%s)"
 SERVER="${SERVER:-}"
-DOMAIN="${DOMAIN:-prod.stewardacs.xyz}"
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.cloudflare.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.multitenant.yml}"
+CADDY_FILE="${CADDY_FILE:-Caddyfile.multitenant}"
+GIT_SHA="${GIT_SHA:-$(git rev-parse --short=12 HEAD)}"
+ACS_IMAGE_TAG="${ACS_IMAGE_TAG:-$GIT_SHA}"
+REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/steward_acs}"
 
-if [ -z "$SERVER" ]; then
-  echo "ERROR: SERVER env var must be set (e.g. ubuntu@1.2.3.4)"
+if [[ -z "$SERVER" ]]; then
+  echo "ERROR: SERVER must be set (e.g. SERVER=ubuntu@139.99.172.4)" >&2
   exit 1
 fi
 
-# Colors
-RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; NC='\033[0m'
-info()  { echo -e "${CYAN}[deploy]${NC} $1"; }
-ok()    { echo -e "${GREEN}[✓]${NC} $1"; }
-fail()  { echo -e "${RED}[✗]${NC} $1"; exit 1; }
+info() { echo "[deploy] $*"; }
 
-# ─── 1. Build ─────────────────────────────────────────────────────────────────
-info "Building image: ${REGISTRY}:${TAG}"
-SECRET_KEY_BASE="${SECRET_KEY_BASE:-$(mix phx.gen.secret 2>/dev/null || openssl rand -base64 48)}"
+info "Building ${REGISTRY}:${ACS_IMAGE_TAG} (git=${GIT_SHA})"
 docker build \
   --target release \
   --build-arg REPO_ADAPTER=sqlite \
-  --build-arg SECRET_KEY_BASE="${SECRET_KEY_BASE}" \
-  -t "${REGISTRY}:${TAG}" \
-  -t "${REGISTRY}:latest" \
+  --build-arg GIT_SHA="${GIT_SHA}" \
+  --build-arg SECRET_KEY_BASE="${SECRET_KEY_BASE:-build_time_secret_key_base_not_used_at_runtime}" \
+  -t "${REGISTRY}:${ACS_IMAGE_TAG}" \
+  -t "${REGISTRY}:multitenant" \
   .
-ok "Build complete"
 
-# ─── 2. Push ──────────────────────────────────────────────────────────────────
-info "Pushing to registry"
-docker push "${REGISTRY}:${TAG}"
-docker push "${REGISTRY}:latest"
-ok "Push complete"
+info "Pushing ${REGISTRY}:${ACS_IMAGE_TAG} and :multitenant"
+docker push "${REGISTRY}:${ACS_IMAGE_TAG}"
+docker push "${REGISTRY}:multitenant"
 
-# ─── 3. Deploy ────────────────────────────────────────────────────────────────
-info "Copying compose file to server"
-ssh "${SERVER}" "mkdir -p ~/steward_acs"
-scp "${COMPOSE_FILE}" "${SERVER}:~/steward_acs/"
-scp Caddyfile "${SERVER}:~/steward_acs/"
-ok "Files copied"
+info "Syncing compose/caddy bundle to ${SERVER}:${REMOTE_DIR}"
+ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}'"
+scp "${COMPOSE_FILE}" "${CADDY_FILE}" "${SERVER}:${REMOTE_DIR}/"
+if [[ -f docker-compose.postgres.yml ]]; then
+  scp docker-compose.postgres.yml "${SERVER}:${REMOTE_DIR}/"
+fi
+if [[ -f priv/orgs.yaml ]]; then
+  ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}/priv'"
+  scp priv/orgs.yaml "${SERVER}:${REMOTE_DIR}/priv/orgs.yaml"
+fi
 
-info "Deploying on server"
-ssh "${SERVER}" "cd ~/steward_acs && \
-  DOMAIN='${DOMAIN}' \
-  ACS_URL='http://steward_acs:4001' \
-  docker compose -f ${COMPOSE_FILE} pull && \
-  docker compose -f ${COMPOSE_FILE} up -d --remove-orphans"
-ok "Deployed ${REGISTRY}:${TAG} to ${SERVER}"
+COMPOSE_ARGS=(-f "${COMPOSE_FILE}")
+if [[ "${WITH_POSTGRES:-false}" == "true" ]]; then
+  COMPOSE_ARGS+=(-f docker-compose.postgres.yml)
+fi
 
-info "Done! https://${DOMAIN}"
+info "Preflight compose config on server"
+ssh "${SERVER}" "cd '${REMOTE_DIR}' && ACS_IMAGE_TAG='${ACS_IMAGE_TAG}' docker compose ${COMPOSE_ARGS[*]} config >/dev/null"
+
+info "Pull + recreate steward_acs (+ caddy if present)"
+ssh "${SERVER}" "cd '${REMOTE_DIR}' && ACS_IMAGE_TAG='${ACS_IMAGE_TAG}' docker compose ${COMPOSE_ARGS[*]} pull steward_acs && ACS_IMAGE_TAG='${ACS_IMAGE_TAG}' docker compose ${COMPOSE_ARGS[*]} up -d --no-build --remove-orphans steward_acs caddy"
+
+# Seed org registry into the data volume when missing (prod historically used a bind mount).
+ssh "${SERVER}" "docker exec steward_acs sh -c 'test -s /data/orgs.yaml' || docker cp '${REMOTE_DIR}/priv/orgs.yaml' steward_acs:/data/orgs.yaml 2>/dev/null || true"
+
+info "Waiting for health"
+for _ in $(seq 1 40); do
+  if ssh "${SERVER}" 'docker inspect -f "{{.State.Health.Status}}" steward_acs 2>/dev/null' | grep -qx healthy; then
+    break
+  fi
+  sleep 2
+done
+
+DIGEST=$(ssh "${SERVER}" 'docker inspect -f "{{.Image}}" steward_acs')
+STATUS=$(ssh "${SERVER}" 'docker inspect -f "{{.State.Health.Status}}" steward_acs')
+info "Deployed digest=${DIGEST} health=${STATUS} tag=${ACS_IMAGE_TAG}"
+[[ "$STATUS" == "healthy" ]] || { echo "ERROR: container not healthy" >&2; exit 1; }

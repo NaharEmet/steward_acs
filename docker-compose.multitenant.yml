@@ -26,7 +26,8 @@ services:
     environment:
       BASE_DOMAIN: "${BASE_DOMAIN:-stewardacs.xyz}"
       ACS_URL: "http://steward_acs:4001"
-      SYNC_BCRYPT_PASS: "${SYNC_BCRYPT_PASS:-}"
+      AUTH0_DOMAIN: "${AUTH0_DOMAIN:-dev-jw5wgp2b.us.auth0.com}"
+      AUTH0_AUDIENCE_URLENC: "${AUTH0_AUDIENCE_URLENC:-https%3A%2F%2Fprod.stewardacs.xyz%2Fmcp%2Fsse}"
     depends_on:
       steward_acs:
         condition: service_healthy
@@ -38,9 +39,7 @@ services:
       target: release
       args:
         REPO_ADAPTER: sqlite
-        SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
-        COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT:-}"
-    image: naharemete/steward_acs:multitenant
+    image: naharemete/steward_acs:${ACS_IMAGE_TAG:-multitenant}
     container_name: steward_acs
     restart: unless-stopped
     expose:
@@ -55,8 +54,7 @@ services:
       REPO_ADAPTER: sqlite
       DATABASE_PATH: /data/steward.sqlite
       ORGS_FILE: /data/orgs.yaml
-      SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
-      COOKIE_SIGNING_SALT: "${COOKIE_SIGNING_SALT}"
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
       MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
       MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-false}"
       OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-false}"
@@ -70,10 +68,10 @@ services:
       MCP_RESOURCE_URL: "${MCP_RESOURCE_URL:-https://prod.stewardacs.xyz/mcp/sse}"
       ACS_USERNAME: "${ACS_USERNAME:-admin}"
       ACS_PASSWORD: "${ACS_PASSWORD:?Set ACS_PASSWORD}"
+      ACS_ORG_DASHBOARD_CREDS: "${ACS_ORG_DASHBOARD_CREDS:-}"
       OLLAMA_URL: http://ollama:11434
       OBSIDIAN_VAULT_PATH: /vaults
       MEMORY_STORE: obsidian
-      MEMORY_EVALUATION_PROMPT_PATH: /app/priv/evaluation_prompt/evaluate.txt
     volumes:
       - acs_data:/data
       - vaults:/vaults
@@ -103,6 +101,11 @@ services:
     <<: *syncthing_base
     container_name: syncthing_default
     hostname: syncthing_default
+    # Admin UI: loopback/SSH only. Device sync ports published for Obsidian clients.
+    ports:
+      - "127.0.0.1:8384:8384"
+      - "22000:22000"
+      - "21027:21027/udp"
     volumes:
       - syncthing_config_default:/var/syncthing/config
       - vaults:/var/syncthing/vaults

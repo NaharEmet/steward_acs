@@ -40,12 +40,10 @@ ENV MIX_ENV=prod
 ARG REPO_ADAPTER=postgres
 ENV REPO_ADAPTER=${REPO_ADAPTER}
 
+# ponytail: compile-only dummy; runtime SECRET_KEY_BASE comes from compose/env
 ARG SECRET_KEY_BASE=build_time_secret_key_base_not_used_at_runtime
 
 ARG PGPASSWORD=build_time_not_used_at_runtime
-
-ARG COOKIE_SIGNING_SALT
-ENV COOKIE_SIGNING_SALT=${COOKIE_SIGNING_SALT}
 
 RUN mix local.hex --force && mix local.rebar --force
 COPY mix.exs mix.lock ./
@@ -59,9 +57,7 @@ COPY lib lib
 COPY priv priv
 COPY assets assets
 
-RUN if [ -z "$COOKIE_SIGNING_SALT" ]; then \
-      export COOKIE_SIGNING_SALT=$(printf '%s' "$SECRET_KEY_BASE" | sha256sum | awk '{print $1}' | cut -c1-16); \
-    fi && \
+RUN export COOKIE_SIGNING_SALT=$(printf '%s' "$SECRET_KEY_BASE" | sha256sum | awk '{print $1}' | cut -c1-16) && \
     mix compile && \
     mix assets.deploy && \
     mix release
@@ -69,14 +65,16 @@ RUN if [ -z "$COOKIE_SIGNING_SALT" ]; then \
 # --- Production runtime ---
 FROM alpine:3.22 AS release
 
-RUN apk add --no-cache libstdc++ openssl ncurses-libs curl sqlite-libs libgcc su-exec
+ARG GIT_SHA=unknown
+LABEL org.opencontainers.image.revision="${GIT_SHA}"
+
+RUN apk add --no-cache libstdc++ openssl ncurses-libs curl sqlite-libs libgcc su-exec inotify-tools
 
 RUN addgroup -g 1000 -S acs && adduser -u 1000 -S acs -G acs
 
 WORKDIR /app
 
 COPY --from=build /app/_build/prod/rel/steward_acs ./
-COPY --from=build /app/priv/evaluation_prompt /app/priv/evaluation_prompt
 COPY docker/entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh && chown -R acs:acs /app

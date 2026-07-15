@@ -1,10 +1,10 @@
 ---
-audit_reasoning: All checks passed
-audit_score: 10
-audit_status: ok
-audited_at: 2026-07-05T11:19:22.725162Z
+audit_reasoning: "The skill provides clear, actionable steps for daily operations and first-time setup using `pass`. It includes verification (list secrets) and a critical safety warning. The description is distinct from the name and content. It is unique compared to existing skills. Minor gaps exist in failure recovery and verification of the final .env file."
+audit_score: 8
+audit_status: "ok"
+audited_at: "2026-07-15T13:36:50.907969Z"
 description: Managing secrets with pass (password-store)
-name: secrets
+name: "secrets"
 scope_paths: ["guides/secrets", "guides/deployment", "config"]
 when_to_use: Before touching .env, deploying, or storing credentials — never commit secrets to git
 tags: ["secrets", "pass", "deploy"]
@@ -49,3 +49,7 @@ pass insert steward/SECRET_KEY_BASE
 ```
 
 The container doesn't need `pass` — it receives env vars from Docker as before.
+
+## Never commit live credentials
+
+Tracked templates (`.env.example`, `.env.multitenant`, `.env.remote`) must keep Auth0 / DB / API secrets empty. If a Management API secret ever lands in git history, rotate it in Auth0 immediately and scrub the file.

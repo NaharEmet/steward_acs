@@ -57,7 +57,7 @@ services:
       SERVICE_API_KEY: "${SERVICE_API_KEY:?Set SERVICE_API_KEY}"
       LOG_INGEST_KEY: "${LOG_INGEST_KEY:-}"
       MEMORY_STORE: "${MEMORY_STORE:-yaml}"
-      MEMORY_EVALUATION_PROMPT_PATH: /app/priv/evaluation_prompt/evaluate.txt
+      MEMORY_EVALUATION_PROMPT_PATH: /app/priv/evaluation_prompt/evaluate.md
       OBSIDIAN_VAULT_PATH: "${OBSIDIAN_VAULT_PATH:-}"
       ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-}"
       MIMO_API_KEY: "${MIMO_API_KEY:-}"

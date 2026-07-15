@@ -226,20 +226,19 @@ steward_acs/
 ├── priv/
 │   ├── acs_memory/    # Canonical YAML memory files
 │   └── repo/migrations/
-├── site/              # Marketing landing page (HTML/CSS/JS)
 ├── test/
 ├── assets/
+├── archive/deploy/                 # Superseded compose files
 ├── Dockerfile
 ├── docker-compose.yml              # Local dev (SQLite, port 4001)
-├── docker-compose.remote.yml       # Remote prod (PostgreSQL, Caddy TLS)
-├── docker-compose.multitenant.yml  # Multi-tenant (subdomain isolation)
-├── docker-compose.cloudflare.yml   # Prod multi-tenant (stewardacs.xyz)
-├── Caddyfile                       # TLS config for remote / cloudflare
-├── Caddyfile.multitenant           # Wildcard + per-org Obsidian routes
-├── .env.remote                     # Remote env var template
-├── .env.multitenant                # Multi-tenant env var template
+├── docker-compose.multitenant.yml  # Canonical multi-tenant prod
+├── docker-compose.postgres.yml     # Postgres override for prod
+├── Caddyfile.multitenant           # Wildcard TLS + Auth0 OAuth routes
+├── .env.example                    # Local env template
+├── .env.multitenant                # Prod env template
 └── mix.exs
 ```
+
 
 ---
 

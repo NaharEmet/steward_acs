@@ -1,39 +1,10 @@
 # Secrets Management
 
-Manage secrets with `pass` (password-store) — don't edit `.env` directly.
+Canonical skill: [`priv/skills/secrets.md`](../priv/skills/secrets.md).
 
-## Daily ops (SSH into the server)
+Quick rules:
 
-```bash
-# Set/update a secret
-pass insert steward/SECRET_KEY_BASE
-
-# Read a secret
-pass show steward/SECRET_KEY_BASE
-
-# List all secrets
-pass ls steward/
-
-# Regenerate .env from pass store
-./scripts/secrets-env.sh -w .env
-```
-
-Regenerate `.env` after any change, then `docker compose up -d`.
-
-## First-time setup
-
-```bash
-# Install pass (one-time)
-sudo apt install pass    # Debian/Ubuntu
-brew install pass        # macOS
-
-# Generate a GPG key (one-time)
-gpg --full-generate-key
-
-# Initialize for this project
-pass init <YOUR_GPG_KEY_ID>
-mkdir -p ~/.password-store/steward
-pass insert steward/SECRET_KEY_BASE
-```
-
-The container doesn't need `pass` — it receives env vars from Docker as before.
+- Manage secrets with `pass`; regenerate `.env` via `./scripts/secrets-env.sh -w .env`.
+- Never commit Auth0 M2M / Management API credentials. `.env.remote` and `.env.multitenant` are templates with empty placeholders only.
+- After rotating any secret that was ever committed, revoke the old credential in its provider (Auth0 dashboard → Applications → M2M → rotate).
+- `chmod 600 .env` on every host.

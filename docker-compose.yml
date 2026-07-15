@@ -1,3 +1,4 @@
+# Local development only — production uses docker-compose.multitenant.yml
 services:
   steward_acs:
     build:
@@ -18,6 +19,16 @@ services:
       ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-mimo,nim}"
       MCP_AUTH_LOCAL_FALLBACK: "false"
       META_HARNESS_ENABLED: "true"
+
+      # OAuth / Auth0 (for Claude Connectors)
+      OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-false}"
+      AUTH0_DOMAIN: "${AUTH0_DOMAIN:-}"
+      AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-}"
+      MCP_PUBLIC_URL: "${MCP_PUBLIC_URL:-}"
+      MCP_RESOURCE_URL: "${MCP_RESOURCE_URL:-}"
+      AUTH0_MGMT_CLIENT_ID: "${AUTH0_MGMT_CLIENT_ID:-}"
+      AUTH0_MGMT_CLIENT_SECRET: "${AUTH0_MGMT_CLIENT_SECRET:-}"
+      AUTH0_CONNECTION: "${AUTH0_CONNECTION:-email}"
 
       # Dashboard credentials (default: admin/admin)
       ACS_USERNAME: "${ACS_USERNAME:-admin}"

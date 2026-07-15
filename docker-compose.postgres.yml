@@ -1,0 +1,36 @@
+# Postgres override for docker-compose.multitenant.yml
+# Usage: docker compose -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
+
+services:
+  steward_acs:
+    build:
+      args:
+        REPO_ADAPTER: postgres
+    environment:
+      REPO_ADAPTER: postgres
+      DATABASE_PATH: ""
+      DATABASE_URL: "ecto://${DB_USER:-postgres}:${DB_PASSWORD:?Set DB_PASSWORD}@db:5432/${DB_NAME:-acs_prod}"
+      POOL_SIZE: "10"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: steward_acs_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${DB_USER:-postgres}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD}"
+      POSTGRES_DB: "${DB_NAME:-acs_prod}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    shm_size: 128mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

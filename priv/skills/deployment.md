@@ -1,164 +1,81 @@
 ---
-audit_reasoning: All checks passed
-audit_score: 10
-audit_status: ok
-audited_at: 2026-07-05T11:19:22.724487Z
-description: ACS deployment styles: code development vs org memory
-name: deployment
-scope_paths: ["guides/deployment", "lib/acs", "docker"]
-when_to_use: Before deploying ACS locally or to production — pick the right compose file and verify the setup
-tags: ["deployment", "ops", "admin"]
+name: "deployment"
+description: Deploy and operate Steward ACS (local + multi-tenant prod).
+audit_reasoning: "The skill provides clear, concrete commands and tables for deployment across local and production environments. It includes verification steps and specific failure notes (e.g., not using mix ecto.migrate). The description is distinct and summarizes the scope well. Minor gaps exist in prerequisites and failure recovery details."
+audit_score: 8
+audit_status: "ok"
+audited_at: "2026-07-15T13:36:47.671511Z"
 ---
 
-# Deployment Styles
+# Deployment
 
-ACS supports two deployment styles depending on your use case.
-
-## Code Development
-
-Lightweight setup for individual developers coordinating with AI agents. Agents manage tasks, memories, and files on your local project.
-
-| Aspect | Config |
-|--------|--------|
-| Compose file | `docker-compose.yml` |
-| Database | SQLite (file-based, no extra container) |
-| Memory store | YAML files in `priv/acs_memory/` |
-| Auth | API key (`MCP_API_KEY`) + dashboard basic auth |
-| Network | Localhost only, port 4001 |
-| TLS | None |
+## Supported commands
 
 ```bash
+# Local
 docker compose up -d
+
+# Prod SQLite (canonical)
+cp .env.multitenant .env   # fill secrets
+docker compose -f docker-compose.multitenant.yml up -d
+
+# Prod Postgres override
+docker compose -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
+
+# Immutable remote deploy (from laptop)
+SERVER=ubuntu@HOST ./scripts/deploy.sh
+SERVER=ubuntu@HOST ./scripts/status.sh
+SERVER=ubuntu@HOST ./scripts/backup-prod.sh
 ```
 
-Memories are machine-readable YAML — agents use them for context. No human-facing knowledge tooling.
+| Setup | Compose | Notes |
+|-------|---------|-------|
+| Local | `docker-compose.yml` | SQLite, port 4001 |
+| Prod SQLite | `docker-compose.multitenant.yml` + `Caddyfile.multitenant` | Current stewardacs prod |
+| Prod Postgres | above + `docker-compose.postgres.yml` | For upcoming migration |
 
-## Org Memory
+Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/` and must not be used.
 
-Production setup for organizational knowledge management. Memories live in an Obsidian vault that humans edit directly and sync via Syncthing.
+## Env templates
 
-| Aspect | Config |
-|--------|--------|
-| Compose file | `docker-compose.remote.yml` or `docker-compose.cloudflare.yml` |
-| Database | PostgreSQL (`remote.yml`) or SQLite (`cloudflare.yml`) |
-| Memory store | Obsidian vault (`MEMORY_STORE=obsidian`) |
-| Auth | API key + optional Auth0 OAuth |
-| OAuth users | See skill **auth0-users** — create Auth0 accounts for Claude Connectors |
-| Network | Public domain with TLS (Caddy) |
-| Sync | Syncthing — local Obsidian ↔ server vault |
+- Local: `.env.example` → `.env`
+- Prod: `.env.multitenant` → `.env`
+- Multi-org dashboard logins: `ACS_ORG_DASHBOARD_CREDS='{"prod":{"username":"admin","password":"..."}}'`
+- Auth0 M2M: `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` (aliases: `AUTH0_M2M_*`). Keep in `pass`, never in git.
 
-Agents write memories as markdown files with YAML frontmatter. Humans open the same vault in Obsidian. Both see the same knowledge.
+## Migrations
+
+Release entrypoint runs `Acs.Release.migrate` on start. Manual:
 
 ```bash
-cp .env.remote .env
-# Fill in: SECRET_KEY_BASE, MCP_API_KEY, DB_PASSWORD, ACS_PASSWORD
-# Set MEMORY_STORE=obsidian, OBSIDIAN_VAULT_PATH=/obsidian
-docker compose -f docker-compose.remote.yml up -d --build
+docker compose -f docker-compose.multitenant.yml exec steward_acs \
+  /app/bin/steward_acs eval "Acs.Release.migrate"
 ```
 
-## Which one to use
+Do **not** use `mix ecto.migrate` against the release image (no Mix).
 
-| You want... | Use |
-|-------------|-----|
-| Agent coordination on a dev project | Code Development |
-| Persistent org knowledge, human-readable | Org Memory |
-| Multiple orgs on one server (subdomain isolation) | Multi-Tenant (see below) |
-| Both at the same time | Run Code Development locally, Org Memory on a server. They're independent instances. |
+## Syncthing
 
-## Multi-Tenant (Subdomain)
-
-Production setup for hosting multiple orgs on one ACS instance. Each org gets its own subdomain for ACS and Obsidian/Syncthing. All data is scoped by org in the database, ETS cache, and filesystem.
-
-| Aspect | Config |
-|--------|--------|
-| Compose file | `docker-compose.multitenant.yml` (generic) or `docker-compose.cloudflare.yml` (prod) |
-| Env template | `.env.multitenant` |
-| Caddy config | `Caddyfile.multitenant` or `Caddyfile` |
-| Database | SQLite (single DB, `org` column isolates rows) |
-| Memory store | Configured org at `/vaults/private/memories/`; additional orgs under `/vaults/orgs/<org>/private/memories/` |
-| Auth | API key + optional Auth0 OAuth (scoped to subdomain) |
-| Network | `https://<org>.<BASE_DOMAIN>` and `https://<org>.obsidian.<BASE_DOMAIN>` |
-| Sync | One Syncthing container per org (separate API key + config volume) |
-
-### URLs
-
-| Service | Pattern | Example |
-|---------|---------|---------|
-| ACS (dashboard + MCP) | `<org>.<BASE_DOMAIN>` | `prod.stewardacs.xyz` |
-| Obsidian / Syncthing | `<org>.obsidian.<BASE_DOMAIN>` | `prod.obsidian.stewardacs.xyz` |
-| Legacy apex Obsidian | `obsidian.<BASE_DOMAIN>` | routes to `syncthing_default` |
-
-### Required environment variables
-
-Copy the template and fill in secrets:
+Admin UI is loopback-only (`127.0.0.1:8384`). Tunnel:
 
 ```bash
-cp .env.multitenant .env
-# Edit: SECRET_KEY_BASE, MCP_API_KEY, ACS_PASSWORD, Syncthing API keys
-docker compose -f docker-compose.multitenant.yml up -d --build
+ssh -L 8384:127.0.0.1:8384 ubuntu@HOST
 ```
 
-For the Cloudflare/prod stack (`docker-compose.cloudflare.yml`):
+Device sync uses published `22000` / `21027/udp`. Do not reverse-proxy Syncthing admin through Caddy.
+
+## Orgs
+
+`ORGS_FILE=/data/orgs.yaml`. `create_org` updates that file. If empty after upgrade, seed once:
 
 ```bash
-cp .env.multitenant .env
-# Also set AUTH0_* vars if using OAuth
-docker compose -f docker-compose.cloudflare.yml up -d --build
+docker cp priv/orgs.yaml steward_acs:/data/orgs.yaml
 ```
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MULTI_TENANT` | yes | Set to `true` (baked into compose files) |
-| `ACS_ORG_NAME` | yes | Existing/configured org that keeps legacy memory paths and IDs |
-| `BASE_DOMAIN` | yes | Root domain, e.g. `stewardacs.xyz` |
-| `SECRET_KEY_BASE` | yes | Phoenix secret |
-| `MCP_API_KEY` | yes | MCP API key |
-| `ACS_PASSWORD` | yes | Dashboard password |
-| `SYNCTHING_DEFAULT_API_KEY` | yes | API key for `syncthing_default` |
-| `SYNCTHING_PROD_API_KEY` | yes (prod) | API key for `syncthing_prod` |
-| `SYNCTHING_FSGBHUTAN_API_KEY` | yes (if org exists) | API key for `syncthing_fsgbhutan` |
-| `SYNCTHING_SAFETYCONNECT_API_KEY` | yes (if org exists) | API key for `syncthing_safetyconnect` |
-| `SYNC_BCRYPT_PASS` | optional | Basic auth for legacy `obsidian.<BASE_DOMAIN>` |
+## Smoke checks after deploy
 
-Generate Syncthing API keys in each container's GUI (Settings → API) after first boot, or set random strings before deploy and configure via env (`STGUIAPIKEY`).
-
-### Database migrations
-
-Run migrations after pulling multi-tenant changes (adds composite PKs and org columns):
-
-```bash
-# Inside the steward_acs container or locally with the prod DB path
-mix ecto.migrate
-```
-
-Run this before serving traffic. The configured `ACS_ORG_NAME` keeps existing memory paths and unqualified index/vector IDs. Additional orgs use `orgs/<org>/...` paths and tenant-qualified derived-store IDs.
-
-Key migrations:
-- `20260707100000_agent_status_composite_pk` — `(agent_id, org)` primary key
-- `20260707100001_memory_embeddings_org` — vector embeddings scoped by org
-
-### Vault layout
-
-```
-/vaults/
-├── private/memories/          # configured ACS_ORG_NAME (legacy path)
-└── orgs/
-    ├── acme/private/memories/
-    └── beta/private/memories/
-```
-
-Syncthing containers share the `vaults` volume but each has its own config volume. Point the configured org at `/var/syncthing/vaults/`; point additional orgs at `/var/syncthing/vaults/orgs/<org>/`.
-
-### Provisioning a new org
-
-1. Call the `create_org` admin MCP tool (updates the persistent `ORGS_FILE` registry + creates vault directories).
-2. Add a `syncthing_<subdomain>` service to the compose file with its own `STGUIAPIKEY` and config volume.
-3. Add a Caddy route: `<subdomain>.obsidian.<BASE_DOMAIN>` → `http://syncthing_<subdomain>:8384`.
-4. Add the new `SYNCTHING_<SUBDOMAIN>_API_KEY` to `.env`.
-5. Redeploy Caddy + the new Syncthing container.
-
-The `create_org` response includes the exact URLs and a reminder about Syncthing/Caddy steps.
-
-### Configured orgs
-
-`priv/orgs.yaml` seeds `default`, `prod`, `fsgbhutan`, and `safetyconnect`; remote compose persists additions in `/data/orgs.yaml`. The generic multi-tenant stack includes Syncthing services and routes for the seeded orgs.
+1. `./scripts/status.sh` with `SERVER=` set — digest healthy, expected image SHA
+2. `curl -fsS https://prod.stewardacs.xyz/mcp/health`
+3. Dashboard login for configured org + `/skills` (no 500)
+4. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
+5. No `inotify-tools` errors in `docker logs steward_acs`
