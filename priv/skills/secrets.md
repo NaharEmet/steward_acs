@@ -1,8 +1,8 @@
 ---
-audit_reasoning: "The skill is actionable with clear, step-by-step commands for daily operations and first-time setup. It includes verification steps (e.g., listing secrets) and a critical warning about credential safety. The description is distinct and informative. It is unique compared to existing skills, which focus on deployment, installation, and user management, not secrets handling."
+audit_reasoning: "The skill provides clear, actionable steps for daily operations and first-time setup using pass. It includes verification (list secrets) and failure recovery (rotate credentials if leaked). The description is distinct from the name and content opening. It is unique compared to existing skills, which focus on deployment, installation, and Auth0 users, not secrets management."
 audit_score: 8
 audit_status: "ok"
-audited_at: "2026-07-15T14:42:46.439590Z"
+audited_at: "2026-07-15T14:43:57.812210Z"
 description: Managing secrets with pass (password-store)
 name: "secrets"
 scope_paths: ["guides/secrets", "guides/deployment", "config"]

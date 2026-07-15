@@ -2,7 +2,7 @@
 audit_reasoning: "The skill is highly actionable with clear, step-by-step instructions for multiple methods (script, dashboard, API), includes prerequisites, verification steps, and a comprehensive troubleshooting table. The description is distinct and accurately summarizes the skill's purpose. It is unique and not a duplicate of existing skills."
 audit_score: 10
 audit_status: "ok"
-audited_at: "2026-07-15T14:42:46.833335Z"
+audited_at: "2026-07-15T14:43:55.018135Z"
 description: Create Auth0 users for Claude MCP Connectors on prod ACS
 name: "auth0-users"
 scope_paths: ["guides/deployment", "lib/acs_web", "auth"]

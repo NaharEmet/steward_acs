@@ -4,7 +4,7 @@ description: Deploy and operate Steward ACS (local + multi-tenant prod).
 audit_reasoning: "The skill provides clear, concrete commands and tables for deployment scenarios, with verification steps. It is distinct from existing skills (auth0-users, secrets, steward-installer) and covers a unique operational workflow. Minor gaps exist in failure recovery and prerequisites."
 audit_score: 8
 audit_status: "ok"
-audited_at: "2026-07-15T14:42:46.889744Z"
+audited_at: "2026-07-15T14:43:57.368487Z"
 ---
 
 # Deployment
