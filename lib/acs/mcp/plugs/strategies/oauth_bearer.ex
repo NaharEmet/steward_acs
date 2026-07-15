@@ -12,6 +12,8 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
 
   require Logger
 
+  @org_claim "https://stewardacs.xyz/org"
+
   @impl true
   def authenticate(_key, conn) do
     with true <- Config.enabled?(),
@@ -36,12 +38,15 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
     permissions = permissions_from(claims)
     role = role_from(permissions)
     identity = identity_from(claims)
+    org_id = org_from(claims)
 
-    Logger.debug("[MCPAuth] authenticated via Auth0 OAuth: role=#{role} identity=#{identity}")
+    Logger.debug(
+      "[MCPAuth] authenticated via Auth0 OAuth: role=#{role} org=#{org_id || "nil"} identity=#{identity}"
+    )
 
     %{
       role: role,
-      org_id: nil,
+      org_id: org_id,
       permissions: permissions,
       agent_identity: identity,
       allowed_teams: nil,
@@ -65,4 +70,11 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
   defp identity_from(%{"email" => email}) when is_binary(email) and email != "", do: email
   defp identity_from(%{"sub" => sub}) when is_binary(sub), do: sub
   defp identity_from(_), do: "oauth-user"
+
+  defp org_from(claims) when is_map(claims) do
+    case Map.get(claims, @org_claim) do
+      org when is_binary(org) and org != "" -> org
+      _ -> nil
+    end
+  end
 end

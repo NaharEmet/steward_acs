@@ -123,8 +123,8 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   defp compute_stats(skills) do
     Enum.reduce(skills, empty_stats(), fn skill, stats ->
       stats
-      |> Map.update!(:total, &(&1 + 1))
-      |> Map.update(skill.status, 1, &(&1 + 1))
+      |> Map.update!("total", &(&1 + 1))
+      |> Map.update(skill.status || "proposed", 1, &(&1 + 1))
     end)
   end
 

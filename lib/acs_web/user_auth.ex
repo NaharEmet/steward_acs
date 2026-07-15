@@ -73,8 +73,14 @@ defmodule AcsWeb.UserAuth do
     }
   end
 
-  def on_mount(:ensure_authenticated, _params, session, socket) do
+  def on_mount(:assign_org, _params, session, socket) do
     org = session["org"] || Acs.Org.current()
+    :ok = Acs.Org.put_current(org)
+    {:cont, Phoenix.Component.assign(socket, :current_org, org)}
+  end
+
+  def on_mount(:ensure_authenticated, _params, session, socket) do
+    org = session["org"] || socket.assigns[:current_org] || Acs.Org.current()
     :ok = Acs.Org.put_current(org)
 
     socket =

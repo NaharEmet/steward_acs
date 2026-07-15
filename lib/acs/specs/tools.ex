@@ -5,7 +5,7 @@ defmodule Acs.Specs.Tools do
   MCP tool dispatchers for the Specs / Document System.
 
   Stores module specs AND shareable documents (project docs, marketing copy,
-  knowledge files, deliverables). See `priv/prompts/specs/instructions.txt`.
+  knowledge files, deliverables). See `priv/prompts/specs/instructions.md`.
   """
 
   alias Acs.Abac

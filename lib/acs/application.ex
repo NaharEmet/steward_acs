@@ -16,9 +16,6 @@ defmodule Acs.Application do
 
   @impl true
   def start(_type, _args) do
-    env_path = System.get_env("ENV_PATH") || Path.expand("../../.env", __DIR__)
-    if File.exists?(env_path), do: Dotenvy.source!(env_path)
-
     meta_harness_children =
       if meta_harness_enabled?() do
         [Acs.MetaHarness.OperationLogger, Acs.MetaHarness.Scheduler]
@@ -49,7 +46,14 @@ defmodule Acs.Application do
     # to avoid background tasks conflicting with Ecto sandbox connections.
     children =
       if Application.get_env(:steward_acs, :start_background_workers, true) do
-        [Acs.Memory.Auditor, Acs.Memory.FileWatcher, Acs.Memory.VaultSweeper, Acs.Specs.FileWatcher, {Acs.Log.RetentionSweeper, []}, Acs.Skills.Auditor | children]
+        [
+          Acs.Memory.Auditor,
+          Acs.Memory.FileWatcher,
+          Acs.Memory.VaultSweeper,
+          Acs.Specs.FileWatcher,
+          {Acs.Log.RetentionSweeper, []},
+          Acs.Skills.Auditor | children
+        ]
       else
         children
       end

@@ -484,7 +484,7 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
         ## Marketing Context
 
         This task involves marketing activities. Considerations:
-        - Ensure analytics/UTM tracking is set up (see guides/analytics.md)
+        - Ensure analytics/UTM tracking is set up if the product requires it
         - Verify conversion events are firing correctly
         - Coordinate publishing timing with content calendar
         - Test all links and calls-to-action before release

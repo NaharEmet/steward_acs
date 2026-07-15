@@ -8,17 +8,22 @@
 # Optional env:
 #   AUTH0_DOMAIN               default: dev-jw5wgp2b.us.auth0.com
 #   AUTH0_AUDIENCE             default: https://prod.stewardacs.xyz/mcp/sse
-#   AUTH0_USER_EMAIL           create this user if set
-#   AUTH0_USER_PASSWORD        password for new user (required if email set)
-#   AUTH0_DB_CONNECTION        default: Username-Password-Authentication
+#   AUTH0_USER_EMAIL           create this user if set (passwordless email connection)
+#   AUTH0_USER_PASSWORD        ignored for passwordless; only used if AUTH0_DB_CONNECTION is a DB conn
+#   AUTH0_DB_CONNECTION        default: email (passwordless OTP via New Universal Login)
 #   SKIP_CLAUDE_APP            set to 1 to skip manual Claude OAuth app creation
+#
+# Login model (Claude Connectors):
+#   New Universal Login + Identifier First + passwordless email OTP.
+#   Caddy injects connection=email on /authorize. True Auth0 "magic links"
+#   require Classic Login and are not used here.
 #
 set -euo pipefail
 
 DOMAIN="${AUTH0_DOMAIN:-dev-jw5wgp2b.us.auth0.com}"
 AUDIENCE="${AUTH0_AUDIENCE:-https://prod.stewardacs.xyz/mcp/sse}"
 MGMT_AUDIENCE="https://${DOMAIN}/api/v2/"
-DB_CONNECTION="${AUTH0_DB_CONNECTION:-Username-Password-Authentication}"
+DB_CONNECTION="${AUTH0_DB_CONNECTION:-email}"
 CLAUDE_CALLBACK="https://claude.ai/api/mcp/auth_callback"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -65,6 +70,10 @@ ok "Management API token obtained"
 info "Enabling Dynamic Client Registration (DCR)..."
 api PATCH /tenants/settings -d '{"flags":{"enable_dynamic_client_registration":true}}' >/dev/null
 ok "DCR enabled"
+
+info "Enabling Identifier First (required for passwordless email on New Universal Login)..."
+api PATCH /prompts -d '{"universal_login_experience":"new","identifier_first":true}' >/dev/null
+ok "Identifier First enabled"
 
 DCR_TEST=$(curl -sS -X POST "https://${DOMAIN}/oidc/register" \
   -H "content-type: application/json" \
@@ -204,33 +213,34 @@ print('yes' if any(g.get('client_id')==cid and g.get('audience')==aud for g in g
   fi
 done
 
-info "Promoting Username-Password-Authentication to domain-level (required for DCR Claude login)..."
-DB_CONN=$(api GET "/connections?name=Username-Password-Authentication" | python3 -c "
-import sys, json
-conns = json.load(sys.stdin)
-print(conns[0]['id'] if conns else '')
-" 2>/dev/null || true)
-if [[ -n "$DB_CONN" ]]; then
-  api PATCH "/connections/${DB_CONN}" -d '{"is_domain_connection": true}' >/dev/null
-  ok "Database connection promoted to domain-level"
-fi
-
 if [[ -n "${AUTH0_USER_EMAIL:-}" ]]; then
-  [[ -n "${AUTH0_USER_PASSWORD:-}" ]] || fail "Set AUTH0_USER_PASSWORD when AUTH0_USER_EMAIL is set"
-  info "Creating user ${AUTH0_USER_EMAIL}..."
-  USER_JSON=$(api POST /users -d "{
-    \"email\": \"${AUTH0_USER_EMAIL}\",
-    \"password\": \"${AUTH0_USER_PASSWORD}\",
-    \"connection\": \"${DB_CONNECTION}\",
-    \"email_verified\": true
-  }" 2>/dev/null || true)
+  ORG_META="${AUTH0_USER_ORG:-default}"
+  ROLE_META="${AUTH0_USER_ROLE:-collaborator}"
+  info "Creating passwordless user ${AUTH0_USER_EMAIL} on connection ${DB_CONNECTION} (org=${ORG_META})..."
+  if [[ "$DB_CONNECTION" == "email" || "$DB_CONNECTION" == "sms" ]]; then
+    USER_JSON=$(api POST /users -d "{
+      \"email\": \"${AUTH0_USER_EMAIL}\",
+      \"connection\": \"${DB_CONNECTION}\",
+      \"email_verified\": true,
+      \"app_metadata\": {\"org\": \"${ORG_META}\", \"role\": \"${ROLE_META}\"}
+    }" 2>/dev/null || true)
+  else
+    [[ -n "${AUTH0_USER_PASSWORD:-}" ]] || fail "Set AUTH0_USER_PASSWORD when AUTH0_DB_CONNECTION is a database connection"
+    USER_JSON=$(api POST /users -d "{
+      \"email\": \"${AUTH0_USER_EMAIL}\",
+      \"password\": \"${AUTH0_USER_PASSWORD}\",
+      \"connection\": \"${DB_CONNECTION}\",
+      \"email_verified\": true
+    }" 2>/dev/null || true)
+  fi
 
   USER_ID=$(echo "$USER_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('user_id',''))" 2>/dev/null || true)
 
   if [[ -z "$USER_ID" ]]; then
     USER_ID=$(api GET "/users-by-email?email=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${AUTH0_USER_EMAIL}'))")" \
       | python3 -c "import sys,json; u=json.load(sys.stdin); print(u[0]['user_id'] if u else '')")
-    ok "User already exists id=${USER_ID}"
+    api PATCH "/users/${USER_ID}" -d "{\"app_metadata\":{\"org\":\"${ORG_META}\",\"role\":\"${ROLE_META}\"}}" >/dev/null 2>&1 || true
+    ok "User already exists id=${USER_ID} (org=${ORG_META})"
   else
     ok "Created user id=${USER_ID}"
   fi
@@ -271,10 +281,62 @@ for c in json.load(sys.stdin):
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi
 
+# After Claude apps exist: wire passwordless email, demote password DB
+CLAUDE_IDS=$(api GET "/clients?fields=client_id,name&include_fields=true&per_page=100" | python3 -c "
+import sys, json
+for c in json.load(sys.stdin):
+    n = (c.get('name') or '')
+    if n in ('Claude.ai MCP', 'steward_acs_mcp'):
+        print(c['client_id'])
+")
+
+info "Configuring passwordless email connection for Claude (domain-level + first-party apps)..."
+EMAIL_CONN=$(api GET "/connections?strategy=email" | python3 -c "
+import sys, json
+conns = json.load(sys.stdin)
+print(conns[0]['id'] if conns else '')
+" 2>/dev/null || true)
+
+if [[ -n "$EMAIL_CONN" ]]; then
+  ENABLED_JSON=$(api GET "/connections/${EMAIL_CONN}" | python3 -c "
+import sys, json
+conn = json.load(sys.stdin)
+clients = set(conn.get('enabled_clients') or [])
+for cid in '''${CLAUDE_IDS}'''.split():
+    if cid:
+        clients.add(cid)
+print(json.dumps({'is_domain_connection': True, 'enabled_clients': sorted(clients)}))
+")
+  api PATCH "/connections/${EMAIL_CONN}" -d "$ENABLED_JSON" >/dev/null
+  ok "Email passwordless connection is domain-level and enabled for Claude apps"
+else
+  info "No email passwordless connection found — create one in Auth0 Dashboard (Authentication → Passwordless → Email)"
+fi
+
+info "Demoting Username-Password-Authentication (Claude should use email OTP, not passwords)..."
+DB_CONN=$(api GET "/connections?name=Username-Password-Authentication" | python3 -c "
+import sys, json
+conns = json.load(sys.stdin)
+print(conns[0]['id'] if conns else '')
+" 2>/dev/null || true)
+if [[ -n "$DB_CONN" ]]; then
+  PATCH_JSON=$(api GET "/connections/${DB_CONN}" | python3 -c "
+import sys, json
+conn = json.load(sys.stdin)
+claude = set('''${CLAUDE_IDS}'''.split())
+clients = [c for c in (conn.get('enabled_clients') or []) if c not in claude]
+print(json.dumps({'is_domain_connection': False, 'enabled_clients': clients}))
+")
+  api PATCH "/connections/${DB_CONN}" -d "$PATCH_JSON" >/dev/null
+  ok "Database connection demoted (not domain-level; Claude apps removed)"
+fi
+
 echo ""
 ok "Auth0 setup complete for ${DOMAIN}"
 echo "  MCP API:     ${AUDIENCE}"
 echo "  DCR:         enabled"
+echo "  Login:       Identifier First + passwordless email OTP (connection=email)"
 echo "  RBAC:        enabled with mcp:tools"
 echo ""
 echo "Next: Remove + re-add Claude connector at ${AUDIENCE} and connect."
+echo "Users enter email → receive a one-time code (New Universal Login; not Classic magic links)."

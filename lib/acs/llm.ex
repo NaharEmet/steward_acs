@@ -381,20 +381,29 @@ defmodule Acs.LLM do
   end
 
   defp load_prompt_template do
-    env_override = Application.get_env(:steward_acs, :memory_evaluation_prompt_path)
+    case memory_prompt_override() do
+      {:ok, content} -> content
+      :default -> Acs.Prompts.load("memory", "evaluate", default: @default_evaluation_prompt)
+    end
+  end
 
-    if is_binary(env_override) and env_override != "" do
-      case File.read(env_override) do
-        {:ok, content} -> content
-        {:error, reason} ->
-          Logger.warning(
-            "[Acs.LLM] Failed to read prompt file #{env_override}: #{reason}. Using default."
-          )
-
-          Acs.Prompts.load("memory", "evaluate", default: @default_evaluation_prompt)
-      end
+  defp memory_prompt_override do
+    with path when is_binary(path) <- System.get_env("MEMORY_EVALUATION_PROMPT_PATH"),
+         trimmed when trimmed != "" <- String.trim(path),
+         true <- Path.type(trimmed) == :absolute,
+         true <- File.exists?(trimmed),
+         {:ok, content} <- File.read(trimmed) do
+      {:ok, content}
     else
-      Acs.Prompts.load("memory", "evaluate", default: @default_evaluation_prompt)
+      {:error, reason} ->
+        Logger.warning(
+          "[Acs.LLM] Failed to read MEMORY_EVALUATION_PROMPT_PATH: #{inspect(reason)}. Using default."
+        )
+
+        :default
+
+      _ ->
+        :default
     end
   end
 

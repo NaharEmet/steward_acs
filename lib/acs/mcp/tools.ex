@@ -77,7 +77,8 @@ defmodule Acs.MCP.Tools do
         %{
           "agent_id" => %{
             "type" => "string",
-            "description" => "Optional: your agent name. If provided, returns personalized suggestions."
+            "description" =>
+              "Optional: your agent name. If provided, returns personalized suggestions."
           }
         },
         []
@@ -176,7 +177,11 @@ defmodule Acs.MCP.Tools do
         "list_tasks",
         "List all tasks. Optionally filter by status (todo, in_progress, in_review, done, blocked).",
         %{
-          "status_filter" => %{"type" => "string", "description" => "Optional: filter by status (todo, in_progress, in_review, done, blocked, all)"}
+          "status_filter" => %{
+            "type" => "string",
+            "description" =>
+              "Optional: filter by status (todo, in_progress, in_review, done, blocked, all)"
+          }
         },
         []
       ),
@@ -312,7 +317,8 @@ defmodule Acs.MCP.Tools do
         %{
           "query" => %{
             "type" => "string",
-            "description" => "Search query text (optional — if provided, does hybrid search; if omitted, lists by filters)"
+            "description" =>
+              "Search query text (optional — if provided, does hybrid search; if omitted, lists by filters)"
           },
           "mode" => %{
             "type" => "string",
@@ -321,7 +327,8 @@ defmodule Acs.MCP.Tools do
           },
           "min_relevance" => %{
             "type" => "number",
-            "description" => "Minimum relevance score (0.0-1.0) to filter results. Only used when query is provided."
+            "description" =>
+              "Minimum relevance score (0.0-1.0) to filter results. Only used when query is provided."
           },
           "scope_path" => %{
             "type" => "string",
@@ -391,7 +398,8 @@ defmodule Acs.MCP.Tools do
           },
           "document_type" => %{
             "type" => "string",
-            "description" => "Document type: spec, knowledge, project, marketing, deliverable, policy, process, guideline, reference"
+            "description" =>
+              "Document type: spec, knowledge, project, marketing, deliverable, policy, process, guideline, reference"
           },
           "limit" => %{
             "type" => "integer",
@@ -421,7 +429,8 @@ defmodule Acs.MCP.Tools do
           "app" => %{"type" => "string", "description" => "App name (e.g., 'my_app')"},
           "path" => %{
             "type" => "string",
-            "description" => "Entry path (e.g. 'acs/memory/guidance' or 'documents/marketing/q3-launch')"
+            "description" =>
+              "Entry path (e.g. 'acs/memory/guidance' or 'documents/marketing/q3-launch')"
           }
         },
         ["app", "path"]
@@ -440,7 +449,8 @@ defmodule Acs.MCP.Tools do
           "limit" => %{"type" => "integer", "description" => "Max results"},
           "mode" => %{
             "type" => "string",
-            "description" => "Search mode: 'hybrid' (keyword+vector/RAG, default), 'keyword' (substring), or 'semantic' (vector/RAG with source)",
+            "description" =>
+              "Search mode: 'hybrid' (keyword+vector/RAG, default), 'keyword' (substring), or 'semantic' (vector/RAG with source)",
             "enum" => ["hybrid", "keyword", "semantic"]
           }
         },
@@ -450,7 +460,10 @@ defmodule Acs.MCP.Tools do
         "specs_propose",
         specs_propose_description(),
         %{
-          "app" => %{"type" => "string", "description" => "App or project name (e.g. steward_acs, acme-corp)"},
+          "app" => %{
+            "type" => "string",
+            "description" => "App or project name (e.g. steward_acs, acme-corp)"
+          },
           "path" => %{
             "type" => "string",
             "description" =>
@@ -584,7 +597,11 @@ defmodule Acs.MCP.Tools do
         "Submit task feedback to formally close a completed task. Call this LAST — after release_work and after saving skills (skill_save), memories (save_memory), and specs (specs_propose). Auto-generates knowledge memories from your learnings.",
         %{
           "task_id" => %{"type" => "string", "description" => "The completed task ID"},
-          "agent_id" => %{"type" => "string", "description" => "Your team member name (e.g., 'alice'). Used as your identity in the ACS."},
+          "agent_id" => %{
+            "type" => "string",
+            "description" =>
+              "Your team member name (e.g., 'alice'). Used as your identity in the ACS."
+          },
           "learned_for_agents" => %{
             "type" => "string",
             "description" => "What did you learn that will help agents in the future?"
@@ -811,7 +828,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "skill_audit_status",
-        "Run LLM quality audit on all skills. Returns audit_status (ok/needs_improvement/failing), score, and reasoning per skill. Audit prompts are editable in priv/prompts/skills/evaluate.txt. Call after skill_save to verify quality.",
+        "Run LLM quality audit on all skills. Returns audit_status (ok/needs_improvement/failing), score, and reasoning per skill. Audit prompts are editable in priv/prompts/skills/evaluate.md. Call after skill_save to verify quality.",
         %{},
         []
       ),
@@ -825,7 +842,8 @@ defmodule Acs.MCP.Tools do
           },
           "role" => %{
             "type" => "string",
-            "description" => "Role: admin, service, reader, or collaborator (default: collaborator)"
+            "description" =>
+              "Role: admin, service, reader, or collaborator (default: collaborator)"
           }
         },
         ["developer_name"]
@@ -853,7 +871,10 @@ defmodule Acs.MCP.Tools do
         %{
           "name" => %{"type" => "string", "description" => "Display name (e.g. Acme Corp)"},
           "slug" => %{"type" => "string", "description" => "URL slug (e.g. acme)"},
-          "subdomain" => %{"type" => "string", "description" => "Subdomain override (defaults to slug)"}
+          "subdomain" => %{
+            "type" => "string",
+            "description" => "Subdomain override (defaults to slug)"
+          }
         },
         ["name", "slug"]
       ),
@@ -875,7 +896,8 @@ defmodule Acs.MCP.Tools do
           },
           "password" => %{
             "type" => "string",
-            "description" => "Optional password for the user. If omitted, a secure random password is generated."
+            "description" =>
+              "Optional password for the user. If omitted, a secure random password is generated."
           }
         },
         ["name", "email"]
@@ -1185,11 +1207,31 @@ defmodule Acs.MCP.Tools do
     case tool_name do
       "get_started" ->
         [
-          %{tool: "get_present_status", prompt: "Register yourself to get an agent_id", params: %{agent_id: "your_name"}},
-          %{tool: "create_work", prompt: "Create and self-claim a task to track your work", params: %{agent_id: agent_id, title: "<describe work>", claim: true}},
-          %{tool: "list_tasks", prompt: "Find existing todo tasks to claim", params: %{status_filter: "todo"}},
-          %{tool: "generate_guidance_packet", prompt: "Get detailed workflow instructions", params: %{scope_path: "agent_coordination_system"}},
-          %{tool: "help", prompt: "See all available tools with descriptions", params: %{level: 1}}
+          %{
+            tool: "get_present_status",
+            prompt: "Register yourself to get an agent_id",
+            params: %{agent_id: "your_name"}
+          },
+          %{
+            tool: "create_work",
+            prompt: "Create and self-claim a task to track your work",
+            params: %{agent_id: agent_id, title: "<describe work>", claim: true}
+          },
+          %{
+            tool: "list_tasks",
+            prompt: "Find existing todo tasks to claim",
+            params: %{status_filter: "todo"}
+          },
+          %{
+            tool: "generate_guidance_packet",
+            prompt: "Get detailed workflow instructions",
+            params: %{scope_path: "agent_coordination_system"}
+          },
+          %{
+            tool: "help",
+            prompt: "See all available tools with descriptions",
+            params: %{level: 1}
+          }
         ]
 
       "create_work" ->
@@ -1214,8 +1256,16 @@ defmodule Acs.MCP.Tools do
             relevant_spec_steps(guidance) ++ lock_steps
         else
           [
-            %{tool: "claim_work", prompt: "Claim the task to start working on it", params: %{agent_id: agent_id, task_id: task_id}},
-            %{tool: "sleep", prompt: "No agent working now — sleep to wait for dispatch", params: %{agent_id: agent_id, timeout: 300}}
+            %{
+              tool: "claim_work",
+              prompt: "Claim the task to start working on it",
+              params: %{agent_id: agent_id, task_id: task_id}
+            },
+            %{
+              tool: "sleep",
+              prompt: "No agent working now — sleep to wait for dispatch",
+              params: %{agent_id: agent_id, timeout: 300}
+            }
           ]
         end
 
@@ -1241,8 +1291,7 @@ defmodule Acs.MCP.Tools do
         [
           %{
             tool: "skill_save",
-            prompt:
-              "Followed a step-by-step workflow with the user? Save it now before feedback",
+            prompt: "Followed a step-by-step workflow with the user? Save it now before feedback",
             params: %{
               name: "<kebab-case-name>",
               content: "# Steps\n1. ...\n2. ...",
@@ -1259,7 +1308,8 @@ defmodule Acs.MCP.Tools do
           },
           %{
             tool: "specs_propose",
-            prompt: "Save shareable output — module spec, project doc, marketing copy, or knowledge file",
+            prompt:
+              "Save shareable output — module spec, project doc, marketing copy, or knowledge file",
             params: %{
               app: "<app>",
               path: "<path>",
@@ -1282,27 +1332,60 @@ defmodule Acs.MCP.Tools do
 
       "lock_file" ->
         [
-          %{tool: "unlock_file", prompt: "Release file lock so others can edit", params: %{agent_id: agent_id, file_path: Map.get(args, "file_path", "")}}
+          %{
+            tool: "unlock_file",
+            prompt: "Release file lock so others can edit",
+            params: %{agent_id: agent_id, file_path: Map.get(args, "file_path", "")}
+          }
         ]
 
       "unlock_file" ->
         [
-          %{tool: "release_work", prompt: "All files done? Mark task complete", params: %{agent_id: agent_id, task_id: task_id}},
-          %{tool: "lock_file", prompt: "Lock another file for this task", params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}}
+          %{
+            tool: "release_work",
+            prompt: "All files done? Mark task complete",
+            params: %{agent_id: agent_id, task_id: task_id}
+          },
+          %{
+            tool: "lock_file",
+            prompt: "Lock another file for this task",
+            params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}
+          }
         ]
 
       "get_present_status" ->
         [
-          %{tool: "list_tasks", prompt: "List todo tasks to find work items", params: %{status_filter: "todo"}},
-          %{tool: "sleep", prompt: "No tasks found — sleep to wait for dispatch", params: %{agent_id: agent_id, timeout: 300}}
+          %{
+            tool: "list_tasks",
+            prompt: "List todo tasks to find work items",
+            params: %{status_filter: "todo"}
+          },
+          %{
+            tool: "sleep",
+            prompt: "No tasks found — sleep to wait for dispatch",
+            params: %{agent_id: agent_id, timeout: 300}
+          }
         ]
 
       "list_tasks" ->
         todo = Map.get(result, :tasks, []) |> Enum.filter(fn t -> t[:status] == "todo" end)
+
         if todo != [] do
-          [%{tool: "claim_work", prompt: "Claim a todo task to start working", params: %{agent_id: agent_id, task_id: hd(todo)[:id]}}]
+          [
+            %{
+              tool: "claim_work",
+              prompt: "Claim a todo task to start working",
+              params: %{agent_id: agent_id, task_id: hd(todo)[:id]}
+            }
+          ]
         else
-          [%{tool: "sleep", prompt: "No tasks available — sleep to wait for dispatch", params: %{agent_id: agent_id, timeout: 300}}]
+          [
+            %{
+              tool: "sleep",
+              prompt: "No tasks available — sleep to wait for dispatch",
+              params: %{agent_id: agent_id, timeout: 300}
+            }
+          ]
         end
 
       "sleep" ->
@@ -1319,20 +1402,46 @@ defmodule Acs.MCP.Tools do
 
       "save_memory" ->
         [
-          %{tool: "query_memories", prompt: "Verify the saved memory is findable by search", params: %{query: Map.get(args, "title", ""), scope_path: Map.get(args, "scope_path", "")}},
-          %{tool: "set_memory_status", prompt: "No conflicts? Approve to make visible to all agents", params: %{memory_id: Map.get(result, :id, ""), status: "approved"}}
+          %{
+            tool: "query_memories",
+            prompt: "Verify the saved memory is findable by search",
+            params: %{
+              query: Map.get(args, "title", ""),
+              scope_path: Map.get(args, "scope_path", "")
+            }
+          },
+          %{
+            tool: "set_memory_status",
+            prompt: "No conflicts? Approve to make visible to all agents",
+            params: %{memory_id: Map.get(result, :id, ""), status: "approved"}
+          }
         ]
 
       "query_memories" ->
         if Map.get(result, :count, 0) == 0 do
-          [%{tool: "save_memory", prompt: "No results — document your knowledge so others find it", params: %{kind: "learning", title: "...", content: "...", scope_path: "<scope_path>"}}]
+          [
+            %{
+              tool: "save_memory",
+              prompt: "No results — document your knowledge so others find it",
+              params: %{
+                kind: "learning",
+                title: "...",
+                content: "...",
+                scope_path: "<scope_path>"
+              }
+            }
+          ]
         else
           []
         end
 
       "set_memory_status" ->
         [
-          %{tool: "query_memories", prompt: "Verify the updated memory appears correctly", params: %{scope_path: Map.get(args, "scope_path", "")}}
+          %{
+            tool: "query_memories",
+            prompt: "Verify the updated memory appears correctly",
+            params: %{scope_path: Map.get(args, "scope_path", "")}
+          }
         ]
 
       "generate_guidance_packet" ->
@@ -1376,27 +1485,62 @@ defmodule Acs.MCP.Tools do
       "list_error_traces" ->
         if Map.get(result, :total, 0) > 0 do
           trace = Map.get(result, :traces, []) |> List.first()
+
           [
-            %{tool: "ack_error_trace", prompt: "Claim an error to investigate", params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}},
-            %{tool: "create_task_from_error_trace", prompt: "Turn this error into a fix task", params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}}
+            %{
+              tool: "ack_error_trace",
+              prompt: "Claim an error to investigate",
+              params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}
+            },
+            %{
+              tool: "create_task_from_error_trace",
+              prompt: "Turn this error into a fix task",
+              params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}
+            }
           ]
         else
-          [%{tool: "get_logs", prompt: "No error traces found — check logs directly for clues", params: %{level: "error", limit: 50}}]
+          [
+            %{
+              tool: "get_logs",
+              prompt: "No error traces found — check logs directly for clues",
+              params: %{level: "error", limit: 50}
+            }
+          ]
         end
 
       "ack_error_trace" ->
-        [%{tool: "resolve_error_trace", prompt: "Mark as resolved once the root cause is fixed", params: %{trace_id: Map.get(args, "trace_id", "")}}]
+        [
+          %{
+            tool: "resolve_error_trace",
+            prompt: "Mark as resolved once the root cause is fixed",
+            params: %{trace_id: Map.get(args, "trace_id", "")}
+          }
+        ]
 
       "resolve_error_trace" ->
         []
 
       "create_task_from_error_trace" ->
-        [%{tool: "claim_work", prompt: "Claim the error-fix task to start investigating", params: %{agent_id: agent_id, task_id: Map.get(result, :task_id, "")}}]
+        [
+          %{
+            tool: "claim_work",
+            prompt: "Claim the error-fix task to start investigating",
+            params: %{agent_id: agent_id, task_id: Map.get(result, :task_id, "")}
+          }
+        ]
 
       "submit_task_feedback" ->
         [
-          %{tool: "sleep", prompt: "Task formally closed — sleep to wait for next assignment", params: %{agent_id: agent_id, timeout: 300}},
-          %{tool: "list_tasks", prompt: "Or check if more work is waiting", params: %{status_filter: "todo"}}
+          %{
+            tool: "sleep",
+            prompt: "Task formally closed — sleep to wait for next assignment",
+            params: %{agent_id: agent_id, timeout: 300}
+          },
+          %{
+            tool: "list_tasks",
+            prompt: "Or check if more work is waiting",
+            params: %{status_filter: "todo"}
+          }
         ]
 
       "help" ->
@@ -1410,12 +1554,20 @@ defmodule Acs.MCP.Tools do
 
       "connection_diagnostic" ->
         [
-          %{tool: "get_logs", prompt: "Issues found? Check error logs for details", params: %{level: "error", limit: 50}}
+          %{
+            tool: "get_logs",
+            prompt: "Issues found? Check error logs for details",
+            params: %{level: "error", limit: 50}
+          }
         ]
 
       "memory_health_check" ->
         [
-          %{tool: "get_logs", prompt: "Memory issues found? Check error logs", params: %{level: "error", limit: 50}}
+          %{
+            tool: "get_logs",
+            prompt: "Memory issues found? Check error logs",
+            params: %{level: "error", limit: 50}
+          }
         ]
 
       "specs_get" ->
@@ -1431,7 +1583,15 @@ defmodule Acs.MCP.Tools do
               content: "..."
             }
           },
-          %{tool: "specs_approve", prompt: "Spec looks correct? Approve it", params: %{app: Map.get(args, "app", ""), path: Map.get(args, "path", ""), reviewer: agent_id}}
+          %{
+            tool: "specs_approve",
+            prompt: "Spec looks correct? Approve it",
+            params: %{
+              app: Map.get(args, "app", ""),
+              path: Map.get(args, "path", ""),
+              reviewer: agent_id
+            }
+          }
         ]
 
       "query_specs" ->
@@ -1451,7 +1611,15 @@ defmodule Acs.MCP.Tools do
 
       "specs_propose" ->
         [
-          %{tool: "specs_approve", prompt: "Proposed spec ready? Approve to make it official", params: %{app: Map.get(args, "app", ""), path: Map.get(args, "path", ""), reviewer: agent_id}}
+          %{
+            tool: "specs_approve",
+            prompt: "Proposed spec ready? Approve to make it official",
+            params: %{
+              app: Map.get(args, "app", ""),
+              path: Map.get(args, "path", ""),
+              reviewer: agent_id
+            }
+          }
         ]
 
       "specs_approve" ->
@@ -1535,28 +1703,49 @@ defmodule Acs.MCP.Tools do
             ]
           end
 
-        read_steps ++ related_steps ++ catalog_steps ++ scope_browse ++
+        read_steps ++
+          related_steps ++
+          catalog_steps ++
+          scope_browse ++
           [
             %{
               tool: "skill_save",
               prompt: "Missing a workflow? Create a skill so others reuse it",
               params: %{name: "<name>", content: "...", scope_paths: ["<scope_path>"]}
             },
-            %{tool: "skill_audit_status", prompt: "Audit all skills for quality gaps", params: %{}}
+            %{
+              tool: "skill_audit_status",
+              prompt: "Audit all skills for quality gaps",
+              params: %{}
+            }
           ]
 
       "skill_save" ->
         [
-          %{tool: "skill_audit_status", prompt: "Verify new skill meets quality standards", params: %{}}
+          %{
+            tool: "skill_audit_status",
+            prompt: "Verify new skill meets quality standards",
+            params: %{}
+          }
         ]
 
       "skill_audit_status" ->
         [
-          %{tool: "skill_save", prompt: "Fix low-scoring skills to improve quality", params: %{name: "<name>", content: "..."}}
+          %{
+            tool: "skill_save",
+            prompt: "Fix low-scoring skills to improve quality",
+            params: %{name: "<name>", content: "..."}
+          }
         ]
 
       "app_list" ->
-        [%{tool: "app_configure", prompt: "Need a new external service? Configure an app", params: %{name: "<app_name>"}}]
+        [
+          %{
+            tool: "app_configure",
+            prompt: "Need a new external service? Configure an app",
+            params: %{name: "<app_name>"}
+          }
+        ]
 
       "app_configure" ->
         [%{tool: "app_list", prompt: "Verify the app was configured correctly", params: %{}}]

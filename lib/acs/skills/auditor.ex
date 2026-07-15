@@ -2,8 +2,8 @@ defmodule Acs.Skills.Auditor do
   @moduledoc """
   GenServer that periodically audits skill files using LLM evaluation.
 
-  Audit prompts live in `priv/prompts/skills/evaluate.txt` (or the Obsidian
-  vault `prompts/skills/evaluate.txt`) and are editable without recompilation.
+  Audit prompts live in `priv/prompts/skills/evaluate.md` (or the Obsidian
+  vault `prompts/skills/evaluate.md`) and are editable without recompilation.
   """
 
   use GenServer
@@ -95,8 +95,11 @@ defmodule Acs.Skills.Auditor do
 
   defp audit_one(skill) do
     case audit_with_retry(skill, @max_retries, @backoff_delays) do
-      {:ok, result} -> result
-      {:error, reason} -> %{name: skill.name, audit_status: "error", audit_reasoning: inspect(reason)}
+      {:ok, result} ->
+        result
+
+      {:error, reason} ->
+        %{name: skill.name, audit_status: "error", audit_reasoning: inspect(reason)}
     end
   end
 

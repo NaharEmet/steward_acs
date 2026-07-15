@@ -30,6 +30,7 @@ config :steward_acs, AcsWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
+    formats: [html: AcsWeb.ErrorHTML, json: AcsWeb.ErrorJSON],
     layout: false
   ],
   pubsub_server: AcsWeb.PubSub,
@@ -37,32 +38,7 @@ config :steward_acs, AcsWeb.Endpoint,
 
 config :phoenix, :json_library, Jason
 
-compile_session_salt =
-  cond do
-    salt = System.get_env("COOKIE_SIGNING_SALT") ->
-      salt
-
-    secret = System.get_env("SECRET_KEY_BASE") ->
-      :crypto.hash(:sha256, secret <> "cookie")
-      |> Base.url_encode64(padding: false)
-      |> binary_part(0, 16)
-
-    true ->
-      "acs_cookie_session_v1"
-  end
-
-config :steward_acs,
-       :session_signing_salt,
-       compile_session_salt
-
 config :steward_acs, :session_validity_in_days, 7
-
-# Default prompt paths (overridable via MEMORY_EVALUATION_PROMPT_PATH env at runtime)
-config :steward_acs, :memory_evaluation_prompt_path,
-  Path.expand("../priv/prompts/memory/evaluate.txt", __DIR__)
-
-config :steward_acs, :skill_evaluation_prompt_path,
-  Path.expand("../priv/prompts/skills/evaluate.txt", __DIR__)
 
 config :logger, :console, metadata: [:agent_id, :task_id, :file_path, :locked_by]
 

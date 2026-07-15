@@ -1,6 +1,18 @@
 import Config
 
-# .env is loaded at application start via Dotenvy (see Acs.Application and ENV_PATH).
+# Load .env before reading config so ACS_PASSWORD / ACS_USERNAME apply in mix phx.server.
+# Dotenvy stores vars in its process dictionary by default; put unset keys into System
+# so existing System.get_env/2 config reads work.
+env_path = System.get_env("ENV_PATH") || Path.expand("../.env", __DIR__)
+
+if File.exists?(env_path) do
+  env_path
+  |> List.wrap()
+  |> Dotenvy.source!()
+  |> Enum.each(fn {key, value} ->
+    if System.get_env(key) in [nil, ""], do: System.put_env(key, value)
+  end)
+end
 
 secret_key_base =
   System.get_env("SECRET_KEY_BASE") ||
@@ -17,17 +29,9 @@ signing_salt =
     |> Base.url_encode64(padding: false)
     |> binary_part(0, 16)
 
-cookie_signing_salt =
-  System.get_env("COOKIE_SIGNING_SALT") ||
-    :crypto.hash(:sha256, signing_salt <> "cookie")
-    |> Base.url_encode64(padding: false)
-    |> binary_part(0, 16)
-
 config :steward_acs, AcsWeb.Endpoint,
   secret_key_base: secret_key_base,
   live_view: [signing_salt: signing_salt]
-
-config :steward_acs, :session_signing_salt, cookie_signing_salt
 
 config :steward_acs,
        :auditor_interval,
@@ -48,12 +52,15 @@ if System.get_env("DATABASE_URL") do
 end
 
 if config_env() == :prod do
+  db_path = System.get_env("DATABASE_PATH")
+  db_url = System.get_env("DATABASE_URL")
+
   cond do
-    System.get_env("DATABASE_PATH") ->
+    db_path not in [nil, ""] ->
       :ok
 
-    url = System.get_env("DATABASE_URL") ->
-      if String.contains?(url, "://postgres:postgres@") do
+    db_url not in [nil, ""] ->
+      if String.contains?(db_url, "://postgres:postgres@") do
         raise "DATABASE_URL must not use the default postgres password in production"
       end
 
@@ -69,11 +76,12 @@ if config_env() == :prod do
   end
 end
 
-if System.get_env("DATABASE_PATH") do
+# Empty DATABASE_PATH (postgres override) must not force SQLite.
+if (db_path = System.get_env("DATABASE_PATH")) not in [nil, ""] do
   config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
 
   config :steward_acs, Acs.Repo,
-    database: System.get_env("DATABASE_PATH"),
+    database: db_path,
     pool_size: String.to_integer(System.get_env("POOL_SIZE", "5"))
 end
 
@@ -195,13 +203,6 @@ config :steward_acs,
        |> String.split(",", trim: true)
        |> Enum.map(&String.trim/1)
 
-# ─── Memory Evaluation Prompt (file path) ──────────────────────────────
-# If set, loads the LLM evaluation prompt from a file (supports {{memory_json}}
-# and {{existing_memories_json}} template variables). Falls back to hardcoded default.
-if prompt_path = System.get_env("MEMORY_EVALUATION_PROMPT_PATH") do
-  config :steward_acs, :memory_evaluation_prompt_path, prompt_path
-end
-
 # ─── Memory Auditor Pre-filter Configuration ───────────────────────────
 # Lists of comma-separated patterns for auto-reject pre-filter rules.
 if prefixes = System.get_env("AUDITOR_REJECT_TITLE_PREFIXES") do
@@ -273,6 +274,15 @@ end
 
 if base_domain = System.get_env("BASE_DOMAIN") do
   config :steward_acs, :base_domain, base_domain
+end
+
+# Per-org dashboard credentials for multi-tenant deploys. Each subdomain resolves
+# to its own org, so the apex/default ACS_USERNAME/ACS_PASSWORD only covers the
+# configured org. Provide extra orgs here, e.g.:
+#   ACS_ORG_DASHBOARD_CREDS='{"prod":{"username":"admin","password":"..."}}'
+case Acs.ConfigEnv.parse_org_dashboard_creds(System.get_env("ACS_ORG_DASHBOARD_CREDS")) do
+  %{} = parsed when map_size(parsed) == 0 -> :ok
+  parsed -> config :steward_acs, :basic_auth_by_org, parsed
 end
 
 config :steward_acs, :project_name, System.get_env("ACS_PROJECT_NAME", "")

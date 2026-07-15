@@ -18,9 +18,16 @@ signing_salt =
     |> Base.url_encode64(padding: false)
     |> binary_part(0, 16)
 
+dev_port = String.to_integer(System.get_env("PORT", "4001"))
+
 config :steward_acs, AcsWeb.Endpoint,
-  http: [ip: {0, 0, 0, 0}, port: 4001],
-  check_origin: ["http://localhost:4001", "http://127.0.0.1:4001"],
+  http: [ip: {0, 0, 0, 0}, port: dev_port],
+  check_origin: [
+    "//localhost:#{dev_port}",
+    "//127.0.0.1:#{dev_port}",
+    "//[::1]:#{dev_port}",
+    "//*.localhost:#{dev_port}"
+  ],
   code_reloader: false,
   watchers: [],
   live_view: [signing_salt: signing_salt],

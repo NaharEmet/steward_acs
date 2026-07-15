@@ -27,18 +27,11 @@ defmodule Acs.Prompts do
   def instructions(category), do: load(category, "instructions")
 
   defp candidate_paths(category, name) do
-    file = "#{name}.txt"
+    file = "#{name}.md"
     primary = Path.join([prompts_dir(), category, file])
     builtin = Path.join([Application.app_dir(:steward_acs), "priv/prompts", category, file])
 
-    legacy =
-      if category == "memory" and name == "evaluate" do
-        [Path.join(Application.app_dir(:steward_acs), "priv/evaluation_prompt/evaluate.txt")]
-      else
-        []
-      end
-
-    Enum.uniq([primary, builtin | legacy])
+    Enum.uniq([primary, builtin])
   end
 
   defp prompts_dir do
