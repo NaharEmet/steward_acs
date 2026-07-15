@@ -565,7 +565,6 @@ defmodule Acs.MCP.ToolRegistry do
   end
 
   defp check_permissions(_tool, _name, nil), do: :ok
-  defp check_permissions(_tool, _name, []), do: :ok
 
   defp check_permissions(tool, name, agent_permissions) when is_list(agent_permissions) do
     required = tool["permissions"]

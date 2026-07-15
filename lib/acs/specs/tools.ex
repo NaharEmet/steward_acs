@@ -122,32 +122,36 @@ defmodule Acs.Specs.Tools do
   end
 
   defp maybe_generate_embeddings_async(app, path) do
+    org = Acs.Org.current()
+
     Task.start(fn ->
-      case Loader.load(app, path) do
-        {:ok, entry} ->
-          chunks = Acs.Specs.VectorSearch.chunk_entry(entry)
+      Acs.Org.with_current(org, fn ->
+        case Loader.load(app, path) do
+          {:ok, entry} ->
+            chunks = Acs.Specs.VectorSearch.chunk_entry(entry)
 
-          Enum.each(chunks, fn chunk ->
-            case Acs.Memory.Embedding.embed_text(chunk.text) do
-              {:ok, embedding} ->
-                Acs.Specs.VectorSearch.upsert_chunk(
-                  chunk.id,
-                  chunk.app,
-                  chunk.path,
-                  chunk.chunk_index,
-                  chunk.source,
-                  chunk.content,
-                  embedding
-                )
+            Enum.each(chunks, fn chunk ->
+              case Acs.Memory.Embedding.embed_text(chunk.text) do
+                {:ok, embedding} ->
+                  Acs.Specs.VectorSearch.upsert_chunk(
+                    chunk.id,
+                    chunk.app,
+                    chunk.path,
+                    chunk.chunk_index,
+                    chunk.source,
+                    chunk.content,
+                    embedding
+                  )
 
-              {:error, reason} ->
-                Logger.warning("[Tools] Failed to embed spec #{app}/#{path}: #{reason}")
-            end
-          end)
+                {:error, reason} ->
+                  Logger.warning("[Tools] Failed to embed spec #{app}/#{path}: #{reason}")
+              end
+            end)
 
-        {:error, _} ->
-          :ok
-      end
+          {:error, _} ->
+            :ok
+        end
+      end)
     end)
   end
 

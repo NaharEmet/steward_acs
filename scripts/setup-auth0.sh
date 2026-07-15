@@ -214,7 +214,8 @@ print('yes' if any(g.get('client_id')==cid and g.get('audience')==aud for g in g
 done
 
 if [[ -n "${AUTH0_USER_EMAIL:-}" ]]; then
-  ORG_META="${AUTH0_USER_ORG:-default}"
+  [[ -n "${AUTH0_USER_ORG:-}" ]] || fail "Set AUTH0_USER_ORG when creating or updating an Auth0 user"
+  ORG_META="${AUTH0_USER_ORG}"
   ROLE_META="${AUTH0_USER_ROLE:-collaborator}"
   info "Creating passwordless user ${AUTH0_USER_EMAIL} on connection ${DB_CONNECTION} (org=${ORG_META})..."
   if [[ "$DB_CONNECTION" == "email" || "$DB_CONNECTION" == "sms" ]]; then
@@ -230,7 +231,8 @@ if [[ -n "${AUTH0_USER_EMAIL:-}" ]]; then
       \"email\": \"${AUTH0_USER_EMAIL}\",
       \"password\": \"${AUTH0_USER_PASSWORD}\",
       \"connection\": \"${DB_CONNECTION}\",
-      \"email_verified\": true
+      \"email_verified\": true,
+      \"app_metadata\": {\"org\": \"${ORG_META}\", \"role\": \"${ROLE_META}\"}
     }" 2>/dev/null || true)
   fi
 

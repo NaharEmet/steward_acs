@@ -121,7 +121,8 @@ defmodule Acs.Memory.AuditorTest do
 
   describe "Pre-filter rules" do
     test "auditor module has pre_filter_check function" do
-      # Verify the internal helper exists (if exposed) or test indirectly
+      # Ensure the module is loaded before runtime export introspection.
+      assert Code.ensure_loaded?(Auditor)
       assert function_exported?(Auditor, :module_info, 1)
     end
 

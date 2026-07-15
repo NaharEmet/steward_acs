@@ -12,7 +12,8 @@ defmodule AcsWeb.Endpoint do
     same_site: "Lax"
   ]
 
-  socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
+  socket "/live", Phoenix.LiveView.Socket,
+    websocket: [connect_info: [:uri, session: @session_options]]
 
   plug Plug.Static,
     at: "/",

@@ -4,8 +4,22 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
   alias Acs.MCP.Plugs.MCPAuth
   alias Acs.Developers
 
+  defmodule OAuthResultStrategy do
+    def authenticate("oauth-token", _conn) do
+      {:ok,
+       %{
+         role: "collaborator",
+         org_id: "oauth-org",
+         permissions: ["mcp:tools"],
+         agent_identity: "oauth-user"
+       }}
+    end
+
+    def authenticate(_, _conn), do: {:error, "invalid OAuth token"}
+  end
+
   describe "call/2" do
-    test "sets agent_org_id and role on request with valid developer key" do
+    test "developer key owns org context on a neutral host" do
       {:ok, %{key: raw_key}} =
         Developers.generate_key("mcp-auth-test", role: "admin", org: "dev")
 
@@ -16,8 +30,87 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       result = MCPAuth.call(conn, [])
       assert result.assigns.agent_role == "admin"
       assert result.assigns.agent_org_id == "dev"
-      assert "mcp:cross_org_analysis" in result.assigns.agent_permissions
+      assert result.assigns.current_org == "dev"
+      assert Acs.Org.current() == "dev"
+      assert result.assigns.agent_permissions == nil
       refute Map.has_key?(result.assigns, :agent_cluster)
+    end
+
+    test "developer key accepts a matching host hint" do
+      {:ok, %{key: raw_key}} = Developers.generate_key("matching-hint", org: "dev")
+
+      conn =
+        Plug.Test.conn(:get, "/mcp/v1/messages")
+        |> Plug.Conn.put_req_header("x-api-key", raw_key)
+        |> Plug.Conn.assign(:org_hint, "dev")
+
+      assert MCPAuth.call(conn, []).assigns.current_org == "dev"
+    end
+
+    test "developer key rejects a mismatched host hint" do
+      {:ok, %{key: raw_key}} = Developers.generate_key("mismatched-hint", org: "dev")
+
+      conn =
+        Plug.Test.conn(:get, "/mcp/v1/messages")
+        |> Plug.Conn.put_req_header("x-api-key", raw_key)
+        |> Plug.Conn.assign(:org_hint, "other")
+
+      result = MCPAuth.call(conn, [])
+      assert result.halted
+      assert result.status == 401
+      assert Jason.decode!(result.resp_body)["error"] =~ "does not match request host"
+    end
+
+    test "OAuth result owns org context on neutral and matching hosts" do
+      with_auth_strategies([OAuthResultStrategy], fn ->
+        neutral =
+          Plug.Test.conn(:get, "/mcp/v1/messages")
+          |> Plug.Conn.put_req_header("authorization", "Bearer oauth-token")
+          |> MCPAuth.call([])
+
+        assert neutral.assigns.current_org == "oauth-org"
+        assert neutral.assigns.agent_org_id == "oauth-org"
+
+        matching =
+          Plug.Test.conn(:get, "/mcp/v1/messages")
+          |> Plug.Conn.put_req_header("authorization", "Bearer oauth-token")
+          |> Plug.Conn.assign(:org_hint, "oauth-org")
+          |> MCPAuth.call([])
+
+        assert matching.assigns.current_org == "oauth-org"
+      end)
+    end
+
+    test "OAuth result rejects a mismatched host hint" do
+      with_auth_strategies([OAuthResultStrategy], fn ->
+        result =
+          Plug.Test.conn(:get, "/mcp/v1/messages")
+          |> Plug.Conn.put_req_header("authorization", "Bearer oauth-token")
+          |> Plug.Conn.assign(:org_hint, "other")
+          |> MCPAuth.call([])
+
+        assert %{halted: true, status: 401} = result
+      end)
+    end
+
+    test "configured MCP API key falls back to configured org" do
+      original_key = Application.get_env(:steward_acs, :mcp_api_key)
+      original_org = Application.get_env(:steward_acs, :org_name)
+      Application.put_env(:steward_acs, :mcp_api_key, "configured-key")
+      Application.put_env(:steward_acs, :org_name, "configured-org")
+
+      on_exit(fn ->
+        restore_env(:mcp_api_key, original_key)
+        restore_env(:org_name, original_org)
+      end)
+
+      conn =
+        Plug.Test.conn(:get, "/mcp/v1/messages")
+        |> Plug.Conn.put_req_header("x-api-key", "configured-key")
+
+      result = MCPAuth.call(conn, [])
+      assert result.assigns.agent_org_id == "configured-org"
+      assert result.assigns.current_org == "configured-org"
     end
 
     test "requires log ingest key for ingestion endpoint" do
@@ -34,7 +127,17 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       result = MCPAuth.call(conn, [])
       assert result.assigns.agent_role == "service"
       assert result.assigns.agent_org_id == "default"
+      assert result.assigns.current_org == "default"
       refute Map.has_key?(result.assigns, :agent_cluster)
+    end
+
+    test "log ingest rejects a mismatched host hint" do
+      conn =
+        Plug.Test.conn(:post, "/api/logs/ingest")
+        |> Plug.Conn.put_req_header("x-log-ingest-key", "test-log-ingest-key")
+        |> Plug.Conn.assign(:org_hint, "other")
+
+      assert %{halted: true, status: 401} = MCPAuth.call(conn, [])
     end
 
     test "does not accept api_key from query params by default" do
@@ -168,4 +271,18 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       assert challenge =~ "/.well-known/oauth-protected-resource/mcp/sse"
     end
   end
+
+  defp with_auth_strategies(strategies, fun) do
+    original = Application.get_env(:steward_acs, :auth_strategies)
+    Application.put_env(:steward_acs, :auth_strategies, strategies)
+
+    try do
+      fun.()
+    after
+      restore_env(:auth_strategies, original)
+    end
+  end
+
+  defp restore_env(key, nil), do: Application.delete_env(:steward_acs, key)
+  defp restore_env(key, value), do: Application.put_env(:steward_acs, key, value)
 end

@@ -11,14 +11,21 @@ defmodule Acs.MCP.Plugs.Strategies.Default do
         {:ok,
          %{
            role: "admin",
-           org_id: nil,
+           org_id: Acs.Org.configured(),
            permissions: nil,
            agent_identity: Acs.Org.developer_name()
          }}
 
       key && service_key_valid?(key) ->
         Logger.debug("[MCPAuth] authenticated via service key")
-        {:ok, %{role: "service", org_id: nil, permissions: nil, agent_identity: "service"}}
+
+        {:ok,
+         %{
+           role: "service",
+           org_id: Acs.Org.configured(),
+           permissions: nil,
+           agent_identity: "service"
+         }}
 
       key ->
         {:error, "Invalid API key"}
@@ -29,7 +36,7 @@ defmodule Acs.MCP.Plugs.Strategies.Default do
         {:ok,
          %{
            role: "admin",
-           org_id: nil,
+           org_id: Acs.Org.configured(),
            permissions: nil,
            agent_identity: Acs.Org.developer_name()
          }}

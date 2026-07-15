@@ -23,6 +23,17 @@ Prod tenant: `dev-jw5wgp2b.us.auth0.com`
 MCP API audience: `https://prod.stewardacs.xyz/mcp/sse`  
 Required permission: `mcp:tools` (via **MCP User** role)
 
+## Org model (single org per user)
+
+Every OAuth access token must carry `https://stewardacs.xyz/org`. That claim is
+the authenticated org; an org subdomain is only an optional matching hint.
+There are no multi-org memberships or org switcher yet.
+
+After a clean database rebuild, re-create or re-stamp each retained Auth0 user
+with its org in `app_metadata.org`, ensure the Auth0 Action emits the namespaced
+claim, then reconnect clients to obtain fresh tokens. Never infer the user's org
+from the connector URL.
+
 ## Login model
 
 - **New Universal Login** + **Identifier First**
@@ -38,15 +49,18 @@ Tenant bootstrap: `./scripts/setup-auth0.sh` (M2M creds in `certs/Oauth.md` or e
 
 ```bash
 export AUTH0_USER_EMAIL="newuser@example.com"
-export SKIP_CLAUDE_APP=1   # skip re-creating Claude OAuth app
+export AUTH0_USER_ORG="org-slug"  # required; never defaults implicitly
+export SKIP_CLAUDE_APP=1           # skip re-creating Claude OAuth app
 
-./scripts/setup-auth0.sh
+./scripts/add-auth0-org-user.sh
 ```
 
 The script will:
-1. Create the user on the **email** passwordless connection (no password)
-2. Assign the **MCP User** role (`mcp:tools`)
-3. Mark email verified
+1. Create/update the user on the **email** passwordless connection (no password)
+2. Set `app_metadata.org` to the required single-org slug
+3. Assign the **MCP User** role (`mcp:tools`)
+4. Install/deploy the post-login Action that emits `https://stewardacs.xyz/org`
+5. Mark email verified
 
 Tell the user: **Settings → Connectors →** `https://prod.stewardacs.xyz/mcp/sse` → enter email → use the code from Resend/email.
 
@@ -57,7 +71,9 @@ Tell the user: **Settings → Connectors →** `https://prod.stewardacs.xyz/mcp/
 1. **User Management → Users → Create user**
 2. **Connection:** `email` (Passwordless)
 3. **Email** (no password)
-4. **User Management → Roles → MCP User → Add Members** → select the user
+4. Set `app_metadata` to `{"org":"org-slug","role":"collaborator"}`
+5. **User Management → Roles → MCP User → Add Members** → select the user
+6. Confirm the deployed **ACS org claim** post-login Action is bound to the login flow
 
 If **MCP User** role is missing, create it:
 - **Permissions:** API `https://prod.stewardacs.xyz/mcp/sse` → `mcp:tools`
@@ -78,7 +94,8 @@ curl -sS -X POST "https://dev-jw5wgp2b.us.auth0.com/api/v2/users" \
   -d '{
     "email": "newuser@example.com",
     "connection": "email",
-    "email_verified": true
+    "email_verified": true,
+    "app_metadata": {"org": "org-slug", "role": "collaborator"}
   }'
 
 curl -sS -X POST "https://dev-jw5wgp2b.us.auth0.com/api/v2/users/USER_ID/roles" \
@@ -87,7 +104,11 @@ curl -sS -X POST "https://dev-jw5wgp2b.us.auth0.com/api/v2/users/USER_ID/roles" 
   -d '{"roles": ["rol_8v0cgNbkP8DePo0O"]}'
 ```
 
-Replace `USER_ID` with the create response (e.g. `email|...`). Confirm role id in Dashboard if unsure.
+Replace `USER_ID` with the create response (e.g. `email|...`). Confirm role id in Dashboard if unsure. Ensure the **ACS org claim** post-login Action from `add-auth0-org-user.sh` is deployed and bound before login.
+
+After reconnecting, decode the access token payload and verify it contains both
+`"https://stewardacs.xyz/org": "org-slug"` and `mcp:tools` (or `mcp:admin`).
+ACS rejects tokens missing either value.
 
 ---
 

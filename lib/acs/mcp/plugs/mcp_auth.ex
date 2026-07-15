@@ -41,10 +41,12 @@ defmodule Acs.MCP.Plugs.MCPAuth do
 
         case authenticate_with_strategies(key, conn, strategies) do
           {:ok, result} ->
-            with {:ok, org_id} <- resolve_org(result.org_id, conn.assigns[:current_org]) do
+            with {:ok, org_id} <- Acs.Org.resolve_active_org(result.org_id),
+                 :ok <- Acs.Org.validate_hint(org_id, conn.assigns[:org_hint]) do
               :ok = Acs.Org.put_current(org_id)
 
               conn
+              |> assign(:current_org, org_id)
               |> assign(:agent_role, result.role)
               |> assign(:agent_org_id, org_id)
               |> assign(:agent_permissions, result.permissions)
@@ -52,33 +54,16 @@ defmodule Acs.MCP.Plugs.MCPAuth do
               |> assign(:agent_allowed_projects, result[:allowed_projects])
               |> assign(:agent_identity, result[:agent_identity])
             else
-              {:error, reason} -> unauthorized(conn, reason)
+              {:error, :org_hint_mismatch} ->
+                unauthorized(conn, "Authenticated organization does not match request host")
+
+              {:error, :missing_credential_org} ->
+                unauthorized(conn, "Credential has no organization")
             end
 
           {:error, reason} ->
             unauthorized(conn, reason)
         end
-    end
-  end
-
-  defp resolve_org(auth_org, request_org) do
-    configured = Acs.Org.configured()
-
-    cond do
-      is_binary(auth_org) and auth_org != "" and request_org in [nil, "default", configured] ->
-        {:ok, auth_org}
-
-      is_binary(auth_org) and auth_org != "" and auth_org == request_org ->
-        {:ok, auth_org}
-
-      is_binary(auth_org) and auth_org != "" ->
-        {:error, "Authenticated organization does not match request host"}
-
-      request_org in [nil, "default", configured] ->
-        {:ok, configured}
-
-      true ->
-        {:error, "This credential is not scoped for the requested organization"}
     end
   end
 
@@ -99,14 +84,22 @@ defmodule Acs.MCP.Plugs.MCPAuth do
         unauthorized(conn, "Missing X-Log-Ingest-Key header")
 
       secure_compare(ingest_key, expected) ->
-        org_id = conn.assigns[:current_org] || Acs.Org.current()
-        :ok = Acs.Org.put_current(org_id)
+        org_id = Acs.Org.configured()
 
-        conn
-        |> assign(:agent_role, "service")
-        |> assign(:agent_org_id, org_id)
-        |> assign(:agent_permissions, nil)
-        |> assign(:agent_identity, "service")
+        case Acs.Org.validate_hint(org_id, conn.assigns[:org_hint]) do
+          :ok ->
+            :ok = Acs.Org.put_current(org_id)
+
+            conn
+            |> assign(:current_org, org_id)
+            |> assign(:agent_role, "service")
+            |> assign(:agent_org_id, org_id)
+            |> assign(:agent_permissions, nil)
+            |> assign(:agent_identity, "service")
+
+          {:error, :org_hint_mismatch} ->
+            unauthorized(conn, "Authenticated organization does not match request host")
+        end
 
       true ->
         unauthorized(conn, "Invalid log ingest key")

@@ -46,6 +46,26 @@ defmodule Acs.OrgTest do
     test "prod subdomain" do
       assert Org.extract_subdomain("prod.stewardacs.xyz") == "prod"
     end
+
+    test "localhost subdomain" do
+      Application.put_env(:steward_acs, :base_domain, "localhost")
+      assert Org.extract_subdomain("acme.localhost") == "acme"
+    end
+  end
+
+  describe "resolve_active_org/2" do
+    test "uses the authenticated credential org" do
+      assert Org.resolve_active_org(%{org: "acme"}) == {:ok, "acme"}
+      assert Org.resolve_active_org(%{org_id: "dev"}) == {:ok, "dev"}
+    end
+
+    test "does not allow future chat options to override the credential yet" do
+      assert Org.resolve_active_org(%{org: "acme"}, chat_org: "other") == {:ok, "acme"}
+    end
+
+    test "requires an org-bearing credential" do
+      assert Org.resolve_active_org(%{}) == {:error, :missing_credential_org}
+    end
   end
 
   describe "put_request_org/1 and current/0" do

@@ -251,16 +251,9 @@ defmodule Acs.MCP.Protocol do
   defp require_agent_role(role) when is_binary(role) and role != "", do: :ok
   defp require_agent_role(_), do: {:error, "Missing authentication context"}
 
-  defp analysis_org(params, credential_org, permissions) do
-    requested_org = params["analysis_org"] || params["_analysis_org_id"]
-
-    if is_binary(requested_org) and requested_org != "" and
-         is_list(permissions) and "mcp:cross_org_analysis" in permissions do
-      requested_org
-    else
-      credential_org
-    end
-  end
+  # Org selection is credential-owned until memberships and server-side
+  # authorization for chat orgs exist. Client arguments cannot override it.
+  defp analysis_org(_params, credential_org, _permissions), do: credential_org
 
   defp do_tools_call(
          id,
