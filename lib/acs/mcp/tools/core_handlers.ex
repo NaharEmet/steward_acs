@@ -440,6 +440,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     mode = Map.get(args, "mode", "list")
 
     opts = [
+      org: authenticated_org(args),
       level: Map.get(args, "level"),
       component: Map.get(args, "component"),
       module: Map.get(args, "module"),

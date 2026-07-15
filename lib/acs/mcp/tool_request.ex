@@ -28,7 +28,16 @@ defmodule Acs.MCP.ToolRequest do
   @doc false
   def changeset(request, attrs) do
     request
-    |> cast(attrs, [:name, :description, :category, :definition, :status, :agent_id, :approved_by, :org])
+    |> cast(attrs, [
+      :name,
+      :description,
+      :category,
+      :definition,
+      :status,
+      :agent_id,
+      :approved_by,
+      :org
+    ])
     |> validate_required([:name, :definition, :agent_id])
     |> validate_inclusion(:status, ["pending", "approved", "rejected"])
     |> unique_constraint(:name, name: :tool_requests_name_index)

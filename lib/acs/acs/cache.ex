@@ -158,7 +158,7 @@ defmodule Acs.Acs.Cache do
         org: t.org
       }
 
-      :ets.insert(@tasks_table, {t.id, map})
+      :ets.insert(@tasks_table, {{t.org, t.id}, map})
     end)
 
     if tasks != [],
@@ -237,24 +237,26 @@ defmodule Acs.Acs.Cache do
   defp table_exists?(_name), do: false
 
   # Task operations
-  def get_task(task_id) do
+  def get_task(task_id, org \\ Acs.Org.current()) do
     ensure_table(@tasks_table)
+    key = {org, task_id}
 
-    case :ets.lookup(@tasks_table, task_id) do
-      [{^task_id, task}] -> {:ok, task}
+    case :ets.lookup(@tasks_table, key) do
+      [{^key, task}] -> {:ok, task}
       [] -> {:ok, nil}
     end
   end
 
   def put_task(task_id, task_map) do
     ensure_table(@tasks_table)
-    :ets.insert(@tasks_table, {task_id, task_map})
+    org = Map.get(task_map, :org) || Acs.Org.current()
+    :ets.insert(@tasks_table, {{org, task_id}, Map.put(task_map, :org, org)})
     :ok
   end
 
-  def delete_task(task_id) do
+  def delete_task(task_id, org \\ Acs.Org.current()) do
     ensure_table(@tasks_table)
-    :ets.delete(@tasks_table, task_id)
+    :ets.delete(@tasks_table, {org, task_id})
     :ok
   end
 
@@ -272,9 +274,9 @@ defmodule Acs.Acs.Cache do
     get_all_tasks(org) |> Enum.filter(fn t -> t.status == status end)
   end
 
-  def invalidate_task(task_id) do
+  def invalidate_task(task_id, org \\ Acs.Org.current()) do
     ensure_table(@tasks_table)
-    :ets.delete(@tasks_table, task_id)
+    :ets.delete(@tasks_table, {org, task_id})
     :ok
   end
 

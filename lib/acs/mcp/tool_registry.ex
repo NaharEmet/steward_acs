@@ -44,11 +44,13 @@ defmodule Acs.MCP.ToolRegistry do
   Returns all loaded tools in MCP-compatible format (strips internal fields).
   Optional agent_role filters tools by role. Returns an empty list when role is missing.
   """
-  def list_tools_mcp(agent_role) when is_binary(agent_role) do
-    GenServer.call(__MODULE__, {:list_tools_mcp, agent_role})
+  def list_tools_mcp(agent_role, org \\ Acs.Org.current())
+
+  def list_tools_mcp(agent_role, org) when is_binary(agent_role) do
+    GenServer.call(__MODULE__, {:list_tools_mcp, agent_role, org})
   end
 
-  def list_tools_mcp(_agent_role), do: []
+  def list_tools_mcp(_agent_role, _org), do: []
 
   @doc """
   Returns all unique categories across loaded tools.
@@ -121,16 +123,15 @@ defmodule Acs.MCP.ToolRegistry do
 
   Returns `{:ok, request}` on success, `{:error, reason}` on failure.
   """
-  def approve_request(request_id, approved_by) do
-    # This is called externally (from dashboard), so GenServer.call is fine
-    GenServer.call(__MODULE__, {:approve_request, request_id, approved_by})
+  def approve_request(request_id, approved_by, org \\ Acs.Org.current()) do
+    GenServer.call(__MODULE__, {:approve_request, request_id, approved_by, org})
   end
 
   @doc """
   Rejects a tool request.
   """
-  def reject_request(request_id, approved_by) do
-    GenServer.call(__MODULE__, {:reject_request, request_id, approved_by})
+  def reject_request(request_id, approved_by, org \\ Acs.Org.current()) do
+    GenServer.call(__MODULE__, {:reject_request, request_id, approved_by, org})
   end
 
   # --- GenServer Callbacks ---
@@ -198,11 +199,11 @@ defmodule Acs.MCP.ToolRegistry do
   end
 
   @impl true
-  def handle_call({:list_tools_mcp, agent_role}, _from, state) do
+  def handle_call({:list_tools_mcp, agent_role, org}, _from, state) do
     yaml_tools =
       state.tools
       |> Map.values()
-      |> filter_by_role(agent_role)
+      |> filter_by_role(agent_role, org)
       |> Enum.map(fn tool ->
         Map.take(tool, ["name", "description", "inputSchema"])
       end)
@@ -250,120 +251,6 @@ defmodule Acs.MCP.ToolRegistry do
   @impl true
   def handle_call({:get_tool, name}, _from, state) do
     {:reply, Map.get(state.tools, name), state}
-  end
-
-  @impl true
-  def handle_call({:call_tool, name, args}, _from, state) do
-    case name do
-      "request_tool" ->
-        result = handle_request_tool_in_state(args, state)
-
-        maybe_log_operation("request_tool", result, 0)
-
-        {:reply, result, state}
-
-      "refresh_tools" ->
-        case load_tools(%{
-               state
-               | tools: %{},
-                 by_app: %{},
-                 by_category: %{},
-                 apps: [],
-                 apps_meta: %{}
-             }) do
-          {:ok, new_state} ->
-            result = {:ok, %{refreshed: map_size(new_state.tools), apps: new_state.apps}}
-
-            maybe_log_operation("refresh_tools", result, 0)
-
-            {:reply, result, new_state}
-
-          {:error, reason, new_state} ->
-            result = {:error, reason}
-            maybe_log_operation("refresh_tools", result, 0)
-            {:reply, {:error, reason}, new_state}
-        end
-
-      "help" ->
-        result = safe_execute(fn -> acs_help(state, args) end)
-        {:reply, add_next(result, args), state}
-
-      _ ->
-        # Check if tool exists
-        tool_def = Map.get(state.tools, name)
-        is_discovered = is_nil(tool_def)
-
-        if is_discovered do
-          # Log discovery event
-          _ = track_tool_discovery(name, nil, nil)
-        end
-
-        case tool_def do
-          nil ->
-            if Acs.MCP.Tools.has_tool?(name) do
-              start_time = System.monotonic_time(:millisecond)
-              result = safe_execute(fn -> Acs.MCP.Tools.call_tool(name, args) end)
-              latency_ms = System.monotonic_time(:millisecond) - start_time
-              agent_id = Map.get(args, "agent_id") || Map.get(args, :agent_id)
-              execution_id = Map.get(args, "execution_id") || Map.get(args, :execution_id)
-              {new_execution_chain, sequence_order} = get_or_create_execution_chain(state)
-              is_error = match?({:error, _}, result)
-              {new_last_error_at, error_burst} = detect_error_burst(state.last_error_at, is_error)
-              params_hash = generate_params_hash(args)
-              attempt = get_attempt_number(state, name, is_error)
-              maybe_log_operation(name, result, latency_ms, agent_id, execution_id,
-                execution_chain_id: new_execution_chain,
-                sequence_order: sequence_order,
-                attempt: attempt,
-                tool_discovered: true,
-                error_burst: error_burst,
-                params_hash: params_hash
-              )
-              new_state = %{state | execution_chain: new_execution_chain, sequence_order: sequence_order, last_error_at: new_last_error_at}
-              {:reply, result, new_state}
-            else
-              {:reply, {:error, "Unknown tool: #{name}"}, state}
-            end
-
-          _ ->
-            start_time = System.monotonic_time(:millisecond)
-            result = safe_execute(fn -> execute_tool(tool_def, args, state) end)
-            latency_ms = System.monotonic_time(:millisecond) - start_time
-
-            # Extract agent_id and execution_id from args for telemetry
-            agent_id = Map.get(args, "agent_id") || Map.get(args, :agent_id)
-            execution_id = Map.get(args, "execution_id") || Map.get(args, :execution_id)
-
-            # Track telemetry
-            {new_execution_chain, sequence_order} = get_or_create_execution_chain(state)
-            is_error = match?({:error, _}, result)
-            {new_last_error_at, error_burst} = detect_error_burst(state.last_error_at, is_error)
-            params_hash = generate_params_hash(args)
-            attempt = get_attempt_number(state, name, is_error)
-
-            # Build telemetry opts
-            telemetry_opts = [
-              execution_chain_id: new_execution_chain,
-              sequence_order: sequence_order,
-              attempt: attempt,
-              tool_discovered: is_discovered,
-              error_burst: error_burst,
-              params_hash: params_hash
-            ]
-
-            maybe_log_operation(name, result, latency_ms, agent_id, execution_id, telemetry_opts)
-
-            # Update state with new chain info
-            new_state = %{
-              state
-              | execution_chain: new_execution_chain,
-                sequence_order: sequence_order,
-                last_error_at: new_last_error_at
-            }
-
-            {:reply, result, new_state}
-        end
-    end
   end
 
   @impl true
@@ -455,26 +342,27 @@ defmodule Acs.MCP.ToolRegistry do
   end
 
   @impl true
-  def handle_call({:approve_request, request_id, approved_by}, _from, state) do
-    case Acs.MCP.ToolRequests.approve_request(request_id, approved_by) do
+  def handle_call({:approve_request, request_id, approved_by, org}, _from, state) do
+    case Acs.Org.with_current(org, fn ->
+           Acs.MCP.ToolRequests.approve_request(request_id, approved_by)
+         end) do
       {:ok, request} ->
         # Decode the definition and register the tool
         definition = Acs.MCP.ToolRequest.decode_definition(request.definition)
 
         tool_def =
-          Map.merge(
-            %{
-              "category" => request.category || "requested",
-              "level" => 2,
-              "app" => "requested",
-              "base_url" => "",
-              "endpoint" => nil,
-              "method" => nil,
-              "handler" => nil,
-              "params" => definition["params"] || []
-            },
-            definition
-          )
+          %{
+            "category" => request.category || "requested",
+            "level" => 2,
+            "app" => "requested",
+            "base_url" => "",
+            "endpoint" => nil,
+            "method" => nil,
+            "handler" => nil,
+            "params" => definition["params"] || []
+          }
+          |> Map.merge(definition)
+          |> Map.put("org", org)
 
         name = tool_def["name"]
 
@@ -506,8 +394,10 @@ defmodule Acs.MCP.ToolRegistry do
   end
 
   @impl true
-  def handle_call({:reject_request, request_id, approved_by}, _from, state) do
-    case Acs.MCP.ToolRequests.reject_request(request_id, approved_by) do
+  def handle_call({:reject_request, request_id, approved_by, org}, _from, state) do
+    case Acs.Org.with_current(org, fn ->
+           Acs.MCP.ToolRequests.reject_request(request_id, approved_by)
+         end) do
       {:ok, request} ->
         Logger.info("ToolRegistry: rejected tool request '#{request.name}' (id=#{request_id})")
 
@@ -524,7 +414,145 @@ defmodule Acs.MCP.ToolRegistry do
     end
   end
 
+  @impl true
+  def handle_call({:call_tool, name, args}, _from, state) do
+    org = authenticated_org(args)
+
+    {:reply, reply, new_state} =
+      Acs.Org.with_current(org, fn -> do_handle_tool_call(name, args, state) end)
+
+    {:reply, reply, new_state}
+  end
+
+  defp do_handle_tool_call(name, args, state) do
+    case name do
+      "request_tool" ->
+        result = handle_request_tool_in_state(args, state)
+
+        maybe_log_operation("request_tool", result, 0)
+
+        {:reply, result, state}
+
+      "refresh_tools" ->
+        case load_tools(%{
+               state
+               | tools: %{},
+                 by_app: %{},
+                 by_category: %{},
+                 apps: [],
+                 apps_meta: %{}
+             }) do
+          {:ok, new_state} ->
+            result = {:ok, %{refreshed: map_size(new_state.tools), apps: new_state.apps}}
+
+            maybe_log_operation("refresh_tools", result, 0)
+
+            {:reply, result, new_state}
+
+          {:error, reason, new_state} ->
+            result = {:error, reason}
+            maybe_log_operation("refresh_tools", result, 0)
+            {:reply, {:error, reason}, new_state}
+        end
+
+      "help" ->
+        result = safe_execute(fn -> acs_help(state, args) end)
+        {:reply, add_next(result, args), state}
+
+      _ ->
+        # Check if tool exists
+        tool_def = Map.get(state.tools, name)
+        is_discovered = is_nil(tool_def)
+
+        if is_discovered do
+          # Log discovery event
+          _ = track_tool_discovery(name, nil, nil)
+        end
+
+        case tool_def do
+          nil ->
+            if Acs.MCP.Tools.has_tool?(name) do
+              start_time = System.monotonic_time(:millisecond)
+              result = safe_execute(fn -> Acs.MCP.Tools.call_tool(name, args) end)
+              latency_ms = System.monotonic_time(:millisecond) - start_time
+              agent_id = Map.get(args, "agent_id") || Map.get(args, :agent_id)
+              execution_id = Map.get(args, "execution_id") || Map.get(args, :execution_id)
+              {new_execution_chain, sequence_order} = get_or_create_execution_chain(state)
+              is_error = match?({:error, _}, result)
+              {new_last_error_at, error_burst} = detect_error_burst(state.last_error_at, is_error)
+              params_hash = generate_params_hash(args)
+              attempt = get_attempt_number(state, name, is_error)
+
+              maybe_log_operation(name, result, latency_ms, agent_id, execution_id,
+                execution_chain_id: new_execution_chain,
+                sequence_order: sequence_order,
+                attempt: attempt,
+                tool_discovered: true,
+                error_burst: error_burst,
+                params_hash: params_hash
+              )
+
+              new_state = %{
+                state
+                | execution_chain: new_execution_chain,
+                  sequence_order: sequence_order,
+                  last_error_at: new_last_error_at
+              }
+
+              {:reply, result, new_state}
+            else
+              {:reply, {:error, "Unknown tool: #{name}"}, state}
+            end
+
+          _ ->
+            start_time = System.monotonic_time(:millisecond)
+            result = safe_execute(fn -> execute_tool(tool_def, args, state) end)
+            latency_ms = System.monotonic_time(:millisecond) - start_time
+
+            # Extract agent_id and execution_id from args for telemetry
+            agent_id = Map.get(args, "agent_id") || Map.get(args, :agent_id)
+            execution_id = Map.get(args, "execution_id") || Map.get(args, :execution_id)
+
+            # Track telemetry
+            {new_execution_chain, sequence_order} = get_or_create_execution_chain(state)
+            is_error = match?({:error, _}, result)
+            {new_last_error_at, error_burst} = detect_error_burst(state.last_error_at, is_error)
+            params_hash = generate_params_hash(args)
+            attempt = get_attempt_number(state, name, is_error)
+
+            # Build telemetry opts
+            telemetry_opts = [
+              execution_chain_id: new_execution_chain,
+              sequence_order: sequence_order,
+              attempt: attempt,
+              tool_discovered: is_discovered,
+              error_burst: error_burst,
+              params_hash: params_hash
+            ]
+
+            maybe_log_operation(name, result, latency_ms, agent_id, execution_id, telemetry_opts)
+
+            # Update state with new chain info
+            new_state = %{
+              state
+              | execution_chain: new_execution_chain,
+                sequence_order: sequence_order,
+                last_error_at: new_last_error_at
+            }
+
+            {:reply, result, new_state}
+        end
+    end
+  end
+
   # --- Private ---
+
+  defp authenticated_org(args) do
+    case Map.get(args, "_auth_org_id") do
+      org when is_binary(org) and org != "" -> org
+      _ -> raise ArgumentError, "missing authenticated organization context"
+    end
+  end
 
   defp check_role(tool, name, agent_role) do
     roles = tool["roles"] || ["admin"]
@@ -657,6 +685,14 @@ defmodule Acs.MCP.ToolRegistry do
   defp execute_tool(tool_def, args, state) do
     name = tool_def["name"]
 
+    if tool_def["org"] && tool_def["org"] != authenticated_org(args) do
+      {:error, "Tool '#{name}' is not available for this organization"}
+    else
+      do_execute_tool(name, tool_def, args, state)
+    end
+  end
+
+  defp do_execute_tool(name, tool_def, args, state) do
     case name do
       "list_categories" ->
         {:ok, %{categories: Map.keys(state.by_category)}}
@@ -702,14 +738,14 @@ defmodule Acs.MCP.ToolRegistry do
     Enum.filter(tools, fn t -> (t["level"] || 2) <= level end)
   end
 
-  defp filter_by_role(tools, agent_role) when is_binary(agent_role) do
+  defp filter_by_role(tools, agent_role, org) when is_binary(agent_role) do
     Enum.filter(tools, fn t ->
       roles = t["roles"] || ["admin"]
-      agent_role in roles
+      agent_role in roles and (is_nil(t["org"]) or t["org"] == org)
     end)
   end
 
-  defp filter_by_role(_tools, _agent_role), do: []
+  defp filter_by_role(_tools, _agent_role, _org), do: []
 
   defp acs_help(state, args) do
     category_filter = args["category"]
@@ -764,10 +800,19 @@ defmodule Acs.MCP.ToolRegistry do
 
   defp add_next({:ok, map}, _args) when is_map(map) do
     suggestions = [
-      %{tool: "get_started", prompt: "New here? Get oriented with the entry-point tool", params: %{}},
-      %{tool: "generate_guidance_packet", prompt: "Get detailed workflow guidance for any scope", params: %{scope_path: "agent_coordination_system"}},
+      %{
+        tool: "get_started",
+        prompt: "New here? Get oriented with the entry-point tool",
+        params: %{}
+      },
+      %{
+        tool: "generate_guidance_packet",
+        prompt: "Get detailed workflow guidance for any scope",
+        params: %{scope_path: "agent_coordination_system"}
+      },
       %{tool: "list_tasks", prompt: "Find work to do", params: %{status_filter: "todo"}}
     ]
+
     {:ok, Map.put(map, :_next, suggestions)}
   end
 
@@ -929,9 +974,24 @@ defmodule Acs.MCP.ToolRegistry do
     System.get_env("META_HARNESS_ENABLED", "false") == "true"
   end
 
-  defp maybe_log_operation(name, result, latency_ms, agent_id \\ nil, execution_id \\ nil, opts \\ []) do
+  defp maybe_log_operation(
+         name,
+         result,
+         latency_ms,
+         agent_id \\ nil,
+         execution_id \\ nil,
+         opts \\ []
+       ) do
     if meta_harness_enabled?() do
-      _ = Acs.MetaHarness.OperationLogger.log_tool_result_async(name, result, latency_ms, agent_id, execution_id, opts)
+      _ =
+        Acs.MetaHarness.OperationLogger.log_tool_result_async(
+          name,
+          result,
+          latency_ms,
+          agent_id,
+          execution_id,
+          opts
+        )
     end
   end
 
@@ -955,29 +1015,34 @@ defmodule Acs.MCP.ToolRegistry do
 
   # Core tools registered at startup (survives restarts)
   defp add_core_tools(state) do
-    state = maybe_add_tool(state, "ask", %{
-      "name" => "ask",
-      "description" =>
-        "Ask a natural language question about the knowledge base. Searches memories, documents, and agent status for relevant information.",
-      "inputSchema" => %{
-        "type" => "object",
-        "properties" => %{
-          "question" => %{"type" => "string", "description" => "Natural language question to ask"},
-          "kind" => %{"type" => "string", "description" => "Filter by memory kind (optional)"},
-          "team" => %{"type" => "string", "description" => "Filter by team (optional)"},
-          "project" => %{"type" => "string", "description" => "Filter by project (optional)"}
+    state =
+      maybe_add_tool(state, "ask", %{
+        "name" => "ask",
+        "description" =>
+          "Ask a natural language question about the knowledge base. Searches memories, documents, and agent status for relevant information.",
+        "inputSchema" => %{
+          "type" => "object",
+          "properties" => %{
+            "question" => %{
+              "type" => "string",
+              "description" => "Natural language question to ask"
+            },
+            "kind" => %{"type" => "string", "description" => "Filter by memory kind (optional)"},
+            "team" => %{"type" => "string", "description" => "Filter by team (optional)"},
+            "project" => %{"type" => "string", "description" => "Filter by project (optional)"}
+          },
+          "required" => ["question"]
         },
-        "required" => ["question"]
-      },
-      "category" => "knowledge",
-      "roles" => ["admin", "collaborator"],
-      "level" => "normal",
-      "app" => "steward"
-    })
+        "category" => "knowledge",
+        "roles" => ["admin", "collaborator"],
+        "level" => "normal",
+        "app" => "steward"
+      })
 
     maybe_add_tool(state, "list_plugins", %{
       "name" => "list_plugins",
-      "description" => "List all registered plugin apps with their metadata, tool counts, and health status.",
+      "description" =>
+        "List all registered plugin apps with their metadata, tool counts, and health status.",
       "inputSchema" => %{
         "type" => "object",
         "properties" => %{},

@@ -20,10 +20,23 @@ defmodule Acs.Specs.Loader do
   3. Default: `../../../acs/specs` relative to ACS app dir
   """
   def specs_path do
-    System.get_env("SPECS_PATH") ||
-      Application.get_env(:steward_acs, Acs.Specs.Loader, [])
-      |> Keyword.get(:specs_path) ||
-      default_specs_path()
+    base =
+      System.get_env("SPECS_PATH") ||
+        Application.get_env(:steward_acs, Acs.Specs.Loader, [])
+        |> Keyword.get(:specs_path) ||
+        default_specs_path()
+
+    tenant_path(base, Acs.Org.current())
+  end
+
+  defp tenant_path(base, org) when org == "default" or org == nil, do: base
+
+  defp tenant_path(base, org) do
+    unless Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, org) do
+      raise ArgumentError, "Invalid organization: #{inspect(org)}"
+    end
+
+    Path.join([base, "orgs", org])
   end
 
   defp default_specs_path do

@@ -14,24 +14,24 @@ defmodule Acs.MCP.SSESessionManager do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
   end
 
-  def register(session_id, pid) do
-    GenServer.cast(__MODULE__, {:register, session_id, pid})
+  def register(session_id, pid, org \\ Acs.Org.current()) do
+    GenServer.cast(__MODULE__, {:register, {org, session_id}, pid})
   end
 
-  def unregister(session_id) do
-    GenServer.cast(__MODULE__, {:unregister, session_id})
+  def unregister(session_id, org \\ Acs.Org.current()) do
+    GenServer.cast(__MODULE__, {:unregister, {org, session_id}})
   end
 
-  def alive?(session_id) do
-    GenServer.call(__MODULE__, {:alive?, session_id})
+  def alive?(session_id, org \\ Acs.Org.current()) do
+    GenServer.call(__MODULE__, {:alive?, {org, session_id}})
   end
 
-  def send_response(session_id, response) do
-    GenServer.cast(__MODULE__, {:send_response, session_id, response})
+  def send_response(session_id, response, org \\ Acs.Org.current()) do
+    GenServer.cast(__MODULE__, {:send_response, {org, session_id}, response})
   end
 
-  def send_event(session_id, event, data) do
-    GenServer.cast(__MODULE__, {:send_event, session_id, event, data})
+  def send_event(session_id, event, data, org \\ Acs.Org.current()) do
+    GenServer.cast(__MODULE__, {:send_event, {org, session_id}, event, data})
   end
 
   @impl true
@@ -40,29 +40,29 @@ defmodule Acs.MCP.SSESessionManager do
   end
 
   @impl true
-  def handle_cast({:register, session_id, pid}, state) do
+  def handle_cast({:register, key, pid}, state) do
     Process.monitor(pid)
-    Logger.debug("SSE session registered: #{session_id}")
-    {:noreply, Map.put(state, session_id, pid)}
+    Logger.debug("SSE session registered: #{inspect(key)}")
+    {:noreply, Map.put(state, key, pid)}
   end
 
   @impl true
-  def handle_cast({:unregister, session_id}, state) do
-    Logger.debug("SSE session unregistered: #{session_id}")
+  def handle_cast({:unregister, key}, state) do
+    Logger.debug("SSE session unregistered: #{inspect(key)}")
 
-    case Map.get(state, session_id) do
+    case Map.get(state, key) do
       nil -> :ok
       pid -> Process.demonitor(pid, [:flush])
     end
 
-    {:noreply, Map.delete(state, session_id)}
+    {:noreply, Map.delete(state, key)}
   end
 
   @impl true
-  def handle_cast({:send_response, session_id, response}, state) do
-    case Map.get(state, session_id) do
+  def handle_cast({:send_response, key, response}, state) do
+    case Map.get(state, key) do
       nil ->
-        Logger.warning("SSE session not found: #{session_id}")
+        Logger.warning("SSE session not found: #{inspect(key)}")
         :ok
 
       pid ->
@@ -73,8 +73,8 @@ defmodule Acs.MCP.SSESessionManager do
   end
 
   @impl true
-  def handle_cast({:send_event, session_id, event, data}, state) do
-    case Map.get(state, session_id) do
+  def handle_cast({:send_event, key, event, data}, state) do
+    case Map.get(state, key) do
       nil -> :ok
       pid -> send(pid, {:send_event, event, data})
     end
@@ -83,8 +83,8 @@ defmodule Acs.MCP.SSESessionManager do
   end
 
   @impl true
-  def handle_call({:alive?, session_id}, _from, state) do
-    {:reply, Map.has_key?(state, session_id), state}
+  def handle_call({:alive?, key}, _from, state) do
+    {:reply, Map.has_key?(state, key), state}
   end
 
   @impl true

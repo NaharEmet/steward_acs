@@ -108,6 +108,7 @@ defmodule Acs.MCP.LogBackend do
           error_type: metadata[:error_type],
           action: metadata[:action],
           params: metadata[:params],
+          org: metadata[:org] || Acs.Org.current(),
           system_tags: system_tags,
           tags: user_tags
         }

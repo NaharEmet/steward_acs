@@ -58,7 +58,7 @@ defmodule Acs.Memory.Search do
   end
 
   defp fetch_memories_by_ids_with_org(memory_ids, opts) do
-    org = Keyword.get(opts, :org)
+    org = Keyword.get(opts, :org, Acs.Org.current())
     Acs.Memory.Indexer.get_memories_by_ids(memory_ids, org)
   end
 
@@ -166,7 +166,7 @@ defmodule Acs.Memory.Search do
   end
 
   defp tenant_similar(embedding, opts, limit) do
-    org = Keyword.get(opts, :org)
+    org = Keyword.get(opts, :org, Acs.Org.current())
 
     Acs.Memory.VectorIndex.search_similar(embedding, limit: max(limit * 10, 100))
     |> Enum.filter(fn result ->

@@ -161,7 +161,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   end
 
   def memory_health_check(args) do
-    org_id = args["org_id"]
+    org_id = args["_auth_org_id"] || Acs.Org.current()
     ext = extension_module()
 
     stats_response = ext.fetch_memory_stats(org_id)
@@ -196,7 +196,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
          stuck: %{count: 0, sample: []},
          pending: %{},
          pipeline_states: [],
-          log_db: %{total: 0, errors_24h: 0, warnings_24h: 0, orgs: []},
+         log_db: %{total: 0, errors_24h: 0, warnings_24h: 0, orgs: []},
          timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
        }}
     end
@@ -306,6 +306,9 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
       contains_blocked_sql_keyword?(trimmed) ->
         {:error, "Write or DDL operations are not allowed"}
 
+      references_database_object?(trimmed) ->
+        {:error, "Tenant-scoped credentials cannot query database tables directly"}
+
       true ->
         :ok
     end
@@ -325,6 +328,13 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
     Enum.any?(@blocked_sql_keywords, fn keyword ->
       Regex.match?(~r/\b#{keyword}\b/i, sql)
     end)
+  end
+
+  # Arbitrary table access cannot be made tenant-safe by a SQL keyword denylist.
+  # Keep scalar diagnostic expressions (for example `SELECT 1`) while rejecting
+  # FROM/JOIN clauses and metadata/schema introspection.
+  defp references_database_object?(sql) do
+    Regex.match?(~r/\b(from|join|table|sqlite_master|information_schema|pg_catalog)\b/i, sql)
   end
 
   defp check_acs_service do
@@ -655,7 +665,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
         total: count_logs(),
         errors_24h: count_logs(level: "error", since: hours_ago(24)),
         warnings_24h: count_logs(level: "warning", since: hours_ago(24)),
-        orgs: count_log_clusters()
+        orgs: [%{org: Acs.Org.current(), count: count_logs()}]
       }
     rescue
       _ -> %{total: 0, errors_24h: 0, warnings_24h: 0, orgs: []}
@@ -664,19 +674,6 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
 
   defp count_logs(filters \\ []) do
     Acs.Log.LogRepo.count(filters)
-  end
-
-  defp count_log_clusters do
-    try do
-      import Ecto.Query
-
-      Acs.Log.LogEntry
-      |> group_by(:org)
-      |> select([e], %{org: e.org, count: count(e.id)})
-      |> Acs.Repo.all()
-    rescue
-      _ -> []
-    end
   end
 
   defp hours_ago(n), do: DateTime.add(DateTime.utc_now(), -n * 3600, :second)

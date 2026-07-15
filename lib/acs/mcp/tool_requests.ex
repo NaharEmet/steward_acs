@@ -24,7 +24,8 @@ defmodule Acs.MCP.ToolRequests do
       category: definition["category"] || "requested",
       definition: ToolRequest.encode_definition(definition),
       status: "pending",
-      agent_id: agent_id
+      agent_id: agent_id,
+      org: Acs.Org.current()
     })
     |> Repo.insert()
   end
@@ -32,9 +33,10 @@ defmodule Acs.MCP.ToolRequests do
   @doc """
   Lists all tool requests, optionally filtered by status.
   """
-  def list_requests(status \\ nil) do
+  def list_requests(status \\ nil, org \\ Acs.Org.current()) do
     query =
       from r in ToolRequest,
+        where: r.org == ^org,
         order_by: [desc: r.inserted_at]
 
     query =
@@ -49,8 +51,8 @@ defmodule Acs.MCP.ToolRequests do
   @doc """
   Gets a single tool request by ID.
   """
-  def get_request(id) do
-    Repo.get(ToolRequest, id)
+  def get_request(id, org \\ Acs.Org.current()) do
+    Repo.get_by(ToolRequest, id: id, org: org)
   end
 
   @doc """
@@ -89,7 +91,11 @@ defmodule Acs.MCP.ToolRequests do
   @doc """
   Returns pending request count (useful for dashboard badges).
   """
-  def pending_count do
-    Repo.aggregate(from(r in ToolRequest, where: r.status == "pending"), :count, :id)
+  def pending_count(org \\ Acs.Org.current()) do
+    Repo.aggregate(
+      from(r in ToolRequest, where: r.status == "pending" and r.org == ^org),
+      :count,
+      :id
+    )
   end
 end
