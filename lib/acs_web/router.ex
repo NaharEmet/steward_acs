@@ -46,6 +46,7 @@ defmodule AcsWeb.Router do
       live "/tools/requests", AcsLive.ToolRequests, :index
       live "/memories", AcsLive.MemoryLive, :index
       live "/specs", AcsLive.SpecsLive, :index
+      live "/skills", AcsLive.SkillsLive, :index
       live "/error-traces", AcsLive.ErrorTracesLive, :index
     end
   end

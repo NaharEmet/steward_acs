@@ -1,6 +1,6 @@
 defmodule Acs.MCP.Tools.SkillHandlers do
   @moduledoc """
-  Handles skill management MCP tools: `skill_get` and `skill_save`.
+  Handles skill discovery and governance MCP tools.
   """
   alias Acs.Skills.Store
 
@@ -38,21 +38,8 @@ defmodule Acs.MCP.Tools.SkillHandlers do
     end
   end
 
-  def skill_save(args) do
-    name = args["name"]
-    content = args["content"]
-
-    cond do
-      is_nil(name) or name == "" ->
-        {:error, "name is required"}
-
-      is_nil(content) or content == "" ->
-        {:error, "content is required"}
-
-      true ->
-        tags = args["tags"] || []
-        description = args["description"]
-        Store.save_skill(name, content, tags, description)
-    end
+  def skill_save(_args) do
+    {:error,
+     "skills are managed externally; Steward only supports viewing and approval governance"}
   end
 end
