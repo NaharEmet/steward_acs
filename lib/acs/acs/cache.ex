@@ -291,7 +291,15 @@ defmodule Acs.Acs.Cache do
     end
   end
 
-  def put_file_lock(file_path, lock_map) do
+  def put_file_lock(file_path, lock_map, org \\ nil)
+
+  def put_file_lock(file_path, lock_map, org) when is_binary(org) do
+    ensure_table(@file_locks_table)
+    :ets.insert(@file_locks_table, {{org, file_path}, Map.put(lock_map, :org, org)})
+    :ok
+  end
+
+  def put_file_lock(file_path, lock_map, nil) do
     ensure_table(@file_locks_table)
     org = Map.get(lock_map, :org) || Acs.Org.current()
     :ets.insert(@file_locks_table, {{org, file_path}, lock_map})

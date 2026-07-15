@@ -16,7 +16,7 @@ defmodule Acs.MCP.ToolRequests do
 
   Returns `{:ok, %ToolRequest{}}` on success, or `{:error, changeset}`.
   """
-  def create_request(agent_id, definition) when is_map(definition) do
+  def create_request(agent_id, definition, org \\ Acs.Org.current()) when is_map(definition) do
     %ToolRequest{}
     |> ToolRequest.changeset(%{
       name: definition["name"] || "unnamed",
@@ -25,7 +25,7 @@ defmodule Acs.MCP.ToolRequests do
       definition: ToolRequest.encode_definition(definition),
       status: "pending",
       agent_id: agent_id,
-      org: Acs.Org.current()
+      org: org
     })
     |> Repo.insert()
   end
