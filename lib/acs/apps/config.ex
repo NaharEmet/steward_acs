@@ -50,30 +50,36 @@ defmodule Acs.Apps.Config do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @doc "Returns a map of all configured apps (app_name -> config keyword list)."
-  def list_apps do
+  @doc "Returns a map of configured apps for one organization."
+  def list_apps(org \\ Acs.Org.current()) when is_binary(org) do
     case :ets.info(@table, :name) do
-      :undefined -> %{}
-      _ -> :ets.tab2list(@table) |> Map.new(fn {k, v} -> {k, v} end)
+      :undefined ->
+        %{}
+
+      _ ->
+        @table
+        |> :ets.match_object({{org, :_}, :_})
+        |> Map.new(fn {{^org, name}, config} -> {name, config} end)
     end
   end
 
-  @doc "Returns config keyword list for a specific app, or nil."
-  def get_app(name) when is_binary(name) do
-    case :ets.lookup(@table, name) do
-      [{^name, config}] -> config
+  @doc "Returns an organization's config for a specific app, or nil."
+  def get_app(name, org \\ Acs.Org.current()) when is_binary(name) and is_binary(org) do
+    case :ets.lookup(@table, {org, name}) do
+      [{{^org, ^name}, config}] -> config
       [] -> nil
     end
   end
 
-  @doc "Add or update an app config at runtime. Returns :ok."
-  def configure_app(name, config) when is_binary(name) and is_list(config) do
-    GenServer.call(__MODULE__, {:configure, name, config}, :infinity)
+  @doc "Add or update an organization-scoped app config at runtime."
+  def configure_app(name, config, org \\ Acs.Org.current())
+      when is_binary(name) and is_list(config) and is_binary(org) do
+    GenServer.call(__MODULE__, {:configure, org, name, config}, :infinity)
   end
 
-  @doc "Remove an app config at runtime. Returns :ok."
-  def remove_app(name) when is_binary(name) do
-    GenServer.call(__MODULE__, {:remove, name}, :infinity)
+  @doc "Remove an organization-scoped app config at runtime."
+  def remove_app(name, org \\ Acs.Org.current()) when is_binary(name) and is_binary(org) do
+    GenServer.call(__MODULE__, {:remove, org, name}, :infinity)
   end
 
   # -- GenServer callbacks --
@@ -101,16 +107,16 @@ defmodule Acs.Apps.Config do
   end
 
   @impl true
-  def handle_call({:configure, name, config}, _from, state) do
-    :ets.insert(@table, {name, config})
-    Logger.info("[Apps.Config] Configured app: #{name}")
+  def handle_call({:configure, org, name, config}, _from, state) do
+    :ets.insert(@table, {{org, name}, config})
+    Logger.info("[Apps.Config] Configured app: #{name} for org #{org}")
     {:reply, :ok, state}
   end
 
   @impl true
-  def handle_call({:remove, name}, _from, state) do
-    :ets.delete(@table, name)
-    Logger.info("[Apps.Config] Removed app: #{name}")
+  def handle_call({:remove, org, name}, _from, state) do
+    :ets.delete(@table, {org, name})
+    Logger.info("[Apps.Config] Removed app: #{name} for org #{org}")
     {:reply, :ok, state}
   end
 
@@ -134,14 +140,19 @@ defmodule Acs.Apps.Config do
   end
 
   defp load_from_env(name) do
-    prefix = String.upcase(name)
+    legacy_prefix = String.upcase(name)
+    prefix = "APP_#{legacy_prefix}"
 
-    base_url = System.get_env("#{prefix}_URL")
-    api_key = System.get_env("#{prefix}_API_KEY")
-    auth_endpoint = System.get_env("#{prefix}_AUTH_ENDPOINT")
-    auth_header_name = System.get_env("#{prefix}_AUTH_HEADER_NAME")
-    auth_header_scheme = System.get_env("#{prefix}_AUTH_HEADER_SCHEME")
-    timeout_ms = System.get_env("#{prefix}_TIMEOUT_MS")
+    env = fn suffix ->
+      System.get_env("#{prefix}_#{suffix}") || System.get_env("#{legacy_prefix}_#{suffix}")
+    end
+
+    base_url = env.("URL")
+    api_key = env.("API_KEY")
+    auth_endpoint = env.("AUTH_ENDPOINT")
+    auth_header_name = env.("AUTH_HEADER_NAME")
+    auth_header_scheme = env.("AUTH_HEADER_SCHEME")
+    timeout_ms = env.("TIMEOUT_MS")
 
     config =
       []
@@ -163,8 +174,9 @@ defmodule Acs.Apps.Config do
       end)
 
     if base_url do
-      :ets.insert(@table, {name, config})
-      Logger.debug("[Apps.Config] Discovered app: #{name} (#{base_url})")
+      org = Acs.Org.configured()
+      :ets.insert(@table, {{org, name}, config})
+      Logger.debug("[Apps.Config] Discovered app: #{name} for org #{org} (#{base_url})")
     else
       Logger.warning(
         "[Apps.Config] App '#{name}' listed in CONFIGURED_APPS but no #{prefix}_URL set, skipping"

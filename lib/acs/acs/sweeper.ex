@@ -107,7 +107,7 @@ defmodule Acs.Acs.Sweeper do
               "locked_by_agent" => nil,
               "locked_at" => nil,
               "auto_release_at" => nil,
-              "status" => "done"
+              "status" => "todo"
             })
             |> Repo.update()
 

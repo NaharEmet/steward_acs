@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -117,6 +120,12 @@ jobs:
 
       - name: Compile
         run: mix compile --warnings-as-errors
+
+      - name: Check for retired dependencies
+        run: mix hex.audit
+
+      - name: Check for unused dependencies
+        run: mix deps.unlock --check-unused
 
       - name: Run credo
         run: mix credo --strict

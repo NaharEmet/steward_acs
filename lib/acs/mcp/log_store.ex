@@ -79,7 +79,9 @@ defmodule Acs.MCP.LogStore do
       result = do_store_log(level, service, component, message, metadata, org)
 
       # DB persistence (fire-and-forget, don't block ETS write)
-      persist_to_db(level, service, component, message, metadata, org)
+      if Application.get_env(:steward_acs, :persist_logs_to_db, true) do
+        persist_to_db(level, service, component, message, metadata, org)
+      end
 
       result
     end

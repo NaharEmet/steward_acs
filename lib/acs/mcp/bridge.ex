@@ -8,27 +8,9 @@ defmodule Acs.MCP.Bridge do
 
   require Logger
 
+  alias Acs.MCP.BridgeSessionStore
+
   @default_timeout 30_000
-
-  @session_table :mcp_sessions
-  # 5 minutes
-  @session_ttl_ms 300_000
-
-  defp ensure_session_table do
-    case :ets.info(@session_table, :name) do
-      :undefined ->
-        :ets.new(@session_table, [
-          :set,
-          :named_table,
-          :protected,
-          read_concurrency: true,
-          write_concurrency: true
-        ])
-
-      _ ->
-        :ok
-    end
-  end
 
   @doc """
   Calls an external tool via HTTP.
@@ -48,7 +30,7 @@ defmodule Acs.MCP.Bridge do
     tool_name = tool_def["name"]
 
     # Session-aware dispatch: resolve session_id to api_key
-    case resolve_session(args) do
+    case resolve_session(args, tool_def) do
       {:error, reason} ->
         {:error, reason}
 
@@ -67,7 +49,8 @@ defmodule Acs.MCP.Bridge do
 
   defp do_http_call(tool_def, args, url, method, tool_name) do
     api_key = args["api_key"]
-    app_config = resolve_app_config(tool_def["base_url"])
+    org = args["_auth_org_id"] || Acs.Org.current()
+    app_config = resolve_app_config(tool_def["base_url"], org)
     timeout = tool_def["timeout"] || app_config[:timeout_ms] || @default_timeout
 
     Logger.info("Bridge: calling #{method} #{url} for tool '#{tool_name}'")
@@ -96,7 +79,7 @@ defmodule Acs.MCP.Bridge do
       {:ok, %{status: status, body: body}} when status in 200..299 ->
         result = format_response(body, tool_name)
         result = maybe_transform_response(result, tool_def)
-        result = maybe_store_session(tool_name, result, api_key)
+        result = maybe_store_session(tool_name, result, api_key, args, tool_def)
         {:ok, result}
 
       {:ok, %{status: status, body: body}} ->
@@ -135,37 +118,33 @@ defmodule Acs.MCP.Bridge do
 
   # --- Session management ---
 
-  defp resolve_session(args) do
+  defp resolve_session(args, tool_def) do
     case args["_session_id"] do
       nil ->
         args
 
       session_id when is_binary(session_id) ->
-        ensure_session_table()
+        expected = session_binding(args, tool_def)
 
-        case :ets.lookup(@session_table, session_id) do
-          [{^session_id, session}] ->
-            if expired?(session) do
-              :ets.delete(@session_table, session_id)
-              {:error, "Session expired. Re-authenticate with ant_authenticate."}
-            else
-              Map.put(args, "api_key", session.api_key)
-            end
+        case BridgeSessionStore.fetch(session_id) do
+          {:ok, %{binding: ^expected} = session} ->
+            Map.put(args, "api_key", session.api_key)
 
-          [] ->
+          {:ok, _session} ->
+            {:error, "Session is not valid for this caller or destination."}
+
+          {:error, :expired} ->
+            {:error, "Session expired. Re-authenticate with ant_authenticate."}
+
+          {:error, :not_found} ->
             {:error, "Session not found. Authenticate first with ant_authenticate."}
         end
     end
   end
 
-  defp expired?(session) do
-    System.monotonic_time(:millisecond) - session.inserted_at > @session_ttl_ms
-  end
-
-  defp maybe_store_session("ant_authenticate", result, api_key)
+  defp maybe_store_session("ant_authenticate", result, api_key, args, tool_def)
        when is_map(result) and is_binary(api_key) do
     if result["status"] == "ok" and result["org_id"] and result["key_prefix"] do
-      ensure_session_table()
       session_id = "sess_#{Ecto.UUID.generate() |> String.replace("-", "")}"
 
       session = %{
@@ -175,19 +154,31 @@ defmodule Acs.MCP.Bridge do
         permissions: result["permissions"],
         key_id: result["key_prefix"],
         api_key: api_key,
-        inserted_at: System.monotonic_time(:millisecond)
+        binding: session_binding(args, tool_def)
       }
 
-      true = :ets.insert(@session_table, {session_id, session})
+      case BridgeSessionStore.put(session_id, session) do
+        :ok ->
+          Map.put(result, "session_id", session_id)
 
-      result
-      |> Map.put("session_id", session_id)
+        {:error, :session_limit_reached} ->
+          Logger.warning("Bridge session limit reached; authentication session was not retained")
+          result
+      end
     else
       result
     end
   end
 
-  defp maybe_store_session(_tool_name, result, _api_key), do: result
+  defp maybe_store_session(_tool_name, result, _api_key, _args, _tool_def), do: result
+
+  defp session_binding(args, tool_def) do
+    %{
+      org: args["_auth_credential_org_id"] || args["_auth_org_id"],
+      agent: args["_auth_agent_id"],
+      origin: tool_def["base_url"]
+    }
+  end
 
   # --- Private ---
 
@@ -221,14 +212,16 @@ defmodule Acs.MCP.Bridge do
           auth_header_value(key, header_scheme)
 
         _ ->
-          service_api_key = Application.get_env(:steward_acs, :service_api_key)
+          configured_key = app_config[:api_key]
 
-          case service_api_key do
-            key when is_binary(key) and key != "" ->
-              auth_header_value(key, header_scheme)
+          fallback_key =
+            if args["_auth_org_id"] in [nil, Acs.Org.configured()] do
+              Application.get_env(:steward_acs, :service_api_key)
+            end
 
-            _ ->
-              nil
+          case configured_key || fallback_key do
+            key when is_binary(key) and key != "" -> auth_header_value(key, header_scheme)
+            _ -> nil
           end
       end
 
@@ -242,9 +235,9 @@ defmodule Acs.MCP.Bridge do
   defp auth_header_value(key, ""), do: key
   defp auth_header_value(key, scheme), do: "#{scheme} #{key}"
 
-  defp resolve_app_config(base_url) when is_binary(base_url) do
+  defp resolve_app_config(base_url, org) when is_binary(base_url) and is_binary(org) do
     matched =
-      Acs.Apps.Config.list_apps()
+      Acs.Apps.Config.list_apps(org)
       |> Enum.find(fn {_name, config} ->
         configured_url = Keyword.get(config, :base_url)
         configured_url && base_url == configured_url
@@ -256,10 +249,14 @@ defmodule Acs.MCP.Bridge do
     end
   end
 
-  defp resolve_app_config(nil), do: []
+  defp resolve_app_config(nil, _org), do: []
 
   defp request_with_opts(opts) do
-    req = Req.new(Keyword.drop(opts, [:url, :method, :json, :params, :timeout]))
+    req =
+      opts
+      |> Keyword.drop([:url, :method, :json, :params, :timeout])
+      |> Keyword.put(:redirect, false)
+      |> Req.new()
 
     url = opts[:url]
     method = opts[:method] || "get"

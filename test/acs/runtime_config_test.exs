@@ -12,7 +12,8 @@ defmodule Acs.RuntimeConfigTest do
     end
 
     test "parses valid org credential map" do
-      json = ~S({"prod":{"username":"admin","password":"secret"},"demo":{"username":"u","password":"p"}})
+      json =
+        ~S({"prod":{"username":"admin","password":"secret"},"demo":{"username":"u","password":"p"}})
 
       assert ConfigEnv.parse_org_dashboard_creds(json) == %{
                "prod" => %{username: "admin", password: "secret"},
@@ -35,6 +36,18 @@ defmodule Acs.RuntimeConfigTest do
     test "raises with message for malformed org entry" do
       assert_raise ArgumentError, ~r/"prod" must be a JSON object/, fn ->
         ConfigEnv.parse_org_dashboard_creds(~S({"prod":"bad"}))
+      end
+    end
+
+    test "rejects empty org credentials" do
+      for json <- [
+            ~S({"prod":{"username":"","password":"secret"}}),
+            ~S({"prod":{"username":"admin","password":""}}),
+            ~S({"":{"username":"admin","password":"secret"}})
+          ] do
+        assert_raise ArgumentError, ~r/non-empty string/, fn ->
+          ConfigEnv.parse_org_dashboard_creds(json)
+        end
       end
     end
   end

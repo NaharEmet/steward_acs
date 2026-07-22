@@ -38,7 +38,7 @@ defmodule Acs.MixProject do
       {:ecto_sqlite3, "~> 0.22"},
       {:postgrex, "~> 0.19", only: [:prod]},
       {:jason, "~> 1.2"},
-      {:req, "~> 0.5.0"},
+      {:req, "~> 0.6.3"},
       {:req_llm, ">= 1.0.0"},
       {:llm_utils, "~> 0.1.1"},
       {:dotenvy, "~> 1.0", override: true},

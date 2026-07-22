@@ -35,19 +35,42 @@ defmodule Acs.MCP.UrlSafetyTest do
                UrlSafety.validate_outbound_url("http://169.254.169.254/latest/meta-data")
     end
 
+    test "rejects non-public IPv6 literals" do
+      for host <- [
+            "::",
+            "::1",
+            "fc00::1",
+            "fe80::1",
+            "ff02::1",
+            "::127.0.0.1",
+            "::ffff:127.0.0.1",
+            "::ffff:10.0.0.5",
+            "::ffff:169.254.169.254"
+          ] do
+        assert {:error, _} = UrlSafety.validate_outbound_url("http://[#{host}]/")
+      end
+    end
+
+    test "fails closed when hostname resolution fails" do
+      assert {:error, "Host 'does-not-exist.invalid' could not be resolved"} =
+               UrlSafety.validate_outbound_url("https://does-not-exist.invalid/")
+    end
+
     test "rejects non-http schemes" do
       assert {:error, _} = UrlSafety.validate_outbound_url("file:///etc/passwd")
     end
 
     test "enforces allowlist when configured" do
       original = Application.get_env(:steward_acs, :bridge_allowed_hosts)
-      Application.put_env(:steward_acs, :bridge_allowed_hosts, ["api.example.com"])
+      Application.put_env(:steward_acs, :bridge_allowed_hosts, ["allowed.invalid"])
 
       on_exit(fn ->
         Application.put_env(:steward_acs, :bridge_allowed_hosts, original)
       end)
 
-      assert :ok = UrlSafety.validate_outbound_url("https://api.example.com/hook")
+      assert {:error, "Host 'allowed.invalid' could not be resolved"} =
+               UrlSafety.validate_outbound_url("https://allowed.invalid/hook")
+
       assert {:error, msg} = UrlSafety.validate_outbound_url("https://evil.example.com/hook")
       assert msg =~ "BRIDGE_ALLOWED_HOSTS"
     end

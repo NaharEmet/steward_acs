@@ -18,12 +18,16 @@ defmodule AcsWeb.Router do
     plug :require_authenticated_user
   end
 
+  pipeline :login_rate_limit do
+    plug AcsWeb.Plugs.LoginRateLimit
+  end
+
   pipeline :localhost_only do
     plug AcsWeb.Plugs.LocalhostOnly
   end
 
   scope "/", AcsWeb do
-    pipe_through [:browser, :redirect_if_authenticated]
+    pipe_through [:browser, :login_rate_limit, :redirect_if_authenticated]
 
     get "/users/log_in", UserSessionController, :new
     post "/users/log_in", UserSessionController, :create

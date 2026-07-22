@@ -18,8 +18,9 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
   def authenticate(_key, conn) do
     with true <- Config.enabled?(),
          token when is_binary(token) <- bearer_token(conn),
-         {:ok, claims} <- JWKS.verify(token, audience: Config.audience_for_conn(conn)) do
-      {:ok, map_claims(claims)}
+         {:ok, claims} <- JWKS.verify(token, audience: Config.audience_for_conn(conn)),
+         {:ok, result} <- claims_to_auth_result(claims) do
+      {:ok, result}
     else
       false -> {:error, "OAuth not configured"}
       nil -> {:error, "Not a Bearer token"}
@@ -34,36 +35,44 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
     end
   end
 
-  defp map_claims(claims) do
+  @doc false
+  def claims_to_auth_result(claims) do
     permissions = permissions_from(claims)
-    role = role_from(permissions)
-    identity = identity_from(claims)
-    org_id = org_from(claims)
 
-    Logger.debug(
-      "[MCPAuth] authenticated via Auth0 OAuth: role=#{role} org=#{org_id || "nil"} identity=#{identity}"
-    )
+    with {:ok, role} <- role_from(permissions) do
+      identity = identity_from(claims)
+      org_id = org_from(claims)
 
-    %{
-      role: role,
-      org_id: org_id,
-      permissions: permissions,
-      agent_identity: identity,
-      allowed_teams: nil,
-      allowed_projects: nil
-    }
+      Logger.debug(
+        "[MCPAuth] authenticated via Auth0 OAuth: role=#{role} org=#{org_id || "nil"} identity=#{identity}"
+      )
+
+      {:ok,
+       %{
+         role: role,
+         org_id: org_id,
+         permissions: permissions,
+         agent_identity: identity,
+         allowed_teams: nil,
+         allowed_projects: nil
+       }}
+    end
   end
 
-  defp permissions_from(%{"permissions" => perms}) when is_list(perms), do: perms
-  defp permissions_from(%{"scope" => scope}) when is_binary(scope), do: String.split(scope, " ", trim: true)
-  defp permissions_from(_), do: []
+  defp permissions_from(claims) do
+    permissions = if is_list(claims["permissions"]), do: claims["permissions"], else: []
+
+    scopes =
+      if is_binary(claims["scope"]), do: String.split(claims["scope"], " ", trim: true), else: []
+
+    Enum.uniq(permissions ++ scopes)
+  end
 
   defp role_from(permissions) when is_list(permissions) do
     cond do
-      "mcp:admin" in permissions -> "admin"
-      "mcp:tools" in permissions -> "collaborator"
-      permissions != [] -> "collaborator"
-      true -> "collaborator"
+      "mcp:admin" in permissions -> {:ok, "admin"}
+      "mcp:tools" in permissions -> {:ok, "collaborator"}
+      true -> {:error, "OAuth token is missing an MCP authorization scope"}
     end
   end
 

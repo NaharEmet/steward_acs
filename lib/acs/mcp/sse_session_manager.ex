@@ -41,21 +41,36 @@ defmodule Acs.MCP.SSESessionManager do
 
   @impl true
   def handle_cast({:register, key, pid}, state) do
-    Process.monitor(pid)
+    state =
+      case Map.pop(state, key) do
+        {nil, state} ->
+          state
+
+        {{_pid, ref}, state} ->
+          Process.demonitor(ref, [:flush])
+          state
+      end
+
+    ref = Process.monitor(pid)
     Logger.debug("SSE session registered: #{inspect(key)}")
-    {:noreply, Map.put(state, key, pid)}
+    {:noreply, Map.put(state, key, {pid, ref})}
   end
 
   @impl true
   def handle_cast({:unregister, key}, state) do
     Logger.debug("SSE session unregistered: #{inspect(key)}")
 
-    case Map.get(state, key) do
-      nil -> :ok
-      pid -> Process.demonitor(pid, [:flush])
-    end
+    state =
+      case Map.pop(state, key) do
+        {nil, state} ->
+          state
 
-    {:noreply, Map.delete(state, key)}
+        {{_pid, ref}, state} ->
+          Process.demonitor(ref, [:flush])
+          state
+      end
+
+    {:noreply, state}
   end
 
   @impl true
@@ -65,7 +80,7 @@ defmodule Acs.MCP.SSESessionManager do
         Logger.warning("SSE session not found: #{inspect(key)}")
         :ok
 
-      pid ->
+      {pid, _ref} ->
         send(pid, {:send_response, response})
     end
 
@@ -76,7 +91,7 @@ defmodule Acs.MCP.SSESessionManager do
   def handle_cast({:send_event, key, event, data}, state) do
     case Map.get(state, key) do
       nil -> :ok
-      pid -> send(pid, {:send_event, event, data})
+      {pid, _ref} -> send(pid, {:send_event, event, data})
     end
 
     {:noreply, state}
@@ -88,13 +103,15 @@ defmodule Acs.MCP.SSESessionManager do
   end
 
   @impl true
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
-    session_ids =
-      state
-      |> Enum.filter(fn {_id, p} -> p == pid end)
-      |> Enum.map(fn {id, _} -> id end)
+  def handle_info({:DOWN, ref, :process, pid, _reason}, state) do
+    state =
+      case Enum.find(state, fn {_key, {session_pid, monitor_ref}} ->
+             session_pid == pid and monitor_ref == ref
+           end) do
+        {key, _session} -> Map.delete(state, key)
+        nil -> state
+      end
 
-    new_state = Enum.reduce(session_ids, state, fn id, acc -> Map.delete(acc, id) end)
-    {:noreply, new_state}
+    {:noreply, state}
   end
 end
