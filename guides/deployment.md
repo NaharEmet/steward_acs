@@ -73,8 +73,22 @@ docker compose -f docker-compose.multitenant.yml exec steward_acs \
 docker cp priv/orgs.yaml steward_acs:/data/orgs.yaml
 ```
 
+### Axiom observability
+
+Production can export inbound HTTP/Phoenix/Ecto traces and structured application logs to Axiom. Create an **Events** dataset in Axiom once, then set these values in the untracked production `.env`:
+
+```bash
+AXIOM_LOGS=xaat-your-ingest-token
+AXIOM_DATASET=steward-acs
+# AXIOM_DOMAIN=https://api.axiom.co  # only needed for an Axiom edge deployment
+```
+
+Export is enabled only when the release runs in `prod` and `AXIOM_LOGS` is non-empty. Development and test never ship telemetry, even when a local `.env` contains the token. Keep the token ingest-scoped to the configured dataset.
+
+After deploying, request `/mcp/health`, exercise a database-backed route, and confirm both traces and log events arrive in the dataset. HTTP query-string values are redacted from spans; metrics are not exported.
+
 ### Secrets
 
-Use `pass` / untracked `.env` only. Never commit Auth0 M2M secrets. See [`guides/secrets.md`](secrets.md).
+Use `pass` / untracked `.env` only. Never commit Axiom or Auth0 tokens. See [`guides/secrets.md`](secrets.md).
 
 Archived older compose files: [`archive/deploy/`](../archive/deploy/).

@@ -16,7 +16,8 @@ defmodule Acs.MixProject do
           include_executables_for: [:unix],
           steps: [:assemble],
           validate_compile_env: false,
-          strip_beams: [keep: ["Docs"]]
+          strip_beams: [keep: ["Docs"]],
+          applications: [opentelemetry_exporter: :permanent, opentelemetry: :temporary]
         ]
       ]
     ]
@@ -34,6 +35,14 @@ defmodule Acs.MixProject do
 
   defp deps do
     [
+      # The OTLP exporter must appear before the SDK so releases start it first.
+      {:opentelemetry_exporter, "~> 1.10"},
+      {:opentelemetry, "~> 1.7"},
+      {:opentelemetry_api, "~> 1.5"},
+      {:opentelemetry_phoenix, "~> 2.0"},
+      {:opentelemetry_bandit, "~> 0.3.0"},
+      {:opentelemetry_ecto, "~> 1.2"},
+      {:opentelemetry_logger_metadata, "~> 0.2.0"},
       {:ecto_sql, "~> 3.13"},
       {:ecto_sqlite3, "~> 0.22"},
       {:postgrex, "~> 0.19", only: [:prod]},

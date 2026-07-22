@@ -42,6 +42,7 @@ Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/
 - Prod: `.env.multitenant` → `.env`
 - Multi-org dashboard logins: `ACS_ORG_DASHBOARD_CREDS='{"prod":{"username":"admin","password":"..."}}'`
 - Auth0 M2M: `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` (aliases: `AUTH0_M2M_*`). Keep in `pass`, never in git.
+- Axiom (optional): `AXIOM_LOGS` (ingest token), `AXIOM_DATASET` (defaults to `steward-acs`), and `AXIOM_DOMAIN` only for edge deployments. Export is strictly prod-only and disabled without the token.
 
 ## Migrations
 
@@ -79,3 +80,4 @@ docker cp priv/orgs.yaml steward_acs:/data/orgs.yaml
 3. Dashboard login for configured org + `/skills` (no 500)
 4. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
 5. No `inotify-tools` errors in `docker logs steward_acs`
+6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request

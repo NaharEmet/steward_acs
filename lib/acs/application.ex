@@ -9,6 +9,15 @@ defmodule Acs.Application do
   require Logger
 
   @impl true
+  def prep_stop(state) do
+    if axiom_enabled?() and Process.whereis(Acs.Observability.AxiomLogExporter) do
+      Acs.Observability.AxiomLogExporter.flush()
+    end
+
+    state
+  end
+
+  @impl true
   def stop(_state) do
     if meta_harness_enabled?(), do: Acs.MetaHarness.OperationLogger.flush()
     :ok
@@ -16,6 +25,8 @@ defmodule Acs.Application do
 
   @impl true
   def start(_type, _args) do
+    if axiom_enabled?(), do: setup_observability()
+
     meta_harness_children =
       if meta_harness_enabled?() do
         [Acs.MetaHarness.OperationLogger, Acs.MetaHarness.Scheduler]
@@ -23,11 +34,13 @@ defmodule Acs.Application do
         []
       end
 
+    observability_children =
+      if axiom_enabled?(), do: [Acs.Observability.AxiomLogExporter], else: []
+
     children =
-      [
-        Acs.Apps.Config,
-        Acs.Repo | meta_harness_children
-      ] ++
+      [Acs.Apps.Config, Acs.Repo] ++
+        observability_children ++
+        meta_harness_children ++
         [
           Acs.Acs.Cache,
           Acs.Acs.Sweeper,
@@ -125,6 +138,17 @@ defmodule Acs.Application do
     end
 
     {:ok, pid}
+  end
+
+  defp setup_observability do
+    OpentelemetryBandit.setup()
+    OpentelemetryPhoenix.setup(adapter: :bandit)
+    OpentelemetryEcto.setup([:steward_acs, :repo])
+    OpentelemetryLoggerMetadata.setup()
+  end
+
+  defp axiom_enabled? do
+    Application.get_env(:steward_acs, :axiom, [])[:enabled] == true
   end
 
   defp meta_harness_enabled? do

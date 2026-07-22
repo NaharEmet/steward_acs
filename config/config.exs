@@ -40,6 +40,11 @@ config :phoenix, :json_library, Jason
 
 config :steward_acs, :session_validity_in_days, 7
 
+# Observability is opt-in at runtime. This prevents the OpenTelemetry SDK from
+# falling back to its localhost collector when Axiom is not configured.
+config :steward_acs, :axiom, enabled: false
+config :opentelemetry, traces_exporter: :none
+
 config :logger, :console, metadata: [:agent_id, :task_id, :file_path, :locked_by]
 
 config :tailwind, :version, "3.4.3"

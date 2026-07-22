@@ -4,6 +4,15 @@ defmodule Acs.RuntimeConfigTest do
   alias Acs.ConfigEnv
   alias Acs.Prompts
 
+  describe "Axiom observability gate" do
+    test "is disabled without a production token and configures no exporter headers" do
+      refute Application.get_env(:steward_acs, :axiom)[:enabled]
+      assert Application.get_env(:opentelemetry, :traces_exporter) == :none
+      assert Application.get_env(:opentelemetry_exporter, :otlp_traces_headers) == nil
+      assert Application.get_env(:opentelemetry_exporter, :otlp_headers) == nil
+    end
+  end
+
   describe "parse_org_dashboard_creds/1" do
     test "returns empty map for nil, empty, or whitespace" do
       assert ConfigEnv.parse_org_dashboard_creds(nil) == %{}
@@ -12,7 +21,8 @@ defmodule Acs.RuntimeConfigTest do
     end
 
     test "parses valid org credential map" do
-      json = ~S({"prod":{"username":"admin","password":"secret"},"demo":{"username":"u","password":"p"}})
+      json =
+        ~S({"prod":{"username":"admin","password":"secret"},"demo":{"username":"u","password":"p"}})
 
       assert ConfigEnv.parse_org_dashboard_creds(json) == %{
                "prod" => %{username: "admin", password: "secret"},
