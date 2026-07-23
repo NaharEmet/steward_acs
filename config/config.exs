@@ -45,7 +45,8 @@ config :steward_acs, :session_validity_in_days, 7
 config :steward_acs, :axiom, enabled: false
 config :opentelemetry, traces_exporter: :none
 
-config :logger, :console, metadata: [:agent_id, :task_id, :file_path, :locked_by]
+config :logger, :console,
+  metadata: [:agent_id, :task_id, :file_path, :locked_by, :axiom_exporter_internal]
 
 config :tailwind, :version, "3.4.3"
 
