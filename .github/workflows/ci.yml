@@ -87,6 +87,7 @@ jobs:
           REPO_ADAPTER: postgres
           SECRET_KEY_BASE: ci_secret_key_base_for_release_build_only_not_for_production_use_1234567890
           DATABASE_URL: ecto://postgres:ci_release_password@localhost:5432/acs_prod
+          PGPASSWORD: ci_release_password
           MCP_API_KEY: ci_mcp_key
           ACS_PASSWORD: ci_dashboard_password
           PHX_HOST: localhost
