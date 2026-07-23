@@ -4,29 +4,73 @@ defmodule AcsWeb.Plugs.ResolveOrg do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    subdomain = extract_subdomain(conn)
-    org = Acs.Org.from_subdomain(subdomain)
+    :ok = Acs.Org.clear_request_org()
 
-    case org do
-      nil ->
-        conn |> put_resp_content_type("text/plain") |> send_resp(404, "unknown org") |> halt()
-
-      org ->
-        :ok = Acs.Org.put_current(org)
-        assign(conn, :current_org, org)
+    if Acs.Org.multi_tenant?() do
+      resolve_multitenant_host(conn)
+    else
+      assign_account_tenant(conn, Acs.Org.configured())
     end
   end
 
-  defp extract_subdomain(conn) do
-    host = conn.host
-    parts = String.split(host, ".")
+  defp resolve_multitenant_host(conn) do
+    if account_host?(conn.host) do
+      assign(conn, :host_type, :account)
+    else
+      case Acs.Org.extract_subdomain(conn.host) do
+        subdomain when is_binary(subdomain) ->
+          case Acs.Orgs.get_by_subdomain(subdomain) do
+            nil ->
+              unknown_host(conn)
 
-    case parts do
-      [subdomain | _] when subdomain not in ["www", ""] and length(parts) > 2 ->
-        subdomain
+            org ->
+              case org_slug(org) do
+                slug when is_binary(slug) and slug != "" -> assign_tenant(conn, slug)
+                _ -> unknown_host(conn)
+              end
+          end
+
+        _ ->
+          unknown_host(conn)
+      end
+    end
+  end
+
+  defp assign_tenant(conn, slug) do
+    :ok = Acs.Org.put_current(slug)
+
+    conn
+    |> assign(:host_type, :tenant)
+    |> assign(:current_org, slug)
+  end
+
+  defp assign_account_tenant(conn, slug) do
+    :ok = Acs.Org.put_current(slug)
+
+    conn
+    |> assign(:host_type, :account_tenant)
+    |> assign(:current_org, slug)
+  end
+
+  defp unknown_host(conn) do
+    conn
+    |> assign(:host_type, :unknown)
+    |> put_resp_content_type("text/plain")
+    |> send_resp(404, "unknown org")
+    |> halt()
+  end
+
+  defp account_host?(host) when is_binary(host) do
+    case Application.get_env(:steward_acs, :account_host, "localhost") do
+      account_host when is_binary(account_host) ->
+        String.downcase(host) == String.downcase(account_host)
 
       _ ->
-        nil
+        false
     end
   end
+
+  defp org_slug(slug) when is_binary(slug), do: slug
+  defp org_slug(org) when is_map(org), do: Map.get(org, :slug) || Map.get(org, "slug")
+  defp org_slug(_), do: nil
 end

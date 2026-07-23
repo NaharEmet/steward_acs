@@ -12,6 +12,21 @@ defmodule Acs.Release do
     end
   end
 
+  def import_organizations do
+    with_repo(fn -> Acs.Orgs.import_yaml() end)
+  end
+
+  def bootstrap_owner(email, organization_slug) do
+    with_repo(fn -> Acs.Accounts.bootstrap_owner(email, organization_slug) end)
+  end
+
+  defp with_repo(fun) do
+    load_app()
+
+    {:ok, result, _apps} = Ecto.Migrator.with_repo(Acs.Repo, fn _repo -> fun.() end)
+    result
+  end
+
   defp repos do
     Application.fetch_env!(:steward_acs, :ecto_repos)
   end

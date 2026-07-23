@@ -30,9 +30,13 @@ services:
       AUTH0_MGMT_CLIENT_SECRET: "${AUTH0_MGMT_CLIENT_SECRET:-}"
       AUTH0_CONNECTION: "${AUTH0_CONNECTION:-email}"
 
-      # Dashboard credentials (default: admin/admin)
-      ACS_USERNAME: "${ACS_USERNAME:-admin}"
-      ACS_PASSWORD: "${ACS_PASSWORD:-admin}"
+      # Dashboard Auth0 Regular Web Application
+      ACCOUNT_HOST: "${ACCOUNT_HOST:-localhost}"
+      OIDC_BROWSER_ENABLED: "${OIDC_BROWSER_ENABLED:-false}"
+      AUTH0_WEB_CLIENT_ID: "${AUTH0_WEB_CLIENT_ID:-}"
+      AUTH0_WEB_CLIENT_SECRET: "${AUTH0_WEB_CLIENT_SECRET:-}"
+      AUTH0_WEB_REDIRECT_URI: "${AUTH0_WEB_REDIRECT_URI:-http://localhost:4001/auth/callback}"
+      SELF_SERVICE_ORGS_ENABLED: "${SELF_SERVICE_ORGS_ENABLED:-false}"
 
       # MCP API key for tool calls (optional in dev, required in prod)
       MCP_API_KEY: "${MCP_API_KEY:-dev-api-key}"

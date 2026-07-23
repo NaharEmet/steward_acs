@@ -1,6 +1,8 @@
 import Config
 
 config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
+config :steward_acs, :account_host, "localhost"
+config :steward_acs, :oidc_browser_enabled, false
 
 # SQLite test database
 config :steward_acs, Acs.Repo,

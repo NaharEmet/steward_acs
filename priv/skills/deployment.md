@@ -40,7 +40,8 @@ Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/
 
 - Local: `.env.example` → `.env`
 - Prod: `.env.multitenant` → `.env`
-- Multi-org dashboard logins: `ACS_ORG_DASHBOARD_CREDS='{"prod":{"username":"admin","password":"..."}}'`
+- Dashboard Auth0 OIDC: `OIDC_BROWSER_ENABLED`, `ACCOUNT_HOST`, and the `AUTH0_WEB_*` values from a Regular Web Application.
+- Self-service org creation: keep `SELF_SERVICE_ORGS_ENABLED=false` through migration/bootstrap, then enable deliberately.
 - Auth0 M2M: `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` (aliases: `AUTH0_M2M_*`). Keep in `pass`, never in git.
 
 ## Migrations
@@ -66,16 +67,23 @@ Device sync uses published `22000` / `21027/udp`. Do not reverse-proxy Syncthing
 
 ## Orgs
 
-`ORGS_FILE=/data/orgs.yaml`. `create_org` updates that file. If empty after upgrade, seed once:
+Organizations are database-backed. During the OAuth migration, import the legacy registry once, then bootstrap each verified owner's identity after their first OIDC login:
 
 ```bash
-docker cp priv/orgs.yaml steward_acs:/data/orgs.yaml
+docker compose -f docker-compose.multitenant.yml exec steward_acs \
+  /app/bin/steward_acs eval 'Acs.Release.import_organizations()'
+
+docker compose -f docker-compose.multitenant.yml exec steward_acs \
+  /app/bin/steward_acs eval 'Acs.Release.bootstrap_owner("owner@example.com", "org-slug")'
 ```
+
+The YAML registry remains a read-only compatibility fallback during rollout. New organizations come from onboarding; MCP `create_org` and `create_user` are deprecated.
 
 ## Smoke checks after deploy
 
 1. `./scripts/status.sh` with `SERVER=` set — digest healthy, expected image SHA
 2. `curl -fsS https://prod.stewardacs.xyz/mcp/health`
-3. Dashboard login for configured org + `/skills` (no 500)
-4. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
-5. No `inotify-tools` errors in `docker logs steward_acs`
+3. Auth0 login on `ACCOUNT_HOST`, account onboarding, and tenant `/skills`
+4. Invite a member, copy the one-time link, accept with the exact verified email, and verify `/settings/members`
+5. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
+6. No `inotify-tools` errors in `docker logs steward_acs`

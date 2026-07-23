@@ -2,7 +2,6 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
   use Acs.DataCase, async: false
 
   alias Acs.MCP.Plugs.MCPAuth
-  alias Acs.MCP.Plugs.Strategies.OAuthBearer
   alias Acs.Developers
 
   describe "call/2" do
@@ -170,30 +169,4 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
     end
   end
 
-  describe "OAuth scope mapping" do
-    test "rejects tokens without an MCP authorization scope" do
-      assert {:error, reason} = OAuthBearer.claims_to_auth_result(%{"sub" => "user-1"})
-      assert reason =~ "missing an MCP authorization scope"
-
-      assert {:error, _reason} =
-               OAuthBearer.claims_to_auth_result(%{
-                 "sub" => "user-1",
-                 "permissions" => ["openid", "profile"]
-               })
-    end
-
-    test "maps explicit MCP scopes to the least privileged role" do
-      assert {:ok, %{role: "collaborator"}} =
-               OAuthBearer.claims_to_auth_result(%{
-                 "sub" => "user-1",
-                 "permissions" => ["mcp:tools"]
-               })
-
-      assert {:ok, %{role: "admin"}} =
-               OAuthBearer.claims_to_auth_result(%{
-                 "sub" => "admin-1",
-                 "permissions" => ["mcp:admin"]
-               })
-    end
-  end
 end

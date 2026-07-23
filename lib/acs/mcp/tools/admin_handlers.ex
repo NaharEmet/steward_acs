@@ -3,7 +3,6 @@ defmodule Acs.MCP.Tools.AdminHandlers do
   Handlers for admin-only MCP tools.
   """
   alias Acs.Developers
-  alias Acs.MCP.OAuth.Management
   require Logger
 
   def generate_key(args) do
@@ -126,39 +125,8 @@ defmodule Acs.MCP.Tools.AdminHandlers do
     end
   end
 
-  def create_user(args) do
-    name = Map.get(args, "name")
-    email = Map.get(args, "email")
-    role = Map.get(args, "role", "collaborator")
-    password = Map.get(args, "password")
-    org = Map.get(args, "_auth_org_id", Acs.Org.current())
-
-    cond do
-      is_nil(name) or name == "" ->
-        {:error, "name is required"}
-
-      is_nil(email) or email == "" ->
-        {:error, "email is required"}
-
-      not Acs.MCP.OAuth.Config.enabled?() ->
-        {:error,
-         "OAuth is not enabled. This tool is only available in remote ACS deployments with Auth0 configured."}
-
-      not is_binary(Application.get_env(:steward_acs, :auth0_mgmt_client_id)) ->
-        {:error,
-         "Auth0 Management API credentials not configured. Set AUTH0_MGMT_CLIENT_ID and AUTH0_MGMT_CLIENT_SECRET."}
-
-      true ->
-        opts = [role: role, org: org] |> then(fn o -> if password, do: Keyword.put(o, :password, password), else: o end)
-
-        case Management.create_user(name, email, opts) do
-          {:ok, user} ->
-            {:ok, user}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-    end
+  def create_user(_args) do
+    {:error, "MCP user creation is deprecated. Invite users from the dashboard instead."}
   end
 
   defp format_datetime(nil), do: nil

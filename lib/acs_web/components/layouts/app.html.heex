@@ -1,48 +1,133 @@
-<% pending_count = assigns[:pending_requests_count] || 0 %>
-<% nav_current_path = assigns[:current_path] || "/" %>
+<%
+  pending_count = assigns[:pending_requests_count] || 0
+  nav_current_path = assigns[:current_path] || "/"
+  current_user = assigns[:current_user]
 
-    <header class="header">
-      <div class="header-inner">
-        <div style="display: flex; align-items: center; gap: 32px;">
-          <div class="logo">
-            <span class="logo-mark">Steward</span>
-            <%= if Acs.Org.project_name() != "" do %>
-              <span class="project-sub"><%= Acs.Org.project_name() %></span>
-            <% end %>
-          </div>
-          <nav style="display: flex; align-items: center; gap: 4px;">
-            <.link navigate={~p"/"} class={"nav-tab #{if nav_current_path == "/", do: "active"}"}>Dashboard</.link>
-            <.link navigate={~p"/tools"} class={"nav-tab #{if nav_current_path == "/tools", do: "active"}"}>Tools</.link>
-            <.link navigate={~p"/tools/requests"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/tools/requests"), do: "active"}"}>
-              Requests
-              <%= if pending_count > 0 do %>
-                <span class="pending-badge"><%= pending_count %></span>
-              <% end %>
-            </.link>
-            <.link navigate={~p"/memories"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/memories"), do: "active"}"}>Memories</.link>
-            <.link navigate={~p"/specs"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/specs"), do: "active"}"}>Specs</.link>
-            <.link navigate={~p"/skills"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/skills"), do: "active"}"}>Skills</.link>
-            <.link navigate={~p"/error-traces"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/error-traces"), do: "active"}"}>Error Traces</.link>
-          </nav>
-        </div>
-        <div class="header-meta">
-          <div class="header-actions">
-            <button phx-click="refresh" class="btn btn-ghost" style="padding: 6px 14px; font-size: 0.72rem;">
-              ↻ Refresh
-            </button>
-          </div>
-          <span class="port-badge">Port 4001</span>
-          <%= if assigns[:current_user] do %>
-            <span class="text-dim" style="font-size: 0.72rem;"><%= @current_user.email %></span>
-            <.link href={~p"/users/log_out"} method="delete" class="btn btn-ghost" style="padding: 6px 14px; font-size: 0.72rem;">
-              Log out
+  account_host? =
+    assigns[:account_host] == true or nav_current_path == "/onboarding" or
+      String.starts_with?(nav_current_path, "/invitations/")
+
+  current_role =
+    if is_map(current_user) do
+      Map.get(current_user, :org_role) || Map.get(current_user, "org_role") ||
+        Map.get(current_user, :role) || Map.get(current_user, "role")
+    end
+
+  organization =
+    cond do
+      is_map(assigns[:organization]) ->
+        assigns[:organization]
+
+      is_binary(assigns[:current_org]) and assigns[:current_org] != "" ->
+        Acs.Orgs.get_by_slug(assigns[:current_org])
+
+      true ->
+        nil
+    end
+
+  organization_name =
+    if is_map(organization) do
+      Map.get(organization, :name) || Map.get(organization, "name") ||
+        Map.get(organization, :slug) || Map.get(organization, "slug")
+    else
+      assigns[:current_org]
+    end
+
+  admin? = current_role in ["owner", "admin"]
+  workspace_ready? = AcsWeb.UserAuth.organization_ready?(organization)
+%>
+
+<header id="app-header" class="header">
+  <div class="header-inner">
+    <div class="header-primary">
+      <%= if account_host? do %>
+        <.link href="/onboarding" class="logo brand-link" aria-label="Steward account desk">
+          <span class="logo-mark">Steward</span>
+          <span class="project-sub">Account desk</span>
+        </.link>
+      <% else %>
+        <.link navigate={~p"/"} class="logo brand-link" aria-label="Steward dashboard">
+          <span class="logo-mark">Steward</span>
+          <span class="project-sub"><%= organization_name || Acs.Org.project_name() %></span>
+        </.link>
+      <% end %>
+
+      <%= if account_host? do %>
+        <nav id="account-navigation" class="primary-nav account-nav" aria-label="Account navigation">
+          <.link
+            navigate={~p"/onboarding"}
+            class={"nav-tab #{if nav_current_path == "/onboarding", do: "active"}"}
+            aria-current={if nav_current_path == "/onboarding", do: "page"}
+          >
+            Organization
+          </.link>
+          <%= if String.starts_with?(nav_current_path, "/invitations/") do %>
+            <span class="nav-tab active" aria-current="page">Invitation</span>
+          <% end %>
+          <%= if workspace_ready? do %>
+            <.link id="open-workspace-navigation" href="/auth/log_in" class="nav-tab nav-workspace">
+              Open workspace <span aria-hidden="true">↗</span>
             </.link>
           <% end %>
-        </div>
-      </div>
-    </header>
+        </nav>
+      <% else %>
+        <nav id="primary-navigation" class="primary-nav" aria-label="Workspace navigation">
+          <.link navigate={~p"/"} class={"nav-tab #{if nav_current_path == "/", do: "active"}"} aria-current={if nav_current_path == "/", do: "page"}>Dashboard</.link>
+          <.link navigate={~p"/tools"} class={"nav-tab #{if nav_current_path == "/tools", do: "active"}"} aria-current={if nav_current_path == "/tools", do: "page"}>Tools</.link>
+          <.link
+            navigate={~p"/tools/requests"}
+            class={"nav-tab #{if String.starts_with?(nav_current_path, "/tools/requests"), do: "active"}"}
+            aria-current={if String.starts_with?(nav_current_path, "/tools/requests"), do: "page"}
+          >
+            Requests
+            <%= if pending_count > 0 do %>
+              <span class="pending-badge"><%= pending_count %></span>
+            <% end %>
+          </.link>
+          <.link navigate={~p"/memories"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/memories"), do: "active"}"} aria-current={if String.starts_with?(nav_current_path, "/memories"), do: "page"}>Memories</.link>
+          <.link navigate={~p"/specs"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/specs"), do: "active"}"} aria-current={if String.starts_with?(nav_current_path, "/specs"), do: "page"}>Specs</.link>
+          <.link navigate={~p"/skills"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/skills"), do: "active"}"} aria-current={if String.starts_with?(nav_current_path, "/skills"), do: "page"}>Skills</.link>
+          <.link navigate={~p"/error-traces"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/error-traces"), do: "active"}"} aria-current={if String.starts_with?(nav_current_path, "/error-traces"), do: "page"}>Error Traces</.link>
+          <%= if admin? do %>
+            <.link
+              id="members-navigation-link"
+              navigate={~p"/settings/members"}
+              class={"nav-tab #{if String.starts_with?(nav_current_path, "/settings/members"), do: "active"}"}
+              aria-current={if String.starts_with?(nav_current_path, "/settings/members"), do: "page"}
+            >
+              Members
+            </.link>
+          <% end %>
+        </nav>
+      <% end %>
+    </div>
 
-    <main class="main">
-      <.flash_group flash={@flash} />
-      <%= @inner_content %>
-    </main>
+    <%= if current_user do %>
+      <div class="header-meta">
+        <%= if organization_name do %>
+          <span id="current-organization-name" class="organization-pill" title="Current organization">
+            <span class="organization-signal" aria-hidden="true"></span>
+            <%= organization_name %>
+          </span>
+        <% end %>
+        <button id="layout-refresh" type="button" phx-click="refresh" class="btn btn-ghost header-button">
+          <span aria-hidden="true">↻</span> Refresh
+        </button>
+        <div class="user-identity">
+          <span id="current-user-email"><%= current_user.email %></span>
+          <%= if current_role do %>
+            <span class={"user-role role-#{current_role}"}><%= current_role %></span>
+          <% end %>
+        </div>
+        <.link id="layout-log-out" href={~p"/users/log_out"} method="delete" class="btn btn-ghost header-button">
+          Log out
+        </.link>
+      </div>
+    <% end %>
+  </div>
+</header>
+
+<main id="app-main" class="main">
+  <.flash_group flash={@flash} />
+  <%= @inner_content %>
+</main>
