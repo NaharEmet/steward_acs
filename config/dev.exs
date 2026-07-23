@@ -3,7 +3,7 @@ import Config
 config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
 
 config :steward_acs, Acs.Repo,
-  database: System.get_env("DATABASE_PATH") || Path.expand("../../var/acs.sqlite", __DIR__),
+  database: System.get_env("DATABASE_PATH") || Path.expand("../var/acs.sqlite", __DIR__),
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
@@ -55,7 +55,6 @@ config :steward_acs,
 config :steward_acs,
        :org_name,
        System.get_env("ACS_ORG_NAME") || System.get_env("ACS_CLUSTER_NAME", "dev")
-
 config :steward_acs, :admin_emails, [System.get_env("ACS_ADMIN_EMAIL", "admin@localhost")]
 
 config :steward_acs, :allowed_paths, ["/tmp"]

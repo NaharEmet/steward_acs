@@ -498,8 +498,8 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     {:ok, %{orgs: records, count: length(records)}}
   end
 
-  def app_list(_args) do
-    apps = Acs.Apps.Config.list_apps()
+  def app_list(args) do
+    apps = Acs.Apps.Config.list_apps(args["_auth_org_id"] || Acs.Org.current())
 
     entries =
       Enum.map(apps, fn {name, config} ->
@@ -543,13 +543,15 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       end)
       |> then(fn c -> if timeout_ms, do: Keyword.put(c, :timeout_ms, timeout_ms), else: c end)
 
-    Acs.Apps.Config.configure_app(name, config)
+    org = args["_auth_org_id"] || Acs.Org.current()
+    Acs.Apps.Config.configure_app(name, config, org)
     {:ok, %{status: "ok", app: name}}
   end
 
   def app_remove(args) do
     name = Map.get(args, "name")
-    Acs.Apps.Config.remove_app(name)
+    org = args["_auth_org_id"] || Acs.Org.current()
+    Acs.Apps.Config.remove_app(name, org)
     {:ok, %{status: "ok", app: name}}
   end
 

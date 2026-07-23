@@ -24,7 +24,7 @@ defmodule Acs.MCP.Plugs.Strategies.AppAuth do
 
   @impl true
   def authenticate(key, _conn) do
-    apps = Acs.Apps.Config.list_apps()
+    apps = Acs.Apps.Config.list_apps(Acs.Org.configured())
 
     apps
     |> Enum.find_value(fn {_app_name, config} ->
@@ -34,28 +34,41 @@ defmodule Acs.MCP.Plugs.Strategies.AppAuth do
       if base_url do
         url = "#{String.trim_trailing(base_url, "/")}/#{String.trim_leading(endpoint, "/")}"
 
-        case Req.post(url, json: %{api_key: key}, receive_timeout: 5_000) do
-          {:ok, %{status: 200, body: %{"valid" => true} = body}} ->
-            Logger.debug("[MCPAuth] authenticated via app auth as #{body["role"]}")
+        req = Req.new(redirect: false)
 
-            {:ok,
-             %{
-               role: body["role"],
-               org_id: body["org_id"],
-               permissions: Map.get(body, "permissions")
-             }}
+        case Acs.MCP.UrlSafety.validate_outbound_url(url) do
+          :ok ->
+            authenticate_url(req, url, key)
 
-          {:ok, %{status: 200, body: body}} ->
-            Logger.warning("[MCPAuth] invalid app key: #{inspect(body["reason"])}")
-            nil
-
-          {:ok, %{status: _status}} ->
-            nil
-
-          {:error, _reason} ->
+          {:error, reason} ->
+            Logger.warning("[MCPAuth] skipped unsafe app auth URL: #{reason}")
             nil
         end
       end
     end) || {:error, "Authentication service unavailable"}
+  end
+
+  defp authenticate_url(req, url, key) do
+    case Req.post(req, url: url, json: %{api_key: key}, receive_timeout: 5_000) do
+      {:ok, %{status: 200, body: %{"valid" => true} = body}} ->
+        Logger.debug("[MCPAuth] authenticated via app auth as #{body["role"]}")
+
+        {:ok,
+         %{
+           role: body["role"],
+           org_id: body["org_id"],
+           permissions: Map.get(body, "permissions")
+         }}
+
+      {:ok, %{status: 200, body: body}} ->
+        Logger.warning("[MCPAuth] invalid app key: #{inspect(body["reason"])}")
+        nil
+
+      {:ok, %{status: _status}} ->
+        nil
+
+      {:error, _reason} ->
+        nil
+    end
   end
 end

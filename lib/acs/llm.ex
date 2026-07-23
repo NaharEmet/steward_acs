@@ -14,8 +14,6 @@ defmodule Acs.LLM do
   # Provider priority order for evaluations
   @provider_priority ["nim", "mimo", "minimax", "openai"]
 
-  @max_context_memories 5
-
   @doc """
   Evaluates a proposed memory entry for quality, noise, and contradictions.
 
@@ -114,8 +112,9 @@ defmodule Acs.LLM do
   end
 
   defp do_evaluate_memory(memory_id, memory) do
-    prompt =
-      build_evaluation_prompt(memory, fetch_approved_memories_for_context(memory.scope_path))
+    # Do not send other memories to an external model. Context entries may have
+    # narrower ABAC visibility than the proposed memory and are untrusted prompt input.
+    prompt = build_evaluation_prompt(memory, [])
 
     providers = get_enabled_providers()
 
@@ -299,25 +298,6 @@ defmodule Acs.LLM do
     api_key = resolve_api_key(provider_id)
     is_binary(api_key) and api_key != ""
   end
-
-  # ── Context fetch ────────────────────────────────────────────────────
-
-  defp fetch_approved_memories_for_context(scope_path) when is_binary(scope_path) do
-    memories =
-      Acs.Memory.Indexer.list_memories(
-        scope_path: scope_path,
-        status: "approved",
-        limit: @max_context_memories
-      )
-
-    if is_list(memories) do
-      Enum.take(memories, @max_context_memories)
-    else
-      []
-    end
-  end
-
-  defp fetch_approved_memories_for_context(_), do: []
 
   # ── Evaluation prompt ────────────────────────────────────────────────
   # Default prompt used when MEMORY_EVALUATION_PROMPT_PATH is not set or unreadable.

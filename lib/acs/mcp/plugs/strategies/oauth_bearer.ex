@@ -56,12 +56,14 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
     }
   end
 
-  defp permissions_from(%{"permissions" => perms}) when is_list(perms), do: perms
+  defp permissions_from(claims) do
+    permissions = if is_list(claims["permissions"]), do: claims["permissions"], else: []
 
-  defp permissions_from(%{"scope" => scope}) when is_binary(scope),
-    do: String.split(scope, " ", trim: true)
+    scopes =
+      if is_binary(claims["scope"]), do: String.split(claims["scope"], " ", trim: true), else: []
 
-  defp permissions_from(_), do: []
+    Enum.uniq(permissions ++ scopes)
+  end
 
   defp oidc_identity(claims) do
     with issuer when is_binary(issuer) and issuer != "" <- string_claim(claims, "iss"),

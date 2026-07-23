@@ -51,7 +51,7 @@ defmodule Acs.MCP.ProtocolTest do
       refute Acs.Org.with_current("org-b", fn -> Acs.get_task(task_id) end)
     end
 
-    test "developer analysis permission can target another organization" do
+    test "cross-org analysis permission cannot target mutating tools" do
       msg = %{
         "jsonrpc" => "2.0",
         "id" => 4,
@@ -61,14 +61,20 @@ defmodule Acs.MCP.ProtocolTest do
           "arguments" => %{
             "_analysis_org_id" => "org-b",
             "agent_id" => "developer",
-            "title" => "Cross-org analysis task"
+            "title" => "Cross-org mutation must be denied"
           }
         }
       }
 
       permissions = ["mcp:cross_org_analysis"]
 
-      assert {:ok, %{"result" => %{"content" => [%{"text" => text}]}}} =
+      assert {:ok,
+              %{
+                "result" => %{
+                  "isError" => true,
+                  "content" => [%{"text" => text}]
+                }
+              }} =
                Protocol.handle_message(
                  msg,
                  "admin",
@@ -79,9 +85,9 @@ defmodule Acs.MCP.ProtocolTest do
                  "developer"
                )
 
-      assert %{"task_id" => task_id} = Jason.decode!(text)
-      assert Acs.Org.with_current("org-b", fn -> Acs.get_task(task_id) end)
-      refute Acs.Org.with_current("org-a", fn -> Acs.get_task(task_id) end)
+      assert text =~ "only permitted for read-only tools"
+      assert Acs.Org.with_current("org-a", fn -> Acs.Acs.list_tasks() end) == []
+      assert Acs.Org.with_current("org-b", fn -> Acs.Acs.list_tasks() end) == []
     end
 
     test "initialize succeeds without agent role" do

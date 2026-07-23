@@ -3,6 +3,8 @@ defmodule AcsWeb.Endpoint do
 
   import Plug.Conn
 
+  @max_body_length 2_000_000
+
   @session_options [
     store: :cookie,
     key: "_acs_web_key",
@@ -30,6 +32,7 @@ defmodule AcsWeb.Endpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["application/json", "application/x-www-form-urlencoded", "multipart/form-data"],
+    length: @max_body_length,
     json_decoder: Phoenix.json_library()
 
   plug Plug.MethodOverride

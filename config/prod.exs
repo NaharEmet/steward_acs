@@ -12,7 +12,9 @@ config :steward_acs, :repo_adapter, repo_adapter
 if repo_adapter == Ecto.Adapters.Postgres do
   pgpassword = System.get_env("PGPASSWORD", "postgres")
 
-  if config_env() == :prod and pgpassword == "postgres" do
+  # DATABASE_URL overrides these individual settings at runtime; only enforce
+  # when falling back to PGPASSWORD.
+  if config_env() == :prod and is_nil(System.get_env("DATABASE_URL")) and pgpassword == "postgres" do
     raise "PGPASSWORD must not be the default 'postgres' in production"
   end
 

@@ -10,6 +10,11 @@ GIT_SHA="${GIT_SHA:-$(git rev-parse --short=12 HEAD)}"
 ACS_IMAGE_TAG="${ACS_IMAGE_TAG:-$GIT_SHA}"
 REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/steward_acs}"
 
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "ERROR: refusing to build from a dirty working tree" >&2
+  exit 1
+fi
+
 if [[ -z "$SERVER" ]]; then
   echo "ERROR: SERVER must be set (e.g. SERVER=ubuntu@139.99.172.4)" >&2
   exit 1
@@ -24,12 +29,10 @@ docker build \
   --build-arg GIT_SHA="${GIT_SHA}" \
   --build-arg SECRET_KEY_BASE="${SECRET_KEY_BASE:-build_time_secret_key_base_not_used_at_runtime}" \
   -t "${REGISTRY}:${ACS_IMAGE_TAG}" \
-  -t "${REGISTRY}:multitenant" \
   .
 
-info "Pushing ${REGISTRY}:${ACS_IMAGE_TAG} and :multitenant"
+info "Pushing commit-addressed tag ${REGISTRY}:${ACS_IMAGE_TAG}"
 docker push "${REGISTRY}:${ACS_IMAGE_TAG}"
-docker push "${REGISTRY}:multitenant"
 
 info "Syncing compose/caddy bundle to ${SERVER}:${REMOTE_DIR}"
 ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}'"

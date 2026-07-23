@@ -1,18 +1,20 @@
 #!/bin/sh
 # Generate .env from pass password-store for Steward ACS.
 # Usage:
-#   ./scripts/secrets-env.sh              # print to stdout
-#   ./scripts/secrets-env.sh -w           # write directly to .env
-#   ./scripts/secrets-env.sh -w .env.prod # write to specific path
+#   ./scripts/secrets-env.sh                 # write .env securely (default)
+#   ./scripts/secrets-env.sh -w .env.prod    # write a specific file
+#   ./scripts/secrets-env.sh --stdout         # explicitly print secrets
 set -e
+umask 077
 
 PREFIX="${PASS_PREFIX:-steward}"
 PASS="${PASS:-pass}"
 STORE="${PASSWORD_STORE_DIR:-$HOME/.password-store}"
 
-write_to=""
-case "$1" in
+write_to=".env"
+case "${1:-}" in
   -w) write_to="${2:-.env}" ;;
+  --stdout) write_to="" ;;
   -h|--help)
     sed -n '2,7p' "$0"
     exit 0
@@ -37,8 +39,15 @@ gen_env() {
 }
 
 if [ -n "$write_to" ]; then
-  gen_env > "$write_to"
-  echo "Wrote $write_to" >&2
+  target_dir=$(dirname "$write_to")
+  tmp_file=$(mktemp "$target_dir/.secrets-env.XXXXXX")
+  trap 'rm -f "$tmp_file"' EXIT HUP INT TERM
+  gen_env > "$tmp_file"
+  chmod 600 "$tmp_file"
+  mv -f "$tmp_file" "$write_to"
+  trap - EXIT HUP INT TERM
+  echo "Wrote $write_to with mode 600" >&2
 else
+  echo "WARNING: printing secrets to stdout" >&2
   gen_env
 fi

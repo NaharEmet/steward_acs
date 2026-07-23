@@ -12,6 +12,7 @@ defmodule Acs.MCP.OAuth.JWKS do
       expected_audience = Keyword.get(opts, :audience)
 
       with {:ok, header} <- decode_header(token),
+           :ok <- validate_algorithm(header),
            kid when is_binary(kid) <- header["kid"],
            {:ok, jwk} <- fetch_jwk(kid),
            {:ok, claims} <- verify_signature(token, jwk),
@@ -40,6 +41,9 @@ defmodule Acs.MCP.OAuth.JWKS do
         {:error, "Malformed JWT"}
     end
   end
+
+  defp validate_algorithm(%{"alg" => "RS256"}), do: :ok
+  defp validate_algorithm(_), do: {:error, "Unsupported JWT signing algorithm"}
 
   defp verify_signature(token, jwk) do
     case JOSE.JWT.verify(jwk, token) do
@@ -78,7 +82,9 @@ defmodule Acs.MCP.OAuth.JWKS do
   end
 
   defp validate_audience(%{"aud" => aud}, expected) when is_list(aud) do
-    if Enum.any?(aud, &(&1 in accepted_audiences(expected))), do: :ok, else: {:error, "Invalid token audience"}
+    if Enum.any?(aud, &(&1 in accepted_audiences(expected))),
+      do: :ok,
+      else: {:error, "Invalid token audience"}
   end
 
   defp validate_audience(_, _), do: {:error, "JWT missing audience"}

@@ -17,6 +17,7 @@ config :logger, level: :warning
 # No MCP server during tests — transport kept for compile_env consistency
 config :steward_acs, Acs.MCP.Server, enabled: false, transport: :http
 config :steward_acs, :start_background_workers, false
+config :steward_acs, :persist_logs_to_db, false
 config :steward_acs, :mcp_auth_local_fallback, false
 config :steward_acs, :log_ingest_key, "test-log-ingest-key"
 config :steward_acs, :admin_emails, ["admin@test.com"]

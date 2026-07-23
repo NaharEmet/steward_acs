@@ -26,20 +26,24 @@ defmodule Acs.Specs.Search do
     * `:limit` — Max results (default: 20)
     * `:mode` — "keyword" (default), "semantic", or "hybrid"
   """
-  def search(query, opts \\ [])
+  def search(query, opts \\ []) do
+    with :ok <- validate_app_filter(opts[:app]) do
+      if query in [nil, ""] do
+        {:ok, []}
+      else
+        mode = Keyword.get(opts, :mode, "hybrid")
 
-  def search(nil, _opts), do: {:ok, []}
-  def search("", _opts), do: {:ok, []}
-
-  def search(query, opts) do
-    mode = Keyword.get(opts, :mode, "hybrid")
-
-    case mode do
-      "semantic" -> search_semantic(query, opts)
-      "hybrid" -> search_hybrid(query, opts)
-      _ -> search_keyword(query, opts)
+        case mode do
+          "semantic" -> search_semantic(query, opts)
+          "hybrid" -> search_hybrid(query, opts)
+          _ -> search_keyword(query, opts)
+        end
+      end
     end
   end
+
+  defp validate_app_filter(nil), do: :ok
+  defp validate_app_filter(app), do: Loader.validate_app(app)
 
   defp search_keyword(query, opts) do
     app = opts[:app]
@@ -99,7 +103,7 @@ defmodule Acs.Specs.Search do
           keyword_results
           |> Enum.with_index()
           |> Enum.map(fn {entry, idx} ->
-            score = max_keyword_score - (idx / (length(keyword_results) + 1)) * 0.3
+            score = max_keyword_score - idx / (length(keyword_results) + 1) * 0.3
             %{type: :entry, entry: entry, score: score}
           end)
 
@@ -132,7 +136,14 @@ defmodule Acs.Specs.Search do
     end
   end
 
-  defp enrich_rag_result(%{app: app, path: path, chunk_index: idx, source: source, content: content, similarity: sim}) do
+  defp enrich_rag_result(%{
+         app: app,
+         path: path,
+         chunk_index: idx,
+         source: source,
+         content: content,
+         similarity: sim
+       }) do
     %{
       __rag_chunk: true,
       app: app,
