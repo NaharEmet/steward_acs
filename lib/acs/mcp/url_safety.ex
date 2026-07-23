@@ -3,13 +3,22 @@ defmodule Acs.MCP.UrlSafety do
   Validates outbound HTTP URLs to reduce SSRF risk for Bridge and dynamic tools.
   """
 
-  @private_ipv4_prefixes [
-    {127, 0, 0, 0, 8},
+  @non_public_ipv4_prefixes [
+    {0, 0, 0, 0, 8},
     {10, 0, 0, 0, 8},
-    {172, 16, 0, 0, 12},
-    {192, 168, 0, 0, 16},
+    {100, 64, 0, 0, 10},
+    {127, 0, 0, 0, 8},
     {169, 254, 0, 0, 16},
-    {0, 0, 0, 0, 8}
+    {172, 16, 0, 0, 12},
+    {192, 0, 0, 0, 24},
+    {192, 0, 2, 0, 24},
+    {192, 88, 99, 0, 24},
+    {192, 168, 0, 0, 16},
+    {198, 18, 0, 0, 15},
+    {198, 51, 100, 0, 24},
+    {203, 0, 113, 0, 24},
+    {224, 0, 0, 0, 4},
+    {240, 0, 0, 0, 4}
   ]
 
   @blocked_hostnames ~w(
@@ -83,20 +92,15 @@ defmodule Acs.MCP.UrlSafety do
   defp validate_resolved_host(host) do
     allowlist = Application.get_env(:steward_acs, :bridge_allowed_hosts, [])
 
-    if allowlist != [] do
-      if host_in_allowlist?(host, allowlist) do
-        :ok
-      else
+    cond do
+      allowlist != [] and not host_in_allowlist?(host, allowlist) ->
         {:error, "Host '#{host}' is not in BRIDGE_ALLOWED_HOSTS"}
-      end
-    else
-      cond do
-        String.ends_with?(host, ".local") or String.ends_with?(host, ".internal") ->
-          {:error, "Internal hostnames are not allowed"}
 
-        true ->
-          resolve_host_ips(host)
-      end
+      String.ends_with?(host, ".local") or String.ends_with?(host, ".internal") ->
+        {:error, "Internal hostnames are not allowed"}
+
+      true ->
+        resolve_host_ips(host)
     end
   end
 
@@ -118,6 +122,9 @@ defmodule Acs.MCP.UrlSafety do
       end)
 
     cond do
+      ips == [] ->
+        {:error, "Host '#{host}' could not be resolved"}
+
       Enum.any?(ips, &private_ip?/1) ->
         {:error, "Host '#{host}' resolves to a private or loopback address"}
 
@@ -127,15 +134,33 @@ defmodule Acs.MCP.UrlSafety do
   end
 
   defp private_ip?({a, b, c, d}) do
-    Enum.any?(@private_ipv4_prefixes, fn {prefix_a, prefix_b, prefix_c, prefix_d, bits} ->
+    Enum.any?(@non_public_ipv4_prefixes, fn {prefix_a, prefix_b, prefix_c, prefix_d, bits} ->
       ip_in_cidr?({a, b, c, d}, {prefix_a, prefix_b, prefix_c, prefix_d}, bits)
     end)
   end
 
+  defp private_ip?({0, 0, 0, 0, 0, 0, 0, 0}), do: true
   defp private_ip?({0, 0, 0, 0, 0, 0, 0, 1}), do: true
 
+  defp private_ip?({0, 0, 0, 0, 0, 0, e, f}) do
+    private_ip?(
+      {Bitwise.bsr(e, 8), Bitwise.band(e, 0xFF), Bitwise.bsr(f, 8), Bitwise.band(f, 0xFF)}
+    )
+  end
+
+  defp private_ip?({0, 0, 0, 0, 0, 0xFFFF, e, f}) do
+    private_ip?(
+      {Bitwise.bsr(e, 8), Bitwise.band(e, 0xFF), Bitwise.bsr(f, 8), Bitwise.band(f, 0xFF)}
+    )
+  end
+
+  defp private_ip?({0x2001, 0x0DB8, _, _, _, _, _, _}), do: true
+
   defp private_ip?({a, _, _, _, _, _, _, _}) do
-    Bitwise.band(a, 0xFE00) == 0xFC00 or Bitwise.band(a, 0xFFC0) == 0xFE80
+    Bitwise.band(a, 0xFF00) == 0xFF00 or
+      Bitwise.band(a, 0xFE00) == 0xFC00 or
+      Bitwise.band(a, 0xFFC0) == 0xFE80 or
+      Bitwise.band(a, 0xFFC0) == 0xFEC0
   end
 
   defp private_ip?(_), do: false

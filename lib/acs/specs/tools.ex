@@ -349,50 +349,65 @@ defmodule Acs.Specs.Tools do
     undocumented = args["undocumented"] || args["include_undocumented"]
     ctx = Abac.from_args(args)
 
-    cond do
-      undocumented ->
-        app_filter = args["app"]
-        lib_dir = default_lib_dir()
-        results = Loader.find_undocumented(lib_dir, app: app_filter)
-        {:ok, %{undocumented: results, count: length(results)}}
+    with :ok <- validate_app_filter(args["app"]) do
+      cond do
+        undocumented ->
+          app_filter = args["app"]
+          lib_dir = default_lib_dir()
+          results = Loader.find_undocumented(lib_dir, app: app_filter)
+          {:ok, %{undocumented: results, count: length(results)}}
 
-      query && query != "" ->
-        opts = build_search_opts(args)
-        mode = args["mode"] || "hybrid"
-        opts = Keyword.put(opts, :mode, mode)
+        query && query != "" ->
+          opts = build_search_opts(args)
+          mode = args["mode"] || "hybrid"
+          opts = Keyword.put(opts, :mode, mode)
 
-        case Search.search(query, opts) do
-          {:ok, entries} ->
-            result =
-              entries
-              |> Abac.filter(ctx)
-              |> Enum.map(fn
-                %{__rag_chunk: true} = chunk ->
-                  chunk
+          case Search.search(query, opts) do
+            {:ok, entries} ->
+              result =
+                entries
+                |> Abac.filter(ctx)
+                |> Enum.map(fn
+                  %{__rag_chunk: true} = chunk ->
+                    chunk
 
-                entry ->
-                  Entry.to_map(entry)
-              end)
+                  entry ->
+                    Entry.to_map(entry)
+                end)
 
-            {:ok, %{specs: result, count: length(result), mode: mode}}
+              {:ok, %{specs: result, count: length(result), mode: mode}}
 
-          {:error, reason} ->
-            {:error, "Search failed: #{inspect(reason)}"}
-        end
+            {:error, reason} ->
+              {:error, "Search failed: #{inspect(reason)}"}
+          end
 
-      true ->
-        app_filter = args["app"]
-        status_filter = args["status"]
+        true ->
+          app_filter = args["app"]
+          status_filter = args["status"]
 
-        {:ok, entries} = Loader.load_all(app: app_filter)
+          case Loader.load_all(app: app_filter) do
+            {:ok, entries} ->
+              filtered =
+                entries
+                |> Abac.filter(ctx)
+                |> Enum.filter(fn entry -> matches_status?(entry.status, status_filter) end)
 
-        filtered =
-          entries
-          |> Abac.filter(ctx)
-          |> Enum.filter(fn entry -> matches_status?(entry.status, status_filter) end)
+              summaries = Enum.map(filtered, &entry_summary/1)
+              {:ok, %{specs: summaries, count: length(summaries)}}
 
-        summaries = Enum.map(filtered, &entry_summary/1)
-        {:ok, %{specs: summaries, count: length(summaries)}}
+            {:error, reason} ->
+              {:error, "Failed to list specs: #{inspect(reason)}"}
+          end
+      end
+    end
+  end
+
+  defp validate_app_filter(nil), do: :ok
+
+  defp validate_app_filter(app) do
+    case Loader.validate_app(app) do
+      :ok -> :ok
+      {:error, :invalid_app} -> {:error, "Invalid app identifier"}
     end
   end
 

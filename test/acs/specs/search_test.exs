@@ -1,5 +1,5 @@
 defmodule Acs.Specs.SearchTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Acs.Specs.Entry
   alias Acs.Specs.Loader
@@ -141,6 +141,10 @@ defmodule Acs.Specs.SearchTest do
     test "excludes results from different app" do
       assert {:ok, results} = Search.search("orchestrator", app: "nonexistent")
       assert results == []
+    end
+
+    test "rejects traversal app filters" do
+      assert {:error, :invalid_app} = Search.search("orchestrator", app: "../outside")
     end
 
     test "search is case-insensitive" do

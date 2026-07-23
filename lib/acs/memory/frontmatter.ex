@@ -119,7 +119,7 @@ defmodule Acs.Memory.Frontmatter do
   @spec serialize(map(), String.t()) :: String.t()
   def serialize(frontmatter, body) do
     yaml = encode_frontmatter(frontmatter)
-    "---\n#{yaml}---\n\n#{body}"
+    "---\n#{yaml}\n---\n\n#{body}"
   end
 
   defp encode_frontmatter(map) when map == %{}, do: ""
@@ -132,40 +132,41 @@ defmodule Acs.Memory.Frontmatter do
   end
 
   defp encode_line(key, value) when is_list(value) do
+    key = encode_key(key)
+
     if value == [] do
       "#{key}: []"
     else
-      items = Enum.map_join(value, "\n", fn item -> "  - #{item}" end)
+      items = Enum.map_join(value, "\n", fn item -> "  - #{encode_scalar(item)}" end)
       "#{key}:\n#{items}"
     end
   end
 
   defp encode_line(key, value) when is_map(value) do
+    key = encode_key(key)
+
     nested =
       value
-      |> Enum.map(fn {k, v} -> "  #{k}: #{v}" end)
+      |> Enum.map(fn {nested_key, nested_value} ->
+        "  #{encode_key(nested_key)}: #{encode_scalar(nested_value)}"
+      end)
       |> Enum.join("\n")
 
     "#{key}:\n#{nested}"
   end
 
   defp encode_line(key, value) when is_integer(value) do
-    "#{key}: #{value}"
+    "#{encode_key(key)}: #{value}"
   end
 
   defp encode_line(key, value) do
-    "#{key}: #{encode_scalar(value)}"
+    "#{encode_key(key)}: #{encode_scalar(value)}"
   end
 
-  defp encode_scalar(value) when is_binary(value) do
-    value = to_string(value)
+  defp encode_key(key) when is_binary(key), do: Jason.encode!(key)
+  defp encode_key(key), do: to_string(key)
 
-    cond do
-      String.contains?(value, ":") or String.contains?(value, "#") -> ~s("#{value}")
-      String.contains?(value, "\n") -> "|\n  #{String.replace(value, "\n", "\n  ")}"
-      true -> value
-    end
-  end
-
+  defp encode_scalar(value) when is_binary(value), do: Jason.encode!(value)
+  defp encode_scalar(nil), do: "null"
   defp encode_scalar(value), do: to_string(value)
 end

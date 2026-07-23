@@ -21,13 +21,14 @@ defmodule Acs.ConfigEnv do
         Enum.reduce(orgs, %{}, fn {org, entry}, acc ->
           case entry do
             %{"username" => username, "password" => password}
-            when is_binary(org) and is_binary(username) and is_binary(password) ->
+            when is_binary(org) and org != "" and is_binary(username) and username != "" and
+                   is_binary(password) and password != "" ->
               Map.put(acc, org, %{username: username, password: password})
 
             _ ->
               raise ArgumentError,
                     "ACS_ORG_DASHBOARD_CREDS entry #{inspect(org)} must be a JSON object " <>
-                      "with string \"username\" and \"password\" keys"
+                      "with non-empty string \"username\" and \"password\" keys"
           end
         end)
 
@@ -36,7 +37,8 @@ defmodule Acs.ConfigEnv do
               "ACS_ORG_DASHBOARD_CREDS must be a JSON object mapping org slugs to credentials"
 
       {:error, %Jason.DecodeError{} = error} ->
-        raise ArgumentError, "ACS_ORG_DASHBOARD_CREDS is not valid JSON: #{Exception.message(error)}"
+        raise ArgumentError,
+              "ACS_ORG_DASHBOARD_CREDS is not valid JSON: #{Exception.message(error)}"
     end
   end
 end

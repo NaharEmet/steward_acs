@@ -29,6 +29,7 @@ metaanalysis/
 priv/acs_memory/
 
 # Test artifacts
+/tmp/
 priv/acs_time_offset.txt
 
 # Server credentials

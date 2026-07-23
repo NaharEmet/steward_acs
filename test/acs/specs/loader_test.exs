@@ -158,6 +158,11 @@ defmodule Acs.Specs.LoaderTest do
       assert {:ok, specs} = Loader.list(app: "app_x")
       assert Enum.all?(specs, &(&1.app == "app_x"))
     end
+
+    test "rejects traversal app filters" do
+      assert {:error, :invalid_app} = Loader.list(app: "../outside")
+      assert {:error, :invalid_app} = Loader.load("../outside", "secret")
+    end
   end
 
   describe "load_all/1" do
@@ -255,7 +260,19 @@ defmodule Acs.Specs.LoaderTest do
     end
 
     test "returns error for non-existent path" do
-      assert {:error, :parse_error, _} = Loader.load_file("/nonexistent/file.yaml")
+      path = Path.join(Loader.specs_path(), "nonexistent/file.yaml")
+      assert {:error, :parse_error, _} = Loader.load_file(path)
+    end
+
+    test "does not quarantine a file outside the tenant specs root", %{tmp_specs: tmp_specs} do
+      outside_file = Path.join(Path.dirname(tmp_specs), "outside_spec.md")
+      File.write!(outside_file, "not frontmatter")
+
+      assert {:error, :outside_specs_root} = Loader.load_file(outside_file)
+      assert File.exists?(outside_file)
+      refute File.exists?(Path.join([tmp_specs, "quarantine", "outside_spec.md"]))
+
+      File.rm!(outside_file)
     end
   end
 end

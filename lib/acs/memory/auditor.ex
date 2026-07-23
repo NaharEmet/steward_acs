@@ -336,7 +336,11 @@ defmodule Acs.Memory.Auditor do
   end
 
   defp reject_title_prefixes do
-    Application.get_env(:steward_acs, :auditor_reject_title_prefixes, @default_reject_title_prefixes)
+    Application.get_env(
+      :steward_acs,
+      :auditor_reject_title_prefixes,
+      @default_reject_title_prefixes
+    )
   end
 
   defp reject_title_exact do
@@ -344,7 +348,11 @@ defmodule Acs.Memory.Auditor do
   end
 
   defp reject_scope_prefixes do
-    Application.get_env(:steward_acs, :auditor_reject_scope_prefixes, @default_reject_scope_prefixes)
+    Application.get_env(
+      :steward_acs,
+      :auditor_reject_scope_prefixes,
+      @default_reject_scope_prefixes
+    )
   end
 
   defp reject_id_prefixes do
@@ -436,6 +444,7 @@ defmodule Acs.Memory.Auditor do
 
   defp match_reject_id_pattern?(id) when is_binary(id) do
     id_lower = String.downcase(id)
+
     Enum.any?(reject_id_prefixes(), &String.starts_with?(id_lower, &1)) or
       Enum.any?(reject_id_contains(), &String.contains?(id_lower, &1))
   end
@@ -511,18 +520,12 @@ defmodule Acs.Memory.Auditor do
     result =
       case recommendation do
         "approve" ->
-          # Apply auto-improvements before updating status
-          memory = Repo.get(Schema, memory_id)
-
-          auditor_flags =
-            memory
-            |> apply_suggested_title(evaluation, auditor_flags)
-            |> then(&apply_improvements(memory, evaluation, &1))
-
-          update_memory_status(memory_id, "approved", auditor_flags)
+          # LLM output is advisory and may be influenced by untrusted memory content.
+          # A human must approve before content or server-owned status is changed.
+          mark_needs_human_review_with_flags(memory_id, auditor_flags)
 
         "reject" ->
-          update_memory_status(memory_id, "rejected", auditor_flags)
+          mark_needs_human_review_with_flags(memory_id, auditor_flags)
 
         _ ->
           # human_review or any other value
@@ -541,58 +544,6 @@ defmodule Acs.Memory.Auditor do
     end
 
     result
-  end
-
-  defp apply_suggested_title(memory, evaluation, flags) do
-    suggested = Map.get(evaluation, "suggested_title") || Map.get(evaluation, :suggested_title)
-
-    if suggested && is_binary(suggested) && String.trim(suggested) != "" &&
-         String.trim(suggested) != memory.title do
-      case Indexer.update_field(memory.id, :title, String.trim(suggested)) do
-        {:ok, _} ->
-          Logger.info(
-            "[Acs.Memory.Auditor] Auto-improved title for #{memory.id}: '#{memory.title}' → '#{String.trim(suggested)}'"
-          )
-
-          Map.merge(flags, %{
-            title_improved: true,
-            previous_title: memory.title,
-            new_title: String.trim(suggested)
-          })
-
-        {:error, reason} ->
-          Logger.error(
-            "[Acs.Memory.Auditor] Failed to apply suggested_title for #{memory.id}: #{inspect(reason)}"
-          )
-
-          flags
-      end
-    else
-      flags
-    end
-  end
-
-  defp apply_improvements(memory, evaluation, flags) do
-    improvements = Map.get(evaluation, "improvements") || Map.get(evaluation, :improvements)
-
-    if improvements && is_binary(improvements) && String.trim(improvements) != "" do
-      new_content = memory.content <> "\n\n---\nImprovements: " <> String.trim(improvements)
-
-      case Indexer.update_field(memory.id, :content, new_content) do
-        {:ok, _} ->
-          Logger.info("[Acs.Memory.Auditor] Auto-improved content for #{memory.id}")
-          Map.put(flags, :content_improved, true)
-
-        {:error, reason} ->
-          Logger.error(
-            "[Acs.Memory.Auditor] Failed to apply improvements for #{memory.id}: #{inspect(reason)}"
-          )
-
-          flags
-      end
-    else
-      flags
-    end
   end
 
   # Update memory status in DB

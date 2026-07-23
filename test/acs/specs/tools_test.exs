@@ -227,6 +227,11 @@ defmodule Acs.Specs.ToolsTest do
       assert Enum.all?(specs, &(&1.app == "other"))
     end
 
+    test "rejects traversal app filters" do
+      assert {:error, "Invalid app identifier"} =
+               Acs.Specs.Tools.call_tool("query_specs", %{"app" => "../outside"})
+    end
+
     test "filters by status" do
       propose_spec()
 
