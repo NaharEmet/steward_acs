@@ -2,8 +2,9 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
   @moduledoc """
   Auth0 / OIDC Bearer token authentication for MCP OAuth (Claude Connectors).
 
-  Validates JWT access tokens against the Auth0 JWKS endpoint and maps claims
-  to ACS agent role/identity. Equivalent to ASP.NET `AddJwtBearer` with
+  Validates JWT access tokens against the Auth0 JWKS endpoint and returns
+  validated identity claims and token permissions. `MCPAuth` resolves the local
+  ACS role and organization. Equivalent to ASP.NET `AddJwtBearer` with
   `Authority` + `Audience`.
   """
   @behaviour Acs.MCP.Plugs.AuthStrategy
@@ -12,13 +13,12 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
 
   require Logger
 
-  @org_claim "https://stewardacs.xyz/org"
-
   @impl true
   def authenticate(_key, conn) do
     with true <- Config.enabled?(),
          token when is_binary(token) <- bearer_token(conn),
-         {:ok, claims} <- JWKS.verify(token, audience: Config.audience_for_conn(conn)) do
+         {:ok, claims} <- JWKS.verify(token, audience: Config.audience_for_conn(conn)),
+         {:ok, _issuer, _subject} <- oidc_identity(claims) do
       {:ok, map_claims(claims)}
     else
       false -> {:error, "OAuth not configured"}
@@ -36,45 +36,50 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
 
   defp map_claims(claims) do
     permissions = permissions_from(claims)
-    role = role_from(permissions)
-    identity = identity_from(claims)
-    org_id = org_from(claims)
+    issuer = string_claim(claims, "iss")
+    subject = string_claim(claims, "sub")
+    email = string_claim(claims, "email")
+    identity = identity_from(email, subject)
 
-    Logger.debug(
-      "[MCPAuth] authenticated via Auth0 OAuth: role=#{role} org=#{org_id || "nil"} identity=#{identity}"
-    )
+    Logger.debug("[MCPAuth] authenticated via Auth0 OAuth: identity=#{identity}")
 
     %{
-      role: role,
-      org_id: org_id,
+      role: "collaborator",
+      org_id: nil,
       permissions: permissions,
       agent_identity: identity,
+      oidc_issuer: issuer,
+      oidc_subject: subject,
+      email: email,
       allowed_teams: nil,
       allowed_projects: nil
     }
   end
 
   defp permissions_from(%{"permissions" => perms}) when is_list(perms), do: perms
-  defp permissions_from(%{"scope" => scope}) when is_binary(scope), do: String.split(scope, " ", trim: true)
+
+  defp permissions_from(%{"scope" => scope}) when is_binary(scope),
+    do: String.split(scope, " ", trim: true)
+
   defp permissions_from(_), do: []
 
-  defp role_from(permissions) when is_list(permissions) do
-    cond do
-      "mcp:admin" in permissions -> "admin"
-      "mcp:tools" in permissions -> "collaborator"
-      permissions != [] -> "collaborator"
-      true -> "collaborator"
+  defp oidc_identity(claims) do
+    with issuer when is_binary(issuer) and issuer != "" <- string_claim(claims, "iss"),
+         subject when is_binary(subject) and subject != "" <- string_claim(claims, "sub") do
+      {:ok, issuer, subject}
+    else
+      _ -> {:error, "JWT missing subject"}
     end
   end
 
-  defp identity_from(%{"email" => email}) when is_binary(email) and email != "", do: email
-  defp identity_from(%{"sub" => sub}) when is_binary(sub), do: sub
-  defp identity_from(_), do: "oauth-user"
-
-  defp org_from(claims) when is_map(claims) do
-    case Map.get(claims, @org_claim) do
-      org when is_binary(org) and org != "" -> org
+  defp string_claim(claims, claim) when is_map(claims) do
+    case Map.get(claims, claim) do
+      value when is_binary(value) and value != "" -> value
       _ -> nil
     end
   end
+
+  defp identity_from(email, _subject) when is_binary(email) and email != "", do: email
+  defp identity_from(_email, subject) when is_binary(subject) and subject != "", do: subject
+  defp identity_from(_, _), do: "oauth-user"
 end

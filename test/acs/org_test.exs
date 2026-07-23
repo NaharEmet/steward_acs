@@ -1,5 +1,5 @@
 defmodule Acs.OrgTest do
-  use ExUnit.Case, async: false
+  use Acs.DataCase, async: false
 
   alias Acs.Org
 
@@ -113,18 +113,14 @@ defmodule Acs.OrgTest do
   end
 
   describe "org registry persistence" do
-    test "seeds a writable registry from bundled orgs" do
-      path =
-        Path.join(System.tmp_dir!(), "acs_orgs_#{System.unique_integer([:positive])}.yaml")
-
-      Application.put_env(:steward_acs, :orgs_file, path)
-      on_exit(fn -> File.rm(path) end)
-
+    test "persists newly created organizations in the database" do
       assert Acs.Orgs.get_by_slug("default")
-      assert {:ok, org} = Acs.Orgs.create(%{name: "Acme", slug: "acme"})
+
+      assert {:ok, org} =
+               Acs.Orgs.create(%{name: "Acme", slug: "acme", subdomain: "acme"})
+
       assert org.slug == "acme"
-      assert File.exists?(path)
-      assert Acs.Orgs.get_by_slug("acme")
+      assert Acs.Orgs.get_by_slug("acme").id == org.id
     end
   end
 end

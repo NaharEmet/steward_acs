@@ -41,7 +41,8 @@ defmodule Acs.MCP.Plugs.MCPAuth do
 
         case authenticate_with_strategies(key, conn, strategies) do
           {:ok, result} ->
-            with {:ok, org_id} <- resolve_org(result.org_id, conn.assigns[:current_org]) do
+            with {:ok, result} <- authorize_oidc_user(result, conn.assigns[:current_org]),
+                 {:ok, org_id} <- resolve_org(result.org_id, conn.assigns[:current_org]) do
               :ok = Acs.Org.put_current(org_id)
 
               conn
@@ -79,6 +80,78 @@ defmodule Acs.MCP.Plugs.MCPAuth do
 
       true ->
         {:error, "This credential is not scoped for the requested organization"}
+    end
+  end
+
+  defp authorize_oidc_user(
+         %{oidc_issuer: issuer, oidc_subject: subject} = result,
+         request_org
+       )
+       when is_binary(issuer) and issuer != "" and is_binary(subject) and subject != "" do
+    if accounts_authorization_available?() do
+      case Acs.Accounts.get_user_by_oidc_identity(issuer, subject) do
+        nil ->
+          {:error, "OAuth user is not authorized for this organization"}
+
+        user ->
+          authorize_local_user(result, user, request_org)
+      end
+    else
+      {:error, "OAuth user authorization is unavailable"}
+    end
+  end
+
+  defp authorize_oidc_user(result, _request_org), do: {:ok, result}
+
+  defp authorize_local_user(result, user, request_org) do
+    request_org = resolved_request_org(request_org)
+
+    case Acs.Accounts.organization_for_user(user) do
+      org when is_map(org) ->
+        with "ready" <- Map.get(org, :provisioning_status),
+             slug when is_binary(slug) and slug == request_org <- Map.get(org, :slug),
+             {:ok, role} <- oidc_role(Map.get(user, :org_role), result.permissions) do
+          {:ok, %{result | role: role, org_id: slug}}
+        else
+          _ -> {:error, "OAuth user is not authorized for this organization"}
+        end
+
+      _ ->
+        {:error, "OAuth user is not authorized for this organization"}
+    end
+  end
+
+  defp accounts_authorization_available? do
+    Code.ensure_loaded?(Acs.Accounts) and
+      function_exported?(Acs.Accounts, :get_user_by_oidc_identity, 2) and
+      function_exported?(Acs.Accounts, :organization_for_user, 1)
+  end
+
+  defp resolved_request_org(nil), do: Acs.Org.configured()
+  defp resolved_request_org(org), do: org
+
+  defp oidc_role(org_role, permissions) when is_list(permissions) do
+    with {:ok, local_role} <- local_oidc_role(org_role),
+         {:ok, token_role} <- token_oidc_role(permissions) do
+      if local_role == :admin and token_role == :admin do
+        {:ok, "admin"}
+      else
+        {:ok, "collaborator"}
+      end
+    end
+  end
+
+  defp oidc_role(_, _), do: {:error, "OAuth token is missing MCP permissions"}
+
+  defp local_oidc_role(role) when role in ["owner", "admin"], do: {:ok, :admin}
+  defp local_oidc_role("member"), do: {:ok, :collaborator}
+  defp local_oidc_role(_), do: {:error, "OAuth user is not authorized for this organization"}
+
+  defp token_oidc_role(permissions) do
+    cond do
+      "mcp:admin" in permissions -> {:ok, :admin}
+      "mcp:tools" in permissions -> {:ok, :collaborator}
+      true -> {:error, "OAuth token is missing MCP permissions"}
     end
   end
 

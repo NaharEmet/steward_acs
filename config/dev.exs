@@ -52,13 +52,11 @@ config :steward_acs,
        :mcp_auth_local_fallback,
        System.get_env("MCP_AUTH_LOCAL_FALLBACK", "false") == "true"
 
-config :steward_acs, :org_name,
-  System.get_env("ACS_ORG_NAME") || System.get_env("ACS_CLUSTER_NAME", "dev")
-config :steward_acs, :admin_emails, [System.get_env("ACS_ADMIN_EMAIL", "admin@localhost")]
+config :steward_acs,
+       :org_name,
+       System.get_env("ACS_ORG_NAME") || System.get_env("ACS_CLUSTER_NAME", "dev")
 
-config :steward_acs, :basic_auth,
-  username: System.get_env("ACS_USERNAME", "admin"),
-  password: System.get_env("ACS_PASSWORD", "admin")
+config :steward_acs, :admin_emails, [System.get_env("ACS_ADMIN_EMAIL", "admin@localhost")]
 
 config :steward_acs, :allowed_paths, ["/tmp"]
 config :steward_acs, :allowed_commands, ~w(echo ls cat)

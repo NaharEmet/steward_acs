@@ -40,6 +40,12 @@ config :phoenix, :json_library, Jason
 
 config :steward_acs, :session_validity_in_days, 7
 
+config :steward_acs,
+  account_host: "localhost",
+  self_service_orgs_enabled: false,
+  oidc_browser_enabled: false,
+  oidc_strategy: Assent.Strategy.OIDC
+
 config :logger, :console, metadata: [:agent_id, :task_id, :file_path, :locked_by]
 
 config :tailwind, :version, "3.4.3"

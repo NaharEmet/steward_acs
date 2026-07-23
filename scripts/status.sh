@@ -26,7 +26,7 @@ print_remote() {
     echo compose_file='${COMPOSE_FILE}'
     if [[ -f '${COMPOSE_FILE}' ]]; then echo compose_present=yes; else echo compose_present=no; fi
     echo env_mode=\$(stat -c '%a' .env 2>/dev/null || echo n/a)
-    echo env_has_org_creds=\$(grep -c '^ACS_ORG_DASHBOARD_CREDS=' .env 2>/dev/null || echo 0)
+    echo dashboard_oidc_enabled=\$(grep -c '^OIDC_BROWSER_ENABLED=true' .env 2>/dev/null || echo 0)
     docker inspect -f 'image_id={{.Image}} image_ref={{.Config.Image}} health={{.State.Health.Status}} started={{.State.StartedAt}}' steward_acs 2>/dev/null || echo steward_acs=missing
     labels=\$(docker inspect -f '{{index .Config.Labels \"org.opencontainers.image.revision\"}}' steward_acs 2>/dev/null || true)
     echo image_git_sha=\${labels:-n/a}
