@@ -1,0 +1,143 @@
+name: Deploy
+
+# Build + push the release image, then cut over a target host via scripts/deploy.sh.
+# New hosts: run scripts/bootstrap-server.sh once, then use this workflow.
+#
+# Create GitHub Environments "prod" (and optional "staging") with secrets:
+#   DEPLOY_HOST          e.g. 139.99.172.4
+#   DEPLOY_USER          e.g. ubuntu
+#   SSH_PRIVATE_KEY      deploy key for DEPLOY_HOST
+#   DOCKERHUB_USERNAME
+#   DOCKERHUB_TOKEN
+# Optional secrets:
+#   PUBLIC_URL           smoke base URL
+#   REMOTE_DIR           default /home/ubuntu/steward_acs
+# Optional variable:
+#   REGISTRY             default naharemete/steward_acs
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub Environment (holds host + SSH secrets)
+        required: true
+        type: choice
+        options:
+          - prod
+          - staging
+        default: prod
+      cutover:
+        description: Pull image on server and recreate containers
+        required: true
+        type: boolean
+        default: true
+      image_tag:
+        description: Override image tag (empty = git short SHA)
+        required: false
+        type: string
+        default: ""
+
+  push:
+    branches: [main]
+    paths:
+      - "lib/**"
+      - "config/**"
+      - "priv/**"
+      - "assets/**"
+      - "mix.lock"
+      - "mix.exs"
+      - "Dockerfile"
+      - "docker-compose.multitenant.yml"
+      - "Caddyfile.multitenant"
+      - "scripts/deploy.sh"
+      - "scripts/bootstrap-server.sh"
+      - ".github/workflows/deploy.yml"
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'prod' }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: naharemete/steward_acs
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image tag
+        id: meta
+        run: |
+          if [[ -n "${{ github.event.inputs.image_tag }}" ]]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            TAG="$(git rev-parse --short=12 HEAD)"
+          fi
+          if [[ -n "${{ vars.REGISTRY }}" ]]; then
+            echo "REGISTRY=${{ vars.REGISTRY }}" >> "$GITHUB_ENV"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Using ACS_IMAGE_TAG=${TAG} REGISTRY=${REGISTRY:-naharemete/steward_acs}"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: release
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}:multitenant
+          build-args: |
+            REPO_ADAPTER=sqlite
+            GIT_SHA=${{ steps.meta.outputs.tag }}
+            GIT_DIRTY=clean
+            SECRET_KEY_BASE=build_time_secret_key_base_not_used_at_runtime
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  cutover:
+    needs: build-push
+    if: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.cutover) }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          printf '%s\n' \
+            "Host ${{ secrets.DEPLOY_HOST }}" \
+            "  IdentityFile ~/.ssh/id_deploy" \
+            "  IdentitiesOnly yes" \
+            "  StrictHostKeyChecking accept-new" \
+            > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Cut over with deploy.sh --resume
+        env:
+          SERVER: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+          ACS_IMAGE_TAG: ${{ needs.build-push.outputs.image_tag }}
+          PUBLIC_URL: ${{ secrets.PUBLIC_URL }}
+        run: |
+          if [[ -n "${{ secrets.REMOTE_DIR }}" ]]; then
+            export REMOTE_DIR="${{ secrets.REMOTE_DIR }}"
+          else
+            export REMOTE_DIR=/home/ubuntu/steward_acs
+          fi
+          ./scripts/deploy.sh --resume

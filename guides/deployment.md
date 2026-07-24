@@ -32,13 +32,31 @@ cp .env.multitenant .env
 docker compose -f docker-compose.multitenant.yml up -d
 ```
 
-Or deploy from a workstation with an immutable Git-SHA tag:
+Or deploy from a workstation with an immutable Git-SHA tag (clean tree required):
 
 ```bash
 SERVER=ubuntu@YOUR_HOST ./scripts/deploy.sh
 SERVER=ubuntu@YOUR_HOST ./scripts/status.sh
 SERVER=ubuntu@YOUR_HOST ./scripts/backup-prod.sh
+
+# Dirty hotfix / resume / rollback
+ALLOW_DIRTY=1 SERVER=ubuntu@YOUR_HOST ./scripts/deploy.sh
+SERVER=ubuntu@YOUR_HOST ACS_IMAGE_TAG=<tag> ./scripts/deploy.sh --resume
+SERVER=ubuntu@YOUR_HOST ./scripts/deploy.sh --rollback
 ```
+
+`deploy.sh` cutover is a single SSH session (survives fewer mid-deploy drops). Images carry `org.opencontainers.image.revision` + `.dirty` labels for `status.sh`.
+
+### GitHub Actions + new servers
+
+```bash
+# One-time new host
+SERVER=ubuntu@NEW_HOST ./scripts/bootstrap-server.sh
+# fill secrets in remote .env, then:
+SERVER=ubuntu@NEW_HOST ACS_IMAGE_TAG=<sha> ./scripts/bootstrap-server.sh --start
+```
+
+CI: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) builds/pushes the image and runs `deploy.sh --resume` against the GitHub Environment’s `DEPLOY_HOST`. Add Environment secrets (`DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`, `DOCKERHUB_*`) per server/stage.
 
 | Aspect | Value |
 |--------|-------|

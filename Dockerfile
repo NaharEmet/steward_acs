@@ -66,7 +66,9 @@ RUN export COOKIE_SIGNING_SALT=$(printf '%s' "$SECRET_KEY_BASE" | sha256sum | aw
 FROM alpine:3.22 AS release
 
 ARG GIT_SHA=unknown
-LABEL org.opencontainers.image.revision="${GIT_SHA}"
+ARG GIT_DIRTY=clean
+LABEL org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.dirty="${GIT_DIRTY}"
 
 RUN apk add --no-cache libstdc++ openssl ncurses-libs curl sqlite-libs libgcc su-exec inotify-tools
 
