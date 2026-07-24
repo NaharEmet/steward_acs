@@ -46,7 +46,13 @@ config :steward_acs,
   oidc_browser_enabled: false,
   oidc_strategy: Assent.Strategy.OIDC
 
-config :logger, :console, metadata: [:agent_id, :task_id, :file_path, :locked_by]
+# Observability is opt-in at runtime. This prevents the OpenTelemetry SDK from
+# falling back to its localhost collector when Axiom is not configured.
+config :steward_acs, :axiom, enabled: false
+config :opentelemetry, traces_exporter: :none
+
+config :logger, :console,
+  metadata: [:agent_id, :task_id, :file_path, :locked_by, :axiom_exporter_internal]
 
 config :tailwind, :version, "3.4.3"
 

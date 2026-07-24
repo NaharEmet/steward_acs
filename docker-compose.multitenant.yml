@@ -75,6 +75,10 @@ services:
       OLLAMA_URL: http://ollama:11434
       OBSIDIAN_VAULT_PATH: /vaults
       MEMORY_STORE: obsidian
+      # Production observability (disabled when AXIOM_LOGS is empty).
+      AXIOM_LOGS: "${AXIOM_LOGS:-}"
+      AXIOM_DATASET: "${AXIOM_DATASET:-steward-acs}"
+      AXIOM_DOMAIN: "${AXIOM_DOMAIN:-https://api.axiom.co}"
     volumes:
       - acs_data:/data
       - vaults:/vaults

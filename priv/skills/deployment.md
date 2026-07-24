@@ -43,6 +43,7 @@ Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/
 - Dashboard Auth0 OIDC: `OIDC_BROWSER_ENABLED`, `ACCOUNT_HOST`, and the `AUTH0_WEB_*` values from a Regular Web Application.
 - Self-service org creation: keep `SELF_SERVICE_ORGS_ENABLED=false` through migration/bootstrap, then enable deliberately.
 - Auth0 M2M: `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` (aliases: `AUTH0_M2M_*`). Keep in `pass`, never in git.
+- Axiom (optional): `AXIOM_LOGS` (ingest token), `AXIOM_DATASET` (defaults to `steward-acs`), and `AXIOM_DOMAIN` only for edge deployments. Export is strictly prod-only and disabled without the token.
 
 ## Migrations
 
@@ -87,3 +88,4 @@ The YAML registry remains a read-only compatibility fallback during rollout. New
 4. Invite a member, copy the one-time link, accept with the exact verified email, and verify `/settings/members`
 5. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
 6. No `inotify-tools` errors in `docker logs steward_acs`
+7. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request

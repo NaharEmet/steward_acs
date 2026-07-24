@@ -14,6 +14,56 @@ if File.exists?(env_path) do
   end)
 end
 
+axiom_token = System.get_env("AXIOM_LOGS", "") |> String.trim()
+
+if config_env() == :prod and axiom_token != "" do
+  axiom_domain =
+    System.get_env("AXIOM_DOMAIN", "https://api.axiom.co")
+    |> String.trim()
+    |> String.trim_trailing("/")
+
+  domain_uri = URI.parse(axiom_domain)
+
+  valid_axiom_origin? =
+    domain_uri.scheme == "https" and domain_uri.host not in [nil, ""] and
+      domain_uri.path in [nil, "", "/"] and is_nil(domain_uri.userinfo) and
+      is_nil(domain_uri.query) and is_nil(domain_uri.fragment) and
+      (is_nil(domain_uri.port) or domain_uri.port in 1..65_535)
+
+  unless valid_axiom_origin? do
+    raise "AXIOM_DOMAIN must be an HTTPS origin, for example https://api.axiom.co"
+  end
+
+  axiom_dataset =
+    case System.get_env("AXIOM_DATASET", "") |> String.trim() do
+      "" -> "steward-acs"
+      dataset -> dataset
+    end
+
+  config :steward_acs, :axiom,
+    enabled: true,
+    token: axiom_token,
+    dataset: axiom_dataset,
+    domain: axiom_domain
+
+  config :opentelemetry,
+    resource: %{service: %{name: "steward_acs"}},
+    span_processor:
+      {Acs.Observability.RedactingBatchSpanProcessor, %{exporter: {:opentelemetry_exporter, %{}}}},
+    traces_exporter: :otlp
+
+  config :opentelemetry_exporter,
+    otlp_traces_protocol: :http_protobuf,
+    otlp_traces_endpoint: "#{axiom_domain}/v1/traces",
+    otlp_traces_headers: [
+      {"authorization", "Bearer #{axiom_token}"},
+      {"x-axiom-dataset", axiom_dataset}
+    ]
+else
+  config :steward_acs, :axiom, enabled: false
+  config :opentelemetry, traces_exporter: :none
+end
+
 secret_key_base =
   System.get_env("SECRET_KEY_BASE") ||
     if config_env() == :prod do
