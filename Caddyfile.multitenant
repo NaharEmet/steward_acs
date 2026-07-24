@@ -33,14 +33,8 @@
 }
 
 # Wildcard TLS — origin cert must cover *.{$BASE_DOMAIN}
-{$BASE_DOMAIN} {
-    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
-    import oauth_routes
-    reverse_proxy {$ACS_URL} {
-        flush_interval -1
-    }
-}
-
+# Apex {$BASE_DOMAIN} is the Astro marketing site (not this Caddy). ACS serves
+# tenants + ACCOUNT_HOST (prod.stewardacs.xyz) on the wildcard only.
 *.{$BASE_DOMAIN} {
     tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
     import oauth_routes

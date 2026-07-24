@@ -68,7 +68,7 @@ Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/
 
 - Local: `.env.example` → `.env`
 - Prod: `.env.multitenant` → `.env`
-- Dashboard Auth0 OIDC: `OIDC_BROWSER_ENABLED`, `ACCOUNT_HOST`, and the `AUTH0_WEB_*` values from a Regular Web Application.
+- Dashboard Auth0 OIDC: `OIDC_BROWSER_ENABLED`, `ACCOUNT_HOST` (ACS app host, e.g. `prod.stewardacs.xyz` — not the Astro apex), and `AUTH0_WEB_*` / callback on that host.
 - Self-service org creation: keep `SELF_SERVICE_ORGS_ENABLED=false` through migration/bootstrap, then enable deliberately.
 - Auth0 M2M: `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` (aliases: `AUTH0_M2M_*`). Keep in `pass`, never in git.
 - Axiom (optional): `AXIOM_LOGS` (ingest token), `AXIOM_DATASET` (defaults to `steward-acs`), and `AXIOM_DOMAIN` only for edge deployments. Export is strictly prod-only and disabled without the token.

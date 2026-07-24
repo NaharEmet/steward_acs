@@ -56,6 +56,19 @@ defmodule AcsWeb.Plugs.ResolveOrgTest do
     refute Map.has_key?(result.assigns, :current_org)
   end
 
+  test "account host that is also an org subdomain keeps account_tenant scope" do
+    Application.put_env(:steward_acs, :account_host, "yaml-tenant.stewardacs.xyz")
+
+    result =
+      Plug.Test.conn(:get, "/")
+      |> Map.put(:host, "yaml-tenant.stewardacs.xyz")
+      |> ResolveOrg.call([])
+
+    assert result.assigns.host_type == :account_tenant
+    assert result.assigns.current_org == "yaml-tenant"
+    assert Acs.Org.current() == "yaml-tenant"
+  end
+
   test "assigns the tenant for a known YAML organization host" do
     result =
       Plug.Test.conn(:get, "/")

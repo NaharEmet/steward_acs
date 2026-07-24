@@ -67,11 +67,11 @@ services:
       OAUTH_FIXED_DCR_CLIENT_ID: "${OAUTH_FIXED_DCR_CLIENT_ID:-}"
       MCP_PUBLIC_URL: "${MCP_PUBLIC_URL:-https://prod.stewardacs.xyz}"
       MCP_RESOURCE_URL: "${MCP_RESOURCE_URL:-https://prod.stewardacs.xyz/mcp/sse}"
-      ACCOUNT_HOST: "${ACCOUNT_HOST:-stewardacs.xyz}"
+      ACCOUNT_HOST: "${ACCOUNT_HOST:-prod.stewardacs.xyz}"
       OIDC_BROWSER_ENABLED: "${OIDC_BROWSER_ENABLED:-true}"
       AUTH0_WEB_CLIENT_ID: "${AUTH0_WEB_CLIENT_ID:-}"
       AUTH0_WEB_CLIENT_SECRET: "${AUTH0_WEB_CLIENT_SECRET:-}"
-      AUTH0_WEB_REDIRECT_URI: "${AUTH0_WEB_REDIRECT_URI:-https://stewardacs.xyz/auth/callback}"
+      AUTH0_WEB_REDIRECT_URI: "${AUTH0_WEB_REDIRECT_URI:-https://prod.stewardacs.xyz/auth/callback}"
       SELF_SERVICE_ORGS_ENABLED: "${SELF_SERVICE_ORGS_ENABLED:-true}"
       OLLAMA_URL: http://ollama:11434
       OBSIDIAN_VAULT_PATH: /vaults

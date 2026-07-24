@@ -24,7 +24,7 @@ defmodule AcsWeb.Plugs.ResolveOrg do
 
   defp resolve_multitenant_host(conn) do
     if account_host?(conn.host) do
-      assign(conn, :host_type, :account)
+      resolve_account_host(conn)
     else
       case Acs.Org.extract_subdomain(conn.host) do
         subdomain when is_binary(subdomain) ->
@@ -42,6 +42,28 @@ defmodule AcsWeb.Plugs.ResolveOrg do
         _ ->
           unknown_host(conn)
       end
+    end
+  end
+
+  # Apex marketing site stays separate (Astro). ACCOUNT_HOST is the ACS app host
+  # (prod.stewardacs.xyz): onboarding + login live there. If that host is also a
+  # known org subdomain, keep the org scope for MCP/dashboard (:account_tenant).
+  defp resolve_account_host(conn) do
+    case Acs.Org.extract_subdomain(conn.host) do
+      subdomain when is_binary(subdomain) ->
+        case Acs.Orgs.get_by_subdomain(subdomain) do
+          nil ->
+            assign(conn, :host_type, :account)
+
+          org ->
+            case org_slug(org) do
+              slug when is_binary(slug) and slug != "" -> assign_account_tenant(conn, slug)
+              _ -> assign(conn, :host_type, :account)
+            end
+        end
+
+      _ ->
+        assign(conn, :host_type, :account)
     end
   end
 

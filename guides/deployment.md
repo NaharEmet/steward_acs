@@ -29,6 +29,7 @@ docker compose up -d
 cp .env.multitenant .env
 # fill SECRET_KEY_BASE, MCP_API_KEY, Auth0 web credentials, Syncthing keys, and MCP OAuth as needed
 # register https://${ACCOUNT_HOST}/auth/callback in the Auth0 Regular Web Application
+# ACCOUNT_HOST should be the ACS app host (prod.stewardacs.xyz), not the Astro apex
 docker compose -f docker-compose.multitenant.yml up -d
 ```
 
