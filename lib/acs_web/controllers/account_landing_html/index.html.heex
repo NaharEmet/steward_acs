@@ -1,0 +1,41 @@
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;">
+  <div class="card" style="width: 100%; max-width: 440px; padding: 32px;">
+    <div class="section-header" style="margin-bottom: 28px;">
+      <div>
+        <h1 class="section-title" style="font-size: 1.75rem;">Steward</h1>
+        <p class="text-dim" style="margin-top: 8px; font-size: 0.95rem;">
+          Sign in to an existing workspace, or create a new organization.
+        </p>
+      </div>
+    </div>
+
+    <.flash_group flash={@flash} />
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <a
+        href={~p"/auth/log_in"}
+        class="btn btn-primary"
+        style="display: block; width: 100%; text-align: center;"
+      >
+        Sign in
+      </a>
+
+      <%= if @self_service_enabled do %>
+        <a
+          href={~p"/auth/log_in?#{[return_to: "/onboarding"]}"}
+          class="btn btn-ghost"
+          style="display: block; width: 100%; text-align: center;"
+        >
+          Create an organization
+        </a>
+        <p class="text-dim" style="font-size: 0.8rem; text-align: center; margin-top: 4px;">
+          You’ll verify your email, then set up your workspace.
+        </p>
+      <% else %>
+        <p class="text-dim" style="font-size: 0.85rem; text-align: center;">
+          Organization creation is invite-only. Contact an administrator.
+        </p>
+      <% end %>
+    </div>
+  </div>
+</div>

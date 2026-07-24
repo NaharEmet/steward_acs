@@ -40,7 +40,7 @@ defmodule AcsWeb.UserAuth do
 
     conn
     |> renew_session()
-    |> redirect(external: account_url(conn, "/users/log_in"))
+    |> redirect(external: account_url(conn, "/"))
   end
 
   def fetch_current_user(conn, _opts) do
@@ -56,21 +56,34 @@ defmodule AcsWeb.UserAuth do
   end
 
   def require_authenticated_user(conn, _opts) do
-    if conn.assigns[:current_user] do
-      conn
-    else
-      login_url =
-        if conn.method == "GET" do
-          account_url(conn, "/auth/log_in", %{return_to: current_path(conn)})
-        else
-          account_url(conn, "/auth/log_in")
-        end
+    cond do
+      conn.assigns[:current_user] ->
+        conn
 
-      conn
-      |> maybe_store_return_to()
-      |> put_flash(:error, "You must log in to access this page.")
-      |> redirect(external: login_url)
-      |> halt()
+      account_landing_request?(conn) ->
+        conn
+        |> AcsWeb.AccountLandingController.render_landing()
+        |> halt()
+
+      account_host?(conn) ->
+        conn
+        |> maybe_store_return_to()
+        |> redirect(to: "/")
+        |> halt()
+
+      true ->
+        login_url =
+          if conn.method == "GET" do
+            account_url(conn, "/auth/log_in", %{return_to: current_path(conn)})
+          else
+            account_url(conn, "/auth/log_in")
+          end
+
+        conn
+        |> maybe_store_return_to()
+        |> put_flash(:error, "You must log in to access this page.")
+        |> redirect(external: login_url)
+        |> halt()
     end
   end
 
@@ -89,10 +102,16 @@ defmodule AcsWeb.UserAuth do
       :ok = Acs.Org.put_current(conn.assigns.current_org)
       conn
     else
-      conn
-      |> put_resp_content_type("text/plain")
-      |> send_resp(404, "not found")
-      |> halt()
+      case {conn.assigns[:host_type], conn.assigns[:current_user]} do
+        {host, user} when host in [:account, :account_tenant] and is_map(user) ->
+          redirect_authenticated_user(conn, user)
+
+        _ ->
+          conn
+          |> put_resp_content_type("text/plain")
+          |> send_resp(404, "not found")
+          |> halt()
+      end
     end
   end
 
@@ -235,25 +254,38 @@ defmodule AcsWeb.UserAuth do
 
   defp redirect_authenticated_user(conn, user) do
     case conn.assigns[:host_type] do
-      host_type when host_type in [:tenant, :account_tenant] ->
+      :tenant ->
         conn
         |> redirect(to: "/")
         |> halt()
 
-      :account ->
-        case organization_for_user(user) do
-          org when is_map(org) ->
-            redirect_with_handoff(conn, user, org)
-
-          _ ->
-            conn
-            |> redirect(to: "/onboarding")
-            |> halt()
+      :account_tenant ->
+        if tenant_user?(user, conn.assigns[:current_org]) do
+          conn
+          |> redirect(to: "/")
+          |> halt()
+        else
+          redirect_account_user(conn, user)
         end
+
+      :account ->
+        redirect_account_user(conn, user)
 
       _ ->
         conn
         |> redirect(to: "/")
+        |> halt()
+    end
+  end
+
+  defp redirect_account_user(conn, user) do
+    case organization_for_user(user) do
+      org when is_map(org) ->
+        redirect_with_handoff(conn, user, org)
+
+      _ ->
+        conn
+        |> redirect(to: "/onboarding")
         |> halt()
     end
   end
@@ -288,6 +320,14 @@ defmodule AcsWeb.UserAuth do
       |> redirect(to: "/onboarding")
       |> halt()
     end
+  end
+
+  defp account_landing_request?(conn) do
+    conn.method == "GET" and conn.request_path == "/" and account_host?(conn)
+  end
+
+  defp account_host?(conn) do
+    conn.assigns[:host_type] in [:account, :account_tenant]
   end
 
   defp tenant_user?(user, slug) when is_map(user) and is_binary(slug) do
