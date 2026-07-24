@@ -880,7 +880,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "create_user",
-        "Create a user in Auth0 via the Management API. Scoped to the caller's org. Only available in remote ACS deployments with OAuth enabled. Admin only.",
+        "Deprecated: MCP cannot create users. Invite organization members from the dashboard instead. Admin only.",
         %{
           "name" => %{
             "type" => "string",

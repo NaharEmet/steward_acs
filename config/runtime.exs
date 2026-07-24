@@ -1,6 +1,6 @@
 import Config
 
-# Load .env before reading config so ACS_PASSWORD / ACS_USERNAME apply in mix phx.server.
+# Load .env before reading runtime configuration in mix phx.server.
 # Dotenvy stores vars in its process dictionary by default; put unset keys into System
 # so existing System.get_env/2 config reads work.
 env_path = System.get_env("ENV_PATH") || Path.expand("../.env", __DIR__)
@@ -326,15 +326,6 @@ if base_domain = System.get_env("BASE_DOMAIN") do
   config :steward_acs, :base_domain, base_domain
 end
 
-# Per-org dashboard credentials for multi-tenant deploys. Each subdomain resolves
-# to its own org, so the apex/default ACS_USERNAME/ACS_PASSWORD only covers the
-# configured org. Provide extra orgs here, e.g.:
-#   ACS_ORG_DASHBOARD_CREDS='{"prod":{"username":"admin","password":"..."}}'
-case Acs.ConfigEnv.parse_org_dashboard_creds(System.get_env("ACS_ORG_DASHBOARD_CREDS")) do
-  %{} = parsed when map_size(parsed) == 0 -> :ok
-  parsed -> config :steward_acs, :basic_auth_by_org, parsed
-end
-
 config :steward_acs, :project_name, System.get_env("ACS_PROJECT_NAME", "")
 
 config :steward_acs,
@@ -345,14 +336,6 @@ config :steward_acs, :memory_store, System.get_env("MEMORY_STORE", "yaml")
 
 if obsidian_path = System.get_env("OBSIDIAN_VAULT_PATH") do
   config :steward_acs, :obsidian_vault_path, obsidian_path
-end
-
-config :steward_acs, :basic_auth,
-  username: System.get_env("ACS_USERNAME", "admin"),
-  password: System.get_env("ACS_PASSWORD", "admin")
-
-if config_env() == :prod and System.get_env("ACS_PASSWORD", "admin") == "admin" do
-  raise "ACS_PASSWORD must not be the default 'admin' in production"
 end
 
 if config_env() == :prod do
@@ -387,6 +370,33 @@ if config_env() == :prod do
     url: [host: host, port: 443, scheme: "https"],
     check_origin: check_origin
 end
+
+endpoint_url = Application.get_env(:steward_acs, AcsWeb.Endpoint, []) |> Keyword.get(:url, [])
+endpoint_host = Keyword.get(endpoint_url, :host, "localhost")
+
+oidc_issuer =
+  case System.get_env("AUTH0_ISSUER") do
+    issuer when is_binary(issuer) and issuer != "" ->
+      String.trim_trailing(issuer, "/") <> "/"
+
+    _ ->
+      case System.get_env("AUTH0_DOMAIN") do
+        domain when is_binary(domain) and domain != "" ->
+          "https://" <> String.trim_trailing(domain, "/") <> "/"
+
+        _ ->
+          nil
+      end
+  end
+
+config :steward_acs,
+  account_host: System.get_env("ACCOUNT_HOST") || endpoint_host,
+  self_service_orgs_enabled: System.get_env("SELF_SERVICE_ORGS_ENABLED", "false") == "true",
+  oidc_browser_enabled: System.get_env("OIDC_BROWSER_ENABLED", "false") == "true",
+  oidc_issuer: oidc_issuer,
+  oidc_client_id: System.get_env("AUTH0_WEB_CLIENT_ID"),
+  oidc_client_secret: System.get_env("AUTH0_WEB_CLIENT_SECRET"),
+  oidc_redirect_uri: System.get_env("AUTH0_WEB_REDIRECT_URI")
 
 if origins = System.get_env("CORS_ORIGINS") do
   config :cors_plug,

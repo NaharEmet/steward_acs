@@ -46,7 +46,7 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
           },
           "required" => ["param1"]
         },
-        "endpoint" => "http://my-service:8080/tool"
+        "endpoint" => "http://93.184.216.34:8080/tool"
       },
       Map.new(overrides)
     )
@@ -68,7 +68,7 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
       # Verify file is valid YAML matching ToolLoader expectations
       assert {:ok, config} = YamlElixir.read_from_file(file_path)
       assert config["app"] == "custom"
-      assert config["base_url"] == "http://my-service:8080"
+      assert config["base_url"] == "http://93.184.216.34:8080"
       assert config["prefix"] == false
       assert length(config["tools"]) == 1
 
@@ -132,7 +132,7 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
       args =
         valid_write_args(%{
           "endpoint" => "/api/custom",
-          "base_url" => "http://my-api:4000"
+          "base_url" => "http://93.184.216.34:4000"
         })
 
       assert {:ok, result} = Acs.MCP.Tools.DynamicTools.call_tool("write_tool", args)
@@ -140,7 +140,7 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
 
       file_path = Path.join(tmp_dir, "my-custom-tool.yaml")
       assert {:ok, config} = YamlElixir.read_from_file(file_path)
-      assert config["base_url"] == "http://my-api:4000"
+      assert config["base_url"] == "http://93.184.216.34:4000"
       assert hd(config["tools"])["endpoint"] == "/api/custom"
     end
 

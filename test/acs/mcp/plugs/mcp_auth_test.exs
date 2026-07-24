@@ -16,7 +16,7 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       result = MCPAuth.call(conn, [])
       assert result.assigns.agent_role == "admin"
       assert result.assigns.agent_org_id == "dev"
-      assert "mcp:cross_org_analysis" in result.assigns.agent_permissions
+      refute "mcp:cross_org_analysis" in result.assigns.agent_permissions
       refute Map.has_key?(result.assigns, :agent_cluster)
     end
 
@@ -168,4 +168,5 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       assert challenge =~ "/.well-known/oauth-protected-resource/mcp/sse"
     end
   end
+
 end

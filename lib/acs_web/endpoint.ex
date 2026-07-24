@@ -3,6 +3,8 @@ defmodule AcsWeb.Endpoint do
 
   import Plug.Conn
 
+  @max_body_length 2_000_000
+
   @session_options [
     store: :cookie,
     key: "_acs_web_key",
@@ -30,6 +32,7 @@ defmodule AcsWeb.Endpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["application/json", "application/x-www-form-urlencoded", "multipart/form-data"],
+    length: @max_body_length,
     json_decoder: Phoenix.json_library()
 
   plug Plug.MethodOverride
@@ -50,11 +53,18 @@ defmodule AcsWeb.Endpoint do
       |> put_resp_header("x-content-type-options", "nosniff")
       |> put_resp_header("x-frame-options", "DENY")
       |> put_resp_header("x-permitted-cross-domain-policies", "none")
-      |> put_resp_header("referrer-policy", "strict-origin-when-cross-origin")
+      |> put_resp_header("referrer-policy", "no-referrer")
       |> put_resp_header(
         "content-security-policy",
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'"
       )
+
+    conn =
+      if String.starts_with?(conn.request_path, ["/auth/", "/invitations/"]) do
+        put_resp_header(conn, "cache-control", "no-store")
+      else
+        conn
+      end
 
     if Application.get_env(:steward_acs, :hsts, false) do
       put_resp_header(conn, "strict-transport-security", "max-age=31536000; includeSubDomains")

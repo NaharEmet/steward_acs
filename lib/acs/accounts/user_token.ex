@@ -1,7 +1,6 @@
 defmodule Acs.Accounts.UserToken do
   use Ecto.Schema
   import Ecto.Query
-  alias Acs.Accounts.UserToken
 
   @hash_algorithm :sha256
   @rand_size 32
@@ -21,7 +20,7 @@ defmodule Acs.Accounts.UserToken do
     hashed_token = :crypto.hash(@hash_algorithm, token)
 
     {Base.url_encode64(token, padding: false),
-     %UserToken{
+     %__MODULE__{
        token: hashed_token,
        context: "session",
        sent_to: user.email,
@@ -34,11 +33,11 @@ defmodule Acs.Accounts.UserToken do
     Application.get_env(:steward_acs, :session_validity_in_days, 7)
   end
 
-  def verify_session_token_query(token, org \\ Acs.Org.current()) do
-    verify_token_query(token, "session", session_validity_days(), :day, org)
+  def verify_session_token_query(token, _org \\ nil) do
+    verify_token_query(token, "session", session_validity_days(), :day)
   end
 
-  defp verify_token_query(token, context, validity, unit, org) do
+  defp verify_token_query(token, context, validity, unit) do
     case Base.url_decode64(token, padding: false) do
       {:ok, decoded_token} ->
         hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
@@ -48,7 +47,6 @@ defmodule Acs.Accounts.UserToken do
           from token in token_and_context_query(hashed_token, context),
             join: user in assoc(token, :user),
             where: token.inserted_at > ^cutoff,
-            where: token.org == ^org and user.org == ^org,
             select: user
 
         {:ok, query}
@@ -59,6 +57,6 @@ defmodule Acs.Accounts.UserToken do
   end
 
   defp token_and_context_query(token, context) do
-    from UserToken, where: [token: ^token, context: ^context]
+    from __MODULE__, where: [token: ^token, context: ^context]
   end
 end

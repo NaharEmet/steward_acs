@@ -31,7 +31,7 @@ Steward ACS is an **infrastructure layer** for multi-agent coordination. It runs
 git clone https://github.com/NaharEmet/steward_acs.git
 cd steward_acs
 
-# Optional: configure LLM providers, dashboard credentials, etc.
+# Configure Auth0 dashboard OAuth and optional LLM providers.
 # Copy and edit the example env file before starting:
 # cp .env.example .env
 # nano .env
@@ -40,8 +40,7 @@ docker compose up -d
 
 curl http://localhost:4001/mcp/health
 
-# Open http://localhost:4001 in your browser
-# Dashboard login: admin / admin (configurable via ACS_USERNAME / ACS_PASSWORD)
+# Open http://localhost:4001 in your browser and continue through Auth0 Universal Login.
 ```
 
 > **Note:** Memory auditing and semantic search need at least one LLM provider API key. Set `NIM_API_KEY`, `MIMO_API_KEY`, `MINIMAX_API_KEY`, or `OPENAI_API_KEY` in `.env` (or directly in `docker-compose.yml`) to enable them. Without these, you'll see `Audit failed: :no_providers_enabled` in the logs.
@@ -136,8 +135,12 @@ The file watcher debounces events (1000ms) and excludes `.obsidian/` internal fi
 | `DATABASE_URL` | Yes | — | PostgreSQL connection string |
 | `MCP_API_KEY` | Yes | — | MCP tool authentication |
 | `SERVICE_API_KEY` | Yes | — | Internal service MCP key |
-| `ACS_PASSWORD` | Yes | `admin` | Dashboard password (must change in prod) |
-| `ACS_USERNAME` | No | `admin` | Dashboard username |
+| `OIDC_BROWSER_ENABLED` | Yes | `false` | Enable Auth0 OIDC for individual dashboard login |
+| `AUTH0_WEB_CLIENT_ID` | When dashboard OAuth is on | — | Auth0 Regular Web Application client ID |
+| `AUTH0_WEB_CLIENT_SECRET` | When dashboard OAuth is on | — | Auth0 Regular Web Application client secret |
+| `AUTH0_WEB_REDIRECT_URI` | When dashboard OAuth is on | — | Exact registered callback URL ending in `/auth/callback` |
+| `ACCOUNT_HOST` | Yes in multi-tenant mode | endpoint host | Canonical host for login, onboarding, and invitations |
+| `SELF_SERVICE_ORGS_ENABLED` | No | `false` | Let verified orgless users create an organization |
 | `PHX_HOST` / `DOMAIN` | Yes | — | Public hostname for URLs and LiveView origin checks |
 | `ACS_ORG_NAME` | No | `default` | Org namespace (scopes all operations) |
 | `ACS_DEVELOPER_NAME` | No | `unknown` | Developer identity for memory attribution |

@@ -3,18 +3,13 @@ defmodule Acs.MCP.Plugs.RateLimit do
   Sliding-window rate limiter for MCP/API HTTP routes.
 
   Keys prefer a hashed API key when present, falling back to client IP.
-  Uses atomic ETS counters per window bucket.
-
-  Old buckets are cleaned up periodically via `cleanup/1`.
   """
   import Plug.Conn
 
-  require Logger
+  alias Acs.MCP.RateLimitStore
 
-  @table :acs_rate_limit
   @default_limit 120
   @default_window_ms 60_000
-  @cleanup_every 25
 
   def init(opts), do: opts
 
@@ -27,7 +22,7 @@ defmodule Acs.MCP.Plugs.RateLimit do
     window_ms = Keyword.get(opts, :window_ms, @default_window_ms)
     key = rate_key(conn)
 
-    case check_rate(key, limit, window_ms) do
+    case RateLimitStore.check(key, limit, window_ms) do
       :ok ->
         conn
 
@@ -68,75 +63,12 @@ defmodule Acs.MCP.Plugs.RateLimit do
     |> String.slice(0, 16)
   end
 
-  defp check_rate(key, limit, window_ms) do
-    ensure_table()
-    now = System.system_time(:millisecond)
-    bucket = div(now, window_ms)
-    ets_key = {key, bucket}
-
-    count = :ets.update_counter(@table, ets_key, 1, {ets_key, 0})
-    maybe_cleanup(now, window_ms)
-
-    if count > limit do
-      :deny
-    else
-      :ok
-    end
-  end
-
   @doc """
   Removes entries for buckets older than the given window.
-  Call periodically to prevent unbounded ETS growth.
 
   Pass `window_ms` matching the rate limit window (default 60_000).
   """
   def cleanup(window_ms \\ @default_window_ms) do
-    current_bucket = div(System.system_time(:millisecond), window_ms)
-
-    # Remove entries from buckets 2+ windows behind current
-    stale_bucket_threshold = current_bucket - 1
-
-    ms = :ets.foldl(
-      fn {ets_key, _}, acc ->
-        {_key, bucket} = ets_key
-        if bucket < stale_bucket_threshold do
-          :ets.delete(@table, ets_key)
-          acc + 1
-        else
-          acc
-        end
-      end,
-      0,
-      @table
-    )
-
-    if ms > 0 do
-      Logger.debug("[RateLimit] Cleaned up #{ms} stale entries")
-    end
-
-    :ok
-  end
-
-  defp maybe_cleanup(now, window_ms) do
-    bucket = div(now, window_ms)
-
-    if rem(bucket, @cleanup_every) == 0 do
-      cleanup(window_ms)
-    end
-  end
-
-  defp ensure_table do
-    case :ets.info(@table) do
-      :undefined ->
-        :ets.new(@table, [
-          :named_table,
-          :public,
-          read_concurrency: true,
-          write_concurrency: true
-        ])
-
-      _ ->
-        :ok
-    end
+    RateLimitStore.cleanup(window_ms)
   end
 end

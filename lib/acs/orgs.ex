@@ -1,131 +1,190 @@
 defmodule Acs.Orgs do
   @moduledoc """
-  Org provisioning and lookup from `priv/orgs.yaml`.
+  Organization lookup and provisioning.
 
-  Orgs are loaded from the YAML file on every call — no in-memory cache.
-  Writing a new org via `create/1` persists to the file immediately.
+  Database organizations are authoritative once present. YAML remains a read-only
+  fallback while existing installations are expanded.
   """
-  defstruct [:id, :name, :slug, :subdomain, :plan]
+  import Ecto.Query, warn: false
 
-  @reserved_subdomains ~w(www obsidian api)
-  @slug_regex ~r/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
+  alias Acs.Accounts
+  alias Acs.Accounts.{AccountAuditEvent, User}
+  alias Acs.Orgs.{Organization, Provisioner}
+  alias Acs.Repo
 
   def list_all do
-    load_orgs()
+    database_orgs = Repo.all(Organization)
+
+    database_slugs = MapSet.new(database_orgs, & &1.slug)
+    legacy_orgs = Enum.reject(load_yaml_orgs(), &MapSet.member?(database_slugs, &1.slug))
+
+    Enum.sort_by(database_orgs ++ legacy_orgs, & &1.slug)
   end
 
   def get_by_slug(slug) when is_binary(slug) do
-    load_orgs() |> Enum.find(&(&1.slug == slug))
+    slug = normalize_subdomain(slug)
+    Enum.find(list_all(), &(&1.slug == slug))
   end
 
   def get_by_subdomain(subdomain) when is_binary(subdomain) do
-    load_orgs() |> Enum.find(&(&1.subdomain == subdomain))
+    subdomain = normalize_subdomain(subdomain)
+    Enum.find(list_all(), &(&1.subdomain == subdomain))
   end
 
   def resolve_subdomain(subdomain) do
-    slug = normalize_subdomain(subdomain)
+    subdomain = normalize_subdomain(subdomain)
 
     cond do
-      slug in @reserved_subdomains ->
+      subdomain in reserved_subdomains() ->
         {:error, :reserved_subdomain}
 
       Acs.Org.multi_tenant?() ->
-        case get_by_subdomain(slug) do
-          %__MODULE__{slug: org_slug} -> {:ok, org_slug}
-          nil -> {:error, :unknown_org}
+        case get_by_subdomain(subdomain) do
+          %Organization{slug: slug} -> {:ok, slug}
+          _ -> {:error, :unknown_org}
         end
 
       true ->
-        {:ok, slug}
+        {:ok, subdomain}
     end
   end
 
   def create(attrs) do
-    name = attrs[:name] || attrs["name"]
-    slug = attrs[:slug] || attrs["slug"]
-    subdomain = attrs[:subdomain] || attrs["subdomain"] || slug
-    plan = attrs[:plan] || attrs["plan"] || "free"
+    attrs = default_subdomain(attrs)
 
-    errors =
-      []
-      |> then(fn e ->
-        if is_nil(name) or name == "", do: [{:name, {"can't be blank", []}} | e], else: e
-      end)
-      |> then(fn e ->
-        if is_nil(slug) or slug == "", do: [{:slug, {"can't be blank", []}} | e], else: e
-      end)
-      |> then(fn e ->
-        if not Regex.match?(@slug_regex, slug), do: [{:slug, {"invalid format", []}} | e], else: e
-      end)
-      |> then(fn e ->
-        if not Regex.match?(@slug_regex, subdomain),
-          do: [{:subdomain, {"invalid format", []}} | e],
-          else: e
-      end)
-      |> then(fn e ->
-        if Enum.any?(load_orgs(), &(&1.slug == slug)),
-          do: [{:slug, {"has already been taken", []}} | e],
-          else: e
-      end)
-      |> then(fn e ->
-        if Enum.any?(load_orgs(), &(&1.subdomain == subdomain)),
-          do: [{:subdomain, {"has already been taken", []}} | e],
-          else: e
-      end)
-      |> Enum.reverse()
+    case %Organization{} |> Organization.changeset(attrs) |> Repo.insert() do
+      {:ok, organization} -> Provisioner.provision(organization)
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
 
-    if errors == [] do
-      org = %__MODULE__{
-        id: slug,
-        name: name,
-        slug: slug,
-        subdomain: subdomain,
-        plan: plan
+  def create_for_user(%User{id: user_id}, attrs) do
+    attrs = default_subdomain(attrs)
+
+    with {:ok, organization} <-
+           Repo.transaction(fn ->
+             user = Repo.get!(User, user_id)
+
+             if user.organization_id do
+               Repo.rollback(:already_in_organization)
+             end
+
+             with {:ok, organization} <-
+                    %Organization{} |> Organization.changeset(attrs) |> Repo.insert(),
+                  {1, _} <-
+                    Repo.update_all(
+                      from(candidate in User,
+                        where: candidate.id == ^user.id and is_nil(candidate.organization_id)
+                      ),
+                      set: [
+                        organization_id: organization.id,
+                        org_role: "owner",
+                        org: organization.slug,
+                        updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+                      ]
+                    ),
+                  :ok <- Accounts.revoke_user_auth(user.id, broadcast: false),
+                  {:ok, _audit} <-
+                    %AccountAuditEvent{}
+                    |> AccountAuditEvent.changeset(%{
+                      actor_id: user.id,
+                      target_user_id: user.id,
+                      organization_id: organization.id,
+                      event: "organization.created",
+                      metadata: Jason.encode!(%{"slug" => organization.slug})
+                    })
+                    |> Repo.insert() do
+               organization
+             else
+               {0, _} -> Repo.rollback(:already_in_organization)
+               {:error, changeset} -> Repo.rollback(changeset)
+             end
+           end) do
+      Provisioner.provision(organization)
+    end
+  end
+
+  def retry_provisioning(
+        %User{organization_id: organization_id, org_role: "owner"},
+        %Organization{id: organization_id} = organization
+      ) do
+    Provisioner.provision(%{organization | provisioning_status: "pending"})
+  end
+
+  def retry_provisioning(_, _), do: {:error, :unauthorized}
+
+  @doc "Imports the explicitly configured legacy YAML registry into the database."
+  def import_yaml do
+    load_yaml_orgs()
+    |> Enum.reduce_while({:ok, 0}, fn legacy, {:ok, count} ->
+      attrs = %{
+        name: legacy.name,
+        slug: legacy.slug,
+        subdomain: legacy.subdomain,
+        plan: legacy.plan,
+        provisioning_status: "ready"
       }
 
-      orgs = load_orgs() ++ [org]
-      save_orgs(orgs)
-      {:ok, org}
-    else
-      {:error, errors}
-    end
+      case Repo.get_by(Organization, slug: legacy.slug) do
+        %Organization{subdomain: subdomain} = organization when subdomain == legacy.subdomain ->
+          case organization
+               |> Organization.provisioning_changeset(%{
+                 provisioning_status: "ready",
+                 provisioning_error: nil
+               })
+               |> Repo.update() do
+            {:ok, _organization} -> {:cont, {:ok, count}}
+            {:error, changeset} -> {:halt, {:error, changeset}}
+          end
+
+        %Organization{} ->
+          {:halt, {:error, {:conflict, legacy.slug}}}
+
+        nil ->
+          case %Organization{} |> Organization.changeset(attrs) |> Repo.insert() do
+            {:ok, _organization} -> {:cont, {:ok, count + 1}}
+            {:error, changeset} -> {:halt, {:error, changeset}}
+          end
+      end
+    end)
   end
 
   def ensure_default! do
     case get_by_slug("default") do
-      %__MODULE__{} = org -> org
+      %Organization{} = organization -> organization
       nil -> elem(create(%{name: "Default", slug: "default", subdomain: "default"}), 1)
     end
   end
 
-  defp orgs_path do
-    Application.get_env(:steward_acs, :orgs_file) ||
-      bundled_orgs_path()
-  end
-
-  defp load_orgs do
-    path = orgs_path()
-    bundled_path = bundled_orgs_path()
-
-    case read_orgs(path) do
-      [] when path != bundled_path -> read_orgs(bundled_path)
-      orgs -> orgs
+  defp default_subdomain(attrs) when is_map(attrs) do
+    cond do
+      Map.has_key?(attrs, :subdomain) or Map.has_key?(attrs, "subdomain") -> attrs
+      Map.has_key?(attrs, :slug) -> Map.put(attrs, :subdomain, Map.get(attrs, :slug))
+      Map.has_key?(attrs, "slug") -> Map.put(attrs, "subdomain", Map.get(attrs, "slug"))
+      true -> attrs
     end
   end
 
-  defp read_orgs(path) do
-    case YamlElixir.read_from_file(path) do
-      {:ok, %{"orgs" => orgs_map}} when is_map(orgs_map) ->
-        orgs_map
-        |> Enum.map(fn {_slug, attrs} ->
-          a = if is_map(attrs), do: attrs, else: %{}
+  defp reserved_subdomains, do: ~w(www obsidian api account)
 
-          %__MODULE__{
-            id: Map.get(a, "slug"),
-            name: Map.get(a, "name"),
-            slug: Map.get(a, "slug"),
-            subdomain: Map.get(a, "subdomain"),
-            plan: Map.get(a, "plan", "free")
+  defp normalize_subdomain(nil), do: "default"
+  defp normalize_subdomain(""), do: "default"
+  defp normalize_subdomain("www"), do: "default"
+  defp normalize_subdomain(subdomain), do: subdomain |> String.trim() |> String.downcase()
+
+  defp load_yaml_orgs do
+    case YamlElixir.read_from_file(orgs_path()) do
+      {:ok, %{"orgs" => organizations}} when is_map(organizations) ->
+        organizations
+        |> Enum.map(fn {_slug, attrs} ->
+          attrs = if is_map(attrs), do: attrs, else: %{}
+
+          %Organization{
+            id: Map.get(attrs, "slug"),
+            name: Map.get(attrs, "name"),
+            slug: Map.get(attrs, "slug"),
+            subdomain: Map.get(attrs, "subdomain"),
+            plan: Map.get(attrs, "plan", "free")
           }
         end)
         |> Enum.sort_by(& &1.slug)
@@ -135,37 +194,8 @@ defmodule Acs.Orgs do
     end
   end
 
-  defp save_orgs(orgs) do
-    yaml = encode_orgs(orgs)
-    tmp = orgs_path() <> ".tmp"
-    File.mkdir_p!(Path.dirname(tmp))
-    File.write!(tmp, yaml)
-    File.rename!(tmp, orgs_path())
+  defp orgs_path do
+    Application.get_env(:steward_acs, :orgs_file) ||
+      Application.app_dir(:steward_acs, "priv/orgs.yaml")
   end
-
-  defp bundled_orgs_path, do: Application.app_dir(:steward_acs, "priv/orgs.yaml")
-
-  defp encode_orgs(orgs) do
-    header = "orgs:"
-
-    entries =
-      orgs
-      |> Enum.sort_by(& &1.slug)
-      |> Enum.flat_map(fn org ->
-        [
-          "  #{org.slug}:",
-          "    name: #{org.name}",
-          "    slug: #{org.slug}",
-          "    subdomain: #{org.subdomain}",
-          "    plan: #{org.plan}"
-        ]
-      end)
-
-    Enum.join([header | entries], "\n") <> "\n"
-  end
-
-  defp normalize_subdomain(nil), do: "default"
-  defp normalize_subdomain(""), do: "default"
-  defp normalize_subdomain("www"), do: "default"
-  defp normalize_subdomain(subdomain), do: subdomain
 end

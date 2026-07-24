@@ -25,6 +25,8 @@ defmodule Acs.MCP.CoreToolRoles do
     revoke_developer_key
     create_org
     create_user
+    specs_approve
+    specs_reject
   )
 
   @admin_collaborator ~w(
@@ -47,8 +49,6 @@ defmodule Acs.MCP.CoreToolRoles do
     specs_get
     query_specs
     specs_propose
-    specs_approve
-    specs_reject
     list_error_traces
     list_plugins
     app_list

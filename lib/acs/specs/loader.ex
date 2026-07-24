@@ -76,19 +76,67 @@ defmodule Acs.Specs.Loader do
   Get the full file path for a spec given app and module path.
   """
   def file_path(app, path, ext \\ ".yaml") do
-    app = validate_path_segment!(app)
-    path = validate_path_segment!(path)
-    Path.join([specs_path(), app, "#{path}#{ext}"])
+    case spec_file_path(app, path, ext) do
+      {:ok, file} -> file
+      {:error, _} -> raise ArgumentError, "Invalid path segment: #{inspect(app)}"
+    end
   end
 
-  defp validate_path_segment!(segment) do
-    if String.starts_with?(segment, "/") or
-         String.contains?(segment, "..") or
-         String.match?(segment, ~r/[^a-z0-9_\/\-\.]/) do
-      raise ArgumentError, "Invalid path segment: #{inspect(segment)}"
-    end
+  @doc false
+  def validate_app(app) when is_binary(app) do
+    if Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, app),
+      do: :ok,
+      else: {:error, :invalid_app}
+  end
 
-    segment
+  def validate_app(_), do: {:error, :invalid_app}
+
+  defp spec_file_path(app, path, ext) do
+    with :ok <- validate_app(app),
+         :ok <- validate_path(path),
+         file = Path.expand(Path.join([specs_path(), app, "#{path}#{ext}"])),
+         true <- path_within_tenant_root?(file) do
+      {:ok, file}
+    else
+      false -> {:error, :outside_specs_root}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp validate_path(path) when is_binary(path) do
+    if String.starts_with?(path, "/") or
+         String.contains?(path, "..") or
+         String.match?(path, ~r/[^a-z0-9_\/\-\.]/),
+       do: {:error, :invalid_path},
+       else: :ok
+  end
+
+  defp validate_path(_), do: {:error, :invalid_path}
+
+  defp path_within_tenant_root?(path) do
+    root = Path.expand(specs_path())
+    expanded = Path.expand(path)
+    within_root = expanded == root or String.starts_with?(expanded, root <> "/")
+
+    within_root and path_without_symlinks?(root, Path.relative_to(expanded, root))
+  end
+
+  defp path_without_symlinks?(root, relative) do
+    result =
+      relative
+      |> Path.split()
+      |> Enum.reduce_while(root, fn segment, current ->
+        candidate = Path.join(current, segment)
+
+        case File.lstat(candidate) do
+          {:ok, %File.Stat{type: :symlink}} -> {:halt, false}
+          {:ok, _} -> {:cont, candidate}
+          {:error, :enoent} -> {:halt, true}
+          {:error, _} -> {:halt, false}
+        end
+      end)
+
+    result != false
   end
 
   @doc """
@@ -97,48 +145,58 @@ defmodule Acs.Specs.Loader do
   """
   def list(opts \\ []) do
     app = opts[:app]
-    base = specs_path()
+    base = Path.expand(specs_path())
 
-    results =
-      cond do
-        app && app != "" ->
-          dir = Path.join(base, app)
-          list_in_dir(dir, app)
-
-        true ->
+    with :ok <- validate_app_filter(app) do
+      results =
+        if is_nil(app) do
           apps_dir(base)
           |> Enum.flat_map(fn {sub_app, dir} -> list_in_dir(dir, sub_app) end)
-      end
+        else
+          list_in_dir(Path.join(base, app), app)
+        end
 
-    {:ok, results}
+      {:ok, results}
+    end
   end
+
+  defp validate_app_filter(nil), do: :ok
+  defp validate_app_filter(app), do: validate_app(app)
 
   @doc """
   Load a spec by app and module path. Returns `{:ok, %Entry{}}` or `{:error, reason}`.
   """
   def load(app, path) do
-    file = file_path(app, path)
-
-    case File.exists?(file) do
-      true -> load_file(file)
-      false -> {:error, :not_found}
+    with {:ok, file} <- spec_file_path(app, path, ".yaml") do
+      case File.exists?(file) do
+        true -> load_file(file)
+        false -> {:error, :not_found}
+      end
     end
   end
 
   @doc """
   Load a spec from a specific file path. Returns `{:ok, %Entry{}}` or `{:error, reason}`.
   """
-  def load_file(file_path) do
-    ext = Path.extname(file_path) |> String.downcase()
+  def load_file(file_path) when is_binary(file_path) do
+    file_path = Path.expand(file_path)
 
-    case ext do
-      ".md" -> load_markdown_file(file_path)
-      _ -> load_yaml_file(file_path)
+    if path_within_tenant_root?(file_path) do
+      ext = Path.extname(file_path) |> String.downcase()
+
+      case ext do
+        ".md" -> load_markdown_file(file_path)
+        _ -> load_yaml_file(file_path)
+      end
+    else
+      {:error, :outside_specs_root}
     end
   rescue
     e in [FunctionClauseError] ->
       {:error, :load_error, "Invalid spec content: #{Exception.message(e)}"}
   end
+
+  def load_file(_), do: {:error, :invalid_file_path}
 
   defp load_markdown_file(file_path) do
     case File.read(file_path) do
@@ -184,16 +242,16 @@ defmodule Acs.Specs.Loader do
         do: ".md",
         else: ".yaml"
 
-    file = file_path(entry.app, entry.id, ext)
-    File.mkdir_p!(Path.dirname(file))
-
     case Acs.Specs.Entry.validate(entry) do
       :ok ->
-        content = to_file_content(entry, ext)
-        File.write!(file, content)
-        Logger.info("Saved cognition entry: #{file}")
-        Acs.broadcast(:specs_updated, %{app: entry.app, id: entry.id})
-        :ok
+        with {:ok, file} <- spec_file_path(entry.app, entry.id, ext) do
+          File.mkdir_p!(Path.dirname(file))
+          content = to_file_content(entry, ext)
+          File.write!(file, content)
+          Logger.info("Saved cognition entry: #{file}")
+          Acs.broadcast(:specs_updated, %{app: entry.app, id: entry.id})
+          :ok
+        end
 
       {:error, reasons} ->
         {:error, "Validation failed: #{Enum.join(reasons, "; ")}"}
@@ -218,17 +276,17 @@ defmodule Acs.Specs.Loader do
   Delete a spec file. Returns `:ok` or `{:error, reason}`.
   """
   def delete(app, path) do
-    file = file_path(app, path)
+    with {:ok, file} <- spec_file_path(app, path, ".yaml") do
+      case File.exists?(file) do
+        true ->
+          File.rm!(file)
+          Logger.info("Deleted cognition spec: #{file}")
+          Acs.broadcast(:specs_updated, %{app: app, id: path})
+          :ok
 
-    case File.exists?(file) do
-      true ->
-        File.rm!(file)
-        Logger.info("Deleted cognition spec: #{file}")
-        Acs.broadcast(:specs_updated, %{app: app, id: path})
-        :ok
-
-      false ->
-        {:error, :not_found}
+        false ->
+          {:error, :not_found}
+      end
     end
   end
 
@@ -334,17 +392,22 @@ defmodule Acs.Specs.Loader do
 
   # List .yaml and .yml files in a directory recursively
   defp list_in_dir(dir, app) do
-    yaml_pattern = Path.join(dir, "**/*.yaml")
-    yml_pattern = Path.join(dir, "**/*.yml")
-    md_pattern = Path.join(dir, "**/*.md")
+    if path_within_tenant_root?(dir) do
+      yaml_pattern = Path.join(dir, "**/*.yaml")
+      yml_pattern = Path.join(dir, "**/*.yml")
+      md_pattern = Path.join(dir, "**/*.md")
 
-    (Path.wildcard(yaml_pattern) ++ Path.wildcard(yml_pattern) ++ Path.wildcard(md_pattern))
-    |> Enum.map(fn file ->
-      relative = Path.relative_to(file, Path.join(specs_path(), app))
-      ext = Path.extname(relative)
-      path = relative |> String.replace_suffix(ext, "")
-      %{app: app, path: path, file_path: file, relative_path: relative, ext: ext}
-    end)
+      (Path.wildcard(yaml_pattern) ++ Path.wildcard(yml_pattern) ++ Path.wildcard(md_pattern))
+      |> Enum.filter(&path_within_tenant_root?/1)
+      |> Enum.map(fn file ->
+        relative = Path.relative_to(file, Path.join(specs_path(), app))
+        ext = Path.extname(relative)
+        path = relative |> String.replace_suffix(ext, "")
+        %{app: app, path: path, file_path: file, relative_path: relative, ext: ext}
+      end)
+    else
+      []
+    end
   end
 
   defp apps_dir(base) do
@@ -363,16 +426,20 @@ defmodule Acs.Specs.Loader do
   # Move malformed YAML to quarantine
   defp quarantine_file(file_path, reason) do
     quarantine_dir = Path.join([specs_path(), "quarantine"])
+    dest = Path.join(quarantine_dir, Path.basename(file_path))
 
-    try do
-      File.mkdir_p!(quarantine_dir)
-      dest = Path.join(quarantine_dir, Path.basename(file_path))
-      File.cp!(file_path, dest)
-      File.rm!(file_path)
-      Logger.warning("Quarantined malformed spec: #{file_path} -> #{dest} (reason: #{reason})")
-    rescue
-      e ->
-        Logger.error("Failed to quarantine #{file_path}: #{Exception.message(e)}")
+    if path_within_tenant_root?(dest) do
+      try do
+        File.mkdir_p!(quarantine_dir)
+        File.cp!(file_path, dest)
+        File.rm!(file_path)
+        Logger.warning("Quarantined malformed spec: #{file_path} -> #{dest} (reason: #{reason})")
+      rescue
+        e ->
+          Logger.error("Failed to quarantine #{file_path}: #{Exception.message(e)}")
+      end
+    else
+      Logger.error("Refusing to quarantine outside tenant specs root: #{file_path}")
     end
   end
 

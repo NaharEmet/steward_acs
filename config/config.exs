@@ -40,6 +40,12 @@ config :phoenix, :json_library, Jason
 
 config :steward_acs, :session_validity_in_days, 7
 
+config :steward_acs,
+  account_host: "localhost",
+  self_service_orgs_enabled: false,
+  oidc_browser_enabled: false,
+  oidc_strategy: Assent.Strategy.OIDC
+
 # Observability is opt-in at runtime. This prevents the OpenTelemetry SDK from
 # falling back to its localhost collector when Axiom is not configured.
 config :steward_acs, :axiom, enabled: false

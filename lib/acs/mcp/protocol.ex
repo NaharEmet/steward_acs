@@ -11,6 +11,7 @@ defmodule Acs.MCP.Protocol do
   alias Acs.MCP.ToolRegistry
 
   @mcp_version "2024-11-05"
+  @cross_org_read_only_tools ~w(query list_tasks get_logs query_memories list_error_traces)
 
   @doc """
   Processes a JSON-RPC message and returns the appropriate response.
@@ -168,17 +169,16 @@ defmodule Acs.MCP.Protocol do
   defp handle_request(
          id,
          "tools/list",
-         params,
+         _params,
          agent_role,
          agent_org_id,
-         agent_permissions,
+         _agent_permissions,
          _agent_allowed_teams,
          _agent_allowed_projects,
          _agent_identity
        ) do
     with :ok <- require_agent_role(agent_role) do
-      effective_org = analysis_org(params, agent_org_id, agent_permissions)
-      tools = ToolRegistry.list_tools_mcp(agent_role, effective_org)
+      tools = ToolRegistry.list_tools_mcp(agent_role, agent_org_id)
       {:ok, success_response(id, %{"tools" => tools})}
     else
       {:error, reason} ->
@@ -251,16 +251,37 @@ defmodule Acs.MCP.Protocol do
   defp require_agent_role(role) when is_binary(role) and role != "", do: :ok
   defp require_agent_role(_), do: {:error, "Missing authentication context"}
 
-  defp analysis_org(params, credential_org, permissions) do
-    requested_org = params["analysis_org"] || params["_analysis_org_id"]
-
-    if is_binary(requested_org) and requested_org != "" and
-         is_list(permissions) and "mcp:cross_org_analysis" in permissions do
-      requested_org
+  defp analysis_org(name, params, credential_org, permissions) do
+    if cross_org_tool_allowed?(name, params, credential_org, permissions) do
+      requested_analysis_org(params)
     else
       credential_org
     end
   end
+
+  defp cross_org_tool_allowed?(name, params, credential_org, permissions) do
+    cross_org_tool_requested?(params, credential_org) and
+      is_list(permissions) and "mcp:cross_org_analysis" in permissions and
+      name in @cross_org_read_only_tools and Acs.MCP.Tools.has_tool?(name)
+  end
+
+  defp cross_org_tool_disallowed?(name, params, credential_org, permissions) do
+    cross_org_tool_requested?(params, credential_org) and
+      is_list(permissions) and "mcp:cross_org_analysis" in permissions and
+      name not in @cross_org_read_only_tools
+  end
+
+  defp cross_org_tool_requested?(params, credential_org) do
+    case requested_analysis_org(params) do
+      requested_org when is_binary(requested_org) and requested_org != "" ->
+        requested_org != credential_org
+
+      _ ->
+        false
+    end
+  end
+
+  defp requested_analysis_org(params), do: params["analysis_org"] || params["_analysis_org_id"]
 
   defp do_tools_call(
          id,
@@ -275,7 +296,7 @@ defmodule Acs.MCP.Protocol do
     name = params["name"]
 
     requested_arguments = params["arguments"] || %{}
-    effective_org = analysis_org(requested_arguments, agent_org_id, agent_permissions)
+    effective_org = analysis_org(name, requested_arguments, agent_org_id, agent_permissions)
 
     arguments =
       requested_arguments
@@ -287,45 +308,62 @@ defmodule Acs.MCP.Protocol do
       |> Map.put("_auth_allowed_projects", agent_allowed_projects)
       |> Map.put("_auth_agent_id", agent_identity)
 
-    if is_nil(name) do
-      {:ok, error_response(id, -32602, "Invalid params", "Missing 'name' parameter")}
-    else
-      case ToolRegistry.authorize_tool(name, agent_role, agent_permissions) do
-        :ok ->
-          call_result =
-            if is_binary(effective_org) and effective_org != "" do
-              Acs.Org.with_current(effective_org, fn ->
-                ToolRegistry.call_tool(name, arguments)
-              end)
-            else
-              {:error, "Missing organization authentication context"}
+    cond do
+      is_nil(name) ->
+        {:ok, error_response(id, -32602, "Invalid params", "Missing 'name' parameter")}
+
+      cross_org_tool_disallowed?(name, requested_arguments, agent_org_id, agent_permissions) ->
+        {:ok,
+         success_response(id, %{
+           "content" => [
+             %{
+               "type" => "text",
+               "text" =>
+                 "Error: \"Cross-organization analysis is only permitted for read-only tools\""
+             }
+           ],
+           "isError" => true
+         })}
+
+      true ->
+        case ToolRegistry.authorize_tool(name, agent_role, agent_permissions) do
+          :ok ->
+            call_result =
+              if is_binary(effective_org) and effective_org != "" do
+                Acs.Org.with_current(effective_org, fn ->
+                  ToolRegistry.call_tool(name, arguments)
+                end)
+              else
+                {:error, "Missing organization authentication context"}
+              end
+
+            case call_result do
+              {:ok, result} ->
+                {:ok,
+                 success_response(id, %{
+                   "content" => [
+                     %{"type" => "text", "text" => Jason.encode!(result, pretty: true)}
+                   ]
+                 })}
+
+              {:error, reason} ->
+                {:ok,
+                 success_response(id, %{
+                   "content" => [%{"type" => "text", "text" => "Error: #{inspect(reason)}"}],
+                   "isError" => true
+                 })}
+
+              {:sleep, agent_id, timeout} ->
+                {:sleep, id, agent_id, timeout}
             end
 
-          case call_result do
-            {:ok, result} ->
-              {:ok,
-               success_response(id, %{
-                 "content" => [%{"type" => "text", "text" => Jason.encode!(result, pretty: true)}]
-               })}
-
-            {:error, reason} ->
-              {:ok,
-               success_response(id, %{
-                 "content" => [%{"type" => "text", "text" => "Error: #{inspect(reason)}"}],
-                 "isError" => true
-               })}
-
-            {:sleep, agent_id, timeout} ->
-              {:sleep, id, agent_id, timeout}
-          end
-
-        {:error, reason} ->
-          {:ok,
-           success_response(id, %{
-             "content" => [%{"type" => "text", "text" => "Error: #{inspect(reason)}"}],
-             "isError" => true
-           })}
-      end
+          {:error, reason} ->
+            {:ok,
+             success_response(id, %{
+               "content" => [%{"type" => "text", "text" => "Error: #{inspect(reason)}"}],
+               "isError" => true
+             })}
+        end
     end
   end
 

@@ -14,7 +14,7 @@ Agent-facing detail lives in [`priv/skills/deployment.md`](../priv/skills/deploy
 
 ```bash
 cp .env.example .env
-# optional: set LLM keys, ACS_PASSWORD
+# configure Auth0 web credentials; optionally set LLM keys
 docker compose up -d
 # or: mix phx.server  (loads .env via config/runtime.exs)
 ```
@@ -27,8 +27,8 @@ docker compose up -d
 
 ```bash
 cp .env.multitenant .env
-# fill SECRET_KEY_BASE, MCP_API_KEY, ACS_PASSWORD, Syncthing keys, Auth0 as needed
-# set ACS_ORG_DASHBOARD_CREDS for non-default org dashboard logins
+# fill SECRET_KEY_BASE, MCP_API_KEY, Auth0 web credentials, Syncthing keys, and MCP OAuth as needed
+# register https://${ACCOUNT_HOST}/auth/callback in the Auth0 Regular Web Application
 docker compose -f docker-compose.multitenant.yml up -d
 ```
 
@@ -48,7 +48,7 @@ SERVER=ubuntu@YOUR_HOST ./scripts/backup-prod.sh
 | Image | `naharemete/steward_acs:${ACS_IMAGE_TAG:-multitenant}` |
 | DB (default) | SQLite at `/data/steward.sqlite` |
 | Memory | Obsidian vaults under `/vaults` |
-| Auth | API key + optional Auth0 OAuth; dashboard basic auth (+ per-org JSON) |
+| Auth | API/developer keys for services; Auth0 OIDC for individual dashboard users and human MCP access |
 | Syncthing admin | **Not** on public HTTPS — SSH tunnel to `127.0.0.1:8384` |
 
 ### Postgres override (planned prod migration)
@@ -72,6 +72,22 @@ docker compose -f docker-compose.multitenant.yml exec steward_acs \
 ```bash
 docker cp priv/orgs.yaml steward_acs:/data/orgs.yaml
 ```
+
+After deploying the organization migration, import that registry into the database before enabling OAuth-only access:
+
+```bash
+docker compose -f docker-compose.multitenant.yml exec steward_acs \
+  /app/bin/steward_acs eval 'Acs.Release.import_organizations()'
+```
+
+Have each existing organization owner sign in once on `ACCOUNT_HOST`, then bootstrap the verified OAuth identity and invalidate the old shared-login workflow:
+
+```bash
+docker compose -f docker-compose.multitenant.yml exec steward_acs \
+  /app/bin/steward_acs eval 'Acs.Release.bootstrap_owner("owner@example.com", "org-slug")'
+```
+
+Keep `SELF_SERVICE_ORGS_ENABLED=false` until imports, owner bootstrap, wildcard DNS/TLS, and Auth0 callback settings are verified. New invitations initially expose a single-use link to the administrator for delivery; only the hash is stored.
 
 ### Axiom observability
 

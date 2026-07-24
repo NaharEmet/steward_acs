@@ -324,8 +324,8 @@ defmodule Acs.MCP.ToolRegistry do
   def handle_call({:register_tool, tool_def}, _from, state) do
     name = tool_def["name"]
 
-    if Map.has_key?(state.tools, name) do
-      {:reply, {:error, "Tool '#{name}' already exists"}, state}
+    if Map.has_key?(state.tools, name) or Acs.MCP.Tools.has_tool?(name) do
+      {:reply, {:error, "Tool '#{name}' already exists or is reserved"}, state}
     else
       new_tools = Map.put(state.tools, name, tool_def)
       category = tool_def["category"] || "uncategorized"
@@ -366,8 +366,8 @@ defmodule Acs.MCP.ToolRegistry do
 
         name = tool_def["name"]
 
-        if Map.has_key?(state.tools, name) do
-          {:reply, {:error, "Tool '#{name}' already registered"}, state}
+        if Map.has_key?(state.tools, name) or Acs.MCP.Tools.has_tool?(name) do
+          {:reply, {:error, "Tool '#{name}' already registered or is reserved"}, state}
         else
           new_tools = Map.put(state.tools, name, tool_def)
           category = tool_def["category"] || "requested"
@@ -564,26 +564,18 @@ defmodule Acs.MCP.ToolRegistry do
     end
   end
 
-  defp check_permissions(_tool, _name, nil), do: :ok
-  defp check_permissions(_tool, _name, []), do: :ok
+  defp check_permissions(tool, name, agent_permissions) do
+    required = tool["permissions"] || []
+    granted = if is_list(agent_permissions), do: agent_permissions, else: []
 
-  defp check_permissions(tool, name, agent_permissions) when is_list(agent_permissions) do
-    required = tool["permissions"]
-
-    cond do
-      is_nil(required) or required == [] ->
+    case Enum.reject(required, &(&1 in granted)) do
+      [] ->
         :ok
 
-      Enum.all?(required, fn perm -> perm in agent_permissions end) ->
-        :ok
-
-      true ->
-        missing = Enum.reject(required, fn perm -> perm in agent_permissions end)
+      missing ->
         {:error, "Missing required permissions for '#{name}': #{Enum.join(missing, ", ")}"}
     end
   end
-
-  defp check_permissions(_tool, _name, _agent_permissions), do: :ok
 
   defp load_tools(state) do
     case Acs.MCP.ToolLoader.load_all() do
@@ -598,7 +590,20 @@ defmodule Acs.MCP.ToolRegistry do
             {state.tools, state.by_app, state.by_category, state.apps, state.apps_meta},
             fn {app_name, app_config},
                {tools_acc, by_app_acc, by_cat_acc, apps_acc, apps_meta_acc} ->
-              tool_defs = Acs.MCP.ToolLoader.to_mcp_tools(app_config)
+              tool_defs =
+                app_config
+                |> Acs.MCP.ToolLoader.to_mcp_tools()
+                |> Enum.reject(fn tool ->
+                  reserved = Acs.MCP.Tools.has_tool?(tool["name"])
+
+                  if reserved,
+                    do:
+                      Logger.warning(
+                        "Ignoring YAML tool with reserved core name '#{tool["name"]}'"
+                      )
+
+                  reserved
+                end)
 
               # Index by name
               tools_acc =

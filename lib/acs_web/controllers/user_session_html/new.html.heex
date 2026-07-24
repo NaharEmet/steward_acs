@@ -1,40 +1,20 @@
 <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;">
   <div class="card" style="width: 100%; max-width: 420px; padding: 32px;">
-  <div class="section-header" style="margin-bottom: 24px;">
-    <div>
-      <h1 class="section-title" style="font-size: 1.5rem;">Steward</h1>
-      <p class="text-dim" style="margin-top: 8px; font-size: 0.9rem;">Sign in to Steward.</p>
+    <div class="section-header" style="margin-bottom: 24px;">
+      <div>
+        <h1 class="section-title" style="font-size: 1.5rem;">Steward</h1>
+        <p class="text-dim" style="margin-top: 8px; font-size: 0.9rem;">Sign in to Steward.</p>
+      </div>
     </div>
-  </div>
 
-  <.flash_group flash={@flash} />
+    <.flash_group flash={@flash} />
 
-  <.form for={%{}} as={:user} action={~p"/users/log_in"} method="post" style="display: flex; flex-direction: column; gap: 16px;">
-    <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-    <div>
-      <label for="user_username" class="text-dim" style="display: block; font-size: 0.75rem; margin-bottom: 8px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em;">Username</label>
-      <input
-        type="text"
-        name="user[username]"
-        id="user_username"
-        required
-        autocomplete="username"
-        placeholder="admin"
-        style="width: 100%; padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-body);"
-      />
-    </div>
-    <div>
-      <label for="user_password" class="text-dim" style="display: block; font-size: 0.75rem; margin-bottom: 8px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em;">Password</label>
-      <input
-        type="password"
-        name="user[password]"
-        id="user_password"
-        required
-        autocomplete="current-password"
-        style="width: 100%; padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-body);"
-      />
-    </div>
-    <button type="submit" class="btn btn-primary" style="width: 100%;">Sign in</button>
-  </.form>
+    <%= if @oidc_enabled do %>
+      <a href={~p"/auth/log_in"} class="btn btn-primary" style="display: block; width: 100%; text-align: center;">
+        Continue with Auth0
+      </a>
+    <% else %>
+      <p class="text-dim">Browser sign in is not configured. Contact an administrator.</p>
+    <% end %>
   </div>
 </div>

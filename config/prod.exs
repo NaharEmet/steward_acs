@@ -14,8 +14,7 @@ if repo_adapter == Ecto.Adapters.Postgres do
 
   # DATABASE_URL overrides these individual settings at runtime; only enforce
   # when falling back to PGPASSWORD.
-  if config_env() == :prod and is_nil(System.get_env("DATABASE_URL")) and
-       pgpassword == "postgres" do
+  if config_env() == :prod and is_nil(System.get_env("DATABASE_URL")) and pgpassword == "postgres" do
     raise "PGPASSWORD must not be the default 'postgres' in production"
   end
 

@@ -29,6 +29,17 @@ defmodule Acs.MCP.OAuth.Management do
     end
   end
 
+  @doc """
+  Patch an Auth0 user's application metadata without modifying other user fields.
+
+  Returns `{:ok, user_map}` on success or `{:error, reason}`.
+  """
+  def patch_app_metadata(user_id, metadata) when is_binary(user_id) and is_map(metadata) do
+    with {:ok, token} <- get_management_token() do
+      do_patch_app_metadata(token, user_id, metadata)
+    end
+  end
+
   defp management_api_url do
     domain = Config.domain()
     "https://#{domain}/api/v2/"
@@ -47,35 +58,42 @@ defmodule Acs.MCP.OAuth.Management do
     Application.get_env(:steward_acs, :auth0_mgmt_client_secret)
   end
 
-  defp configured? do
-    is_binary(client_id()) and client_id() != "" and
-      is_binary(client_secret()) and client_secret() != ""
+  defp management_config do
+    cond do
+      not is_binary(Config.domain()) or Config.domain() == "" ->
+        {:error, :auth0_domain_not_configured}
+
+      not is_binary(client_id()) or client_id() == "" or
+        not is_binary(client_secret()) or client_secret() == "" ->
+        {:error, :auth0_management_not_configured}
+
+      true ->
+        :ok
+    end
   end
 
   defp get_management_token do
-    unless configured?() do
-      raise "AUTH0_MGMT_CLIENT_ID and AUTH0_MGMT_CLIENT_SECRET must be configured"
-    end
+    with :ok <- management_config() do
+      url = token_url()
+      audience = "https://#{Config.domain()}/api/v2/"
 
-    url = token_url()
-    audience = "https://#{Config.domain()}/api/v2/"
+      body = %{
+        client_id: client_id(),
+        client_secret: client_secret(),
+        audience: audience,
+        grant_type: "client_credentials"
+      }
 
-    body = %{
-      client_id: client_id(),
-      client_secret: client_secret(),
-      audience: audience,
-      grant_type: "client_credentials"
-    }
+      case Req.post(url, json: body, receive_timeout: 10_000) do
+        {:ok, %{status: 200, body: %{"access_token" => token}}} ->
+          {:ok, token}
 
-    case Req.post(url, json: body, receive_timeout: 10_000) do
-      {:ok, %{status: 200, body: %{"access_token" => token}}} ->
-        {:ok, token}
+        {:ok, %{status: status, body: body}} ->
+          {:error, "Auth0 token request failed: HTTP #{status} #{inspect(body)}"}
 
-      {:ok, %{status: status, body: body}} ->
-        {:error, "Auth0 token request failed: HTTP #{status} #{inspect(body)}"}
-
-      {:error, reason} ->
-        {:error, "Auth0 token request failed: #{inspect(reason)}"}
+        {:error, reason} ->
+          {:error, "Auth0 token request failed: #{inspect(reason)}"}
+      end
     end
   end
 
@@ -99,13 +117,15 @@ defmodule Acs.MCP.OAuth.Management do
         email: email,
         name: name,
         connection: connection,
-        email_verified: true,
+        email_verified: false,
         app_metadata: %{
           role: role,
           org: org
         }
       }
-      |> then(fn b -> if effective_password, do: Map.put(b, :password, effective_password), else: b end)
+      |> then(fn b ->
+        if effective_password, do: Map.put(b, :password, effective_password), else: b
+      end)
 
     case Req.post(url, json: body, headers: headers, receive_timeout: 15_000) do
       {:ok, %{status: 201, body: user}} when is_map(user) ->
@@ -119,6 +139,30 @@ defmodule Acs.MCP.OAuth.Management do
 
       {:error, reason} ->
         {:error, "Auth0 create user failed: #{inspect(reason)}"}
+    end
+  end
+
+  defp do_patch_app_metadata(token, user_id, metadata) do
+    url = management_api_url() <> "users/" <> URI.encode(user_id, &URI.char_unreserved?/1)
+
+    headers = [
+      {"authorization", "Bearer #{token}"},
+      {"content-type", "application/json"}
+    ]
+
+    case Req.patch(url,
+           json: %{app_metadata: metadata},
+           headers: headers,
+           receive_timeout: 15_000
+         ) do
+      {:ok, %{status: 200, body: user}} when is_map(user) ->
+        {:ok, format_user(user)}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "Auth0 patch user metadata failed: HTTP #{status} #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, "Auth0 patch user metadata failed: #{inspect(reason)}"}
     end
   end
 

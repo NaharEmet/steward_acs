@@ -34,7 +34,7 @@ defmodule Acs.MCP.Plugs.Strategies.Developer do
              %{
                role: result.role,
                org_id: key_org,
-               permissions: ["mcp:cross_org_analysis"],
+               permissions: [],
                agent_identity: result.developer_name,
                allowed_teams: result[:allowed_teams],
                allowed_projects: result[:allowed_projects]

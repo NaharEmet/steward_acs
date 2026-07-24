@@ -50,12 +50,12 @@ defmodule Acs.TenantIsolationTest do
     assert Indexer.get_memory("shared", "org-b").content == "content for org-b"
   end
 
-  test "session token is rejected by another org" do
+  test "session identity is global and tenant authorization is enforced separately" do
     {:ok, user} = Acs.Accounts.register_user(%{email: "admin@example.test", org: "org-a"})
     token = Acs.Accounts.generate_user_session_token(user)
 
     assert Acs.Accounts.get_user_by_session_token(token, "org-a").id == user.id
-    assert Acs.Accounts.get_user_by_session_token(token, "org-b") == nil
+    assert Acs.Accounts.get_user_by_session_token(token, "org-b").id == user.id
   end
 
   defp memory(org, id) do
