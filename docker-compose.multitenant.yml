@@ -64,6 +64,7 @@ services:
       AUTH0_MGMT_CLIENT_ID: "${AUTH0_MGMT_CLIENT_ID:-}"
       AUTH0_MGMT_CLIENT_SECRET: "${AUTH0_MGMT_CLIENT_SECRET:-}"
       AUTH0_CONNECTION: "${AUTH0_CONNECTION:-email}"
+      OAUTH_FIXED_DCR_CLIENT_ID: "${OAUTH_FIXED_DCR_CLIENT_ID:-}"
       MCP_PUBLIC_URL: "${MCP_PUBLIC_URL:-https://prod.stewardacs.xyz}"
       MCP_RESOURCE_URL: "${MCP_RESOURCE_URL:-https://prod.stewardacs.xyz/mcp/sse}"
       ACCOUNT_HOST: "${ACCOUNT_HOST:-stewardacs.xyz}"

@@ -75,6 +75,9 @@ defmodule AcsWeb.Endpoint do
 
   defp route_mcp_or_dashboard(conn, _opts) do
     cond do
+      conn.method == "POST" and conn.request_path == "/oidc/register" ->
+        Acs.MCP.OAuth.DCR.call(conn, [])
+
       String.starts_with?(conn.request_path, "/.well-known/oauth-protected-resource") ->
         Acs.MCP.OAuth.WellKnown.call(conn, [])
 

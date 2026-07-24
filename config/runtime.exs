@@ -183,6 +183,10 @@ if auth0_domain = System.get_env("AUTH0_DOMAIN") do
   config :steward_acs, :auth0_domain, auth0_domain
 end
 
+if fixed_dcr = System.get_env("OAUTH_FIXED_DCR_CLIENT_ID") do
+  config :steward_acs, :oauth_fixed_dcr_client_id, fixed_dcr
+end
+
 if auth0_audience = System.get_env("AUTH0_AUDIENCE") do
   config :steward_acs, :auth0_audience, auth0_audience
 end

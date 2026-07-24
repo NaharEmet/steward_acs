@@ -126,6 +126,18 @@ defmodule Acs.MCP.OAuth.Config do
     Application.get_env(:steward_acs, :auth0_scopes, ["mcp:tools"])
   end
 
+  @doc """
+  Fixed Auth0 application client_id returned from `/oidc/register`.
+  Prevents Claude DCR from creating a new third-party app on every connect.
+  """
+  @spec fixed_dcr_client_id() :: String.t() | nil
+  def fixed_dcr_client_id do
+    case Application.get_env(:steward_acs, :oauth_fixed_dcr_client_id) do
+      id when is_binary(id) and id != "" -> id
+      _ -> nil
+    end
+  end
+
   defp public_base_url(%Plug.Conn{} = conn) do
     if host_aware_oauth?(conn), do: "https://#{conn.host}", else: public_base_url(nil)
   end

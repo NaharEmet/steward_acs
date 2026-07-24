@@ -27,15 +27,9 @@
         redir https://{$AUTH0_DOMAIN}{path}?audience=https%3A%2F%2F{host}%2Fmcp%2Fsse&connection=email&{query}
     }
 
-    # DCR: Dynamic Client Registration proxy to Auth0
-    @dcr {
-        method POST
-        path /oidc/register
-    }
-    handle @dcr {
-        rewrite * /oidc/register
-        reverse_proxy https://{$AUTH0_DOMAIN}
-    }
+    # DCR: fall through to ACS (fixed client via OAUTH_FIXED_DCR_CLIENT_ID).
+    # Do not proxy /oidc/register to Auth0 — that creates a new third-party app
+    # on every Claude connect until the tenant hits too_many_entities.
 }
 
 # Wildcard TLS — origin cert must cover *.{$BASE_DOMAIN}
