@@ -42,6 +42,31 @@ defmodule Acs.Repo.Migrations.CreateOrganizationMembershipSystem do
 
     execute("UPDATE users SET normalized_email = LOWER(TRIM(email)) WHERE email IS NOT NULL")
 
+    # Prod may already have duplicate emails across orgs (unique was email+org).
+    # Prefer the earliest user id; drop orphan tokens for removed rows.
+    execute("""
+    DELETE FROM users_tokens
+    WHERE user_id IN (
+      SELECT u.id FROM users u
+      WHERE u.normalized_email IS NOT NULL
+        AND u.id NOT IN (
+          SELECT MIN(u2.id) FROM users u2
+          WHERE u2.normalized_email IS NOT NULL
+          GROUP BY u2.normalized_email
+        )
+    )
+    """)
+
+    execute("""
+    DELETE FROM users
+    WHERE normalized_email IS NOT NULL
+      AND id NOT IN (
+        SELECT MIN(id) FROM users
+        WHERE normalized_email IS NOT NULL
+        GROUP BY normalized_email
+      )
+    """)
+
     execute("""
     UPDATE users
     SET organization_id = (
