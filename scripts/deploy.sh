@@ -78,7 +78,7 @@ COMPOSE_ARGS=(-f "${COMPOSE_FILE}")
 if [[ "${WITH_POSTGRES:-false}" == "true" ]]; then
   COMPOSE_ARGS+=(-f docker-compose.postgres.yml)
 fi
-COMPOSE_ARGS_STR="${COMPOSE_ARGS[*]}"
+WITH_POSTGRES="${WITH_POSTGRES:-false}"
 
 # --- build + push (deploy / push-only) ---
 if [[ "$MODE" == "deploy" || "$MODE" == "push-only" ]]; then
@@ -119,20 +119,22 @@ if [[ "$MODE" != "rollback" ]]; then
 fi
 
 # --- single remote cutover (pull/up/caddy/health) ---
+# Pass flags as separate argv (never a leading "-f …" string — ssh/bash can resplit it).
 # shellcheck disable=SC2029
 CUTOVER=$(ssh "${SERVER}" bash -s -- \
-  "$MODE" "$REMOTE_DIR" "$COMPOSE_FILE" "$COMPOSE_ARGS_STR" "${ACS_IMAGE_TAG:-}" <<'REMOTE'
+  "$MODE" "$REMOTE_DIR" "$COMPOSE_FILE" "$WITH_POSTGRES" "${ACS_IMAGE_TAG:-}" <<'REMOTE'
 set -euo pipefail
 MODE="$1"
 REMOTE_DIR="$2"
 COMPOSE_FILE="$3"
-# intentionally unquoted split of compose args from laptop
-COMPOSE_ARGS_STR="$4"
+WITH_POSTGRES="$4"
 ACS_IMAGE_TAG="${5:-}"
 
 cd "$REMOTE_DIR"
-# shellcheck disable=SC2206
-COMPOSE_ARGS=($COMPOSE_ARGS_STR)
+COMPOSE_ARGS=(-f "$COMPOSE_FILE")
+if [[ "$WITH_POSTGRES" == "true" ]]; then
+  COMPOSE_ARGS+=(-f docker-compose.postgres.yml)
+fi
 
 env_get() {
   local key="$1"
@@ -172,8 +174,8 @@ case "$MODE" in
     ;;
 esac
 
-# Remember previous pin before overwriting (skip if same tag).
-if [[ -n "${current_tag:-}" && "$current_tag" != "$ACS_IMAGE_TAG" ]]; then
+# Remember previous pin before overwriting (skip if same tag / garbage).
+if [[ -n "${current_tag:-}" && "$current_tag" != "$ACS_IMAGE_TAG" && "$current_tag" != *.yml && "$current_tag" != *.yaml ]]; then
   env_set ACS_IMAGE_TAG_PREV "$current_tag"
 fi
 env_set ACS_IMAGE_TAG "$ACS_IMAGE_TAG"
