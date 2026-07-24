@@ -6,12 +6,21 @@ defmodule AcsWeb.Plugs.ResolveOrg do
   def call(conn, _opts) do
     :ok = Acs.Org.clear_request_org()
 
-    if Acs.Org.multi_tenant?() do
-      resolve_multitenant_host(conn)
-    else
-      assign_account_tenant(conn, Acs.Org.configured())
+    cond do
+      # Container / LB probes hit Host: localhost with no tenant subdomain.
+      health_check?(conn) ->
+        assign_account_tenant(conn, Acs.Org.configured())
+
+      Acs.Org.multi_tenant?() ->
+        resolve_multitenant_host(conn)
+
+      true ->
+        assign_account_tenant(conn, Acs.Org.configured())
     end
   end
+
+  defp health_check?(%{method: "GET", request_path: "/mcp/health"}), do: true
+  defp health_check?(_), do: false
 
   defp resolve_multitenant_host(conn) do
     if account_host?(conn.host) do

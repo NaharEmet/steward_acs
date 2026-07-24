@@ -76,4 +76,14 @@ defmodule AcsWeb.Plugs.ResolveOrgTest do
     assert %Plug.Conn{halted: true, status: 404, resp_body: "unknown org"} = result
     assert result.assigns.host_type == :unknown
   end
+
+  test "allows /mcp/health on localhost without a tenant host" do
+    result =
+      Plug.Test.conn(:get, "/mcp/health")
+      |> Map.put(:host, "localhost")
+      |> ResolveOrg.call([])
+
+    refute result.halted
+    assert result.assigns.host_type == :account_tenant
+  end
 end
