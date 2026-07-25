@@ -492,6 +492,11 @@ defmodule Acs.MCP.HTTPServer do
 
             conn |> send_resp(202, "")
 
+          # MCP notifications (e.g. notifications/initialized) have no JSON-RPC reply.
+          # Emitting `data: null` on the SSE stream breaks Cursor's Zod parser.
+          {:ok, nil} ->
+            conn |> send_resp(202, "")
+
           {:ok, response} ->
             Logger.debug("MCP SSE: response=#{inspect(response)}")
             Acs.MCP.SSESessionManager.send_response(session_id, response)
@@ -518,6 +523,10 @@ defmodule Acs.MCP.HTTPServer do
 
   defp sse_loop(conn, session_id) do
     receive do
+      # Defense: never write `data: null` — Cursor rejects it as invalid JSON-RPC.
+      {:send_response, nil} ->
+        sse_loop(conn, session_id)
+
       {:send_response, response} ->
         case chunk(conn, "event: message\ndata: #{Jason.encode!(response)}\n\n") do
           {:ok, conn} -> sse_loop(conn, session_id)

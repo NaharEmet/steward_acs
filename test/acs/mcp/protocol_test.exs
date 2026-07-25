@@ -100,5 +100,15 @@ defmodule Acs.MCP.ProtocolTest do
 
       assert {:ok, %{"result" => %{"protocolVersion" => _}}} = Protocol.handle_message(msg, nil)
     end
+
+    test "notifications/initialized has no JSON-RPC response body" do
+      msg = %{
+        "jsonrpc" => "2.0",
+        "method" => "notifications/initialized",
+        "params" => %{}
+      }
+
+      assert {:ok, nil} = Protocol.handle_message(msg, nil)
+    end
   end
 end

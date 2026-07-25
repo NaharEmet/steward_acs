@@ -41,6 +41,30 @@ defmodule Acs.MCP.SSESessionManagerTest do
     assert Process.alive?(Process.whereis(SSESessionManager))
   end
 
+  test "send_response/3 skips nil so SSE never emits data:null" do
+    org = "sse-session-manager-test"
+    session_id = "session-#{System.unique_integer([:positive])}"
+    parent = self()
+
+    session =
+      spawn(fn ->
+        receive do
+          msg -> send(parent, {:got, msg})
+        after
+          200 -> send(parent, :timeout)
+        end
+      end)
+
+    on_exit(fn ->
+      SSESessionManager.unregister(session_id, org)
+      Process.exit(session, :kill)
+    end)
+
+    SSESessionManager.register(session_id, session, org)
+    assert :ok = SSESessionManager.send_response(session_id, nil, org)
+    assert_receive :timeout, 500
+  end
+
   test "replacing a session demonitor its previous process" do
     org = "sse-session-manager-test"
     session_id = "session-#{System.unique_integer([:positive])}"

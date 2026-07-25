@@ -26,7 +26,12 @@ defmodule Acs.MCP.SSESessionManager do
     GenServer.call(__MODULE__, {:alive?, {org, session_id}})
   end
 
-  def send_response(session_id, response, org \\ Acs.Org.current()) do
+  def send_response(session_id, response, org \\ Acs.Org.current())
+
+  # Notifications return nil — do not enqueue an SSE message (would become `data: null`).
+  def send_response(_session_id, nil, _org), do: :ok
+
+  def send_response(session_id, response, org) when is_map(response) do
     GenServer.cast(__MODULE__, {:send_response, {org, session_id}, response})
   end
 
