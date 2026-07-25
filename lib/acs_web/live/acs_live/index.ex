@@ -22,6 +22,7 @@ defmodule AcsWeb.AcsLive.Index do
         locked_files: [],
         agent_status: %{},
         selected_status: "all",
+        can_reset_data: admin_user?(socket.assigns[:current_user]),
         pending_requests_count: Acs.MCP.ToolRequests.pending_count()
       )
       |> load_data()
@@ -50,10 +51,17 @@ defmodule AcsWeb.AcsLive.Index do
 
   @impl true
   def handle_event("reset-all", _, socket) do
-    Acs.reset_all()
-    socket = put_flash(socket, :info, "All Steward data has been reset.")
-    socket = load_data(socket)
-    {:noreply, socket}
+    if admin_user?(socket.assigns[:current_user]) do
+      Acs.reset_all()
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "All Steward task, lock, and agent data has been reset.")
+       |> load_data()}
+    else
+      {:noreply,
+       put_flash(socket, :error, "Only organization administrators can reset workspace data.")}
+    end
   end
 
   @impl true
@@ -153,6 +161,38 @@ defmodule AcsWeb.AcsLive.Index do
   def render(assigns) do
     ~H"""
     <div class="acs-dashboard">
+      <section class="account-intro animate-in" aria-labelledby="dashboard-title">
+        <p class="account-kicker"><span>Workspace</span> / Live operations</p>
+        <h1 id="dashboard-title">Workspace overview</h1>
+        <p>Monitor connected agents, active work, and file coordination in one place.</p>
+      </section>
+
+      <%= if Enum.empty?(@agent_status) and Enum.empty?(@tasks) and Enum.empty?(@locked_files) do %>
+        <section class="card animate-in delay-1" style="padding: 28px; margin-bottom: 28px;" aria-labelledby="getting-started-title">
+          <div class="account-card-heading">
+            <div>
+              <p class="account-kicker">Getting started</p>
+              <h2 id="getting-started-title">Connect your first agent</h2>
+            </div>
+            <span class="coordinate-mark" aria-hidden="true">01 / 03</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
+            <div class="card-elevated" style="padding: 16px;">
+              <strong>1. Configure MCP</strong>
+              <p class="text-dim" style="font-size: 0.8rem; margin-top: 6px;">Point your MCP-compatible client at this workspace’s <code>/mcp/sse</code> endpoint.</p>
+            </div>
+            <div class="card-elevated" style="padding: 16px;">
+              <strong>2. Verify tools</strong>
+              <p class="text-dim" style="font-size: 0.8rem; margin-top: 6px;">Confirm the tools your agent can use before it starts work.</p>
+              <.link navigate="/tools" class="text-accent" style="display: inline-block; font-size: 0.8rem; margin-top: 8px;">View tools →</.link>
+            </div>
+            <div class="card-elevated" style="padding: 16px;">
+              <strong>3. Start a task</strong>
+              <p class="text-dim" style="font-size: 0.8rem; margin-top: 6px;">Agent activity, tasks, and file locks will appear here automatically.</p>
+            </div>
+          </div>
+        </section>
+      <% end %>
 
       <!-- Agent Status Section -->
       <section style="margin-bottom: 28px;">
@@ -160,14 +200,6 @@ defmodule AcsWeb.AcsLive.Index do
           <span class="status-dot working"></span>
           <h2 class="section-title">Active Agents</h2>
           <span class="section-count">(<%= map_size(@agent_status) %>)</span>
-          <button
-            phx-click="reset-all"
-            data-confirm="This will permanently delete all Steward tasks, file locks, and agent statuses. Are you sure?"
-            class="btn btn-danger"
-            style="padding: 4px 12px; font-size: 0.7rem; margin-left: auto;"
-          >
-            Reset All
-          </button>
         </div>
 
         <%= if Enum.empty?(@agent_status) do %>
@@ -266,7 +298,15 @@ defmodule AcsWeb.AcsLive.Index do
               <%= if Enum.empty?(@tasks) do %>
                 <div class="empty-state" style="padding: 32px;">
                   <div class="empty-state-icon">○</div>
-                  <p class="empty-state-title">No tasks found</p>
+                  <p class="empty-state-title">
+                    <%= if @selected_status == "all", do: "No tasks yet", else: "No #{@selected_status |> String.replace("_", " ")} tasks" %>
+                  </p>
+                  <p class="empty-state-desc">
+                    <%= if @selected_status == "all", do: "Tasks appear here when connected agents create work.", else: "No tasks match the current status filter." %>
+                  </p>
+                  <%= if @selected_status != "all" do %>
+                    <button phx-click="filter-status" phx-value-status="all" class="btn btn-ghost" style="margin-top: 14px;">Clear filter</button>
+                  <% end %>
                 </div>
               <% else %>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -344,9 +384,38 @@ defmodule AcsWeb.AcsLive.Index do
         </section>
 
       </div>
+
+      <%= if @can_reset_data do %>
+        <section style="margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--border);" aria-labelledby="workspace-actions-title">
+          <div class="section-header" style="align-items: flex-start;">
+            <div>
+              <h2 id="workspace-actions-title" class="section-title">Workspace data</h2>
+              <p class="text-dim" style="font-size: 0.8rem; margin-top: 5px;">Administrative recovery actions. Resetting removes every task, file lock, and agent status in this workspace.</p>
+            </div>
+            <button
+              phx-click="reset-all"
+              data-confirm="Permanently delete all tasks, file locks, and agent statuses in this workspace? This cannot be undone."
+              class="btn btn-danger"
+              style="margin-left: auto;"
+            >
+              Reset workspace data
+            </button>
+          </div>
+        </section>
+      <% end %>
     </div>
     """
   end
+
+  defp admin_user?(user) when is_map(user) do
+    role =
+      Map.get(user, :org_role) || Map.get(user, "org_role") || Map.get(user, :role) ||
+        Map.get(user, "role")
+
+    role in ["owner", "admin"]
+  end
+
+  defp admin_user?(_user), do: false
 
   # Status helpers
   defp status_dot_class("working"), do: "status-dot working"
