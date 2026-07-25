@@ -35,7 +35,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         quarantined_count: 0,
         review_count: 0,
         selected_memory: nil,
-        status_filter: nil,
+        status_filter: "proposed",
         kind_filter: nil,
         search_query: "",
         conflict_alerts: %{}
@@ -52,10 +52,18 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
     status_filter =
       case view do
-        "quarantined" -> "parse_error"
-        "rejected" -> "rejected"
-        "all" -> "all"
-        _ -> nil
+        "pending" ->
+          "proposed"
+
+        "quarantined" ->
+          "parse_error"
+
+        status
+        when status in ~w(all proposed approved stale rejected deprecated archived review) ->
+          status
+
+        _ ->
+          "proposed"
       end
 
     socket =
@@ -117,9 +125,20 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
   @impl true
   def handle_event("filter-status", %{"status" => status}, socket) do
-    filter = if status == "", do: nil, else: status
-    socket = assign(socket, status_filter: filter) |> load_data()
-    {:noreply, socket}
+    view =
+      case status do
+        "parse_error" ->
+          "quarantined"
+
+        status
+        when status in ~w(all proposed approved stale rejected deprecated archived review) ->
+          status
+
+        _ ->
+          "proposed"
+      end
+
+    {:noreply, push_patch(socket, to: "/memories?view=#{view}")}
   end
 
   @impl true
@@ -250,14 +269,9 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
     memories_opts =
       case status_filter do
-        nil ->
-          # Default: only proposed (pending approval)
-          Keyword.put(memories_opts, :status, "proposed")
-
         "all" ->
-          # Show only active/good memories — exclude rejected and quarantined
-          # The Indexer.list_memories accepts a list of statuses
-          Keyword.put(memories_opts, :status, ["approved", "proposed", "stale"])
+          # No status option means every indexed lifecycle state is included.
+          memories_opts
 
         "review" ->
           # Special: fetch memories needing human review — handled separately below
@@ -377,17 +391,17 @@ defmodule AcsWeb.AcsLive.MemoryLive do
             <div class="filter-tabs">
               <button
                 phx-click="filter-status"
-                phx-value-status=""
-                class={"filter-tab #{if is_nil(@status_filter), do: "active"}"}
-              >
-                All
-              </button>
-              <button
-                phx-click="filter-status"
                 phx-value-status="proposed"
                 class={"filter-tab #{if @status_filter == "proposed", do: "active"}"}
               >
-                Proposed
+                Pending
+              </button>
+              <button
+                phx-click="filter-status"
+                phx-value-status="all"
+                class={"filter-tab #{if @status_filter == "all", do: "active"}"}
+              >
+                All
               </button>
               <button
                 phx-click="filter-status"
@@ -419,6 +433,13 @@ defmodule AcsWeb.AcsLive.MemoryLive do
               </button>
               <button
                 phx-click="filter-status"
+                phx-value-status="parse_error"
+                class={"filter-tab #{if @status_filter == "parse_error", do: "active"}"}
+              >
+                Quarantined
+              </button>
+              <button
+                phx-click="filter-status"
                 phx-value-status="review"
                 class={"filter-tab #{if @status_filter == "review", do: "active"}"}
               >
@@ -446,8 +467,9 @@ defmodule AcsWeb.AcsLive.MemoryLive do
                 <div class="empty-state-icon">◈</div>
                 <p class="empty-state-title">
                   <%= case @status_filter do %>
-                    <% nil -> %>No memories pending approval
+                    <% "proposed" -> %>No memories pending approval
                     <% "all" -> %>No memories found
+                    <% "parse_error" -> %>No quarantined memories
                     <% "review" -> %>No memories need review
                     <% status -> %>No <%= status %> memories
                   <% end %>
