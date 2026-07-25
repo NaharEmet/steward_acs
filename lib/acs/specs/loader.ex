@@ -12,53 +12,49 @@ defmodule Acs.Specs.Loader do
   require Logger
 
   @doc """
-  Resolve the specs root directory.
+  Resolve the canonical specs write root.
 
-  Resolution order:
-  1. `SPECS_PATH` environment variable
-  2. Application config `:steward_acs, Acs.Specs.Loader, :specs_path`
-  3. Default: `../../../acs/specs` relative to ACS app dir
+  `SPECS_PATH` and `:specs_path` remain explicit overrides. Without either,
+  the root is `Acs.Org.specs_dir/1` in the canonical org vault.
   """
   def specs_path(org \\ nil)
 
+  def specs_path(nil), do: specs_path(Acs.Org.current())
+
   def specs_path(org) when is_binary(org) do
-    base =
-      System.get_env("SPECS_PATH") ||
-        Application.get_env(:steward_acs, Acs.Specs.Loader, [])
-        |> Keyword.get(:specs_path) ||
-        default_specs_path()
-
-    tenant_path(base, org)
+    explicit_specs_path(org) || Acs.Org.specs_dir(org)
   end
 
-  def specs_path(nil) do
-    base =
-      System.get_env("SPECS_PATH") ||
-        Application.get_env(:steward_acs, Acs.Specs.Loader, [])
-        |> Keyword.get(:specs_path) ||
-        default_specs_path()
-
-    tenant_path(base, Acs.Org.current())
+  defp explicit_specs_path(org) do
+    case System.get_env("SPECS_PATH") ||
+           Application.get_env(:steward_acs, Acs.Specs.Loader, []) |> Keyword.get(:specs_path) do
+      base when is_binary(base) and base != "" -> tenant_path(base, org)
+      _ -> nil
+    end
   end
-
-  defp tenant_path(base, org) when org == "default" or org == nil, do: base
 
   defp tenant_path(base, org) do
-    unless Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, org) do
+    unless Acs.Org.valid_slug?(org) do
       raise ArgumentError, "Invalid organization: #{inspect(org)}"
     end
 
     Path.join([base, "orgs", org])
   end
 
-  defp default_specs_path do
-    obsidian_path = Application.get_env(:steward_acs, :obsidian_vault_path)
+  defp bundled_specs_path do
+    Path.expand("../../../acs/specs", Application.app_dir(:steward_acs))
+  end
 
-    if is_binary(obsidian_path) and obsidian_path != "" do
-      Path.join(obsidian_path, "specs")
-    else
-      Path.expand("../../../acs/specs", Application.app_dir(:steward_acs))
-    end
+  defp specs_dirs do
+    [specs_path() | Acs.Org.legacy_specs_dirs() ++ [bundled_specs_path()]]
+    |> Enum.uniq()
+  end
+
+  defp legacy_spec_exists?(app, path) do
+    (Acs.Org.legacy_specs_dirs() ++ [bundled_specs_path()])
+    |> Enum.any?(fn root ->
+      Enum.any?([".yaml", ".yml", ".md"], &File.exists?(Path.join([root, app, path <> &1])))
+    end)
   end
 
   @doc """
@@ -84,7 +80,7 @@ defmodule Acs.Specs.Loader do
 
   @doc false
   def validate_app(app) when is_binary(app) do
-    if Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, app),
+    if app != "orgs" and Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, app),
       do: :ok,
       else: {:error, :invalid_app}
   end
@@ -95,7 +91,7 @@ defmodule Acs.Specs.Loader do
     with :ok <- validate_app(app),
          :ok <- validate_path(path),
          file = Path.expand(Path.join([specs_path(), app, "#{path}#{ext}"])),
-         true <- path_within_tenant_root?(file) do
+         true <- path_within_root?(file, specs_path()) do
       {:ok, file}
     else
       false -> {:error, :outside_specs_root}
@@ -113,30 +109,16 @@ defmodule Acs.Specs.Loader do
 
   defp validate_path(_), do: {:error, :invalid_path}
 
-  defp path_within_tenant_root?(path) do
-    root = Path.expand(specs_path())
+  defp path_within_specs_roots?(path) do
+    Enum.any?(specs_dirs(), &path_within_root?(path, &1))
+  end
+
+  defp path_within_root?(path, root) do
+    root = Path.expand(root)
     expanded = Path.expand(path)
     within_root = expanded == root or String.starts_with?(expanded, root <> "/")
 
-    within_root and path_without_symlinks?(root, Path.relative_to(expanded, root))
-  end
-
-  defp path_without_symlinks?(root, relative) do
-    result =
-      relative
-      |> Path.split()
-      |> Enum.reduce_while(root, fn segment, current ->
-        candidate = Path.join(current, segment)
-
-        case File.lstat(candidate) do
-          {:ok, %File.Stat{type: :symlink}} -> {:halt, false}
-          {:ok, _} -> {:cont, candidate}
-          {:error, :enoent} -> {:halt, true}
-          {:error, _} -> {:halt, false}
-        end
-      end)
-
-    result != false
+    within_root and Acs.Org.safe_path?(root, expanded)
   end
 
   @doc """
@@ -145,16 +127,19 @@ defmodule Acs.Specs.Loader do
   """
   def list(opts \\ []) do
     app = opts[:app]
-    base = Path.expand(specs_path())
 
     with :ok <- validate_app_filter(app) do
       results =
-        if is_nil(app) do
-          apps_dir(base)
-          |> Enum.flat_map(fn {sub_app, dir} -> list_in_dir(dir, sub_app) end)
-        else
-          list_in_dir(Path.join(base, app), app)
-        end
+        specs_dirs()
+        |> Enum.flat_map(fn base ->
+          if is_nil(app) do
+            apps_dir(base)
+            |> Enum.flat_map(fn {sub_app, dir} -> list_in_dir(dir, sub_app, base) end)
+          else
+            list_in_dir(Path.join(base, app), app, base)
+          end
+        end)
+        |> Enum.uniq_by(&{&1.app, &1.path})
 
       {:ok, results}
     end
@@ -167,10 +152,16 @@ defmodule Acs.Specs.Loader do
   Load a spec by app and module path. Returns `{:ok, %Entry{}}` or `{:error, reason}`.
   """
   def load(app, path) do
-    with {:ok, file} <- spec_file_path(app, path, ".yaml") do
-      case File.exists?(file) do
-        true -> load_file(file)
-        false -> {:error, :not_found}
+    with :ok <- validate_app(app),
+         :ok <- validate_path(path) do
+      specs_dirs()
+      |> Enum.flat_map(fn root ->
+        Enum.map([".yaml", ".yml", ".md"], fn ext -> Path.join([root, app, "#{path}#{ext}"]) end)
+      end)
+      |> Enum.find(&File.exists?/1)
+      |> case do
+        nil -> {:error, :not_found}
+        file -> load_file(file)
       end
     end
   end
@@ -181,7 +172,7 @@ defmodule Acs.Specs.Loader do
   def load_file(file_path) when is_binary(file_path) do
     file_path = Path.expand(file_path)
 
-    if path_within_tenant_root?(file_path) do
+    if path_within_specs_roots?(file_path) do
       ext = Path.extname(file_path) |> String.downcase()
 
       case ext do
@@ -276,15 +267,25 @@ defmodule Acs.Specs.Loader do
   Delete a spec file. Returns `:ok` or `{:error, reason}`.
   """
   def delete(app, path) do
-    with {:ok, file} <- spec_file_path(app, path, ".yaml") do
-      case File.exists?(file) do
-        true ->
+    with :ok <- validate_app(app),
+         :ok <- validate_path(path) do
+      file =
+        Enum.find_value([".yaml", ".yml", ".md"], fn ext ->
+          candidate = Path.expand(Path.join([specs_path(), app, path <> ext]))
+          if path_within_root?(candidate, specs_path()) and File.exists?(candidate), do: candidate
+        end)
+
+      cond do
+        file ->
           File.rm!(file)
           Logger.info("Deleted cognition spec: #{file}")
           Acs.broadcast(:specs_updated, %{app: app, id: path})
-          :ok
+          if legacy_spec_exists?(app, path), do: {:ok, :legacy_shadow}, else: :ok
 
-        false ->
+        legacy_spec_exists?(app, path) ->
+          {:error, :legacy_read_only}
+
+        true ->
           {:error, :not_found}
       end
     end
@@ -391,16 +392,16 @@ defmodule Acs.Specs.Loader do
   end
 
   # List .yaml and .yml files in a directory recursively
-  defp list_in_dir(dir, app) do
-    if path_within_tenant_root?(dir) do
+  defp list_in_dir(dir, app, root) do
+    if path_within_root?(dir, root) do
       yaml_pattern = Path.join(dir, "**/*.yaml")
       yml_pattern = Path.join(dir, "**/*.yml")
       md_pattern = Path.join(dir, "**/*.md")
 
       (Path.wildcard(yaml_pattern) ++ Path.wildcard(yml_pattern) ++ Path.wildcard(md_pattern))
-      |> Enum.filter(&path_within_tenant_root?/1)
+      |> Enum.filter(&path_within_root?(&1, root))
       |> Enum.map(fn file ->
-        relative = Path.relative_to(file, Path.join(specs_path(), app))
+        relative = Path.relative_to(file, Path.join(root, app))
         ext = Path.extname(relative)
         path = relative |> String.replace_suffix(ext, "")
         %{app: app, path: path, file_path: file, relative_path: relative, ext: ext}
@@ -416,7 +417,7 @@ defmodule Acs.Specs.Loader do
         entries
         |> Enum.map(fn name -> {name, Path.join(base, name)} end)
         |> Enum.filter(fn {_name, dir} -> File.dir?(dir) end)
-        |> Enum.reject(fn {name, _dir} -> name == "quarantine" end)
+        |> Enum.reject(fn {name, _dir} -> name in ["quarantine", "orgs"] end)
 
       {:error, _} ->
         []
@@ -428,7 +429,7 @@ defmodule Acs.Specs.Loader do
     quarantine_dir = Path.join([specs_path(), "quarantine"])
     dest = Path.join(quarantine_dir, Path.basename(file_path))
 
-    if path_within_tenant_root?(dest) do
+    if path_within_root?(file_path, specs_path()) and path_within_root?(dest, specs_path()) do
       try do
         File.mkdir_p!(quarantine_dir)
         File.cp!(file_path, dest)
@@ -439,7 +440,9 @@ defmodule Acs.Specs.Loader do
           Logger.error("Failed to quarantine #{file_path}: #{Exception.message(e)}")
       end
     else
-      Logger.error("Refusing to quarantine outside tenant specs root: #{file_path}")
+      Logger.warning(
+        "Refusing to quarantine non-canonical spec: #{file_path} (reason: #{reason})"
+      )
     end
   end
 

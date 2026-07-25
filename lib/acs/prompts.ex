@@ -1,7 +1,7 @@
 defmodule Acs.Prompts do
   @moduledoc """
   Loads editable prompt and instruction files from `priv/prompts/` or the
-  Obsidian vault (`<vault>/prompts/`). Vault paths take priority so humans
+  Obsidian vault (`<vault>/orgs/<org>/prompts/`). Vault paths take priority so humans
   can edit prompts in Obsidian and have agents pick them up on the next read.
   """
 
@@ -27,26 +27,27 @@ defmodule Acs.Prompts do
   def instructions(category), do: load(category, "instructions")
 
   defp candidate_paths(category, name) do
-    file = "#{name}.md"
-    primary = Path.join([prompts_dir(), category, file])
-    builtin = Path.join([Application.app_dir(:steward_acs), "priv/prompts", category, file])
+    if safe_segment?(category) and safe_segment?(name) do
+      file = "#{name}.md"
+      builtin = Path.join([Application.app_dir(:steward_acs), "priv/prompts"])
 
-    Enum.uniq([primary, builtin])
-  end
-
-  defp prompts_dir do
-    obsidian = Application.get_env(:steward_acs, :obsidian_vault_path)
-    org = Acs.Org.current()
-
-    cond do
-      Acs.Org.multi_tenant?() and is_binary(obsidian) and obsidian != "" ->
-        Path.join([obsidian, org, "prompts"])
-
-      is_binary(obsidian) and obsidian != "" ->
-        Path.join(obsidian, "prompts")
-
-      true ->
-        Path.join(Application.app_dir(:steward_acs), "priv/prompts")
+      [Acs.Org.prompts_dir() | Acs.Org.legacy_prompts_dirs() ++ [builtin]]
+      |> Enum.uniq()
+      |> Enum.map(fn root -> {root, Path.join([root, category, file])} end)
+      |> Enum.filter(fn {root, path} ->
+        if root == builtin do
+          File.regular?(path)
+        else
+          Acs.Org.safe_path?(root, path) and
+            match?({:ok, %File.Stat{type: :regular}}, File.lstat(path))
+        end
+      end)
+      |> Enum.map(&elem(&1, 1))
+    else
+      []
     end
   end
+
+  defp safe_segment?(segment),
+    do: Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, segment)
 end

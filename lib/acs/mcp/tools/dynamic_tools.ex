@@ -21,20 +21,37 @@ defmodule Acs.MCP.Tools.DynamicTools do
   Returns `{:ok, result}` on success or `{:error, reason}` on failure.
   """
   def call_tool("write_tool", args) do
-    with :ok <- validate_write_tool(args),
-         yaml <- build_yaml(args),
-         {:ok, path} <- write_tool_file(args, yaml) do
+    with {:ok, result, rollback} <- persist_tool(args) do
       case Acs.MCP.ToolRegistry.refresh() do
         :ok ->
-          {:ok, %{tool: args["name"], path: path, reloaded: true}}
+          {:ok, Map.put(result, :reloaded, true)}
 
         {:error, reason} ->
-          {:error, "Write succeeded but refresh failed: #{reason}"}
+          :ok = rollback_tool(rollback)
+          _ = Acs.MCP.ToolRegistry.refresh()
+          {:error, "Tool validation failed; write rolled back: #{reason}"}
       end
     end
   end
 
   def call_tool(name, _args), do: {:error, "Unknown dynamic tool: #{name}"}
+
+  @doc false
+  def persist_tool(args) do
+    with {:ok, credential_org} <- credential_org(args),
+         :ok <- validate_write_tool(args),
+         yaml <- build_yaml(args),
+         {:ok, path, previous} <- write_tool_file(args, yaml, credential_org) do
+      {:ok, %{tool: args["name"], path: path}, {path, previous}}
+    end
+  end
+
+  @doc false
+  def rollback_tool({path, :missing}), do: File.rm(path)
+
+  def rollback_tool({path, {:existing, content}}) do
+    atomic_write(path, content)
+  end
 
   defp validate_write_tool(args) do
     cond do
@@ -50,14 +67,28 @@ defmodule Acs.MCP.Tools.DynamicTools do
       not is_map_key(args, "inputSchema") or not is_map(args["inputSchema"]) ->
         {:error, "Missing required field: 'inputSchema' must be a JSON Schema object"}
 
-      has_no_handler?(args) and has_no_endpoint?(args) ->
-        {:error, "Must provide either 'handler' (Elixir module name) or 'endpoint' (HTTP URL)"}
+      args["inputSchema"]["type"] != "object" ->
+        {:error, "'inputSchema.type' must be 'object'"}
 
-      is_map_key(args, "permissions") and not is_list(args["permissions"]) ->
-        {:error, "'permissions' must be a list of strings"}
+      not is_map(args["inputSchema"]["properties"] || %{}) ->
+        {:error, "'inputSchema.properties' must be an object"}
 
-      is_map_key(args, "permissions") and
-          Enum.any?(args["permissions"], fn p -> not is_binary(p) end) ->
+      Enum.any?(
+        Map.keys(args["inputSchema"]["properties"] || %{}),
+        &String.starts_with?(&1, "_auth_")
+      ) ->
+        {:error, "'inputSchema' contains a reserved authentication parameter"}
+
+      has_no_endpoint?(args) ->
+        {:error, "Tenant tools must provide an HTTP endpoint"}
+
+      is_map_key(args, "handler") and is_binary(args["handler"]) and args["handler"] != "" ->
+        {:error, "Tenant tools cannot define internal handlers"}
+
+      is_map_key(args, "roles") and not valid_string_list?(args["roles"]) ->
+        {:error, "'roles' must be a list of strings"}
+
+      is_map_key(args, "permissions") and not valid_string_list?(args["permissions"]) ->
         {:error, "'permissions' must be a list of strings"}
 
       (url_error = endpoint_url_error(args)) != nil ->
@@ -93,11 +124,6 @@ defmodule Acs.MCP.Tools.DynamicTools do
     end
   end
 
-  defp has_no_handler?(args) do
-    not is_map_key(args, "handler") or
-      args["handler"] in [nil, "", "Acs.MCP.Tools"]
-  end
-
   defp has_no_endpoint?(args) do
     not is_map_key(args, "endpoint") or
       not is_binary(args["endpoint"]) or
@@ -123,11 +149,10 @@ defmodule Acs.MCP.Tools.DynamicTools do
       "description" => args["description"],
       "input_schema" => input_schema,
       "level" => args["level"] || 1,
-      "role" => args["role"] || "collaborator",
+      "roles" => args["roles"] || List.wrap(args["role"] || "collaborator"),
       "category" => args["category"] || "custom"
     }
 
-    # Include permissions if provided
     tool =
       if is_map_key(args, "permissions") and is_list(args["permissions"]) and
            args["permissions"] != [] do
@@ -136,7 +161,7 @@ defmodule Acs.MCP.Tools.DynamicTools do
         tool
       end
 
-    {tool, base_url} = add_handler_or_endpoint(tool, args)
+    {tool, base_url} = add_endpoint(tool, args)
 
     # Build the full app config
     config = %{
@@ -150,88 +175,77 @@ defmodule Acs.MCP.Tools.DynamicTools do
     encode_yaml(config)
   end
 
-  # Add handler (Elixir module) or endpoint (HTTP URL + method) to the tool map.
-  # Only adds the relevant fields — avoids setting empty keys that would
-  # cause ToolLoader validation failures.
-  defp add_handler_or_endpoint(tool, args) do
-    has_handler =
-      is_map_key(args, "handler") and is_binary(args["handler"]) and
-        args["handler"] != "" and args["handler"] != "Acs.MCP.Tools"
+  defp add_endpoint(tool, args) do
+    endpoint = args["endpoint"]
+    tool = Map.put(tool, "method", "POST")
 
-    has_endpoint =
-      is_map_key(args, "endpoint") and is_binary(args["endpoint"]) and args["endpoint"] != ""
-
-    cond do
-      has_handler ->
-        {Map.put(tool, "handler", args["handler"]), ""}
-
-      has_endpoint ->
-        ep = args["endpoint"]
-        tool = Map.put(tool, "method", "POST")
-
-        if is_map_key(args, "base_url") and is_binary(args["base_url"]) and
-             args["base_url"] != "" do
-          {Map.put(tool, "endpoint", ep), args["base_url"]}
-        else
-          case split_endpoint_url(ep) do
-            {:ok, bu, ep_path} ->
-              {Map.put(tool, "endpoint", ep_path), bu}
-
-            :error ->
-              {Map.put(tool, "endpoint", ep), ""}
-          end
-        end
-
-      true ->
-        # Shouldn't reach here due to validation, but safeguard
-        {tool, ""}
-    end
-  end
-
-  defp write_tool_file(args, yaml_content) do
-    tool_name = args["name"]
-    dir = tools_write_dir()
-    path = Path.join(dir, "#{tool_name}.yaml")
-
-    with :ok <- ensure_dir_exists(dir) do
-      if File.exists?(path) do
-        case YamlElixir.read_from_file(path) do
-          {:ok, existing} when is_map(existing) ->
-            new_tool = parse_tool_from_yaml(yaml_content)
-            existing_tools = existing["tools"] || []
-            updated = Map.put(existing, "tools", existing_tools ++ [new_tool])
-
-            case File.write(path, encode_yaml(updated)) do
-              :ok -> {:ok, path}
-              {:error, reason} -> {:error, "Failed to write tool file: #{reason}"}
-            end
-
-          _ ->
-            case File.write(path, yaml_content) do
-              :ok -> {:ok, path}
-              {:error, reason} -> {:error, "Failed to write tool file: #{reason}"}
-            end
-        end
-      else
-        case File.write(path, yaml_content) do
-          :ok -> {:ok, path}
-          {:error, reason} -> {:error, "Failed to write tool file: #{reason}"}
-        end
+    if is_binary(args["base_url"]) and args["base_url"] != "" do
+      {Map.put(tool, "endpoint", endpoint), args["base_url"]}
+    else
+      case split_endpoint_url(endpoint) do
+        {:ok, base_url, endpoint_path} -> {Map.put(tool, "endpoint", endpoint_path), base_url}
+        :error -> {Map.put(tool, "endpoint", endpoint), ""}
       end
     end
   end
 
-  defp ensure_dir_exists(dir) do
-    case File.mkdir_p(dir) do
-      :ok -> :ok
-      {:error, reason} -> {:error, "Failed to create directory: #{reason}"}
+  defp write_tool_file(args, yaml_content, credential_org) do
+    dir = Acs.Org.tools_dir(credential_org)
+    path = Path.join(dir, "#{args["name"]}.yaml")
+
+    if File.dir?(dir) and Acs.Org.safe_path?(dir, path) do
+      previous =
+        case File.read(path) do
+          {:ok, content} -> {:existing, content}
+          {:error, :enoent} -> :missing
+          {:error, reason} -> {:read_error, reason}
+        end
+
+      case previous do
+        {:read_error, reason} ->
+          {:error, "Failed to read existing tool file: #{inspect(reason)}"}
+
+        _ ->
+          case atomic_write(path, yaml_content) do
+            :ok -> {:ok, path, previous}
+            {:error, reason} -> {:error, "Failed to write tool file: #{inspect(reason)}"}
+          end
+      end
+    else
+      {:error, "Tenant tools directory is not safely provisioned: #{dir}"}
     end
   end
 
-  defp parse_tool_from_yaml(yaml_content) do
-    {:ok, config} = YamlElixir.read_from_string(yaml_content)
-    tools = config["tools"] || []
-    List.first(tools) || %{}
+  defp atomic_write(path, content) do
+    temp_path =
+      Path.join(
+        Path.dirname(path),
+        ".#{Path.basename(path)}.#{System.unique_integer([:positive])}.tmp"
+      )
+
+    result =
+      case File.open(temp_path, [:write, :binary, :exclusive]) do
+        {:ok, device} ->
+          write_result =
+            with :ok <- IO.binwrite(device, content),
+                 :ok <- :file.sync(device) do
+              :ok
+            end
+
+          close_result = File.close(device)
+
+          with :ok <- write_result,
+               :ok <- close_result,
+               :ok <- File.rename(temp_path, path) do
+            :ok
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+
+    if result != :ok, do: File.rm(temp_path)
+    result
   end
 
   @doc false
@@ -250,37 +264,14 @@ defmodule Acs.MCP.Tools.DynamicTools do
     end
   end
 
-  defp tools_write_dir do
-    path =
-      case System.get_env("MCP_TOOLS_PATH") do
-        env when is_binary(env) and env != "" ->
-          env |> String.split(",", trim: true) |> List.first() |> String.trim()
-
-        _ ->
-          configured =
-            case Application.get_env(:steward_acs, Acs.MCP.ToolLoader) do
-              nil ->
-                []
-
-              config ->
-                (config[:tools_paths] || [config[:tools_path]] |> List.wrap())
-                |> Enum.filter(& &1)
-            end
-
-          case configured do
-            [] ->
-              Path.expand(
-                "../../../acs/acstools",
-                Application.app_dir(:steward_acs)
-              )
-
-            [first | _] ->
-              first
-          end
-      end
-
-    path
+  defp credential_org(args) do
+    case args["_auth_credential_org_id"] do
+      org when is_binary(org) and org != "" -> {:ok, org}
+      _ -> {:error, "Missing credential organization authentication context"}
+    end
   end
+
+  defp valid_string_list?(list), do: is_list(list) and Enum.all?(list, &is_binary/1)
 
   # Produces block-style YAML matching the format expected by ToolLoader:
   #
@@ -307,7 +298,7 @@ defmodule Acs.MCP.Tools.DynamicTools do
 
   # Map: each key-value pair on its own line
   defp encode_nodes(value, depth) when is_map(value) do
-    Enum.flat_map(value, fn {key, val} ->
+    Enum.flat_map(Enum.sort_by(value, fn {key, _value} -> key end), fn {key, val} ->
       encode_map_entry(key, val, depth)
     end)
   end
@@ -333,7 +324,7 @@ defmodule Acs.MCP.Tools.DynamicTools do
 
     # Encode all entries at (depth + 1) — "- " replaces 2 spaces
     all_lines =
-      Enum.flat_map(Map.to_list(map), fn {k, v} ->
+      Enum.flat_map(Enum.sort_by(map, fn {key, _value} -> key end), fn {k, v} ->
         encode_map_entry(k, v, depth + 1)
       end)
 
@@ -387,7 +378,7 @@ defmodule Acs.MCP.Tools.DynamicTools do
   defp yaml_scalar(value), do: " #{inspect(value)}"
 
   defp needs_quoting?(value) do
-    String.contains?(value, ": ") or
+    String.contains?(value, ["\n", "\r", "\t", ": "]) or
       String.contains?(value, "#") or
       String.contains?(value, "\"") or
       String.contains?(value, "'") or
@@ -397,7 +388,14 @@ defmodule Acs.MCP.Tools.DynamicTools do
   end
 
   defp quote_string(value) do
-    escaped = String.replace(value, "\"", "\\\"")
+    escaped =
+      value
+      |> String.replace("\\", "\\\\")
+      |> String.replace("\"", "\\\"")
+      |> String.replace("\n", "\\n")
+      |> String.replace("\r", "\\r")
+      |> String.replace("\t", "\\t")
+
     ~s("#{escaped}")
   end
 end

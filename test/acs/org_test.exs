@@ -64,8 +64,8 @@ defmodule Acs.OrgTest do
     end
   end
 
-  describe "memory_dir/1" do
-    test "single-tenant mode keeps the legacy vault path and IDs" do
+  describe "vault path helpers" do
+    test "single-tenant mode uses the canonical non-overlapping org tree" do
       Application.put_env(:steward_acs, :multi_tenant, false)
       Application.put_env(:steward_acs, :obsidian_vault_path, "/vaults")
 
@@ -74,11 +74,16 @@ defmodule Acs.OrgTest do
         Application.delete_env(:steward_acs, :obsidian_vault_path)
       end)
 
-      assert Org.memory_dir("any-org") == "/vaults/private/memories"
+      assert Org.org_vault_root("any-org") == "/vaults/orgs/any-org"
+      assert Org.memory_dir("any-org") == "/vaults/orgs/any-org/private/memories"
+      assert Org.skills_dir("any-org") == "/vaults/orgs/any-org/skills"
+      assert Org.specs_dir("any-org") == "/vaults/orgs/any-org/specs"
+      assert Org.prompts_dir("any-org") == "/vaults/orgs/any-org/prompts"
+      assert Org.tools_dir("any-org") == "/vaults/orgs/any-org/acstools"
       assert Org.memory_index_id("memory-1", "any-org") == "memory-1"
     end
 
-    test "keeps the configured org on the legacy path and partitions additional orgs" do
+    test "uses canonical roots for configured and additional orgs with legacy classification" do
       Application.put_env(:steward_acs, :multi_tenant, true)
       Application.put_env(:steward_acs, :obsidian_vault_path, "/vaults")
       Application.put_env(:steward_acs, :org_name, "prod")
@@ -89,10 +94,15 @@ defmodule Acs.OrgTest do
         Application.delete_env(:steward_acs, :org_name)
       end)
 
-      assert Org.memory_dir("prod") == "/vaults/private/memories"
+      assert Org.memory_dir("prod") == "/vaults/orgs/prod/private/memories"
       assert Org.memory_dir("acme") == "/vaults/orgs/acme/private/memories"
+      assert Org.legacy_memory_dir("prod") == "/vaults/private/memories"
       assert Org.org_from_vault_path("/vaults/private/memories/a.yaml") == "prod"
-      assert Org.org_from_vault_path("/vaults/orgs/acme/private/memories/a.yaml") == "acme"
+
+      assert Org.org_from_vault_path("/vaults/orgs/acme/private/memories/a.yaml") == nil
+      assert Org.org_from_vault_path("/vaults/orgs/unknown/private/memories/a.yaml") == nil
+      assert Org.org_from_vault_path("/vaults/unrecognized/a.yaml") == nil
+      assert_raise ArgumentError, fn -> Org.org_vault_root("../escape") end
     end
   end
 

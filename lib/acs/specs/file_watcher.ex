@@ -26,42 +26,38 @@ defmodule Acs.Specs.FileWatcher do
 
   @impl true
   def init(_opts) do
-    dir =
-      if Acs.Org.multi_tenant?() do
-        Acs.Org.vault_watch_root()
-      else
-        Acs.Specs.Loader.specs_path()
-      end
+    dirs = watch_dirs() |> Enum.filter(&File.dir?/1)
 
-    case File.mkdir_p(dir) do
-      :ok ->
-        :ok
+    case dirs do
+      [] ->
+        Logger.info("[Specs.FileWatcher] No provisioned specs directories to watch")
+        {:ok, %{watcher_pid: nil, dirs: [], timer_ref: nil}}
 
-      {:error, reason} ->
-        Logger.warning(
-          "[Specs.FileWatcher] Could not create directory #{dir}: #{inspect(reason)}"
-        )
+      _ ->
+        start_watcher(dirs)
     end
+  end
 
-    case FileSystem.start_link(dirs: [dir], name: :acs_specs_fs_watcher) do
+  defp start_watcher(dirs) do
+    case FileSystem.start_link(dirs: dirs, name: :acs_specs_fs_watcher) do
       {:ok, watcher_pid} ->
         FileSystem.subscribe(watcher_pid)
-        Logger.info("[Specs.FileWatcher] Watching #{dir} for spec file changes")
-        {:ok, %{watcher_pid: watcher_pid, dir: dir, timer_ref: nil}}
+        Logger.info("[Specs.FileWatcher] Watching #{Enum.join(dirs, ", ")} for spec file changes")
+        {:ok, %{watcher_pid: watcher_pid, dirs: dirs, timer_ref: nil}}
 
       {:error, reason} ->
         Logger.warning(
           "[Specs.FileWatcher] Cannot start file watcher: #{inspect(reason)}. Continuing without file watching."
         )
 
-        {:ok, %{watcher_pid: nil, dir: dir, timer_ref: nil}}
+        {:ok, %{watcher_pid: nil, dirs: dirs, timer_ref: nil}}
 
       :ignore ->
         Logger.warning(
           "[Specs.FileWatcher] File system watching not available (inotify unsupported). Continuing without file watching."
         )
 
-        {:ok, %{watcher_pid: nil, dir: dir, timer_ref: nil}}
+        {:ok, %{watcher_pid: nil, dirs: dirs, timer_ref: nil}}
     end
   end
 
@@ -93,11 +89,30 @@ defmodule Acs.Specs.FileWatcher do
     {:noreply, %{state | timer_ref: nil}}
   end
 
-  # Accept .yaml, .yml, .md files.
-  defp spec_file_event?(path) do
-    ext = path |> Path.extname() |> String.downcase()
-    ext in [".yaml", ".yml", ".md"]
+  defp watch_dirs do
+    [Acs.Org.vault_base() || Acs.Specs.Loader.specs_path(), Acs.Specs.Loader.specs_path()]
+    |> Enum.uniq()
   end
+
+  @doc false
+  # Accept .yaml, .yml, .md files only from spec roots.
+  def spec_file_event?(path) do
+    ext = path |> Path.extname() |> String.downcase()
+    ext in [".yaml", ".yml", ".md"] and spec_path?(path)
+  end
+
+  defp spec_path?(path) do
+    case Acs.Org.org_from_vault_path(path) do
+      org when is_binary(org) ->
+        path_within?(path, Acs.Org.specs_dir(org)) or
+          Enum.any?(Acs.Org.legacy_specs_dirs(org), &path_within?(path, &1))
+
+      nil ->
+        path_within?(path, Acs.Specs.Loader.specs_path())
+    end
+  end
+
+  defp path_within?(path, root), do: Acs.Org.safe_path?(root, path)
 
   # Exclude .obsidian/ directory (Obsidian internal config/metadata).
   defp obsidian_path?(path) do

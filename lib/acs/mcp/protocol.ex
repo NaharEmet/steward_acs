@@ -172,13 +172,13 @@ defmodule Acs.MCP.Protocol do
          _params,
          agent_role,
          agent_org_id,
-         _agent_permissions,
+         agent_permissions,
          _agent_allowed_teams,
          _agent_allowed_projects,
          _agent_identity
        ) do
     with :ok <- require_agent_role(agent_role) do
-      tools = ToolRegistry.list_tools_mcp(agent_role, agent_org_id)
+      tools = ToolRegistry.list_tools_mcp(agent_role, agent_org_id, agent_permissions)
       {:ok, success_response(id, %{"tools" => tools})}
     else
       {:error, reason} ->
@@ -296,21 +296,28 @@ defmodule Acs.MCP.Protocol do
     name = params["name"]
 
     requested_arguments = params["arguments"] || %{}
-    effective_org = analysis_org(name, requested_arguments, agent_org_id, agent_permissions)
 
-    arguments =
-      requested_arguments
-      |> Map.put("_auth_role", agent_role)
-      |> Map.put("_auth_org_id", effective_org)
-      |> Map.put("_auth_credential_org_id", agent_org_id)
-      |> Map.put("_auth_permissions", agent_permissions)
-      |> Map.put("_auth_allowed_teams", agent_allowed_teams)
-      |> Map.put("_auth_allowed_projects", agent_allowed_projects)
-      |> Map.put("_auth_agent_id", agent_identity)
+    resource_org =
+      if is_map(requested_arguments),
+        do: analysis_org(name, requested_arguments, agent_org_id, agent_permissions),
+        else: agent_org_id
+
+    auth_context = %{
+      credential_org: agent_org_id,
+      resource_org: resource_org,
+      role: agent_role,
+      permissions: agent_permissions,
+      allowed_teams: agent_allowed_teams,
+      allowed_projects: agent_allowed_projects,
+      agent_id: agent_identity
+    }
 
     cond do
-      is_nil(name) ->
+      not is_binary(name) or name == "" ->
         {:ok, error_response(id, -32602, "Invalid params", "Missing 'name' parameter")}
+
+      not is_map(requested_arguments) ->
+        {:ok, error_response(id, -32602, "Invalid params", "'arguments' must be an object")}
 
       cross_org_tool_disallowed?(name, requested_arguments, agent_org_id, agent_permissions) ->
         {:ok,
@@ -326,36 +333,14 @@ defmodule Acs.MCP.Protocol do
          })}
 
       true ->
-        case ToolRegistry.authorize_tool(name, agent_role, agent_permissions) do
-          :ok ->
-            call_result =
-              if is_binary(effective_org) and effective_org != "" do
-                Acs.Org.with_current(effective_org, fn ->
-                  ToolRegistry.call_tool(name, arguments)
-                end)
-              else
-                {:error, "Missing organization authentication context"}
-              end
-
-            case call_result do
-              {:ok, result} ->
-                {:ok,
-                 success_response(id, %{
-                   "content" => [
-                     %{"type" => "text", "text" => Jason.encode!(result, pretty: true)}
-                   ]
-                 })}
-
-              {:error, reason} ->
-                {:ok,
-                 success_response(id, %{
-                   "content" => [%{"type" => "text", "text" => "Error: #{inspect(reason)}"}],
-                   "isError" => true
-                 })}
-
-              {:sleep, agent_id, timeout} ->
-                {:sleep, id, agent_id, timeout}
-            end
+        case ToolRegistry.invoke(name, requested_arguments, auth_context) do
+          {:ok, result} ->
+            {:ok,
+             success_response(id, %{
+               "content" => [
+                 %{"type" => "text", "text" => Jason.encode!(result, pretty: true)}
+               ]
+             })}
 
           {:error, reason} ->
             {:ok,
@@ -363,6 +348,9 @@ defmodule Acs.MCP.Protocol do
                "content" => [%{"type" => "text", "text" => "Error: #{inspect(reason)}"}],
                "isError" => true
              })}
+
+          {:sleep, agent_id, timeout} ->
+            {:sleep, id, agent_id, timeout}
         end
     end
   end

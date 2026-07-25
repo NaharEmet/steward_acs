@@ -12,7 +12,9 @@ defmodule Acs.MCP.ToolRegistryAuthorizationTest do
                "description" => "authorization regression test",
                "roles" => ["collaborator"],
                "permissions" => ["mcp:sensitive"],
-               "handler" => "Acs.MCP.Tools",
+               "endpoint" => "/test",
+               "base_url" => "https://example.com",
+               "method" => "POST",
                "app" => "test",
                "category" => "test"
              })
@@ -22,5 +24,19 @@ defmodule Acs.MCP.ToolRegistryAuthorizationTest do
 
     assert {:error, _reason} = ToolRegistry.authorize_tool(name, "collaborator", [])
     assert :ok = ToolRegistry.authorize_tool(name, "collaborator", ["mcp:sensitive"])
+  end
+
+  test "runtime registration rejects tenant internal handlers" do
+    name = "handler_bypass_#{System.unique_integer([:positive])}"
+
+    assert {:error, reason} =
+             ToolRegistry.register_tool(%{
+               "name" => name,
+               "description" => "must be rejected",
+               "handler" => "Acs.MCP.Tools",
+               "roles" => ["admin"]
+             })
+
+    assert reason =~ "cannot define internal handlers"
   end
 end

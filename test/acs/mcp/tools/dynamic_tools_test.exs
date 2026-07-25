@@ -2,32 +2,18 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
   use ExUnit.Case, async: false
 
   setup do
-    tmp_dir =
-      Path.expand("../../../tmp/dynamic_tools_#{System.unique_integer([:positive])}", __DIR__)
-
+    vault = Path.join(System.tmp_dir!(), "dynamic_tools_#{System.unique_integer([:positive])}")
+    original_vault = Application.get_env(:steward_acs, :obsidian_vault_path)
+    Application.put_env(:steward_acs, :obsidian_vault_path, vault)
+    tmp_dir = Acs.Org.tools_dir(Acs.Org.current())
     File.mkdir_p!(tmp_dir)
 
-    # Clean up any stale test files from previous runs
-    default_path =
-      Path.expand(
-        "../../../acs/acstools",
-        Application.app_dir(:steward_acs)
-      )
-
-    stale = Path.join(default_path, "my-custom-tool.yaml")
-    if File.exists?(stale), do: File.rm!(stale)
-
-    orig_env = System.get_env("MCP_TOOLS_PATH")
-    System.put_env("MCP_TOOLS_PATH", tmp_dir)
-
     on_exit(fn ->
-      if orig_env,
-        do: System.put_env("MCP_TOOLS_PATH", orig_env),
-        else: System.delete_env("MCP_TOOLS_PATH")
+      if original_vault,
+        do: Application.put_env(:steward_acs, :obsidian_vault_path, original_vault),
+        else: Application.delete_env(:steward_acs, :obsidian_vault_path)
 
-      File.rm_rf!(tmp_dir)
-
-      # Force refresh to clear any loaded state from test files
+      File.rm_rf!(vault)
       Acs.MCP.ToolRegistry.refresh()
     end)
 
@@ -46,7 +32,8 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
           },
           "required" => ["param1"]
         },
-        "endpoint" => "http://93.184.216.34:8080/tool"
+        "endpoint" => "http://93.184.216.34:8080/tool",
+        "_auth_credential_org_id" => Acs.Org.current()
       },
       Map.new(overrides)
     )
@@ -76,27 +63,23 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
       assert tool["name"] == "my-custom-tool"
       assert tool["description"] == "A custom test tool created by write_tool"
       assert tool["level"] == 1
-      assert tool["role"] == "collaborator"
+      assert tool["roles"] == ["collaborator"]
       assert tool["category"] == "custom"
       assert tool["endpoint"] == "/tool"
 
-      # Verify input_schema is preserved
+      # Verify input_schema is preserved and converted into the outbound parameter whitelist.
       assert is_map(tool["input_schema"])
       assert tool["input_schema"]["type"] == "object"
+
+      assert [%{"name" => "param1", "required" => true}] =
+               Acs.MCP.ToolRegistry.get_tool("my-custom-tool")["params"]
     end
 
-    test "writes to correct path with default fallback" do
-      orig_env = System.get_env("MCP_TOOLS_PATH")
-      System.delete_env("MCP_TOOLS_PATH")
+    test "writes only to the authenticated tenant tools directory", %{tmp_dir: tmp_dir} do
+      {:ok, result} =
+        Acs.MCP.Tools.DynamicTools.call_tool("write_tool", valid_write_args())
 
-      args = valid_write_args()
-      {:ok, result} = Acs.MCP.Tools.DynamicTools.call_tool("write_tool", args)
-
-      assert String.contains?(result.path, "acstools")
-
-      # Cleanup immediately to minimize pollution
-      if File.exists?(result.path), do: File.rm!(result.path)
-      if orig_env, do: System.put_env("MCP_TOOLS_PATH", orig_env)
+      assert Path.dirname(result.path) == tmp_dir
     end
 
     test "returns error for missing name" do
@@ -152,36 +135,75 @@ defmodule Acs.MCP.Tools.DynamicToolsTest do
 
       # Parse and validate using the same validation as ToolLoader
       assert {:ok, config} = YamlElixir.read_from_file(tool_file)
-      assert :ok = Acs.MCP.ToolLoader.validate_config(config)
+
+      assert :ok =
+               Acs.MCP.ToolLoader.validate_config(config, {
+                 :tenant,
+                 Acs.Org.current(),
+                 tmp_dir
+               })
     end
 
     test "tool appears in registry after write and refresh" do
       args = valid_write_args()
       {:ok, _result} = Acs.MCP.Tools.DynamicTools.call_tool("write_tool", args)
 
-      # After refresh, the tool should be discoverable
       tools = Acs.MCP.ToolRegistry.list_tools()
       names = Enum.map(tools, & &1["name"])
       assert "my-custom-tool" in names
     end
 
-    test "preserves handler field when provided", %{tmp_dir: tmp_dir} do
-      args =
-        valid_write_args(%{
-          "handler" => "MyCustomModule",
-          "endpoint" => nil
-        })
+    test "same-name writes replace rather than append duplicate definitions", %{tmp_dir: tmp_dir} do
+      assert {:ok, _} =
+               Acs.MCP.Tools.DynamicTools.call_tool("write_tool", valid_write_args())
 
-      assert {:ok, result} = Acs.MCP.Tools.DynamicTools.call_tool("write_tool", args)
-      assert result.reloaded == true
+      assert {:ok, _} =
+               Acs.MCP.Tools.DynamicTools.call_tool(
+                 "write_tool",
+                 valid_write_args(%{
+                   "description" => "replacement",
+                   "app" => "replacement_app",
+                   "endpoint" => "https://example.org/new"
+                 })
+               )
 
-      file_path = Path.join(tmp_dir, "my-custom-tool.yaml")
-      assert {:ok, config} = YamlElixir.read_from_file(file_path)
+      assert {:ok, config} = YamlElixir.read_from_file(Path.join(tmp_dir, "my-custom-tool.yaml"))
+      assert config["app"] == "replacement_app"
+      assert config["base_url"] == "https://example.org"
+      assert [%{"description" => "replacement"}] = config["tools"]
 
-      tool = hd(config["tools"])
-      assert tool["handler"] == "MyCustomModule"
-      # No endpoint key should exist for handler-only tools
-      refute Map.has_key?(tool, "endpoint")
+      assert Acs.MCP.ToolRegistry.get_tool("my-custom-tool")["base_url"] ==
+               "https://example.org"
+    end
+
+    test "rejects tenant-authored internal handlers" do
+      args = valid_write_args(%{"handler" => "MyCustomModule"})
+      assert {:error, reason} = Acs.MCP.Tools.DynamicTools.call_tool("write_tool", args)
+      assert reason =~ "cannot define internal handlers"
+    end
+
+    test "rejects writes without trusted credential organization context" do
+      args = Map.delete(valid_write_args(), "_auth_credential_org_id")
+      assert {:error, reason} = Acs.MCP.Tools.DynamicTools.call_tool("write_tool", args)
+      assert reason =~ "credential organization"
+    end
+
+    test "registry invocation validates, installs, and rolls back rejected writes", %{
+      tmp_dir: tmp_dir
+    } do
+      org = Acs.Org.current()
+      auth = %{credential_org: org, resource_org: org, role: "admin", permissions: []}
+      args = Map.delete(valid_write_args(), "_auth_credential_org_id")
+
+      assert {:ok, %{reloaded: true}} =
+               Acs.MCP.ToolRegistry.invoke("write_tool", args, auth)
+
+      assert Acs.MCP.ToolRegistry.get_tool("my-custom-tool", org)
+
+      rejected = Map.put(args, "name", "help")
+      assert {:error, reason} = Acs.MCP.ToolRegistry.invoke("write_tool", rejected, auth)
+      assert reason =~ "rolled back"
+      refute File.exists?(Path.join(tmp_dir, "help.yaml"))
     end
   end
 

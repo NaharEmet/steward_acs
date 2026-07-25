@@ -70,6 +70,36 @@ CI: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) builds/pus
 | Auth | API/developer keys for services; Auth0 OIDC for individual dashboard users and human MCP access |
 | Syncthing admin | **Not** on public HTTPS — SSH tunnel to `127.0.0.1:8384` |
 
+### Per-organization vault folders
+
+Every organization, including the configured `ACS_ORG_NAME`, has a non-overlapping canonical root:
+
+```text
+/vaults/orgs/<slug>/
+  private/memories/
+  skills/
+  specs/
+  prompts/
+  acstools/
+```
+
+Point each Syncthing folder at exactly `/var/syncthing/vaults/orgs/<slug>`. Never point an organization at the parent `/var/syncthing/vaults`: that parent contains every tenant and would disclose their files. `SPECS_PATH`, when set, remains a compatibility base but still partitions every organization beneath `SPECS_PATH/orgs/<slug>`; unset it to use the unified vault tree.
+
+The application reads canonical files before legacy files during migration and writes only to the canonical tree. Migrate one non-configured tenant at a time, and migrate the configured legacy tenant last. Stop writers or pause Syncthing first, take a backup, then use `rsync` so the operation is repeatable and preserves the source for rollback:
+
+```bash
+slug=acme
+mkdir -p "/vaults/orgs/$slug"/{private/memories,skills,specs,prompts,acstools}
+rsync -a --dry-run "/vaults/skills/orgs/$slug/" "/vaults/orgs/$slug/skills/"
+rsync -a --dry-run "/vaults/specs/orgs/$slug/"  "/vaults/orgs/$slug/specs/"
+rsync -a --dry-run "/vaults/$slug/prompts/"      "/vaults/orgs/$slug/prompts/"
+# Remove --dry-run only after reviewing the file list, then compare counts/hashes.
+```
+
+For the configured legacy organization, also copy `/vaults/private/memories/` into its canonical `private/memories/` directory. If its slug is `default`, its old skills/specs roots are `/vaults/skills/` and `/vaults/specs/`; copy only files owned by `default` and exclude their nested `orgs/` directories. Keep legacy sources through the rollback window; do not use `mv` while Syncthing peers may still reference the old paths.
+
+`MCP_TOOLS_PATH` and `EXTERNAL_TOOLS_PATH` are read-only shared/plugin sources; tenant writes never target them. Tenant YAML may define HTTP endpoints only. Shared YAML handlers are disabled unless each module is explicitly listed in the comma-separated `TRUSTED_MCP_HANDLER_MODULES` allowlist.
+
 ### Postgres override (planned prod migration)
 
 ```bash

@@ -51,11 +51,18 @@ config :steward_acs, Acs.MCP.Server,
 
 config :logger, level: :info
 
+# Tenant-writable tools are discovered from each canonical vault root.
+# These paths are read-only shared/plugin sources available to every tenant.
 config :steward_acs, Acs.MCP.ToolLoader,
-  tools_paths:
+  shared_tools_paths:
     [
       System.get_env("EXTERNAL_TOOLS_PATH"),
       System.get_env("ACS_TOOLS_PATH", "/app/acs/acstools/")
     ]
     |> Enum.reject(&is_nil/1)
+    |> Enum.reject(&(&1 == "")),
+  trusted_handler_modules:
+    System.get_env("TRUSTED_MCP_HANDLER_MODULES", "")
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))

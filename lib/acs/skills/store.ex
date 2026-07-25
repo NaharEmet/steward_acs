@@ -2,8 +2,8 @@ defmodule Acs.Skills.Store do
   @moduledoc """
   File-based skill store. Skills are Markdown files with YAML frontmatter.
 
-  Skills live under `priv/skills/` by default or `<vault>/skills/` when an
-  Obsidian vault is configured. Files are discovered recursively so external
+  Skills live under `priv/skills/` by default or `<vault>/orgs/<org>/skills/`
+  when an Obsidian vault is configured. Files are discovered recursively so external
   tools may organize skills into directories. Vault files take precedence over
   bundled files with the same relative path.
 
@@ -14,33 +14,18 @@ defmodule Acs.Skills.Store do
   @builtin_dir "priv/skills"
   @governance_statuses ~w(proposed approved rejected)
 
-  def skill_dir do
-    obsidian_path = Application.get_env(:steward_acs, :obsidian_vault_path)
-
-    base =
-      if is_binary(obsidian_path) and obsidian_path != "" do
-        Path.join(obsidian_path, "skills")
-      else
-        Path.join(Application.app_dir(:steward_acs), @builtin_dir)
-      end
-
-    tenant_dir(base, Acs.Org.current())
-  end
-
-  defp tenant_dir(base, org) when org == "default" or org == nil, do: base
-
-  defp tenant_dir(base, org) do
-    unless Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, org) do
-      raise ArgumentError, "Invalid organization: #{inspect(org)}"
-    end
-
-    Path.join([base, "orgs", org])
-  end
+  def skill_dir, do: Acs.Org.skills_dir()
 
   def all_skills do
     search_dirs()
-    |> Enum.flat_map(&skill_files/1)
-    |> Enum.uniq_by(& &1.id)
+    |> Enum.flat_map(fn root ->
+      Enum.map(skill_paths(root), fn path ->
+        {Path.rootname(Path.relative_to(path, root)), path, root}
+      end)
+    end)
+    |> Enum.uniq_by(&elem(&1, 0))
+    |> Enum.map(fn {_id, path, root} -> parse_skill_file(path, root) end)
+    |> Enum.reject(&is_nil/1)
   end
 
   def list_skills(tag \\ nil) do
@@ -102,38 +87,38 @@ defmodule Acs.Skills.Store do
     |> Enum.reject(&is_nil/1)
   end
 
-  def skill_dir(org) when is_binary(org) do
-    obsidian_path = Application.get_env(:steward_acs, :obsidian_vault_path)
-
-    base =
-      if is_binary(obsidian_path) and obsidian_path != "" do
-        Path.join(obsidian_path, "skills")
-      else
-        Path.join(Application.app_dir(:steward_acs), @builtin_dir)
-      end
-
-    tenant_dir(base, org)
-  end
+  def skill_dir(org) when is_binary(org), do: Acs.Org.skills_dir(org)
 
   defp builtin_dir, do: Path.join(Application.app_dir(:steward_acs), @builtin_dir)
 
   defp search_dirs do
-    primary = skill_dir()
-    fallback = builtin_dir()
-
-    cond do
-      Acs.Org.current() != Acs.Org.configured() -> [primary]
-      primary == fallback -> [primary]
-      true -> [primary, fallback]
-    end
+    [skill_dir() | Acs.Org.legacy_skills_dirs() ++ [builtin_dir()]]
+    |> Enum.uniq()
   end
 
-  defp skill_files(root) do
+  defp skill_paths(root) do
     [Path.join(root, "*.md"), Path.join(root, "**/*.md")]
     |> Enum.flat_map(&Path.wildcard/1)
     |> Enum.uniq()
-    |> Enum.map(&parse_skill_file(&1, root))
-    |> Enum.reject(&is_nil/1)
+    |> Enum.reject(fn path ->
+      legacy_partition_container?(root) and
+        match?(["orgs" | _], Path.split(Path.relative_to(path, root)))
+    end)
+    |> Enum.filter(fn path ->
+      if root == builtin_dir() do
+        File.regular?(path)
+      else
+        Acs.Org.safe_path?(root, path) and
+          match?({:ok, %File.Stat{type: :regular}}, File.lstat(path))
+      end
+    end)
+  end
+
+  defp legacy_partition_container?(root) do
+    case Acs.Org.vault_base() do
+      nil -> false
+      base -> Path.expand(root) == Path.expand(Path.join(base, "skills"))
+    end
   end
 
   defp parse_skill_file(path, root) do
@@ -172,8 +157,10 @@ defmodule Acs.Skills.Store do
          {:ok, metadata} <- parse_yaml_frontmatter(frontmatter),
          :ok <- ensure_primary_copy(path, content),
          target_path = primary_path_for(path),
+         true <- Acs.Org.safe_path?(skill_dir(), target_path),
          updated_frontmatter = patch_frontmatter(frontmatter, metadata, stringify_keys(fields)),
          :ok <- File.mkdir_p(Path.dirname(target_path)),
+         true <- Acs.Org.safe_path?(skill_dir(), target_path),
          :ok <- File.write(target_path, "---\n#{updated_frontmatter}\n---\n#{body}") do
       :ok
     end
@@ -198,13 +185,13 @@ defmodule Acs.Skills.Store do
   end
 
   defp primary_path_for(path) do
-    builtin = builtin_dir()
+    primary = skill_dir()
 
-    if skill_dir() != builtin && path_within?(path, builtin) do
-      Path.join(skill_dir(), Path.relative_to(path, builtin))
-    else
-      path
-    end
+    Enum.find_value(search_dirs(), path, fn root ->
+      if root != primary and path_within?(path, root) do
+        Path.join(primary, Path.relative_to(path, root))
+      end
+    end)
   end
 
   defp path_within?(path, root) do
