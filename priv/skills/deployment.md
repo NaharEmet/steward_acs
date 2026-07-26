@@ -128,7 +128,7 @@ The YAML registry remains a read-only compatibility fallback during rollout. New
 3. Invite a member, copy the one-time link, accept with the exact verified email, and verify `/settings/members`
 4. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
 5. No `inotify-tools` errors in `docker logs steward_acs`
-6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request. With `COMPOSE_PROFILES=axiom`, `steward_otel` scrapes host metrics into `AXIOM_METRICS_DATASET`. Run `./scripts/axiom-upsert-server-dashboard.sh` once for the **Steward ACS — server** dashboard. After VmMetrics ships, `message == "vm.metrics"` Events appear every ~30s.
+6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request. With `COMPOSE_PROFILES=axiom`, `steward_otel` scrapes host metrics into `AXIOM_METRICS_DATASET`. Run `./scripts/axiom-upsert-server-dashboard.sh` once for the **Steward ACS — server** dashboard. `message == "vm.metrics"` Events appear every ~30s (BEAM memory + scheduler utilization; plus `host_memory_*` / `cgroup_*` fields on Linux).
 
 ## Agent deploy rules
 

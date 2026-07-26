@@ -182,7 +182,7 @@ App export is enabled only when the release runs in `prod` and Infisical injects
 
 `COMPOSE_PROFILES=axiom` starts `otel_collector` (see `otel/collector-config.yaml`), which scrapes host CPU/memory/disk/network every 30s into `AXIOM_METRICS_DATASET`.
 
-After deploying, request `/mcp/health`, exercise a database-backed route, and confirm traces and log events arrive. BEAM `message == "vm.metrics"` Events (when VmMetrics is deployed) complement hostmetrics. Create/update the monitoring dashboard:
+After deploying, request `/mcp/health`, exercise a database-backed route, and confirm traces and log events arrive. Every ~30s, `message == "vm.metrics"` Events ship BEAM memory/`scheduler_utilization` plus best-effort Linux fields (`host_memory_*_bytes` from `/proc/meminfo`, `cgroup_memory_*_bytes` / `cgroup_cpu_utilization`). Those are Events-dataset rows (not a separate OTLP metrics stream) and complement hostmetrics. Create/update the monitoring dashboard:
 
 ```bash
 AXIOM_TOKEN=xaat-… AXIOM_DATASET=steward-acs AXIOM_METRICS_DATASET=steward-acs-metrics \
