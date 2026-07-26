@@ -76,7 +76,7 @@ Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/
 - Dashboard Auth0 OIDC: `AUTH0_WEB_*` in Infisical; `ACCOUNT_HOST` / callback URI in thin `.env`
 - Self-service org creation: keep `SELF_SERVICE_ORGS_ENABLED=false` through migration/bootstrap, then enable deliberately.
 - Auth0 M2M for ops scripts only (`./scripts/setup-auth0.sh`, etc.): `AUTH0_M2M_*` / `certs/Oauth.md` — not loaded by the ACS app.
-- Axiom (optional): `AXIOM_LOGS` in Infisical; `AXIOM_DATASET` may be thin `.env`. Export is strictly prod-only and disabled without the token.
+- Axiom (optional): secret `AXIOM_LOGS` in Infisical only; thin `.env` has `AXIOM_DATASET` / `AXIOM_METRICS_DATASET` / `COMPOSE_PROFILES=axiom`. Hostmetrics: `otel_collector`. Dashboard: `./scripts/axiom-upsert-server-dashboard.sh`. Export is prod-only.
 
 ## Migrations
 
@@ -128,7 +128,7 @@ The YAML registry remains a read-only compatibility fallback during rollout. New
 3. Invite a member, copy the one-time link, accept with the exact verified email, and verify `/settings/members`
 4. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
 5. No `inotify-tools` errors in `docker logs steward_acs`
-6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request. After deploy, `message == "vm.metrics"` events appear every ~30s (BEAM memory + scheduler utilization).
+6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request. With `COMPOSE_PROFILES=axiom`, `steward_otel` scrapes host metrics into `AXIOM_METRICS_DATASET`. Run `./scripts/axiom-upsert-server-dashboard.sh` once for the **Steward ACS — server** dashboard. After VmMetrics ships, `message == "vm.metrics"` Events appear every ~30s.
 
 ## Agent deploy rules
 

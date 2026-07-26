@@ -92,6 +92,23 @@ services:
       retries: 3
       start_period: 15s
 
+  # Host CPU/memory/disk/network → Axiom Metrics (opt-in via COMPOSE_PROFILES=axiom).
+  # Needs AXIOM_LOGS (Infisical) + Metrics dataset AXIOM_METRICS_DATASET.
+  otel_collector:
+    profiles: ["axiom"]
+    image: otel/opentelemetry-collector-contrib:0.124.1
+    container_name: steward_otel
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    environment:
+      AXIOM_LOGS: "${AXIOM_LOGS:?Set AXIOM_LOGS to enable host metrics}"
+      AXIOM_METRICS_DATASET: "${AXIOM_METRICS_DATASET:-steward-acs-metrics}"
+      # Edge deployment URL preferred for OTLP (see Axiom edge docs).
+      AXIOM_DOMAIN: "${AXIOM_DOMAIN:-https://api.axiom.co}"
+    volumes:
+      - ./otel/collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - /:/hostfs:ro,rslave
+
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
