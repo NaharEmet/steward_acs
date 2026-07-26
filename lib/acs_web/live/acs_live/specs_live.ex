@@ -222,23 +222,22 @@ defmodule AcsWeb.AcsLive.SpecsLive do
     status_filter = socket.assigns.status_filter
     search_query = socket.assigns.search_query
 
-    stats = compute_stats()
+    all_specs =
+      case Loader.load_all() do
+        {:ok, entries} -> entries
+        _ -> []
+      end
+
+    stats = compute_stats(all_specs)
 
     specs =
       if search_query && search_query != "" do
-        case Search.search(search_query, status: status_filter) do
+        case Search.search(search_query, status: status_filter, entries: all_specs) do
           {:ok, entries} -> entries
           _ -> []
         end
       else
-        case Loader.load_all(app: nil) do
-          {:ok, entries} ->
-            entries
-            |> maybe_filter_by_status_in_view(socket.assigns.status_filter)
-
-          _ ->
-            []
-        end
+        maybe_filter_by_status_in_view(all_specs, status_filter)
       end
 
     # Re-select the same spec if still in the list
@@ -258,22 +257,15 @@ defmodule AcsWeb.AcsLive.SpecsLive do
     Enum.filter(entries, fn e -> e.status == status end)
   end
 
-  defp compute_stats do
+  defp compute_stats(entries) do
     statuses =
       ~w(proposed under_review approved deprecated contradicted runtime_divergent historical)
 
-    base = Map.new(statuses, fn s -> {s, 0} end)
+    base = statuses |> Map.new(fn status -> {status, 0} end) |> Map.put("total", length(entries))
 
-    case Loader.load_all() do
-      {:ok, entries} ->
-        Enum.reduce(entries, Map.put(base, "total", length(entries)), fn entry, acc ->
-          status = entry.status || "unknown"
-          Map.update(acc, status, 1, &(&1 + 1))
-        end)
-
-      _ ->
-        Map.put(base, "total", 0)
-    end
+    Enum.reduce(entries, base, fn entry, acc ->
+      Map.update(acc, entry.status || "unknown", 1, &(&1 + 1))
+    end)
   end
 
   @impl true

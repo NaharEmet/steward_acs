@@ -5,9 +5,7 @@ defmodule AcsWeb.AcsLive.Tools do
   """
 
   use AcsWeb, :live_view
-  alias Acs.MCP.ToolRegistry
-  alias Acs.MCP.Bridge
-  alias Acs.MCP.ToolRequests
+  alias Acs.MCP.{Bridge, HealthCheckCache, ToolRegistry, ToolRequests}
 
   def on_mount(_params, _session, socket) do
     # Don't use get_connect_info - it fails on push_navigate reconnections
@@ -30,7 +28,11 @@ defmodule AcsWeb.AcsLive.Tools do
         pending_requests_count: ToolRequests.pending_count(),
         collapsed_apps: MapSet.new()
       )
-      |> load_data()
+      |> load_tools()
+      |> load_collapsed_apps()
+      |> load_cached_health()
+
+    socket = if connected?(socket), do: start_health_checks(socket), else: socket
 
     {:ok, socket}
   end
@@ -55,8 +57,10 @@ defmodule AcsWeb.AcsLive.Tools do
 
   @impl true
   def handle_event("refresh", _, socket) do
-    socket = load_data(socket)
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> load_tools()
+     |> start_health_checks(force: true)}
   end
 
   @impl true
@@ -80,28 +84,28 @@ defmodule AcsWeb.AcsLive.Tools do
 
   @impl true
   def handle_info(:refresh, socket) do
-    socket = load_tools(socket)
+    socket = socket |> load_tools() |> load_cached_health() |> start_health_checks()
     {:noreply, socket}
   end
 
   @impl true
   def handle_info({:tool_request_created, _payload}, socket) do
-    {:noreply, load_data(socket)}
+    {:noreply, socket |> load_tools() |> load_cached_health() |> start_health_checks()}
   end
 
   @impl true
   def handle_info({:tool_request_approved, _payload}, socket) do
-    {:noreply, load_data(socket)}
+    {:noreply, socket |> load_tools() |> load_cached_health() |> start_health_checks()}
   end
 
   @impl true
   def handle_info({:tool_request_rejected, _payload}, socket) do
-    {:noreply, load_data(socket)}
+    {:noreply, socket |> load_tools() |> load_cached_health() |> start_health_checks()}
   end
 
   @impl true
   def handle_info({:tools_refresh, _payload}, socket) do
-    {:noreply, load_data(socket)}
+    {:noreply, socket |> load_tools() |> load_cached_health() |> start_health_checks()}
   end
 
   @impl true
@@ -109,11 +113,19 @@ defmodule AcsWeb.AcsLive.Tools do
     {:noreply, socket}
   end
 
-  defp load_data(socket) do
-    socket
-    |> load_tools()
-    |> load_app_health()
-    |> load_collapsed_apps()
+  @impl true
+  def handle_async(:health_checks, {:ok, health}, socket) do
+    {:noreply, assign(socket, app_health: health)}
+  end
+
+  def handle_async(:health_checks, {:exit, _reason}, socket) do
+    health =
+      Map.new(socket.assigns.app_health, fn
+        {app, :checking} -> {app, :down}
+        entry -> entry
+      end)
+
+    {:noreply, assign(socket, app_health: health)}
   end
 
   defp load_collapsed_apps(socket) do
@@ -125,9 +137,7 @@ defmodule AcsWeb.AcsLive.Tools do
     tools = ToolRegistry.list_tools()
     stats = ToolRegistry.stats()
 
-    tools_by_app =
-      tools
-      |> Enum.group_by(fn t -> t["app"] || "unknown" end)
+    tools_by_app = Enum.group_by(tools, fn tool -> tool["app"] || "unknown" end)
 
     assign(socket,
       tools: tools,
@@ -137,33 +147,62 @@ defmodule AcsWeb.AcsLive.Tools do
     )
   end
 
-  defp load_app_health(socket) do
-    tools = socket.assigns.tools
+  defp health_apps(tools) do
+    tools
+    |> Enum.map(fn tool -> {tool["app"] || "unknown", tool["base_url"]} end)
+    |> Enum.uniq()
+    |> Enum.filter(fn {_app, url} -> url not in ["", nil] end)
+  end
 
-    apps =
-      tools
-      |> Enum.map(fn t -> {t["app"] || "unknown", t["base_url"]} end)
-      |> Enum.uniq()
-      |> Enum.filter(fn {_app, url} -> url != "" && url != nil end)
+  defp load_cached_health(socket) do
+    health =
+      Map.new(health_apps(socket.assigns.tools), fn {app, url} ->
+        status =
+          case HealthCheckCache.get(url) do
+            {:ok, cached} -> cached
+            :miss -> :checking
+          end
 
-    health_results =
+        {app, status}
+      end)
+
+    assign(socket, app_health: health)
+  end
+
+  defp start_health_checks(socket, opts \\ []) do
+    force? = Keyword.get(opts, :force, false)
+    apps = health_apps(socket.assigns.tools)
+
+    socket
+    |> cancel_async(:health_checks)
+    |> start_async(:health_checks, fn ->
+      initial = Map.new(apps, fn {app, _url} -> {app, :down} end)
+
       apps
       |> Task.async_stream(
         fn {app, url} ->
-          case Bridge.health_check(url) do
-            {:ok, _} -> {app, :up}
-            {:error, _} -> {app, :down}
-          end
+          status =
+            case if(force?, do: :miss, else: HealthCheckCache.get(url)) do
+              {:ok, cached} -> cached
+              :miss -> check_and_cache(url)
+            end
+
+          {app, status}
         end,
         timeout: 6_000,
         on_timeout: :kill_task
       )
-      |> Enum.reduce(%{}, fn
-        {:ok, {app, status}}, acc -> Map.put(acc, app, status)
-        _, acc -> acc
+      |> Enum.reduce(initial, fn
+        {:ok, {app, status}}, health -> Map.put(health, app, status)
+        _, health -> health
       end)
+    end)
+  end
 
-    assign(socket, app_health: health_results)
+  defp check_and_cache(url) do
+    status = if match?({:ok, _}, Bridge.health_check(url)), do: :up, else: :down
+    :ok = HealthCheckCache.put(url, status)
+    status
   end
 
   @impl true
@@ -213,8 +252,12 @@ defmodule AcsWeb.AcsLive.Tools do
                   <h3 class="section-title" style="font-size: 1.1rem;"><%= app_name %></h3>
                   <span class="section-count"><%= length(app_tools) %> tools</span>
                   <span style="flex: 1;"></span>
-                  <%= if is_nil(@app_health[app_name]) do %>
-                    <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);">internal</span>
+                  <%= cond do %>
+                    <% @app_health[app_name] == :checking -> %>
+                      <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);">checking…</span>
+                    <% is_nil(@app_health[app_name]) -> %>
+                      <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);">internal</span>
+                    <% true -> %>
                   <% end %>
                   <span style="font-size: 0.85rem; color: var(--muted); margin-left: 8px;">
                     <%= if MapSet.member?(@collapsed_apps, app_name), do: "▶", else: "▼" %>

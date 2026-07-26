@@ -42,6 +42,8 @@ defmodule Acs.Observability.AxiomLogBackend do
     :role,
     :request_id,
     :component,
+    :live_view,
+    :page,
     :service,
     :count,
     :trace_id,

@@ -38,9 +38,9 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         status_filter: "proposed",
         kind_filter: nil,
         search_query: "",
-        conflict_alerts: %{}
+        conflict_alerts: %{},
+        conflict_generation: nil
       )
-      |> load_data()
 
     {:ok, socket}
   end
@@ -201,6 +201,17 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_async(:load_conflicts, {:ok, {generation, alerts}}, socket) do
+    if socket.assigns.conflict_generation == generation do
+      {:noreply, assign(socket, conflict_alerts: alerts)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_async(:load_conflicts, {:exit, _reason}, socket), do: {:noreply, socket}
+
   defp update_memory_status(socket, id, new_status, flash_opts) do
     case Indexer.update_status(id, new_status, socket.assigns.current_org) do
       {:ok, schema} ->
@@ -292,26 +303,45 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         end
       end
 
-    conflict_alerts = compute_conflict_alerts(memories, status_filter)
-
     selected_memory =
       if socket.assigns.selected_memory do
         Enum.find(memories, fn m -> m.id == socket.assigns.selected_memory.id end)
       end
 
-    assign(socket,
-      memories: memories,
-      selected_memory: selected_memory,
-      pending_count: pending_count,
-      approved_count: approved_count,
-      rejected_count: rejected_count,
-      quarantined_count: quarantined_count,
-      review_count: review_count,
-      conflict_alerts: conflict_alerts
-    )
+    socket =
+      assign(socket,
+        memories: memories,
+        selected_memory: selected_memory,
+        pending_count: pending_count,
+        approved_count: approved_count,
+        rejected_count: rejected_count,
+        quarantined_count: quarantined_count,
+        review_count: review_count,
+        conflict_alerts: %{}
+      )
+
+    start_conflict_check(socket, memories, status_filter, org)
   end
 
-  defp compute_conflict_alerts(memories, status_filter) do
+  defp start_conflict_check(socket, memories, status_filter, org) do
+    generation = make_ref()
+    socket = socket |> cancel_async(:load_conflicts) |> assign(conflict_generation: generation)
+
+    if connected?(socket) and status_filter in [nil, "proposed"] do
+      start_async(socket, :load_conflicts, fn ->
+        alerts =
+          Acs.Org.with_current(org, fn ->
+            compute_conflict_alerts(memories, status_filter, org)
+          end)
+
+        {generation, alerts}
+      end)
+    else
+      socket
+    end
+  end
+
+  defp compute_conflict_alerts(memories, status_filter, org) do
     # Conflict alerts only make sense for proposed (pending approval) memories
     if status_filter == nil || status_filter == "proposed" do
       proposed = Enum.filter(memories, fn m -> m.status == "proposed" end)
@@ -321,7 +351,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
           Acs.Memory.Search.list(
             scope_path: nil,
             status: "approved",
-            org: Acs.Org.current()
+            org: org
           )
 
         Enum.reduce(proposed, %{}, fn memory, acc ->

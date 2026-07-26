@@ -18,9 +18,6 @@
       is_map(assigns[:organization]) ->
         assigns[:organization]
 
-      is_binary(assigns[:current_org]) and assigns[:current_org] != "" ->
-        Acs.Orgs.get_by_slug(assigns[:current_org])
-
       true ->
         nil
     end

@@ -19,13 +19,16 @@ defmodule AcsWeb.AcsLive.SkillsLive do
     socket =
       socket
       |> assign(
+        all_skills: [],
         skills: [],
         selected_skill: nil,
         search_query: "",
         status_filter: "proposed",
-        stats: empty_stats()
+        stats: empty_stats(),
+        loading: true
       )
-      |> load_data()
+
+    socket = if connected?(socket), do: load_data_async(socket), else: socket
 
     {:ok, socket}
   end
@@ -38,12 +41,12 @@ defmodule AcsWeb.AcsLive.SkillsLive do
 
   @impl true
   def handle_event("search", %{"query" => query}, socket) do
-    {:noreply, socket |> assign(search_query: query, selected_skill: nil) |> load_data()}
+    {:noreply, socket |> assign(search_query: query, selected_skill: nil) |> apply_filters()}
   end
 
   def handle_event("filter-status", %{"status" => status}, socket) do
     filter = if status == "", do: nil, else: status
-    {:noreply, socket |> assign(status_filter: filter, selected_skill: nil) |> load_data()}
+    {:noreply, socket |> assign(status_filter: filter, selected_skill: nil) |> apply_filters()}
   end
 
   def handle_event("select-skill", %{"id" => id}, socket) do
@@ -57,7 +60,7 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   def handle_event("reject", %{"id" => id}, socket),
     do: update_status(socket, id, "rejected")
 
-  def handle_event("refresh", _params, socket), do: {:noreply, load_data(socket)}
+  def handle_event("refresh", _params, socket), do: {:noreply, load_data_async(socket)}
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   defp update_status(socket, id, status) do
@@ -69,15 +72,34 @@ defmodule AcsWeb.AcsLive.SkillsLive do
          socket
          |> assign(selected_skill: nil)
          |> put_flash(:info, "Skill '#{id}' #{verb}")
-         |> load_data()}
+         |> load_data_async()}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to update skill: #{inspect(reason)}")}
     end
   end
 
-  defp load_data(socket) do
-    all_skills = Store.all_skills()
+  @impl true
+  def handle_async(:load_skills, {:ok, all_skills}, socket) do
+    {:noreply, socket |> assign(all_skills: all_skills, loading: false) |> apply_filters()}
+  end
+
+  def handle_async(:load_skills, {:exit, _reason}, socket) do
+    {:noreply,
+     socket |> assign(loading: false) |> put_flash(:error, "Skills could not be loaded.")}
+  end
+
+  defp load_data_async(socket) do
+    org = socket.assigns.current_org
+
+    socket
+    |> cancel_async(:load_skills)
+    |> assign(loading: true)
+    |> start_async(:load_skills, fn -> Acs.Org.with_current(org, &Store.all_skills/0) end)
+  end
+
+  defp apply_filters(socket) do
+    all_skills = socket.assigns.all_skills
 
     skills =
       all_skills
@@ -170,7 +192,7 @@ defmodule AcsWeb.AcsLive.SkillsLive do
             <div class="card" style="padding: 48px;">
               <div class="empty-state">
                 <div class="empty-state-icon">◇</div>
-                <p class="empty-state-title">No skills found</p>
+                <p class="empty-state-title"><%= if @loading, do: "Loading skills…", else: "No skills found" %></p>
                 <p class="empty-state-desc">Skill files are managed outside Steward and discovered from the skills directory.</p>
               </div>
             </div>
