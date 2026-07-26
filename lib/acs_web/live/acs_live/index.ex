@@ -28,15 +28,15 @@ defmodule AcsWeb.AcsLive.Index do
         pending_requests_count: Acs.MCP.ToolRequests.pending_count(),
         getting_started_dismissed: getting_started_dismissed?(socket)
       )
-      |> load_data()
 
     socket =
       if connected?(socket) do
         Phoenix.PubSub.subscribe(AcsWeb.PubSub, "acs")
-        # Remember dashboard access so Getting started stays hidden on later visits.
         push_event(socket, "store", %{key: @dashboard_seen_key, value: "1"})
-      else
+        send(self(), :load_data)
         socket
+      else
+        load_data(socket)
       end
 
     {:ok, socket}
@@ -74,6 +74,10 @@ defmodule AcsWeb.AcsLive.Index do
   end
 
   @impl true
+  def handle_info(:load_data, socket) do
+    {:noreply, load_data(socket)}
+  end
+
   def handle_info({:task_created, _payload}, socket) do
     {:noreply, load_data(socket)}
   end

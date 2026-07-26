@@ -34,6 +34,14 @@ defmodule Acs.Skills.Store do
     |> Enum.map(&skill_metadata/1)
   end
 
+  def list_skills_by_scope(scope_path) do
+    all_skills()
+    |> Enum.filter(fn skill ->
+      Enum.any?(skill.scope_paths || [], &String.starts_with?(scope_path, &1))
+    end)
+    |> Enum.map(&skill_metadata/1)
+  end
+
   def get_skill(id_or_name) do
     all_skills()
     |> Enum.find(fn skill -> skill.id == id_or_name || skill.name == id_or_name end)
@@ -133,6 +141,7 @@ defmodule Acs.Skills.Store do
         name: scalar(metadata["name"]) || Path.basename(id),
         description: scalar(metadata["description"]),
         tags: string_list(metadata["tags"]),
+        scope_paths: string_list(metadata["scope_paths"]),
         content: String.trim(body),
         status: normalize_status(metadata["status"]),
         group: group_for(id),

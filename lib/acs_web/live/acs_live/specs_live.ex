@@ -33,7 +33,14 @@ defmodule AcsWeb.AcsLive.SpecsLive do
         status_filter: nil,
         search_query: ""
       )
-      |> load_data()
+
+    socket =
+      if connected?(socket) do
+        send(self(), :load_data)
+        socket
+      else
+        load_data(socket)
+      end
 
     {:ok, socket}
   end
@@ -204,6 +211,10 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   end
 
   @impl true
+  def handle_info(:load_data, socket) do
+    {:noreply, load_data(socket)}
+  end
+
   def handle_info(:refresh, socket) do
     {:noreply, load_data(socket)}
   end

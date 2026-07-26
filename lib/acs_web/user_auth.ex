@@ -176,7 +176,7 @@ defmodule AcsWeb.UserAuth do
     org = session["current_org"] || socket.assigns[:current_org]
     user = socket.assigns[:current_user]
 
-    if tenant_user?(user, org) do
+    if tenant_user?(user, org, socket.assigns[:organization]) do
       :ok = Acs.Org.put_current(org)
       {:cont, Phoenix.Component.assign(socket, :current_org, org)}
     else
@@ -188,7 +188,7 @@ defmodule AcsWeb.UserAuth do
     org = session["current_org"] || socket.assigns[:current_org]
     user = socket.assigns[:current_user]
 
-    if tenant_user?(user, org) and organization_role(user) in ["owner", "admin"] do
+    if tenant_user?(user, org, socket.assigns[:organization]) and organization_role(user) in ["owner", "admin"] do
       {:cont, socket}
     else
       {:halt, Phoenix.LiveView.redirect(socket, to: "/")}
@@ -347,9 +347,12 @@ defmodule AcsWeb.UserAuth do
     conn.assigns[:host_type] in [:account, :account_tenant]
   end
 
-  defp tenant_user?(user, slug) when is_map(user) and is_binary(slug) do
-    with organization when is_map(organization) <- organization_for_user(user),
-         ^slug <- Map.get(organization, :slug) || Map.get(organization, "slug"),
+  defp tenant_user?(user, slug, preloaded_org \\ nil)
+
+  defp tenant_user?(user, slug, preloaded_org) when is_map(user) and is_binary(slug) do
+    organization = preloaded_org || organization_for_user(user)
+
+    with ^slug <- Map.get(organization, :slug) || Map.get(organization, "slug"),
          true <- organization_ready?(organization) do
       true
     else
@@ -357,7 +360,7 @@ defmodule AcsWeb.UserAuth do
     end
   end
 
-  defp tenant_user?(_, _), do: false
+  defp tenant_user?(_, _, _), do: false
 
   defp organization_role(user) when is_map(user) do
     Map.get(user, :org_role) || Map.get(user, "org_role") || Map.get(user, :role) ||

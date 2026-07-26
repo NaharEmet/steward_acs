@@ -13,12 +13,20 @@ defmodule Acs.Orgs do
   alias Acs.Repo
 
   def list_all do
-    database_orgs = Repo.all(Organization)
+    case Acs.OrgsCache.get() do
+      nil ->
+        database_orgs = Repo.all(Organization)
 
-    database_slugs = MapSet.new(database_orgs, & &1.slug)
-    legacy_orgs = Enum.reject(load_yaml_orgs(), &MapSet.member?(database_slugs, &1.slug))
+        database_slugs = MapSet.new(database_orgs, & &1.slug)
+        legacy_orgs = Enum.reject(load_yaml_orgs(), &MapSet.member?(database_slugs, &1.slug))
 
-    Enum.sort_by(database_orgs ++ legacy_orgs, & &1.slug)
+        result = Enum.sort_by(database_orgs ++ legacy_orgs, & &1.slug)
+        Acs.OrgsCache.put(result)
+        result
+
+      cached ->
+        cached
+    end
   end
 
   def get_by_slug(slug) when is_binary(slug) do
@@ -53,7 +61,10 @@ defmodule Acs.Orgs do
     attrs = default_subdomain(attrs)
 
     case %Organization{} |> Organization.changeset(attrs) |> Repo.insert() do
-      {:ok, organization} -> Provisioner.provision(organization)
+      {:ok, organization} ->
+        Acs.OrgsCache.invalidate()
+        Provisioner.provision(organization)
+
       {:error, changeset} -> {:error, changeset}
     end
   end
@@ -146,6 +157,10 @@ defmodule Acs.Orgs do
             {:error, changeset} -> {:halt, {:error, changeset}}
           end
       end
+    end)
+    |> tap(fn
+      {:ok, _} -> Acs.OrgsCache.invalidate()
+      _ -> :ok
     end)
   end
 
