@@ -6,6 +6,7 @@ defmodule AcsWeb.UserAuth do
   import Phoenix.Controller
 
   alias Acs.Accounts
+  alias Acs.Orgs
 
   @session_key :user_token
 
@@ -139,7 +140,9 @@ defmodule AcsWeb.UserAuth do
     case session["current_org"] do
       org when is_binary(org) and org != "" ->
         :ok = Acs.Org.put_current(org)
-        {:cont, Phoenix.Component.assign(socket, :current_org, org)}
+        organization = Orgs.get_by_slug(org)
+        socket = Phoenix.Component.assign(socket, :current_org, org)
+        {:cont, Phoenix.Component.assign(socket, :organization, organization)}
 
       _ ->
         {:cont, socket}

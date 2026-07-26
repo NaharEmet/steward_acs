@@ -30,7 +30,10 @@ defmodule AcsWeb.AcsLive.Tools do
         pending_requests_count: ToolRequests.pending_count(),
         collapsed_apps: MapSet.new()
       )
-      |> load_data()
+      |> load_tools()
+      |> load_collapsed_apps()
+
+    if connected?(socket), do: send(self(), :check_health)
 
     {:ok, socket}
   end
@@ -56,6 +59,7 @@ defmodule AcsWeb.AcsLive.Tools do
   @impl true
   def handle_event("refresh", _, socket) do
     socket = load_data(socket)
+    if connected?(socket), do: send(self(), :check_health)
     {:noreply, socket}
   end
 
@@ -85,23 +89,63 @@ defmodule AcsWeb.AcsLive.Tools do
   end
 
   @impl true
+  def handle_info(:check_health, socket) do
+    tools = socket.assigns.tools
+
+    apps =
+      tools
+      |> Enum.map(fn t -> {t["app"] || "unknown", t["base_url"]} end)
+      |> Enum.uniq()
+      |> Enum.filter(fn {_app, url} -> url != "" && url != nil end)
+
+    cached = Acs.MCP.HealthCache.get_all()
+
+    {needed, _} =
+      Enum.split_with(apps, fn {app, _url} -> not Map.has_key?(cached, app) end)
+
+    fresh =
+      if needed != [] do
+        needed
+        |> Task.async_stream(
+          fn {app, url} ->
+            case Bridge.health_check(url) do
+              {:ok, _} -> {app, :up}
+              {:error, _} -> {app, :down}
+            end
+          end,
+          timeout: 6_000,
+          on_timeout: :kill_task
+        )
+        |> Enum.reduce(%{}, fn
+          {:ok, {app, status}}, acc -> Map.put(acc, app, status)
+          _, acc -> acc
+        end)
+        |> tap(&Acs.MCP.HealthCache.put_all/1)
+      else
+        %{}
+      end
+
+    {:noreply, assign(socket, app_health: Map.merge(cached, fresh))}
+  end
+
+  @impl true
   def handle_info({:tool_request_created, _payload}, socket) do
-    {:noreply, load_data(socket)}
+    {:noreply, schedule_health_check(load_data(socket))}
   end
 
   @impl true
   def handle_info({:tool_request_approved, _payload}, socket) do
-    {:noreply, load_data(socket)}
+    {:noreply, schedule_health_check(load_data(socket))}
   end
 
   @impl true
   def handle_info({:tool_request_rejected, _payload}, socket) do
-    {:noreply, load_data(socket)}
+    {:noreply, schedule_health_check(load_data(socket))}
   end
 
   @impl true
   def handle_info({:tools_refresh, _payload}, socket) do
-    {:noreply, load_data(socket)}
+    {:noreply, schedule_health_check(load_data(socket))}
   end
 
   @impl true
@@ -112,8 +156,12 @@ defmodule AcsWeb.AcsLive.Tools do
   defp load_data(socket) do
     socket
     |> load_tools()
-    |> load_app_health()
     |> load_collapsed_apps()
+  end
+
+  defp schedule_health_check(socket) do
+    if connected?(socket), do: send(self(), :check_health)
+    socket
   end
 
   defp load_collapsed_apps(socket) do
@@ -137,39 +185,16 @@ defmodule AcsWeb.AcsLive.Tools do
     )
   end
 
-  defp load_app_health(socket) do
-    tools = socket.assigns.tools
-
-    apps =
-      tools
-      |> Enum.map(fn t -> {t["app"] || "unknown", t["base_url"]} end)
-      |> Enum.uniq()
-      |> Enum.filter(fn {_app, url} -> url != "" && url != nil end)
-
-    health_results =
-      apps
-      |> Task.async_stream(
-        fn {app, url} ->
-          case Bridge.health_check(url) do
-            {:ok, _} -> {app, :up}
-            {:error, _} -> {app, :down}
-          end
-        end,
-        timeout: 6_000,
-        on_timeout: :kill_task
-      )
-      |> Enum.reduce(%{}, fn
-        {:ok, {app, status}}, acc -> Map.put(acc, app, status)
-        _, acc -> acc
-      end)
-
-    assign(socket, app_health: health_results)
-  end
-
   @impl true
   def render(assigns) do
     ~H"""
     <div class="tools-dashboard">
+      <section class="account-intro animate-in" aria-labelledby="tools-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Workspace</span> / Tools</p>
+        <h2 id="tools-title" style="font-size: 1.3rem; margin-bottom: 6px;">Tools</h2>
+        <p style="font-size: 0.82rem;">MCP tools available to connected agents in this workspace.</p>
+      </section>
+
       <!-- Stats Bar -->
       <div class="animate-in delay-1" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px;">
         <div class="card" style="padding: 20px;">

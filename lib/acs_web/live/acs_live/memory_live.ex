@@ -42,6 +42,8 @@ defmodule AcsWeb.AcsLive.MemoryLive do
       )
       |> load_data()
 
+    if connected?(socket), do: send(self(), :check_conflicts)
+
     {:ok, socket}
   end
 
@@ -187,6 +189,11 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   end
 
   @impl true
+  def handle_info(:check_conflicts, socket) do
+    {:noreply, assign(socket, conflict_alerts: compute_conflict_alerts(socket.assigns.memories, socket.assigns.status_filter))}
+  end
+
+  @impl true
   def handle_info(:refresh, socket) do
     {:noreply, load_data(socket)}
   end
@@ -292,7 +299,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         end
       end
 
-    conflict_alerts = compute_conflict_alerts(memories, status_filter)
+    conflict_alerts = if connected?(socket), do: %{}, else: compute_conflict_alerts(memories, status_filter)
 
     selected_memory =
       if socket.assigns.selected_memory do
@@ -360,6 +367,12 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   def render(assigns) do
     ~H"""
     <div class="memory-governance">
+      <section class="account-intro animate-in" aria-labelledby="memories-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Knowledge</span> / Memories</p>
+        <h2 id="memories-title" style="font-size: 1.3rem; margin-bottom: 6px;">Memories</h2>
+        <p style="font-size: 0.82rem;">Agent memories store learnings, patterns, and eternal truths discovered during work.</p>
+      </section>
+
       <!-- Search Bar -->
       <div style="margin-bottom: 20px;">
         <form phx-change="search">

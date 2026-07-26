@@ -134,6 +134,12 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   def render(assigns) do
     ~H"""
     <div class="skills-governance">
+      <section class="account-intro animate-in" aria-labelledby="skills-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Knowledge</span> / Skills</p>
+        <h2 id="skills-title" style="font-size: 1.3rem; margin-bottom: 6px;">Skills</h2>
+        <p style="font-size: 0.82rem;">Reusable workflow guides with step-by-step procedures for repeatable tasks.</p>
+      </section>
+
       <div style="display: flex; gap: 24px; margin-bottom: 20px; flex-wrap: wrap;">
         <.stat_card label="Total" value={@stats["total"]} />
         <.stat_card label="Pending" value={@stats["proposed"]} color="var(--amber)" />

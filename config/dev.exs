@@ -31,7 +31,7 @@ config :steward_acs, AcsWeb.Endpoint,
     "//[::1]:#{dev_port}",
     "//*.localhost:#{dev_port}"
   ],
-  code_reloader: false,
+  code_reloader: true,
   watchers: [],
   live_view: [signing_salt: signing_salt],
   secret_key_base: secret_key_base

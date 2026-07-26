@@ -73,6 +73,8 @@ defmodule Acs.Accounts do
       )
       when is_binary(issuer) and is_binary(subject) and is_binary(email) do
     name = Map.get(attrs, :name)
+    first_name = Map.get(attrs, :first_name)
+    last_name = Map.get(attrs, :last_name)
 
     Repo.transaction(fn ->
       issuer = normalize_issuer(issuer)
@@ -92,6 +94,8 @@ defmodule Acs.Accounts do
       changes = %{
         email: email,
         name: name,
+        first_name: first_name,
+        last_name: last_name,
         oidc_issuer: issuer,
         oidc_subject: subject,
         confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second)

@@ -136,8 +136,14 @@ defmodule AcsWeb.AcsLive.ToolRequests do
   def render(assigns) do
     ~H"""
     <div class="tool-requests-dashboard">
+      <section class="account-intro animate-in" aria-labelledby="requests-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Workspace</span> / Requests</p>
+        <h2 id="requests-title" style="font-size: 1.3rem; margin-bottom: 6px;">Tool Requests</h2>
+        <p style="font-size: 0.82rem;">Agent tool operation requests awaiting review and approval.</p>
+      </section>
+
       <!-- Pending Requests Section -->
-      <section class="animate-in delay-1" style="margin-bottom: 32px;">
+      <section style="margin-bottom: 32px;">
         <div class="section-header">
           <h2 class="section-title">Pending Requests</h2>
           <span class="section-count"><%= length(@pending_requests) %></span>

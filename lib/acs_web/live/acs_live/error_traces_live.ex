@@ -173,6 +173,12 @@ defmodule AcsWeb.AcsLive.ErrorTracesLive do
   def render(assigns) do
     ~H"""
     <div class="acs-dashboard">
+      <section class="account-intro animate-in" aria-labelledby="error-traces-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>System</span> / Errors</p>
+        <h2 id="error-traces-title" style="font-size: 1.3rem; margin-bottom: 6px;">Error Traces</h2>
+        <p style="font-size: 0.82rem;">Monitor recurring error patterns detected across your workspace.</p>
+      </section>
+
       <!-- Stats row -->
       <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px;">
         <div class="card" style="padding: 20px;">
@@ -191,12 +197,6 @@ defmodule AcsWeb.AcsLive.ErrorTracesLive do
           <div class="stat-card-label">Resolved</div>
           <div class="stat-card-value" style="color: var(--green);"><%= @resolved_count %></div>
         </div>
-      </div>
-
-      <!-- Section header -->
-      <div class="section-header">
-        <h2 class="section-title">Error Traces</h2>
-        <span class="section-count">(<%= @total_count %>)</span>
       </div>
 
       <!-- Filter tabs -->

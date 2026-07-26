@@ -5,6 +5,8 @@ defmodule Acs.Accounts.User do
   schema "users" do
     field :email, :string
     field :normalized_email, :string
+    field :first_name, :string
+    field :last_name, :string
     field :name, :string
     field :confirmed_at, :utc_datetime
     field :oidc_issuer, :string
@@ -21,6 +23,8 @@ defmodule Acs.Accounts.User do
     user
     |> cast(attrs, [
       :email,
+      :first_name,
+      :last_name,
       :name,
       :confirmed_at,
       :oidc_issuer,
@@ -33,6 +37,8 @@ defmodule Acs.Accounts.User do
     |> validate_required([:email])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
     |> validate_length(:email, max: 160)
+    |> validate_length(:first_name, max: 80)
+    |> validate_length(:last_name, max: 80)
     |> validate_length(:name, max: 160)
     |> validate_org_membership()
     |> validate_inclusion(:org_role, ~w(owner admin member), allow_nil: true)
@@ -56,9 +62,28 @@ defmodule Acs.Accounts.User do
     |> validate_required(:name)
   end
 
+  def display_name(user) do
+    cond do
+      is_binary(user.first_name) and is_binary(user.last_name) and user.first_name != "" and
+          user.last_name != "" ->
+        "#{user.first_name} #{user.last_name}"
+
+      is_binary(user.first_name) and user.first_name != "" ->
+        user.first_name
+
+      is_binary(user.name) and user.name != "" ->
+        user.name
+
+      true ->
+        user.email |> String.split("@") |> List.first()
+    end
+  end
+
   defp normalize_fields(changeset) do
     changeset
     |> update_change(:email, &trim/1)
+    |> update_change(:first_name, &trim/1)
+    |> update_change(:last_name, &trim/1)
     |> update_change(:name, &trim/1)
     |> update_change(:org, &normalize_org/1)
     |> update_change(:oidc_issuer, &trim/1)

@@ -219,14 +219,11 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   end
 
   defp load_data(socket) do
-    status_filter = socket.assigns.status_filter
     search_query = socket.assigns.search_query
-
-    stats = compute_stats()
 
     specs =
       if search_query && search_query != "" do
-        case Search.search(search_query, status: status_filter) do
+        case Search.search(search_query, status: socket.assigns.status_filter) do
           {:ok, entries} -> entries
           _ -> []
         end
@@ -241,7 +238,8 @@ defmodule AcsWeb.AcsLive.SpecsLive do
         end
       end
 
-    # Re-select the same spec if still in the list
+    stats = compute_stats(specs)
+
     selected_spec =
       if socket.assigns.selected_spec do
         Enum.find(specs, fn s ->
@@ -258,28 +256,28 @@ defmodule AcsWeb.AcsLive.SpecsLive do
     Enum.filter(entries, fn e -> e.status == status end)
   end
 
-  defp compute_stats do
+  defp compute_stats(specs) do
     statuses =
       ~w(proposed under_review approved deprecated contradicted runtime_divergent historical)
 
     base = Map.new(statuses, fn s -> {s, 0} end)
 
-    case Loader.load_all() do
-      {:ok, entries} ->
-        Enum.reduce(entries, Map.put(base, "total", length(entries)), fn entry, acc ->
-          status = entry.status || "unknown"
-          Map.update(acc, status, 1, &(&1 + 1))
-        end)
-
-      _ ->
-        Map.put(base, "total", 0)
-    end
+    Enum.reduce(specs, Map.put(base, "total", length(specs)), fn entry, acc ->
+      status = entry.status || "unknown"
+      Map.update(acc, status, 1, &(&1 + 1))
+    end)
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="specs-governance">
+    <div class="documents-governance">
+      <section class="account-intro animate-in" aria-labelledby="documents-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Knowledge</span> / Documents</p>
+        <h2 id="documents-title" style="font-size: 1.3rem; margin-bottom: 6px;">Documents</h2>
+        <p style="font-size: 0.82rem;">Specifications, knowledge files, and shared artifacts for the workspace.</p>
+      </section>
+
       <!-- Header with stats -->
       <div style="display: flex; gap: 24px; margin-bottom: 20px; flex-wrap: wrap;">
         <div class="card" style="padding: 16px 20px; min-width: 100px;">
@@ -307,7 +305,7 @@ defmodule AcsWeb.AcsLive.SpecsLive do
             name="query"
             type="text"
             class="search-input"
-            placeholder="Search specs by title, purpose, invariants..."
+            placeholder="Search documents by title, purpose, invariants..."
             value={@search_query}
             style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: 0.85rem; outline: none;"
           />
@@ -361,7 +359,7 @@ defmodule AcsWeb.AcsLive.SpecsLive do
             phx-click="approve-all-proposed"
             class="btn btn-primary"
             style="padding: 6px 14px; font-size: 0.72rem;"
-            title={"Approve all #{@stats["proposed"]} proposed specs"}
+            title={"Approve all #{@stats["proposed"]} proposed documents"}
           >
             ✓ Approve All (<%= @stats["proposed"] %>)
           </button>
@@ -378,13 +376,13 @@ defmodule AcsWeb.AcsLive.SpecsLive do
                 <div class="empty-state-icon">◈</div>
                 <p class="empty-state-title">
                   <%= if @search_query != "" do %>
-                    No specs match your search
+                    No documents match your search
                   <% else %>
-                    No specs found
+                    No documents found
                   <% end %>
                 </p>
                 <p class="empty-state-desc">
-                  Use the specs tools via agents or create specs manually.
+                  Use the document tools via agents or create documents manually.
                 </p>
               </div>
             </div>
