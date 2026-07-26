@@ -91,23 +91,25 @@ defmodule Acs.MCP.LogStore do
   # Errors are caught silently — the ETS write path must never be disrupted
   # by a DB failure.
   defp persist_to_db(level, service, component, message, metadata, org) do
+    # Rescue inside the Task: EncodeError used to crash here, Logger reported it,
+    # LogBackend re-entered store_log, and the pool wedged (health → 503).
     Task.start(fn ->
-      result =
-        Acs.Log.LogRepo.insert_raw(
-          level,
-          service,
-          component,
-          message,
-          metadata,
-          org: org
-        )
-
-      case result do
-        {:error, reason} ->
-          Logger.warning("[LogStore] DB persistence failed: #{inspect(reason)}")
-
-        _ ->
-          :ok
+      try do
+        case Acs.Log.LogRepo.insert_raw(
+               level,
+               service,
+               component,
+               message,
+               metadata,
+               org: org
+             ) do
+          {:error, _reason} -> :ok
+          _ -> :ok
+        end
+      rescue
+        _ -> :ok
+      catch
+        _, _ -> :ok
       end
     end)
   rescue

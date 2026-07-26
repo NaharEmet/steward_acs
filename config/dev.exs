@@ -5,6 +5,9 @@ config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
 config :steward_acs, Acs.Repo,
   database: System.get_env("DATABASE_PATH") || Path.expand("../var/acs.sqlite", __DIR__),
   pool_size: 5,
+  # SQLite allows one writer; wait/retry instead of raising "Database busy" under MCP contention.
+  busy_timeout: 10_000,
+  default_transaction_mode: :immediate,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
 

@@ -42,7 +42,7 @@ defmodule AcsWeb.Router do
 
     get "/auth/log_in", UserSessionController, :auth_log_in
     get "/users/log_in", UserSessionController, :new
-    post "/users/log_in", UserSessionController, :auth_log_in
+    post "/users/log_in", UserSessionController, :create
   end
 
   scope "/", AcsWeb do

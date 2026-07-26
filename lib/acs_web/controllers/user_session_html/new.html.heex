@@ -14,7 +14,33 @@
         Continue with Auth0
       </a>
     <% else %>
-      <p class="text-dim">Browser sign in is not configured. Contact an administrator.</p>
+      <.form for={%{}} as={:user} action={~p"/users/log_in"} method="post" style="display: flex; flex-direction: column; gap: 16px;">
+        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+        <div>
+          <label for="user_username" class="text-dim" style="display: block; font-size: 0.75rem; margin-bottom: 8px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em;">Username</label>
+          <input
+            type="text"
+            name="user[username]"
+            id="user_username"
+            required
+            autocomplete="username"
+            placeholder="admin"
+            style="width: 100%; padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-body);"
+          />
+        </div>
+        <div>
+          <label for="user_password" class="text-dim" style="display: block; font-size: 0.75rem; margin-bottom: 8px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em;">Password</label>
+          <input
+            type="password"
+            name="user[password]"
+            id="user_password"
+            required
+            autocomplete="current-password"
+            style="width: 100%; padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-body);"
+          />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Sign in</button>
+      </.form>
     <% end %>
   </div>
 </div>

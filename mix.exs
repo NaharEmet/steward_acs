@@ -64,7 +64,9 @@ defmodule Acs.MixProject do
       {:excoveralls, "~> 0.18", only: :test, runtime: false},
       {:cors_plug, "~> 3.0"},
       {:jose, "~> 1.11"},
-      {:assent, "~> 0.3.1"}
+      {:assent, "~> 0.3.1"},
+      # Optional production email (Resend) — enabled at runtime when RESEND_API_KEY is set
+      {:swoosh, "~> 1.26"}
     ]
   end
 

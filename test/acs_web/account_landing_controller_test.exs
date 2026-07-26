@@ -31,7 +31,7 @@ defmodule AcsWeb.AccountLandingControllerTest do
     assert html_response(conn, 200) =~ "Steward"
     assert html_response(conn, 200) =~ "Sign in"
     assert html_response(conn, 200) =~ "Create an organization"
-    assert html_response(conn, 200) =~ ~r{/auth/log_in\?[^"]*return_to=}
+    assert html_response(conn, 200) =~ ~r{/users/log_in\?[^"]*return_to=}
   end
 
   test "account host protected paths send anonymous users to the landing", %{conn: conn} do

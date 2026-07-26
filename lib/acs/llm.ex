@@ -150,14 +150,26 @@ defmodule Acs.LLM do
   end
 
   defp try_providers(memory_id, [provider_id | rest], prompt, errors) do
-    Logger.info("[Acs.LLM] Trying provider: #{provider_id}")
+    Logger.info("[Acs.LLM] Trying provider: #{provider_id}",
+      provider: provider_id,
+      llm_event: "chat",
+      status: "start",
+      action: "llm_call"
+    )
 
     case call_provider(provider_id, prompt) do
       {:ok, evaluation} ->
         {:ok, evaluation}
 
       {:error, reason} ->
-        Logger.warning("[Acs.LLM] Provider #{provider_id} failed: #{inspect(reason)}")
+        Logger.warning("[Acs.LLM] Provider #{provider_id} failed: #{inspect(reason)}",
+          provider: provider_id,
+          llm_event: "chat",
+          status: "error",
+          action: "llm_call",
+          error_type: String.slice(inspect(reason), 0, 200)
+        )
+
         try_providers(memory_id, rest, prompt, [{provider_id, reason} | errors])
     end
   end
@@ -197,22 +209,69 @@ defmodule Acs.LLM do
 
       opts = if base_url, do: Keyword.put(opts, :base_url, base_url), else: opts
 
+      started = System.monotonic_time(:millisecond)
+
       case LLMUtils.Client.chat_completion(messages, provider_id, opts) do
-        {:ok, %{content: content}} ->
+        {:ok, %{content: content} = response} ->
+          latency_ms = System.monotonic_time(:millisecond) - started
+
+          Logger.info("[Acs.LLM] Provider #{provider_id} ok",
+            provider: provider_id,
+            model: model,
+            latency_ms: latency_ms,
+            llm_event: "chat",
+            status: "ok",
+            action: "llm_call",
+            tokens_in: llm_usage(response, :input),
+            tokens_out: llm_usage(response, :output)
+          )
+
           extract_evaluation(content)
 
         {:ok, response} ->
+          latency_ms = System.monotonic_time(:millisecond) - started
+
           Logger.warning(
-            "[Acs.LLM] Unexpected response format from #{provider_id}: #{inspect(response)}"
+            "[Acs.LLM] Unexpected response format from #{provider_id}: #{inspect(response)}",
+            provider: provider_id,
+            model: model,
+            latency_ms: latency_ms,
+            llm_event: "chat",
+            status: "error",
+            action: "llm_call",
+            error_type: "unexpected_response_format"
           )
 
           {:error, :unexpected_response_format}
 
         {:error, reason} ->
+          latency_ms = System.monotonic_time(:millisecond) - started
+
+          Logger.warning("[Acs.LLM] Provider #{provider_id} request failed: #{inspect(reason)}",
+            provider: provider_id,
+            model: model,
+            latency_ms: latency_ms,
+            llm_event: "chat",
+            status: "error",
+            action: "llm_call",
+            error_type: String.slice(inspect(reason), 0, 200)
+          )
+
           {:error, reason}
       end
     end
   end
+
+  defp llm_usage(response, which) when is_map(response) do
+    usage = Map.get(response, :usage) || Map.get(response, "usage") || %{}
+
+    case which do
+      :input -> Map.get(usage, :input_tokens) || Map.get(usage, "input_tokens") || Map.get(usage, :prompt_tokens)
+      :output -> Map.get(usage, :output_tokens) || Map.get(usage, "output_tokens") || Map.get(usage, :completion_tokens)
+    end
+  end
+
+  defp llm_usage(_, _), do: nil
 
   # Allow OpenAI-compatible providers to override base_url and model via env vars.
   # OPENAI_BASE_URL — override the API endpoint (e.g., http://localhost:8000/v1)

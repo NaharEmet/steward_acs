@@ -239,8 +239,18 @@ defmodule Acs.Accounts do
         expire_invitations(actor.organization_id)
 
         case Repo.get_by(User, normalized_email: normalize_email(email)) do
-          %User{organization_id: organization_id} when is_integer(organization_id) ->
-            Repo.rollback(:already_in_organization)
+          %User{organization_id: organization_id} when organization_id == actor.organization_id ->
+            Repo.rollback(:already_member)
+
+          %User{organization_id: organization_id} = existing when is_integer(organization_id) ->
+            case pending_invitation(actor.organization_id, email) do
+              nil ->
+                {invitation, token} = create_invitation!(actor, email, role)
+                {invitation, token, org_move_warning(existing)}
+
+              _ ->
+                Repo.rollback(:already_invited)
+            end
 
           _ ->
             case pending_invitation(actor.organization_id, email) do
@@ -354,6 +364,7 @@ defmodule Acs.Accounts do
       Repo.transaction(fn ->
         user = Repo.get!(User, user_id)
         current = now()
+        previous_organization_id = user.organization_id
 
         invitation =
           Repo.one(
@@ -365,7 +376,7 @@ defmodule Acs.Accounts do
         with %OrganizationInvitation{} <- invitation,
              :ok <- active_invitation(invitation),
              :ok <- invitation_matches_user(invitation, user),
-             :ok <- ensure_orgless(user),
+             :ok <- can_accept_into_organization(user, invitation),
              {1, _} <- assign_invited_user(user, invitation, current),
              {1, _} <- accept_active_invitation(invitation, supplied_hash, current) do
           user = Repo.get!(User, user.id)
@@ -377,7 +388,10 @@ defmodule Acs.Accounts do
             target_user_id: user.id,
             organization_id: invitation.organization_id,
             event: "invitation.accepted",
-            metadata: %{"invitation_id" => invitation.id}
+            metadata: %{
+              "invitation_id" => invitation.id,
+              "previous_organization_id" => previous_organization_id
+            }
           })
 
           {user, invitation}
@@ -396,7 +410,10 @@ defmodule Acs.Accounts do
   defp assign_invited_user(user, invitation, current) do
     Repo.update_all(
       from(candidate in User,
-        where: candidate.id == ^user.id and is_nil(candidate.organization_id)
+        where:
+          candidate.id == ^user.id and
+            (is_nil(candidate.organization_id) or
+               candidate.organization_id != ^invitation.organization_id)
       ),
       set: [
         organization_id: invitation.organization_id,
@@ -405,6 +422,29 @@ defmodule Acs.Accounts do
         updated_at: current
       ]
     )
+  end
+
+  defp can_accept_into_organization(%User{organization_id: nil}, _invitation), do: :ok
+
+  defp can_accept_into_organization(%User{organization_id: organization_id}, invitation)
+       when organization_id == invitation.organization_id do
+    {:error, :already_member}
+  end
+
+  defp can_accept_into_organization(%User{} = user, _invitation) do
+    lock_organization!(user.organization_id)
+    owner_removal_allowed(user)
+  end
+
+  defp org_move_warning(%User{organization_id: organization_id}) do
+    organization = Repo.get(Organization, organization_id)
+
+    %{
+      org_move: true,
+      from_organization_id: organization_id,
+      from_organization_name:
+        (organization && (organization.name || organization.slug)) || "another organization"
+    }
   end
 
   defp accept_active_invitation(invitation, supplied_hash, current) do
@@ -594,6 +634,7 @@ defmodule Acs.Accounts do
   def consume_session_handoff(_, _, _), do: {:error, :invalid_handoff}
 
   defp invitation_result({:ok, {invitation, token}}), do: {:ok, invitation, token}
+  defp invitation_result({:ok, {invitation, token, warning}}), do: {:ok, invitation, token, warning}
   defp invitation_result({:error, reason}), do: {:error, reason}
 
   defp accept_result({:ok, {user, invitation}}), do: {:ok, user, invitation}
@@ -708,9 +749,6 @@ defmodule Acs.Accounts do
        do: :ok
 
   defp invitation_matches_user(_, _), do: {:error, :email_mismatch}
-
-  defp ensure_orgless(%User{organization_id: nil}), do: :ok
-  defp ensure_orgless(_), do: {:error, :already_in_organization}
 
   defp manageable_member(_actor, nil), do: {:error, :not_found}
 

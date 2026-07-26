@@ -49,19 +49,16 @@ defmodule AcsWeb.UserSessionControllerTest do
             :oidc_redirect_uri,
             :oidc_strategy,
             :account_host,
-            :multi_tenant
+            :multi_tenant,
+            :basic_auth,
+            :org_name
           ],
           into: %{},
           do: {key, Application.get_env(:steward_acs, key)}
 
-    Application.put_env(:steward_acs, :oidc_browser_enabled, true)
-    Application.put_env(:steward_acs, :oidc_issuer, "https://issuer.example.test/")
-    Application.put_env(:steward_acs, :oidc_client_id, "client-id")
-    Application.put_env(:steward_acs, :oidc_client_secret, "client-secret")
-    Application.put_env(:steward_acs, :oidc_redirect_uri, "http://localhost/auth/callback")
-    Application.put_env(:steward_acs, :oidc_strategy, OIDCStrategy)
     Application.put_env(:steward_acs, :account_host, "localhost")
-    Application.put_env(:steward_acs, :multi_tenant, false)
+    Application.put_env(:steward_acs, :org_name, "default")
+    Application.put_env(:steward_acs, :basic_auth, username: "admin", password: "secret")
 
     on_exit(fn ->
       Enum.each(previous, fn
@@ -73,40 +70,103 @@ defmodule AcsWeb.UserSessionControllerTest do
     :ok
   end
 
-  test "starts OIDC authorization and stores provider session parameters", %{conn: conn} do
-    conn = get(conn, "/auth/log_in", %{"return_to" => "/onboarding"})
+  describe "single-tenant password login" do
+    setup do
+      Application.put_env(:steward_acs, :multi_tenant, false)
+      Application.put_env(:steward_acs, :oidc_browser_enabled, false)
+      :ok
+    end
 
-    assert redirected_to(conn) ==
-             "https://auth.example.test/authorize?state=provider-state"
+    test "login form shows username and password fields", %{conn: conn} do
+      conn = get(conn, "/users/log_in")
 
-    assert %{session_params: %{state: "provider-state"}, return_to: "/onboarding"} =
-             get_session(conn, :oidc_session)
+      assert html_response(conn, 200) =~ "user[username]"
+      assert html_response(conn, 200) =~ "user[password]"
+      refute html_response(conn, 200) =~ "Continue with Auth0"
+    end
+
+    test "auth_log_in redirects to password form when OIDC is off", %{conn: conn} do
+      conn = get(conn, "/auth/log_in")
+      assert redirected_to(conn) == "/users/log_in"
+    end
+
+    test "valid credentials create a local owner session", %{conn: conn} do
+      conn =
+        post(conn, "/users/log_in", %{
+          "user" => %{"username" => "admin", "password" => "secret"}
+        })
+
+      assert redirected_to(conn) == "/"
+      assert is_binary(get_session(conn, :user_token))
+
+      user = Accounts.get_user_by_email("admin@localhost", "default")
+      assert user.org_role == "owner"
+      assert is_integer(user.organization_id)
+    end
+
+    test "invalid credentials are rejected", %{conn: conn} do
+      conn =
+        post(conn, "/users/log_in", %{
+          "user" => %{"username" => "admin", "password" => "wrong"}
+        })
+
+      assert redirected_to(conn) == "/users/log_in"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Invalid"
+      refute get_session(conn, :user_token)
+    end
   end
 
-  test "callback creates a global verified identity and redirects an orgless user", %{conn: conn} do
-    conn = get(conn, "/auth/log_in")
-    conn = conn |> recycle() |> get("/auth/callback", %{"code" => "verified"})
+  describe "multi-tenant OIDC login" do
+    setup do
+      Application.put_env(:steward_acs, :multi_tenant, true)
+      Application.put_env(:steward_acs, :oidc_browser_enabled, true)
+      Application.put_env(:steward_acs, :oidc_issuer, "https://issuer.example.test/")
+      Application.put_env(:steward_acs, :oidc_client_id, "client-id")
+      Application.put_env(:steward_acs, :oidc_client_secret, "client-secret")
+      Application.put_env(:steward_acs, :oidc_redirect_uri, "http://localhost/auth/callback")
+      Application.put_env(:steward_acs, :oidc_strategy, OIDCStrategy)
+      :ok
+    end
 
-    assert redirected_to(conn) == "/onboarding"
-    assert is_binary(get_session(conn, :user_token))
+    defp account_conn(conn) do
+      Map.put(conn, :host, "localhost")
+    end
 
-    user =
-      Accounts.get_user_by_oidc_identity("https://issuer.example.test/", "auth0|verified-user")
+    test "starts OIDC authorization and stores provider session parameters", %{conn: conn} do
+      conn = get(account_conn(conn), "/auth/log_in", %{"return_to" => "/onboarding"})
 
-    assert user.email == "verified@example.test"
-    assert user.confirmed_at
-    assert is_nil(user.organization_id)
-  end
+      assert redirected_to(conn) ==
+               "https://auth.example.test/authorize?state=provider-state"
 
-  test "callback rejects an identity whose provider email is not verified", %{conn: conn} do
-    conn = get(conn, "/auth/log_in")
-    conn = conn |> recycle() |> get("/auth/callback", %{"code" => "unverified"})
+      assert %{session_params: %{state: "provider-state"}, return_to: "/onboarding"} =
+               get_session(conn, :oidc_session)
+    end
 
-    assert redirected_to(conn) == "/users/log_in"
+    test "callback creates a global verified identity and redirects an orgless user", %{conn: conn} do
+      conn = get(account_conn(conn), "/auth/log_in")
+      conn = conn |> recycle() |> account_conn() |> get("/auth/callback", %{"code" => "verified"})
 
-    refute Accounts.get_user_by_oidc_identity(
-             "https://issuer.example.test/",
-             "auth0|unverified-user"
-           )
+      assert redirected_to(conn) == "/onboarding"
+      assert is_binary(get_session(conn, :user_token))
+
+      user =
+        Accounts.get_user_by_oidc_identity("https://issuer.example.test/", "auth0|verified-user")
+
+      assert user.email == "verified@example.test"
+      assert user.confirmed_at
+      assert is_nil(user.organization_id)
+    end
+
+    test "callback rejects an identity whose provider email is not verified", %{conn: conn} do
+      conn = get(account_conn(conn), "/auth/log_in")
+      conn = conn |> recycle() |> account_conn() |> get("/auth/callback", %{"code" => "unverified"})
+
+      assert redirected_to(conn) == "/users/log_in"
+
+      refute Accounts.get_user_by_oidc_identity(
+               "https://issuer.example.test/",
+               "auth0|unverified-user"
+             )
+    end
   end
 end

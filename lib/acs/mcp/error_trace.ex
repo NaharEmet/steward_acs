@@ -307,6 +307,7 @@ defmodule Acs.MCP.ErrorTrace do
           }
 
           :ets.insert(@table_name, {trace_id, updated})
+          log_error_trace(:updated, updated)
           {:ok, :updated, updated}
         else
           # Outside dedup window: create new trace
@@ -354,7 +355,21 @@ defmodule Acs.MCP.ErrorTrace do
     }
 
     :ets.insert(@table_name, {trace_id, entry})
+    log_error_trace(:created, entry)
     {:ok, :created, entry}
+  end
+
+  defp log_error_trace(action, entry) when is_map(entry) do
+    Logger.info("[ErrorTrace] #{action} #{entry.service}/#{entry.component} count=#{entry.count}",
+      action: "error_trace",
+      status: Atom.to_string(action),
+      org: entry.org,
+      service: entry.service,
+      component: entry.component,
+      count: entry.count,
+      task_id: entry.task_id,
+      error_type: String.slice(to_string(entry.message_pattern || ""), 0, 200)
+    )
   end
 
   defp update_status(trace_id, new_status, org)

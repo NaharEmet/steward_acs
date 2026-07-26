@@ -441,3 +441,25 @@ if origins = System.get_env("CORS_ORIGINS") do
       |> String.split(",", trim: true)
       |> Enum.map(&String.trim/1)
 end
+
+# Optional invitation email via Resend. Both key and from address required;
+# omit either to keep copy-link-only invites (email_delivery_enabled stays false).
+resend_api_key = System.get_env("RESEND_API_KEY", "") |> String.trim()
+resend_from_raw = System.get_env("RESEND_FROM_EMAIL", "") |> String.trim()
+
+resend_from =
+  case Regex.run(~r/\A\s*(.*?)\s*<([^>]+)>\s*\z/, resend_from_raw) do
+    [_, name, email] -> {String.trim(name), String.trim(email)}
+    _ when resend_from_raw != "" -> resend_from_raw
+    _ -> nil
+  end
+
+if resend_api_key != "" and not is_nil(resend_from) do
+  config :steward_acs, Acs.Mailer,
+    adapter: Swoosh.Adapters.Resend,
+    api_key: resend_api_key
+
+  config :swoosh, :api_client, Swoosh.ApiClient.Req
+  config :steward_acs, :email_delivery_enabled, true
+  config :steward_acs, :resend_from_email, resend_from
+end

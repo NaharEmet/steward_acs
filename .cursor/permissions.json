@@ -1,0 +1,16 @@
+{
+  // NOTE: As of Cursor 3.12, project-level mcpAllowlist is ignored
+  // (https://forum.cursor.com/t/163614). The working copy lives in
+  // ~/.cursor/permissions.json. Keep this file for when the bug is fixed
+  // and for teammates who copy the patterns into their user file.
+  "mcpAllowlist": [
+    "acs:*",
+    "project-0-steward_acs-acs:*",
+    "project-*-acs:*"
+  ],
+  "autoRun": {
+    "allow_instructions": [
+      "ACS MCP tools for local agent coordination (create/claim/release work, lock/unlock files, memories, specs, feedback, help, get_started) are trusted and should run without asking."
+    ]
+  }
+}

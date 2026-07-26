@@ -17,7 +17,8 @@ defmodule Acs.Log.LogEntry do
     field :service, :string
     field :component, :string
     field :message, :string
-    field :metadata, :map, default: %{}
+    # :text column — JsonMap dumps to JSON string (Postgres :map wants jsonb)
+    field :metadata, Acs.Ecto.JsonMap, default: %{}
     field :workflow_id, :string
     field :execution_id, :string
     field :org, :string

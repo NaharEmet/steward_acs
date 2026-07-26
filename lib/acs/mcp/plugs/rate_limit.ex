@@ -5,6 +5,7 @@ defmodule Acs.MCP.Plugs.RateLimit do
   Keys prefer a hashed API key when present, falling back to client IP.
   """
   import Plug.Conn
+  require Logger
 
   alias Acs.MCP.RateLimitStore
 
@@ -28,6 +29,14 @@ defmodule Acs.MCP.Plugs.RateLimit do
 
       :deny ->
         body = Jason.encode!(%{error: "Rate limit exceeded"})
+
+        Logger.warning("MCP rate limit exceeded",
+          action: "rate_limit",
+          status: "429",
+          org: conn.assigns[:current_org] || conn.assigns[:agent_org_id],
+          agent_id: conn.assigns[:agent_identity],
+          error_type: "rate_limited"
+        )
 
         conn
         |> put_resp_content_type("application/json")

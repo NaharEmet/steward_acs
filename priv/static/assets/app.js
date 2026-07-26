@@ -1827,18 +1827,18 @@
     canPushState() {
       return typeof history.pushState !== "undefined";
     },
-    dropLocal(localStorage, namespace, subkey) {
-      return localStorage.removeItem(this.localKey(namespace, subkey));
+    dropLocal(localStorage2, namespace, subkey) {
+      return localStorage2.removeItem(this.localKey(namespace, subkey));
     },
-    updateLocal(localStorage, namespace, subkey, initial, func) {
-      const current = this.getLocal(localStorage, namespace, subkey);
+    updateLocal(localStorage2, namespace, subkey, initial, func) {
+      const current = this.getLocal(localStorage2, namespace, subkey);
       const key = this.localKey(namespace, subkey);
       const newVal = current === null ? initial : func(current);
-      localStorage.setItem(key, JSON.stringify(newVal));
+      localStorage2.setItem(key, JSON.stringify(newVal));
       return newVal;
     },
-    getLocal(localStorage, namespace, subkey) {
-      return JSON.parse(localStorage.getItem(this.localKey(namespace, subkey)));
+    getLocal(localStorage2, namespace, subkey) {
+      return JSON.parse(localStorage2.getItem(this.localKey(namespace, subkey)));
     },
     updateCurrentState(callback) {
       if (!this.canPushState()) {
@@ -8771,10 +8771,23 @@ removing illegal node: "${("outerHTML" in childNode && childNode.outerHTML || ch
   };
 
   // js/app.js
+  var GETTING_STARTED_DISMISSED_KEY = "acs.getting_started_dismissed";
+  var DASHBOARD_SEEN_KEY = "acs.dashboard_seen";
   var csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
-  var liveSocket = new LiveSocket("/live", Socket, { params: { _csrf_token: csrfToken } });
+  var liveSocket = new LiveSocket("/live", Socket, {
+    params: {
+      _csrf_token: csrfToken,
+      getting_started_dismissed: localStorage.getItem(GETTING_STARTED_DISMISSED_KEY) === "1" || localStorage.getItem(DASHBOARD_SEEN_KEY) === "1" ? "1" : "0"
+    }
+  });
   liveSocket.connect();
   window.liveSocket = liveSocket;
+  window.addEventListener("phx:store", (event) => {
+    const { key, value } = event.detail || {};
+    if (typeof key === "string" && typeof value === "string") {
+      localStorage.setItem(key, value);
+    }
+  });
   var toastLifetime = 5e3;
   var dismissToast = (toast) => {
     if (!toast || toast.classList.contains("is-dismissing")) return;

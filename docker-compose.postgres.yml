@@ -1,5 +1,6 @@
-# Postgres override for docker-compose.multitenant.yml
+# Optional local Postgres instead of Neon for docker-compose.multitenant.yml
 # Usage: docker compose -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
+# Or: WITH_POSTGRES=true SERVER=... ./scripts/deploy.sh
 
 services:
   steward_acs:
@@ -10,6 +11,7 @@ services:
       REPO_ADAPTER: postgres
       DATABASE_PATH: ""
       DATABASE_URL: "ecto://${DB_USER:-postgres}:${DB_PASSWORD:?Set DB_PASSWORD}@db:5432/${DB_NAME:-acs_prod}"
+      PGSSL: "false"
       POOL_SIZE: "10"
     depends_on:
       db:

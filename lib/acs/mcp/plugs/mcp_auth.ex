@@ -45,6 +45,22 @@ defmodule Acs.MCP.Plugs.MCPAuth do
                  {:ok, org_id} <- resolve_org(result.org_id, conn.assigns[:current_org]) do
               :ok = Acs.Org.put_current(org_id)
 
+              Acs.Observability.Events.put_context(
+                org: org_id,
+                agent_id: result[:agent_identity],
+                role: result.role,
+                request_id: conn_request_id(conn)
+              )
+
+              # Success is high-frequency on MCP; metadata context is enough for Axiom.
+              Logger.debug("MCP auth ok",
+                action: "auth_ok",
+                status: "ok",
+                org: org_id,
+                agent_id: result[:agent_identity],
+                role: result.role
+              )
+
               conn
               |> assign(:agent_role, result.role)
               |> assign(:agent_org_id, org_id)
@@ -73,12 +89,26 @@ defmodule Acs.MCP.Plugs.MCPAuth do
         {:ok, auth_org}
 
       is_binary(auth_org) and auth_org != "" ->
+        Logger.warning("MCP org mismatch",
+          action: "org_resolve",
+          status: "mismatch",
+          org: request_org,
+          error_type: "org_mismatch"
+        )
+
         {:error, "Authenticated organization does not match request host"}
 
       request_org in [nil, "default", configured] ->
         {:ok, configured}
 
       true ->
+        Logger.warning("MCP org credential not scoped",
+          action: "org_resolve",
+          status: "forbidden",
+          org: request_org,
+          error_type: "org_not_scoped"
+        )
+
         {:error, "This credential is not scoped for the requested organization"}
     end
   end
@@ -175,6 +205,13 @@ defmodule Acs.MCP.Plugs.MCPAuth do
         org_id = conn.assigns[:current_org] || Acs.Org.current()
         :ok = Acs.Org.put_current(org_id)
 
+        Acs.Observability.Events.put_context(
+          org: org_id,
+          agent_id: "service",
+          role: "service",
+          request_id: conn_request_id(conn)
+        )
+
         conn
         |> assign(:agent_role, "service")
         |> assign(:agent_org_id, org_id)
@@ -255,6 +292,15 @@ defmodule Acs.MCP.Plugs.MCPAuth do
   defp unauthorized(conn, reason) do
     body = Jason.encode!(%{error: reason})
 
+    Logger.warning("MCP auth failed: #{reason}",
+      action: "auth_fail",
+      status: "401",
+      error_type: String.slice(to_string(reason), 0, 200),
+      org: conn.assigns[:current_org] || conn.assigns[:agent_org_id],
+      agent_id: conn.assigns[:agent_identity],
+      request_id: conn_request_id(conn)
+    )
+
     conn =
       conn
       |> maybe_put_oauth_challenge()
@@ -263,6 +309,14 @@ defmodule Acs.MCP.Plugs.MCPAuth do
     conn
     |> send_resp(401, body)
     |> halt()
+  end
+
+  defp conn_request_id(conn) do
+    case conn.assigns[:request_id] || Plug.Conn.get_resp_header(conn, "x-request-id") do
+      id when is_binary(id) and id != "" -> id
+      [id | _] when is_binary(id) and id != "" -> id
+      _ -> Logger.metadata()[:request_id]
+    end
   end
 
   defp maybe_put_oauth_challenge(conn) do

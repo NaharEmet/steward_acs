@@ -14,7 +14,7 @@ defmodule Acs.Memory.Retry do
   def with_busy_retry(fun, retries \\ 5) when is_function(fun, 0) and retries > 0 do
     fun.()
   rescue
-    e in Exqlite.Error ->
+    e ->
       if busy_error?(e) and retries > 1 do
         delay = 50 * round(:math.pow(2, retries - 1))
         Process.sleep(delay)
@@ -25,10 +25,18 @@ defmodule Acs.Memory.Retry do
   end
 
   @doc """
-  Returns true if the Exqlite.Error message indicates a "busy" condition.
+  Returns true if an exception indicates a SQLite "busy" / locked condition.
   """
-  def busy_error?(%Exqlite.Error{message: msg}) when is_binary(msg),
-    do: String.contains?(String.downcase(msg), "busy")
+  def busy_error?(%Exqlite.Error{message: msg}) when is_binary(msg), do: busy_message?(msg)
 
-  def busy_error?(_), do: false
+  def busy_error?(e) do
+    busy_message?(Exception.message(e))
+  end
+
+  defp busy_message?(msg) when is_binary(msg) do
+    down = String.downcase(msg)
+    String.contains?(down, "busy") or String.contains?(down, "database is locked")
+  end
+
+  defp busy_message?(_), do: false
 end

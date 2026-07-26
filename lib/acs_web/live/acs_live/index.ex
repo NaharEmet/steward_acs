@@ -13,6 +13,9 @@ defmodule AcsWeb.AcsLive.Index do
     {:cont, assign(socket, current_path: socket.assigns[:current_path] || "/")}
   end
 
+  @getting_started_dismissed_key "acs.getting_started_dismissed"
+  @dashboard_seen_key "acs.dashboard_seen"
+
   @impl true
   def mount(_params, _session, socket) do
     socket =
@@ -23,11 +26,20 @@ defmodule AcsWeb.AcsLive.Index do
         agent_status: %{},
         selected_status: "all",
         can_reset_data: admin_user?(socket.assigns[:current_user]),
-        pending_requests_count: Acs.MCP.ToolRequests.pending_count()
+        pending_requests_count: Acs.MCP.ToolRequests.pending_count(),
+        getting_started_dismissed: getting_started_dismissed?(socket)
       )
       |> load_data()
 
-    if connected?(socket), do: Phoenix.PubSub.subscribe(AcsWeb.PubSub, "acs")
+    socket =
+      if connected?(socket) do
+        Phoenix.PubSub.subscribe(AcsWeb.PubSub, "acs")
+        # Remember dashboard access so Getting started stays hidden on later visits.
+        push_event(socket, "store", %{key: @dashboard_seen_key, value: "1"})
+      else
+        socket
+      end
+
     {:ok, socket}
   end
 
@@ -47,6 +59,14 @@ defmodule AcsWeb.AcsLive.Index do
   def handle_event("refresh", _, socket) do
     socket = load_data(socket)
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("dismiss-getting-started", _, socket) do
+    {:noreply,
+     socket
+     |> assign(getting_started_dismissed: true)
+     |> push_event("store", %{key: @getting_started_dismissed_key, value: "1"})}
   end
 
   @impl true
@@ -167,14 +187,25 @@ defmodule AcsWeb.AcsLive.Index do
         <p>Monitor connected agents, active work, and file coordination in one place.</p>
       </section>
 
-      <%= if Enum.empty?(@agent_status) and Enum.empty?(@tasks) and Enum.empty?(@locked_files) do %>
-        <section class="card animate-in delay-1" style="padding: 28px; margin-bottom: 28px;" aria-labelledby="getting-started-title">
+      <%= if show_getting_started?(@agent_status, @tasks, @locked_files, @getting_started_dismissed) do %>
+        <section id="getting-started" class="card animate-in delay-1" style="padding: 28px; margin-bottom: 28px;" aria-labelledby="getting-started-title">
           <div class="account-card-heading">
             <div>
               <p class="account-kicker">Getting started</p>
               <h2 id="getting-started-title">Connect your first agent</h2>
             </div>
-            <span class="coordinate-mark" aria-hidden="true">01 / 03</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span class="coordinate-mark" aria-hidden="true">01 / 03</span>
+              <button
+                id="dismiss-getting-started"
+                type="button"
+                phx-click="dismiss-getting-started"
+                class="btn btn-ghost"
+                aria-label="Dismiss getting started"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
             <div class="card-elevated" style="padding: 16px;">
@@ -405,6 +436,16 @@ defmodule AcsWeb.AcsLive.Index do
       <% end %>
     </div>
     """
+  end
+
+  defp show_getting_started?(agent_status, tasks, locked_files, dismissed) do
+    not dismissed and Enum.empty?(agent_status) and Enum.empty?(tasks) and
+      Enum.empty?(locked_files)
+  end
+
+  defp getting_started_dismissed?(socket) do
+    connected?(socket) and
+      get_connect_params(socket)["getting_started_dismissed"] in ["1", "true"]
   end
 
   defp admin_user?(user) when is_map(user) do

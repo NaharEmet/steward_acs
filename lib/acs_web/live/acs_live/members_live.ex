@@ -6,6 +6,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
   use AcsWeb, :live_view
 
   alias Acs.Accounts
+  alias Acs.Accounts.InvitationNotifier
 
   @roles ~w(member admin owner)
   @email_regex ~r/^[^\s]+@[^\s]+\.[^\s]+$/
@@ -28,7 +29,8 @@ defmodule AcsWeb.AcsLive.MembersLive do
         invitation_form:
           to_form(%{"email" => attrs.email, "role" => attrs.role}, as: :invitation),
         invitation_errors: %{},
-        invitation_link: nil
+        invitation_link: nil,
+        email_delivery_enabled: InvitationNotifier.delivery_enabled?()
       )
 
     case authorize_admin(socket) do
@@ -65,6 +67,15 @@ defmodule AcsWeb.AcsLive.MembersLive do
         {:noreply, assign_invitation_form(socket, attrs, errors)}
       else
         case Accounts.invite_user(socket.assigns.current_user, attrs) do
+          {:ok, invitation, raw_token, warning} when is_binary(raw_token) and is_map(warning) ->
+            reset = empty_invitation_attrs()
+
+            {:noreply,
+             socket
+             |> assign_invitation_form(reset, %{})
+             |> reveal_invitation_link(invitation, raw_token, :created, warning)
+             |> load_data()}
+
           {:ok, invitation, raw_token} when is_binary(raw_token) ->
             reset = empty_invitation_attrs()
 
@@ -108,7 +119,13 @@ defmodule AcsWeb.AcsLive.MembersLive do
                put_flash(
                  socket,
                  :error,
-                 context_error_message(reason, "create a new invitation link")
+                 context_error_message(
+                   reason,
+                   if(socket.assigns.email_delivery_enabled,
+                     do: "resend the invitation",
+                     else: "create a new invitation link"
+                   )
+                 )
                )}
 
             _other ->
@@ -116,7 +133,10 @@ defmodule AcsWeb.AcsLive.MembersLive do
                put_flash(
                  socket,
                  :error,
-                 "Steward could not create a new invitation link. Please try again."
+                 if(socket.assigns.email_delivery_enabled,
+                   do: "Steward could not resend the invitation. Please try again.",
+                   else: "Steward could not create a new invitation link. Please try again."
+                 )
                )}
           end
       end
@@ -258,26 +278,67 @@ defmodule AcsWeb.AcsLive.MembersLive do
   defp normalize_collection({:error, reason}), do: {[], reason}
   defp normalize_collection(_other), do: {[], :invalid_response}
 
-  defp reveal_invitation_link(socket, invitation, raw_token, action) do
+  defp reveal_invitation_link(socket, invitation, raw_token, action, warning \\ nil) do
+    url = account_invitation_url(raw_token)
+
+    delivery =
+      InvitationNotifier.deliver_invitation(%{
+        to: invitation_email(invitation),
+        url: url,
+        organization_name: organization_name(socket.assigns.organization),
+        role: invitation_role(invitation),
+        from_organization_name: warning && Map.get(warning, :from_organization_name)
+      })
+
+    emailed? = delivery == :ok
+
     invitation_link = %{
       id: invitation_id(invitation),
       email: invitation_email(invitation),
       expires_at: field(invitation, :expires_at),
-      url: account_invitation_url(raw_token)
+      url: url,
+      emailed: emailed?,
+      org_move: is_map(warning) and Map.get(warning, :org_move) == true,
+      from_organization_name: warning && Map.get(warning, :from_organization_name)
     }
 
     message =
-      case action do
-        :rotated ->
+      case {delivery, action} do
+        {:ok, :rotated} ->
+          "Invitation emailed. A backup link is below; the previous link no longer works."
+
+        {:ok, _} ->
+          "Invitation emailed. A backup copy-link is available below."
+
+        {{:error, _reason}, :rotated} ->
+          "Email could not be sent. A new invitation link is ready to copy below."
+
+        {{:error, _reason}, _} ->
+          "Email could not be sent. Copy the invitation link below to share it."
+
+        {:disabled, :rotated} ->
           "A new invitation link is ready. Copy it below; the previous link no longer works."
 
-        _created ->
+        {:disabled, _} ->
           "Invitation created. Copy the link below to share it securely."
       end
 
-    socket
-    |> assign(invitation_link: invitation_link)
-    |> put_flash(:info, message)
+    socket =
+      socket
+      |> assign(invitation_link: invitation_link)
+      |> put_flash(:info, message)
+
+    case warning do
+      %{org_move: true, from_organization_name: from_name} when is_binary(from_name) ->
+        put_flash(
+          socket,
+          :warning,
+          "That account currently belongs to #{from_name}. If they accept, they will leave #{from_name} and join this organization."
+        )
+
+      _ ->
+        socket
+    end
   end
 
   defp account_invitation_url(raw_token) do
@@ -375,6 +436,8 @@ defmodule AcsWeb.AcsLive.MembersLive do
       :not_found -> "The requested member or invitation no longer exists."
       :already_invited -> "A pending invitation already exists for that email address."
       :already_member -> "That account already belongs to this organization."
+      :already_in_organization ->
+        "That account already belongs to another organization. Send the invitation anyway only if they should leave their current organization."
       :rate_limited -> "Invitation activity is temporarily limited. Please try again later."
       :invalid_role -> "That role cannot be assigned by your current account."
       :self_role_change -> "You cannot change your own organization role."
@@ -448,8 +511,11 @@ defmodule AcsWeb.AcsLive.MembersLive do
       when reason in [:already_invited, :pending_invitation_exists, :duplicate_invitation] ->
         :already_invited
 
-      reason when reason in [:already_member, :already_in_organization] ->
+      :already_member ->
         :already_member
+
+      :already_in_organization ->
+        :already_in_organization
 
       reason when reason in [:rate_limited, :too_many_requests] ->
         :rate_limited
@@ -607,8 +673,17 @@ defmodule AcsWeb.AcsLive.MembersLive do
   defp invitation_email(invitation), do: field(invitation, :email, "Unknown email")
   defp invitation_role(invitation), do: field(invitation, :role, "member")
 
-  defp invitation_link_state(invitation) do
-    if field(invitation, :sent_at), do: "Ready to share", else: "Link pending"
+  defp invitation_delivery_state(invitation, email_delivery_enabled?) do
+    cond do
+      is_nil(field(invitation, :sent_at)) ->
+        "Pending"
+
+      email_delivery_enabled? ->
+        "Emailed / link ready"
+
+      true ->
+        "Ready to share"
+    end
   end
 
   defp can_manage_invitation?(_invitation, "owner"), do: true
@@ -708,7 +783,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
           <div class="account-card-heading">
             <div>
               <p class="account-kicker">Invite access</p>
-              <h2>Create an access link</h2>
+              <h2><%= if @email_delivery_enabled, do: "Invite by email", else: "Create an access link" %></h2>
             </div>
             <span class="coordinate-mark" aria-hidden="true">ACL / NEW</span>
           </div>
@@ -762,10 +837,18 @@ defmodule AcsWeb.AcsLive.MembersLive do
             </div>
 
             <p class="invite-delivery-note">
-              Email delivery is not configured. Steward will reveal a private URL for you to copy and share.
+              <%= if @email_delivery_enabled do %>
+                Steward will email the invitation when possible, and still show a private backup URL.
+              <% else %>
+                Email delivery is not configured. Steward will reveal a private URL for you to copy and share.
+              <% end %>
             </p>
-            <button id="invite-submit" type="submit" class="btn btn-primary btn-block" phx-disable-with="Creating link…">
-              Create invitation link <span aria-hidden="true">→</span>
+            <button id="invite-submit" type="submit" class="btn btn-primary btn-block" phx-disable-with={if(@email_delivery_enabled, do: "Sending…", else: "Creating link…")}>
+              <%= if @email_delivery_enabled do %>
+                Send invitation <span aria-hidden="true">→</span>
+              <% else %>
+                Create invitation link <span aria-hidden="true">→</span>
+              <% end %>
             </button>
           </.form>
 
@@ -773,15 +856,34 @@ defmodule AcsWeb.AcsLive.MembersLive do
             <aside id="invitation-link-reveal" class="invitation-link-reveal" role="status" aria-live="polite">
               <div class="invitation-link-heading">
                 <div>
-                  <p class="account-kicker">One-time link</p>
-                  <h3>Copy before you leave</h3>
+                  <p class="account-kicker">
+                    <%= if @invitation_link.emailed, do: "Email + backup", else: "One-time link" %>
+                  </p>
+                  <h3>
+                    <%= if @invitation_link.emailed, do: "Backup URL ready", else: "Copy before you leave" %>
+                  </h3>
                 </div>
-                <span class="link-ready-mark" aria-hidden="true">Ready</span>
+                <span class="link-ready-mark" aria-hidden="true">
+                  <%= if @invitation_link.emailed, do: "Sent", else: "Ready" %>
+                </span>
               </div>
               <p id="invitation-link-recipient">
-                Share only with <strong><%= @invitation_link.email %></strong>. Creating another link invalidates this one.
+                <%= if @invitation_link.emailed do %>
+                  Sent to <strong><%= @invitation_link.email %></strong>. Keep this backup URL private; creating another invitation invalidates it.
+                <% else %>
+                  Share only with <strong><%= @invitation_link.email %></strong>. Creating another link invalidates this one.
+                <% end %>
               </p>
-              <label for="invitation-url" class="form-label">Invitation URL</label>
+              <%= if @invitation_link[:org_move] do %>
+                <p id="invitation-org-move-warning" class="form-hint" role="status">
+                  Warning: that account currently belongs to
+                  <strong><%= @invitation_link.from_organization_name %></strong>.
+                  Accepting will move them out of that organization and into this one.
+                </p>
+              <% end %>
+              <label for="invitation-url" class="form-label">
+                <%= if @invitation_link.emailed, do: "Backup invitation URL", else: "Invitation URL" %>
+              </label>
               <div class="copy-field">
                 <input
                   id="invitation-url"
@@ -804,7 +906,11 @@ defmodule AcsWeb.AcsLive.MembersLive do
                 </button>
               </div>
               <p id="invitation-copy-status" class="form-hint" aria-live="polite">
-                This secret URL is available only in this live session.
+                <%= if @invitation_link.emailed do %>
+                  The invitee should use the email. This URL is a private backup for this live session only.
+                <% else %>
+                  This secret URL is available only in this live session.
+                <% end %>
               </p>
               <p id="invitation-link-expiry" class="link-expiry">
                 Expires <%= format_datetime(@invitation_link.expires_at) %>
@@ -948,7 +1054,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                 <tr>
                   <th scope="col">Invited email</th>
                   <th scope="col">Role</th>
-                  <th scope="col">Link status</th>
+                  <th scope="col"><%= if @email_delivery_enabled, do: "Delivery", else: "Link status" %></th>
                   <th scope="col">Expires</th>
                   <th scope="col" class="actions-column">Actions</th>
                 </tr>
@@ -959,7 +1065,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                     <td><strong class="table-primary"><%= invitation_email(invitation) %></strong></td>
                     <td><span class={"role-badge role-#{invitation_role(invitation)}"}><%= invitation_role(invitation) %></span></td>
                     <td>
-                      <span class="delivery-state"><span class="status-dot" aria-hidden="true"></span><%= invitation_link_state(invitation) %></span>
+                      <span class="delivery-state"><span class="status-dot" aria-hidden="true"></span><%= invitation_delivery_state(invitation, @email_delivery_enabled) %></span>
                     </td>
                     <td class="timestamp"><%= format_datetime(field(invitation, :expires_at)) %></td>
                     <td>
@@ -971,9 +1077,15 @@ defmodule AcsWeb.AcsLive.MembersLive do
                             phx-click="resend-invitation"
                             phx-value-id={invitation_id(invitation)}
                             class="btn btn-ghost btn-sm"
-                            data-confirm={"Create a new link for #{invitation_email(invitation)}? Their current link will stop working."}
+                            data-confirm={
+                              if @email_delivery_enabled do
+                                "Resend the invitation to #{invitation_email(invitation)}? Their current link will stop working."
+                              else
+                                "Create a new link for #{invitation_email(invitation)}? Their current link will stop working."
+                              end
+                            }
                           >
-                            New link
+                            <%= if @email_delivery_enabled, do: "Resend", else: "New link" %>
                           </button>
                           <button
                             id={dom_id("revoke-invitation", invitation_id(invitation))}

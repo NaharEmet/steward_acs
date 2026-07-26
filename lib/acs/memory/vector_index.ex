@@ -2,10 +2,15 @@ defmodule Acs.Memory.VectorIndex do
   @moduledoc """
   Vector storage and similarity search for memory embeddings.
 
-  Stores embeddings as JSON in a TEXT column, scoped by org in multi-tenant mode.
+  - SQLite / local: embeddings stored as JSON text; cosine in Elixir.
+  - Postgres / Neon: `pgvector` column + `<=>` cosine distance in SQL.
   """
 
+  require Logger
+
+  alias Acs.Memory.Embedding
   alias Acs.Memory.Retry
+  alias Acs.Repo.Pgvector
 
   @table_name "memory_embeddings"
 
@@ -13,15 +18,34 @@ defmodule Acs.Memory.VectorIndex do
   Create the memory_embeddings table if it doesn't exist.
   """
   def create_embeddings_table(repo \\ Acs.Repo) do
-    repo.query("""
-      CREATE TABLE IF NOT EXISTS #{@table_name} (
-        memory_id TEXT NOT NULL,
-        org TEXT NOT NULL DEFAULT 'default',
-        embedding TEXT NOT NULL,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (memory_id, org)
-      )
-    """)
+    if Pgvector.enabled?(repo) do
+      repo.query("CREATE EXTENSION IF NOT EXISTS vector")
+
+      repo.query("""
+        CREATE TABLE IF NOT EXISTS #{@table_name} (
+          memory_id TEXT NOT NULL,
+          org TEXT NOT NULL DEFAULT 'default',
+          embedding vector(#{Pgvector.dimensions()}) NOT NULL,
+          updated_at TIMESTAMPTZ DEFAULT NOW(),
+          PRIMARY KEY (memory_id, org)
+        )
+      """)
+
+      repo.query("""
+        CREATE INDEX IF NOT EXISTS memory_embeddings_embedding_hnsw_idx
+          ON #{@table_name} USING hnsw (embedding vector_cosine_ops)
+      """)
+    else
+      repo.query("""
+        CREATE TABLE IF NOT EXISTS #{@table_name} (
+          memory_id TEXT NOT NULL,
+          org TEXT NOT NULL DEFAULT 'default',
+          embedding TEXT NOT NULL,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (memory_id, org)
+        )
+      """)
+    end
 
     :ok
   end
@@ -31,20 +55,40 @@ defmodule Acs.Memory.VectorIndex do
   """
   def upsert_embedding(memory_id, embedding, org \\ Acs.Org.current(), repo \\ Acs.Repo)
       when is_binary(memory_id) and is_list(embedding) and is_binary(org) do
-    embedding_json = Jason.encode!(embedding)
     index_id = Acs.Org.memory_index_id(memory_id, org)
+    vector_literal = Pgvector.encode(embedding)
 
     Retry.with_busy_retry(fn ->
-      repo.query(
-        """
-          INSERT INTO #{@table_name} (memory_id, org, embedding, updated_at)
-          VALUES (?, ?, ?, datetime('now'))
-          ON CONFLICT(memory_id, org) DO UPDATE SET
-            embedding = excluded.embedding,
-            updated_at = excluded.updated_at
-        """,
-        [index_id, org, embedding_json]
-      )
+      result =
+        if Pgvector.enabled?(repo) do
+          # ($n::text)::vector: Postgrex has no vector OID without the pgvector package.
+          repo.query(
+            """
+              INSERT INTO #{@table_name} (memory_id, org, embedding, updated_at)
+              VALUES ($1, $2, ($3::text)::vector, NOW())
+              ON CONFLICT (memory_id, org) DO UPDATE SET
+                embedding = EXCLUDED.embedding,
+                updated_at = EXCLUDED.updated_at
+            """,
+            [index_id, org, vector_literal]
+          )
+        else
+          repo.query(
+            """
+              INSERT INTO #{@table_name} (memory_id, org, embedding, updated_at)
+              VALUES (?, ?, ?, datetime('now'))
+              ON CONFLICT(memory_id, org) DO UPDATE SET
+                embedding = excluded.embedding,
+                updated_at = excluded.updated_at
+            """,
+            [index_id, org, vector_literal]
+          )
+        end
+
+      case result do
+        {:ok, _} -> :ok
+        {:error, reason} -> raise "memory embedding upsert failed: #{inspect(reason)}"
+      end
     end)
 
     :ok
@@ -61,36 +105,10 @@ defmodule Acs.Memory.VectorIndex do
     limit = Keyword.get(options, :limit, 10)
     org = org_filter(options)
 
-    sql =
-      if org do
-        {"SELECT memory_id, embedding FROM #{@table_name} WHERE org = ?", [org]}
-      else
-        {"SELECT memory_id, embedding FROM #{@table_name}", []}
-      end
-
-    {query, params} = sql
-
-    case repo.query(query, params) do
-      {:ok, %{rows: rows}} when is_list(rows) ->
-        rows
-        |> Enum.map(fn [memory_id, embedding_json] ->
-          case Jason.decode(embedding_json) do
-            {:ok, emb} ->
-              %{
-                memory_id: Acs.Org.public_memory_id(memory_id, org || Acs.Org.current()),
-                similarity: Acs.Memory.Embedding.cosine_similarity(embedding, emb)
-              }
-
-            _ ->
-              nil
-          end
-        end)
-        |> Enum.reject(&is_nil/1)
-        |> Enum.sort_by(& &1.similarity, :desc)
-        |> Enum.take(limit)
-
-      _ ->
-        []
+    if Pgvector.enabled?(repo) do
+      search_similar_pg(embedding, org, limit, repo)
+    else
+      search_similar_sqlite(embedding, org, limit, repo)
     end
   end
 
@@ -102,10 +120,15 @@ defmodule Acs.Memory.VectorIndex do
     index_id = Acs.Org.memory_index_id(memory_id, org)
 
     Retry.with_busy_retry(fn ->
-      repo.query("DELETE FROM #{@table_name} WHERE memory_id = ? AND org = ?", [
-        index_id,
-        org
-      ])
+      sql =
+        if Pgvector.enabled?(repo) do
+          {"DELETE FROM #{@table_name} WHERE memory_id = $1 AND org = $2", [index_id, org]}
+        else
+          {"DELETE FROM #{@table_name} WHERE memory_id = ? AND org = ?", [index_id, org]}
+        end
+
+      {query, params} = sql
+      repo.query(query, params)
     end)
 
     :ok
@@ -122,6 +145,77 @@ defmodule Acs.Memory.VectorIndex do
     embedding
     |> search_similar(Keyword.put(options, :limit, 1000), repo)
     |> Enum.filter(&(&1.similarity >= threshold))
+  end
+
+  defp search_similar_pg(embedding, org, limit, repo) do
+    vector_literal = Pgvector.encode(embedding)
+
+    {sql, params} =
+      if org do
+        {"""
+         SELECT memory_id, 1 - (embedding <=> ($1::text)::vector) AS similarity
+         FROM #{@table_name}
+         WHERE org = $2
+         ORDER BY embedding <=> ($1::text)::vector
+         LIMIT $3
+         """, [vector_literal, org, limit]}
+      else
+        {"""
+         SELECT memory_id, 1 - (embedding <=> ($1::text)::vector) AS similarity
+         FROM #{@table_name}
+         ORDER BY embedding <=> ($1::text)::vector
+         LIMIT $2
+         """, [vector_literal, limit]}
+      end
+
+    case repo.query(sql, params) do
+      {:ok, %{rows: rows}} when is_list(rows) ->
+        Enum.map(rows, fn [memory_id, similarity] ->
+          %{
+            memory_id: Acs.Org.public_memory_id(memory_id, org || Acs.Org.current()),
+            similarity: Pgvector.to_float(similarity)
+          }
+        end)
+
+      {:error, reason} ->
+        Logger.warning("[VectorIndex] pg search failed: #{inspect(reason)}")
+        []
+
+      _ ->
+        []
+    end
+  end
+
+  defp search_similar_sqlite(embedding, org, limit, repo) do
+    {query, params} =
+      if org do
+        {"SELECT memory_id, embedding FROM #{@table_name} WHERE org = ?", [org]}
+      else
+        {"SELECT memory_id, embedding FROM #{@table_name}", []}
+      end
+
+    case repo.query(query, params) do
+      {:ok, %{rows: rows}} when is_list(rows) ->
+        rows
+        |> Enum.map(fn [memory_id, embedding_json] ->
+          case Jason.decode(embedding_json) do
+            {:ok, emb} ->
+              %{
+                memory_id: Acs.Org.public_memory_id(memory_id, org || Acs.Org.current()),
+                similarity: Embedding.cosine_similarity(embedding, emb)
+              }
+
+            _ ->
+              nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.sort_by(& &1.similarity, :desc)
+        |> Enum.take(limit)
+
+      _ ->
+        []
+    end
   end
 
   defp org_filter(options) do
