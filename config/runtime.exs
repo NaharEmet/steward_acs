@@ -36,7 +36,7 @@ if config_env() == :prod and axiom_token != "" do
 
   axiom_dataset =
     case System.get_env("AXIOM_DATASET", "") |> String.trim() do
-      "" -> "steward-acs"
+      "" -> "steward_logs"
       dataset -> dataset
     end
 
