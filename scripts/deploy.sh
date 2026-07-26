@@ -21,6 +21,11 @@ REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/steward_acs}"
 MODE="deploy"
 ALLOW_DIRTY="${ALLOW_DIRTY:-0}"
 SKIP_SMOKE="${SKIP_SMOKE:-0}"
+FORCE_NO_CACHE="${FORCE_NO_CACHE:-0}"
+BUILD_NO_CACHE=()
+if [[ "$FORCE_NO_CACHE" == "1" ]]; then
+  BUILD_NO_CACHE=(--no-cache)
+fi
 
 for arg in "$@"; do
   case "$arg" in
@@ -66,7 +71,9 @@ case "$MODE" in
       info "ALLOW_DIRTY=1: tagging ${ACS_IMAGE_TAG} and building with --no-cache"
     else
       ACS_IMAGE_TAG="${ACS_IMAGE_TAG:-$GIT_SHA}"
-      BUILD_NO_CACHE=()
+      if [[ "$FORCE_NO_CACHE" == "1" ]]; then
+        info "FORCE_NO_CACHE=1: building ${ACS_IMAGE_TAG} with --no-cache"
+      fi
     fi
     ;;
   resume|rollback)
@@ -86,7 +93,7 @@ if [[ "$MODE" == "deploy" || "$MODE" == "push-only" ]]; then
   docker build \
     "${BUILD_NO_CACHE[@]}" \
     --target release \
-    --build-arg REPO_ADAPTER=sqlite \
+    --build-arg REPO_ADAPTER=postgres \
     --build-arg GIT_SHA="${GIT_SHA}" \
     --build-arg GIT_DIRTY="${DIRTY_FLAG}" \
     --build-arg SECRET_KEY_BASE="${SECRET_KEY_BASE:-build_time_secret_key_base_not_used_at_runtime}" \
@@ -108,8 +115,10 @@ fi
 # --- sync compose/caddy (deploy + resume; rollback keeps remote compose) ---
 if [[ "$MODE" != "rollback" ]]; then
   info "Syncing compose/caddy bundle to ${SERVER}:${REMOTE_DIR}"
-  ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}/priv'"
+  ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}/priv' '${REMOTE_DIR}/scripts'"
   scp "${COMPOSE_FILE}" "${CADDY_FILE}" "${SERVER}:${REMOTE_DIR}/"
+  scp scripts/infisical-compose.sh "${SERVER}:${REMOTE_DIR}/scripts/"
+  ssh "${SERVER}" "chmod 755 '${REMOTE_DIR}/scripts/infisical-compose.sh'"
   if [[ -f docker-compose.postgres.yml ]]; then
     scp docker-compose.postgres.yml "${SERVER}:${REMOTE_DIR}/"
   fi
@@ -135,6 +144,15 @@ COMPOSE_ARGS=(-f "$COMPOSE_FILE")
 if [[ "$WITH_POSTGRES" == "true" ]]; then
   COMPOSE_ARGS+=(-f docker-compose.postgres.yml)
 fi
+
+compose() {
+  if [[ -x ./scripts/infisical-compose.sh ]]; then
+    ./scripts/infisical-compose.sh "${COMPOSE_ARGS[@]}" "$@"
+  else
+    echo "ERROR: scripts/infisical-compose.sh missing — sync deploy bundle" >&2
+    exit 1
+  fi
+}
 
 env_get() {
   local key="$1"
@@ -181,16 +199,16 @@ fi
 env_set ACS_IMAGE_TAG "$ACS_IMAGE_TAG"
 
 echo "[remote] preflight compose config"
-ACS_IMAGE_TAG="$ACS_IMAGE_TAG" docker compose "${COMPOSE_ARGS[@]}" config >/dev/null
+ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose config >/dev/null
 
 echo "[remote] pull steward_acs"
-ACS_IMAGE_TAG="$ACS_IMAGE_TAG" docker compose "${COMPOSE_ARGS[@]}" pull steward_acs
+ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose pull steward_acs
 
 echo "[remote] up steward_acs"
-ACS_IMAGE_TAG="$ACS_IMAGE_TAG" docker compose "${COMPOSE_ARGS[@]}" up -d --no-build --remove-orphans steward_acs
+ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --remove-orphans steward_acs
 
 echo "[remote] recreate caddy"
-ACS_IMAGE_TAG="$ACS_IMAGE_TAG" docker compose "${COMPOSE_ARGS[@]}" up -d --no-build --force-recreate caddy
+ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --force-recreate caddy
 
 # Seed org registry into the data volume when missing.
 if ! docker exec steward_acs sh -c 'test -s /data/orgs.yaml' 2>/dev/null; then

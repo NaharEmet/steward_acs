@@ -2,9 +2,16 @@
 
 Canonical skill: [`priv/skills/secrets.md`](../priv/skills/secrets.md).
 
+| Environment | Source |
+|-------------|--------|
+| Local | Untracked `.env` (from `.env.example`) |
+| Multi-tenant prod | Infisical `steward_prod` / `prod` via `scripts/infisical-compose.sh` |
+
 Quick rules:
 
-- Manage secrets with `pass`; regenerate `.env` via `./scripts/secrets-env.sh -w .env`.
-- Never commit Auth0 M2M / Management API credentials. `.env.remote` and `.env.multitenant` are templates with empty placeholders only.
-- After rotating any secret that was ever committed, revoke the old credential in its provider (Auth0 dashboard → Applications → M2M → rotate).
-- `chmod 600 .env` on every host.
+- Local: edit `.env` only. Never put Neon / prod Auth0 secrets there.
+- Prod: secrets in Infisical; thin host `.env` is non-secret config (see `.env.multitenant`).
+- Machine identity for the host: `.infisical.env` (mode 600). Cursor Infisical MCP: gitignored `.cursor/mcp.json`.
+- Optional Infisical keys may stay `REPLACE_ME` / blank — inject skips them.
+- Never commit credentials. Auth0 M2M for ops scripts (`certs/Oauth.md`) is not ACS runtime.
+- After any leaked secret, rotate in the provider.

@@ -32,6 +32,16 @@ priv/acs_memory/
 /tmp/
 priv/acs_time_offset.txt
 
+# Cursor project MCP (contains ACS + Infisical machine identity — never commit)
+.cursor/mcp.json
+
+# Cursor project MCP (contains ACS + Infisical machine identity — never commit)
+.cursor/mcp.json
+
+# Infisical host agent + generated inject file (prod server / local experiments)
+.infisical.env
+.env.infisical
+
 # Server credentials
 serverpass.md
 

@@ -95,10 +95,50 @@ config :steward_acs,
        :session_validity_in_days,
        System.get_env("SESSION_VALIDITY_DAYS", "7") |> String.to_integer()
 
-if System.get_env("DATABASE_URL") do
-  config :steward_acs, Acs.Repo,
-    url: System.get_env("DATABASE_URL"),
+# DATABASE_PATH wins for local/SQLite. Never apply Neon URL alongside a path.
+db_path = System.get_env("DATABASE_PATH")
+db_url = System.get_env("DATABASE_URL")
+
+if db_path in [nil, ""] and db_url not in [nil, ""] do
+  use_ssl? =
+    case System.get_env("PGSSL") do
+      "true" -> true
+      "false" -> false
+      _ ->
+        String.contains?(db_url, "neon.tech") or
+          String.contains?(db_url, "sslmode=require") or
+          String.contains?(db_url, "sslmode=verify-full")
+    end
+
+  repo_opts = [
+    url: db_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE", "10"))
+  ]
+
+  repo_opts =
+    if use_ssl? do
+      ssl_opts =
+        case :public_key.cacerts_get() do
+          cacerts when is_list(cacerts) and cacerts != [] ->
+            [
+              verify: :verify_peer,
+              cacerts: cacerts,
+              customize_hostname_check: [
+                match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+              ]
+            ]
+
+          _ ->
+            # ponytail: no CA store in runtime image — connect still encrypted
+            [verify: :verify_none]
+        end
+
+      Keyword.merge(repo_opts, ssl: true, ssl_opts: ssl_opts)
+    else
+      repo_opts
+    end
+
+  config :steward_acs, Acs.Repo, repo_opts
 end
 
 if config_env() == :prod do
@@ -193,14 +233,6 @@ end
 
 if auth0_issuer = System.get_env("AUTH0_ISSUER") do
   config :steward_acs, :auth0_issuer, auth0_issuer
-end
-
-if mgmt_client_id = System.get_env("AUTH0_MGMT_CLIENT_ID") do
-  config :steward_acs, :auth0_mgmt_client_id, mgmt_client_id
-end
-
-if mgmt_client_secret = System.get_env("AUTH0_MGMT_CLIENT_SECRET") do
-  config :steward_acs, :auth0_mgmt_client_secret, mgmt_client_secret
 end
 
 if connection = System.get_env("AUTH0_CONNECTION") do

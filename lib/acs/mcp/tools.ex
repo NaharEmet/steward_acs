@@ -61,7 +61,6 @@ defmodule Acs.MCP.Tools do
     "generate_developer_key" => "acs_core",
     "list_developer_keys" => "acs_core",
     "revoke_developer_key" => "acs_core",
-    "create_user" => "acs_core",
     "create_org" => "acs_core"
   }
 
@@ -877,30 +876,6 @@ defmodule Acs.MCP.Tools do
           }
         },
         ["name", "slug"]
-      ),
-      tool_def(
-        "create_user",
-        "Deprecated: MCP cannot create users. Invite organization members from the dashboard instead. Admin only.",
-        %{
-          "name" => %{
-            "type" => "string",
-            "description" => "Display name for the user"
-          },
-          "email" => %{
-            "type" => "string",
-            "description" => "Email address for the user"
-          },
-          "role" => %{
-            "type" => "string",
-            "description" => "Role for the user (default: collaborator)"
-          },
-          "password" => %{
-            "type" => "string",
-            "description" =>
-              "Optional password for the user. If omitted, a secure random password is generated."
-          }
-        },
-        ["name", "email"]
       )
     ]
   end
@@ -951,7 +926,6 @@ defmodule Acs.MCP.Tools do
     "generate_developer_key" => &AdminHandlers.generate_key/1,
     "list_developer_keys" => &AdminHandlers.list_keys/1,
     "revoke_developer_key" => &AdminHandlers.revoke_key/1,
-    "create_user" => &AdminHandlers.create_user/1,
     "create_org" => &AdminHandlers.create_org/1
   }
 

@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "acs": {
+      "type": "sse",
+      "url": "http://localhost:4001/mcp/sse",
+      "headers": {
+        "x-api-key": "<local-acs-api-key>"
+      }
+    },
+    "infisical": {
+      "command": "npx",
+      "args": ["-y", "@infisical/mcp"],
+      "env": {
+        "INFISICAL_HOST_URL": "https://app.infisical.com",
+        "INFISICAL_AUTH_METHOD": "universal-auth",
+        "INFISICAL_UNIVERSAL_AUTH_CLIENT_ID": "<machine-identity-client-id>",
+        "INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET": "<machine-identity-client-secret>"
+      }
+    }
+  }
+}
