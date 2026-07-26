@@ -1,318 +1,173 @@
 defmodule Acs.MCP.ToolRegistry do
-  @moduledoc """
-  GenServer that manages the lifecycle of MCP tool definitions.
-
-  Tools are loaded from YAML files in the configured tools directory on startup.
-  Supports runtime refresh, category-based listing, and tool execution dispatch.
-
-  ## Tool Resolution
-
-  Tools can be:
-  - **Internal**: Have a `handler` field → dispatched to that module's `call_tool/2`
-  - **External**: Have an `endpoint` + `base_url` → routed through `Acs.MCP.Bridge`
-
-  ## Authorization
-
-  Two-tier RBAC enforced before tool execution:
-  1. **Role check**: Tool's `roles` field (from YAML) must include the agent's role
-  2. **Permission check** (optional): Tool's `permissions` field (from YAML) must all
-     be present in the agent's `_auth_permissions` list. Skipped if either is absent.
-  """
+  @moduledoc false
 
   use GenServer
   require Logger
 
-  @error_burst_window_ms 5000
+  @call_timeout 180_000
 
-  # --- Client API ---
+  def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
-  @doc """
-  Starts the ToolRegistry.
-  """
-  def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
+  def list_tools(category \\ nil, org \\ Acs.Org.current()),
+    do: GenServer.call(__MODULE__, {:list_tools, category, org})
 
-  @doc """
-  Returns all loaded tools, optionally filtered by category.
-  """
-  def list_tools(category \\ nil) do
-    GenServer.call(__MODULE__, {:list_tools, category})
-  end
+  def list_tools_mcp(agent_role, org \\ Acs.Org.current(), permissions \\ nil)
 
-  @doc """
-  Returns all loaded tools in MCP-compatible format (strips internal fields).
-  Optional agent_role filters tools by role. Returns an empty list when role is missing.
-  """
-  def list_tools_mcp(agent_role, org \\ Acs.Org.current())
+  def list_tools_mcp(agent_role, org, permissions) when is_binary(agent_role) and is_binary(org),
+    do: GenServer.call(__MODULE__, {:list_tools_mcp, agent_role, org, permissions})
 
-  def list_tools_mcp(agent_role, org) when is_binary(agent_role) do
-    GenServer.call(__MODULE__, {:list_tools_mcp, agent_role, org})
-  end
+  def list_tools_mcp(_, _, _), do: []
 
-  def list_tools_mcp(_agent_role, _org), do: []
+  def list_categories(org \\ Acs.Org.current()),
+    do: GenServer.call(__MODULE__, {:list_categories, org})
 
-  @doc """
-  Returns all unique categories across loaded tools.
-  """
-  def list_categories do
-    GenServer.call(__MODULE__, :list_categories)
-  end
+  def get_tool(name, org \\ Acs.Org.current()),
+    do: GenServer.call(__MODULE__, {:get_tool, name, org})
 
-  @doc """
-  Returns a single tool definition by name, or nil.
-  """
-  def get_tool(name) do
-    GenServer.call(__MODULE__, {:get_tool, name})
-  end
+  @doc "Legacy internal execution API. External MCP callers must use invoke/3."
+  def call_tool(name, args) when is_map(args),
+    do: GenServer.call(__MODULE__, {:call_tool, name, args}, @call_timeout)
 
-  @doc """
-  Calls a tool by name with the given arguments.
+  @doc "Atomically resolves, authorizes, and invokes a tool using trusted authentication context."
+  def invoke(name, user_args, auth_context)
+      when is_binary(name) and is_map(user_args) and is_map(auth_context),
+      do: GenServer.call(__MODULE__, {:invoke, name, user_args, auth_context}, @call_timeout)
 
-  For internal tools (handler set), dispatches to the handler module's `call_tool/2`.
-  For external tools (endpoint set), routes through `Acs.MCP.Bridge.call_tool/2`.
-  """
-  def call_tool(name, args) do
-    GenServer.call(__MODULE__, {:call_tool, name, args}, 180_000)
-  end
+  def refresh, do: GenServer.call(__MODULE__, :refresh, 30_000)
+  def stats(org \\ Acs.Org.current()), do: GenServer.call(__MODULE__, {:stats, org})
+  def list_plugins(org \\ Acs.Org.current()), do: GenServer.call(__MODULE__, {:list_plugins, org})
 
-  @doc """
-  Forces a full reload of all tool definitions from YAML files.
-  """
-  def refresh do
-    GenServer.call(__MODULE__, :refresh, 30_000)
-  end
+  def authorize_tool(name, agent_role, agent_permissions \\ nil),
+    do: authorize_tool(name, agent_role, agent_permissions, Acs.Org.current())
 
-  @doc """
-  Returns count of loaded tools per app.
-  """
-  def stats do
-    GenServer.call(__MODULE__, :stats)
-  end
+  def authorize_tool(name, agent_role, agent_permissions, org),
+    do: GenServer.call(__MODULE__, {:authorize_tool, name, agent_role, agent_permissions, org})
 
-  @doc """
-  Lists all registered plugin apps with their metadata, tool counts, and tools.
-  """
-  def list_plugins do
-    GenServer.call(__MODULE__, :list_plugins)
-  end
+  def register_tool(tool_def),
+    do: GenServer.call(__MODULE__, {:register_tool, tool_def, Acs.Org.current()})
 
-  @doc """
-  Checks if a tool is authorized for the given agent role and optional permissions.
-  Returns `:ok` or `{:error, reason}`.
+  def register_tool(tool_def, org),
+    do: GenServer.call(__MODULE__, {:register_tool, tool_def, org})
 
-  Two-tier check:
-  1. Role-based: tool's `roles` field must include `agent_role`
-  2. Permission-based (optional): if tool defines `permissions`, all must be
-     present in `agent_permissions`. Skipped if either is absent/nil.
-  """
-  def authorize_tool(name, agent_role, agent_permissions \\ nil) do
-    GenServer.call(__MODULE__, {:authorize_tool, name, agent_role, agent_permissions})
-  end
+  def approve_request(request_id, approved_by, org \\ Acs.Org.current()),
+    do: GenServer.call(__MODULE__, {:approve_request, request_id, approved_by, org})
 
-  @doc """
-  Registers a dynamically created tool (from agent request).
-  """
-  def register_tool(tool_def) do
-    GenServer.call(__MODULE__, {:register_tool, tool_def})
-  end
-
-  @doc """
-  Approves a tool request and registers the tool in memory.
-  Called by the dashboard when an operator approves a request.
-
-  Returns `{:ok, request}` on success, `{:error, reason}` on failure.
-  """
-  def approve_request(request_id, approved_by, org \\ Acs.Org.current()) do
-    GenServer.call(__MODULE__, {:approve_request, request_id, approved_by, org})
-  end
-
-  @doc """
-  Rejects a tool request.
-  """
-  def reject_request(request_id, approved_by, org \\ Acs.Org.current()) do
-    GenServer.call(__MODULE__, {:reject_request, request_id, approved_by, org})
-  end
-
-  # --- GenServer Callbacks ---
+  def reject_request(request_id, approved_by, org \\ Acs.Org.current()),
+    do: GenServer.call(__MODULE__, {:reject_request, request_id, approved_by, org})
 
   @impl true
   def init(_opts) do
-    Logger.info("ToolRegistry starting...")
+    state = %{snapshot: empty_snapshot(), last_refresh_error: nil}
 
-    state = %{
-      # name => tool_def
-      tools: %{},
-      # app => [tool_defs]
-      by_app: %{},
-      # category => [tool_defs]
-      by_category: %{},
-      # list of app configs
-      apps: [],
-      # app_name => %{version: ..., plugin: ...}
-      apps_meta: %{},
-      # Telemetry tracking
-      # timestamp of last error for burst detection
-      last_error_at: nil,
-      # current execution chain id
-      execution_chain: nil,
-      # sequence order within execution chain
-      sequence_order: 0
-    }
+    {snapshot, errors} = refresh_snapshot(state.snapshot)
 
-    case load_tools(state) do
-      {:ok, new_state} ->
-        Logger.info(
-          "ToolRegistry initialized with #{map_size(new_state.tools)} tools across #{length(new_state.apps)} apps"
-        )
-
-        {:ok, add_core_tools(new_state)}
-
-      {:error, reason, new_state} ->
-        Logger.warning("ToolRegistry initialized with partial load: #{reason}")
-        {:ok, add_core_tools(new_state)}
-    end
+    if errors != [], do: log_refresh_errors(errors)
+    Logger.info("ToolRegistry initialized with #{snapshot_tool_count(snapshot)} scoped tools")
+    {:ok, %{state | snapshot: snapshot, last_refresh_error: format_refresh_errors(errors)}}
   end
 
   @impl true
-  def handle_call({:list_tools, category}, _from, state) do
+  def handle_call({:list_tools, category, org}, _from, state) do
+    scope = effective_scope(state.snapshot, org)
+
     yaml_tools =
-      case category do
-        nil -> Map.values(state.tools)
-        cat -> Map.get(state.by_category, cat, [])
-      end
-
-    core_tools =
-      if is_nil(category) do
-        Acs.MCP.Tools.list_tools()
-        |> Enum.reject(fn tool -> Map.has_key?(state.tools, tool["name"]) end)
-        |> Enum.map(fn tool ->
-          tool
-          |> Map.put("app", "steward")
-          |> Map.put("category", Acs.MCP.Tools.tool_category(tool["name"]) || "uncategorized")
-        end)
-      else
-        []
-      end
-
-    {:reply, yaml_tools ++ core_tools, state}
-  end
-
-  @impl true
-  def handle_call({:list_tools_mcp, agent_role, org}, _from, state) do
-    yaml_tools =
-      state.tools
+      scope.tools
       |> Map.values()
-      |> filter_by_role(agent_role, org)
-      |> Enum.map(fn tool ->
-        Map.take(tool, ["name", "description", "inputSchema"])
-      end)
+      |> filter_category(category)
+      |> Enum.sort_by(& &1["name"])
 
     core_tools =
       Acs.MCP.Tools.list_tools()
-      |> Enum.filter(fn tool -> Acs.MCP.CoreToolRoles.authorized?(tool["name"], agent_role) end)
-      |> Enum.reject(fn tool -> Map.has_key?(state.tools, tool["name"]) end)
+      |> Enum.filter(fn tool ->
+        is_nil(category) or Acs.MCP.Tools.tool_category(tool["name"]) == category
+      end)
+      |> Enum.map(fn tool ->
+        Map.put(tool, "app", "steward")
+        |> Map.put("category", Acs.MCP.Tools.tool_category(tool["name"]) || "uncategorized")
+      end)
 
     {:reply, yaml_tools ++ core_tools, state}
   end
 
-  @impl true
-  def handle_call({:authorize_tool, name, agent_role, agent_permissions}, _from, state) do
-    tool = Map.get(state.tools, name)
+  def handle_call({:list_tools_mcp, role, org, permissions}, _from, state) do
+    yaml_tools =
+      state.snapshot
+      |> effective_scope(org)
+      |> Map.fetch!(:tools)
+      |> Map.values()
+      |> Enum.filter(&authorized?(&1, &1["name"], role, permissions))
+      |> Enum.map(&Map.take(&1, ["name", "description", "inputSchema"]))
+      |> Enum.sort_by(& &1["name"])
 
-    result =
-      case tool do
-        nil ->
-          if Acs.MCP.Tools.has_tool?(name) do
-            if Acs.MCP.CoreToolRoles.authorized?(name, agent_role) do
-              :ok
-            else
-              {:error, "Role '#{agent_role}' is not authorized to use tool '#{name}'"}
-            end
-          else
-            {:error, "Unknown tool: #{name}"}
-          end
+    core_tools =
+      Acs.MCP.Tools.list_tools()
+      |> Enum.filter(&Acs.MCP.CoreToolRoles.authorized?(&1["name"], role))
 
-        _ ->
-          with :ok <- check_role(tool, name, agent_role),
-               :ok <- check_permissions(tool, name, agent_permissions) do
-            :ok
-          end
-      end
-
-    {:reply, result, state}
+    {:reply, yaml_tools ++ core_tools, state}
   end
 
-  @impl true
-  def handle_call(:list_categories, _from, state) do
-    {:reply, Map.keys(state.by_category), state}
+  def handle_call({:list_categories, org}, _from, state) do
+    categories =
+      Map.keys(effective_scope(state.snapshot, org).by_category) ++
+        (Acs.MCP.Tools.list_tools() |> Enum.map(&Acs.MCP.Tools.tool_category(&1["name"])))
+
+    {:reply, categories |> Enum.reject(&is_nil/1) |> Enum.uniq() |> Enum.sort(), state}
   end
 
-  @impl true
-  def handle_call({:get_tool, name}, _from, state) do
-    {:reply, Map.get(state.tools, name), state}
+  def handle_call({:get_tool, name, org}, _from, state),
+    do: {:reply, Map.get(effective_scope(state.snapshot, org).tools, name), state}
+
+  def handle_call({:authorize_tool, name, role, permissions, org}, _from, state) do
+    {:reply, authorize(state.snapshot, name, role, permissions, org), state}
   end
 
-  @impl true
   def handle_call(:refresh, _from, state) do
-    case load_tools(%{
-           state
-           | tools: %{},
-             by_app: %{},
-             by_category: %{},
-             apps: [],
-             apps_meta: %{}
-         }) do
-      {:ok, new_state} ->
-        Logger.info("ToolRegistry refreshed: #{map_size(new_state.tools)} tools")
-        Acs.broadcast(:tools_refresh, %{})
-        {:reply, :ok, new_state}
+    {snapshot, errors} = refresh_snapshot(state.snapshot)
+    Acs.broadcast(:tools_refresh, %{})
 
-      {:error, reason, new_state} ->
-        Logger.warning("ToolRegistry refresh partial: #{reason}")
-        {:reply, {:error, reason}, new_state}
+    case errors do
+      [] ->
+        {:reply, :ok, %{state | snapshot: snapshot, last_refresh_error: nil}}
+
+      _ ->
+        log_refresh_errors(errors)
+        reason = format_refresh_errors(errors)
+        {:reply, {:error, reason}, %{state | snapshot: snapshot, last_refresh_error: reason}}
     end
   end
 
-  @impl true
-  def handle_call(:stats, _from, state) do
-    core_tools =
-      Acs.MCP.Tools.list_tools() |> Enum.reject(fn t -> Map.has_key?(state.tools, t["name"]) end)
-
-    core_categories =
-      core_tools
-      |> Enum.map(&Acs.MCP.Tools.tool_category(&1["name"]))
-      |> Enum.reject(&is_nil/1)
-      |> Enum.uniq()
-
-    app_counts =
-      Map.new(state.by_app, fn {app, tools} -> {app, length(tools)} end)
-
-    categories = (Map.keys(state.by_category) ++ core_categories) |> Enum.uniq()
+  def handle_call({:stats, org}, _from, state) do
+    scope = effective_scope(state.snapshot, org)
+    core_tools = Acs.MCP.Tools.list_tools()
 
     {:reply,
      %{
-       total_tools: map_size(state.tools) + length(core_tools),
-       total_apps: length(state.apps) + if(core_tools != [], do: 1, else: 0),
-       categories: categories,
-       apps: app_counts
+       total_tools: map_size(scope.tools) + length(core_tools),
+       total_apps: map_size(scope.by_app) + 1,
+       categories:
+         (Map.keys(scope.by_category) ++
+            Enum.map(core_tools, &Acs.MCP.Tools.tool_category(&1["name"])))
+         |> Enum.reject(&is_nil/1)
+         |> Enum.uniq()
+         |> Enum.sort(),
+       apps: Map.new(scope.by_app, fn {app, tools} -> {app, length(tools)} end)
      }, state}
   end
 
-  @impl true
-  def handle_call(:list_plugins, _from, state) do
+  def handle_call({:list_plugins, org}, _from, state) do
+    scope = effective_scope(state.snapshot, org)
+
     plugins =
-      Enum.map(state.apps, fn app_config ->
-        app_name = app_config["app"]
-        tools = Map.get(state.by_app, app_name, [])
-        meta = Map.get(state.apps_meta, app_name, %{})
+      scope.by_app
+      |> Enum.map(fn {app, tools} ->
+        meta = Map.get(scope.apps_meta, app, %{})
 
         %{
-          app: app_name,
+          app: app,
           version: meta["version"],
           plugin: meta["plugin"],
           tool_count: length(tools),
-          tools: Enum.map(tools, & &1["name"])
+          tools: tools |> Enum.map(& &1["name"]) |> Enum.sort()
         }
       end)
       |> Enum.sort_by(& &1.app)
@@ -320,34 +175,22 @@ defmodule Acs.MCP.ToolRegistry do
     {:reply, {:ok, %{plugins: plugins, count: length(plugins)}}, state}
   end
 
-  @impl true
-  def handle_call({:register_tool, tool_def}, _from, state) do
-    name = tool_def["name"]
+  def handle_call({:register_tool, tool_def, org}, _from, state) do
+    case register_runtime_tool(state.snapshot, tool_def, org) do
+      {:ok, snapshot} ->
+        Acs.broadcast(:tools_refresh, %{})
+        {:reply, :ok, %{state | snapshot: snapshot}}
 
-    if Map.has_key?(state.tools, name) or Acs.MCP.Tools.has_tool?(name) do
-      {:reply, {:error, "Tool '#{name}' already exists or is reserved"}, state}
-    else
-      new_tools = Map.put(state.tools, name, tool_def)
-      category = tool_def["category"] || "uncategorized"
-      by_category = Map.update(state.by_category, category, [tool_def], &[tool_def | &1])
-      app = tool_def["app"] || "requested"
-      by_app = Map.update(state.by_app, app, [tool_def], &[tool_def | &1])
-
-      new_state = %{state | tools: new_tools, by_category: by_category, by_app: by_app}
-
-      Logger.info("ToolRegistry: registered new tool '#{name}' in category '#{category}'")
-      Acs.broadcast(:tools_refresh, %{})
-      {:reply, :ok, new_state}
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
     end
   end
 
-  @impl true
   def handle_call({:approve_request, request_id, approved_by, org}, _from, state) do
     case Acs.Org.with_current(org, fn ->
            Acs.MCP.ToolRequests.approve_request(request_id, approved_by)
          end) do
       {:ok, request} ->
-        # Decode the definition and register the tool
         definition = Acs.MCP.ToolRequest.decode_definition(request.definition)
 
         tool_def =
@@ -362,30 +205,20 @@ defmodule Acs.MCP.ToolRegistry do
             "params" => definition["params"] || []
           }
           |> Map.merge(definition)
-          |> Map.put("org", org)
 
-        name = tool_def["name"]
+        case register_runtime_tool(state.snapshot, tool_def, org) do
+          {:ok, snapshot} ->
+            Acs.broadcast(:tool_request_approved, %{
+              request_id: request_id,
+              name: tool_def["name"],
+              approved_by: approved_by
+            })
 
-        if Map.has_key?(state.tools, name) or Acs.MCP.Tools.has_tool?(name) do
-          {:reply, {:error, "Tool '#{name}' already registered or is reserved"}, state}
-        else
-          new_tools = Map.put(state.tools, name, tool_def)
-          category = tool_def["category"] || "requested"
-          by_category = Map.update(state.by_category, category, [tool_def], &[tool_def | &1])
-          app = tool_def["app"] || "requested"
-          by_app = Map.update(state.by_app, app, [tool_def], &[tool_def | &1])
+            {:reply, {:ok, %{status: "approved", tool: tool_def["name"], request_id: request_id}},
+             %{state | snapshot: snapshot}}
 
-          new_state = %{state | tools: new_tools, by_category: by_category, by_app: by_app}
-
-          Logger.info("ToolRegistry: approved tool '#{name}' (request=#{request_id})")
-
-          Acs.broadcast(:tool_request_approved, %{
-            request_id: request_id,
-            name: name,
-            approved_by: approved_by
-          })
-
-          {:reply, {:ok, %{status: "approved", tool: name, request_id: request_id}}, new_state}
+          {:error, reason} ->
+            {:reply, {:error, reason}, state}
         end
 
       {:error, reason} ->
@@ -393,14 +226,11 @@ defmodule Acs.MCP.ToolRegistry do
     end
   end
 
-  @impl true
   def handle_call({:reject_request, request_id, approved_by, org}, _from, state) do
     case Acs.Org.with_current(org, fn ->
            Acs.MCP.ToolRequests.reject_request(request_id, approved_by)
          end) do
       {:ok, request} ->
-        Logger.info("ToolRegistry: rejected tool request '#{request.name}' (id=#{request_id})")
-
         Acs.broadcast(:tool_request_rejected, %{
           request_id: request_id,
           name: request.name,
@@ -414,580 +244,469 @@ defmodule Acs.MCP.ToolRegistry do
     end
   end
 
-  @impl true
   def handle_call({:call_tool, name, args}, _from, state) do
-    org = authenticated_org(args)
+    credential_org = args["_auth_credential_org_id"] || args["_auth_org_id"]
+    resource_org = args["_auth_org_id"] || credential_org
+    role = args["_auth_role"]
+    permissions = args["_auth_permissions"] || []
 
-    {:reply, reply, new_state} =
-      Acs.Org.with_current(org, fn -> do_handle_tool_call(name, args, state) end)
-
-    {:reply, reply, new_state}
-  end
-
-  defp do_handle_tool_call(name, args, state) do
-    case name do
-      "request_tool" ->
-        result = handle_request_tool_in_state(args, state)
-
-        maybe_log_operation("request_tool", result, 0)
-
-        {:reply, result, state}
-
-      "refresh_tools" ->
-        case load_tools(%{
-               state
-               | tools: %{},
-                 by_app: %{},
-                 by_category: %{},
-                 apps: [],
-                 apps_meta: %{}
-             }) do
-          {:ok, new_state} ->
-            result = {:ok, %{refreshed: map_size(new_state.tools), apps: new_state.apps}}
-
-            maybe_log_operation("refresh_tools", result, 0)
-
-            {:reply, result, new_state}
-
-          {:error, reason, new_state} ->
-            result = {:error, reason}
-            maybe_log_operation("refresh_tools", result, 0)
-            {:reply, {:error, reason}, new_state}
-        end
-
-      "help" ->
-        result = safe_execute(fn -> acs_help(state, args) end)
-        {:reply, add_next(result, args), state}
-
-      _ ->
-        # Check if tool exists
-        tool_def = Map.get(state.tools, name)
-        is_discovered = is_nil(tool_def)
-
-        if is_discovered do
-          # Log discovery event
-          _ = track_tool_discovery(name, nil, nil)
-        end
-
-        case tool_def do
-          nil ->
-            if Acs.MCP.Tools.has_tool?(name) do
-              start_time = System.monotonic_time(:millisecond)
-              result = safe_execute(fn -> Acs.MCP.Tools.call_tool(name, args) end)
-              latency_ms = System.monotonic_time(:millisecond) - start_time
-              agent_id = Map.get(args, "agent_id") || Map.get(args, :agent_id)
-              execution_id = Map.get(args, "execution_id") || Map.get(args, :execution_id)
-              {new_execution_chain, sequence_order} = get_or_create_execution_chain(state)
-              is_error = match?({:error, _}, result)
-              {new_last_error_at, error_burst} = detect_error_burst(state.last_error_at, is_error)
-              params_hash = generate_params_hash(args)
-              attempt = get_attempt_number(state, name, is_error)
-
-              maybe_log_operation(name, result, latency_ms, agent_id, execution_id,
-                execution_chain_id: new_execution_chain,
-                sequence_order: sequence_order,
-                attempt: attempt,
-                tool_discovered: true,
-                error_burst: error_burst,
-                params_hash: params_hash
-              )
-
-              new_state = %{
-                state
-                | execution_chain: new_execution_chain,
-                  sequence_order: sequence_order,
-                  last_error_at: new_last_error_at
-              }
-
-              {:reply, result, new_state}
-            else
-              {:reply, {:error, "Unknown tool: #{name}"}, state}
-            end
-
-          _ ->
-            start_time = System.monotonic_time(:millisecond)
-            result = safe_execute(fn -> execute_tool(tool_def, args, state) end)
-            latency_ms = System.monotonic_time(:millisecond) - start_time
-
-            # Extract agent_id and execution_id from args for telemetry
-            agent_id = Map.get(args, "agent_id") || Map.get(args, :agent_id)
-            execution_id = Map.get(args, "execution_id") || Map.get(args, :execution_id)
-
-            # Track telemetry
-            {new_execution_chain, sequence_order} = get_or_create_execution_chain(state)
-            is_error = match?({:error, _}, result)
-            {new_last_error_at, error_burst} = detect_error_burst(state.last_error_at, is_error)
-            params_hash = generate_params_hash(args)
-            attempt = get_attempt_number(state, name, is_error)
-
-            # Build telemetry opts
-            telemetry_opts = [
-              execution_chain_id: new_execution_chain,
-              sequence_order: sequence_order,
-              attempt: attempt,
-              tool_discovered: is_discovered,
-              error_burst: error_burst,
-              params_hash: params_hash
-            ]
-
-            maybe_log_operation(name, result, latency_ms, agent_id, execution_id, telemetry_opts)
-
-            # Update state with new chain info
-            new_state = %{
-              state
-              | execution_chain: new_execution_chain,
-                sequence_order: sequence_order,
-                last_error_at: new_last_error_at
-            }
-
-            {:reply, result, new_state}
-        end
-    end
-  end
-
-  # --- Private ---
-
-  defp authenticated_org(args) do
-    case Map.get(args, "_auth_org_id") do
-      org when is_binary(org) and org != "" -> org
-      _ -> raise ArgumentError, "missing authenticated organization context"
-    end
-  end
-
-  defp check_role(tool, name, agent_role) do
-    roles = tool["roles"] || ["admin"]
-
-    if agent_role in roles do
-      :ok
+    with true <- valid_org?(credential_org) and valid_org?(resource_org) and is_binary(role),
+         :ok <- authorize(state.snapshot, name, role, permissions, credential_org) do
+      if name == "write_tool" do
+        commit_dynamic_tool(state, args, credential_org)
+      else
+        {:reply, execute_and_log(state.snapshot, name, args, credential_org, resource_org), state}
+      end
     else
-      {:error, "Role '#{agent_role}' is not authorized to use tool '#{name}'"}
+      false -> {:reply, {:error, "Missing authentication context"}, state}
+      {:error, reason} -> {:reply, {:error, reason}, state}
     end
   end
 
-  defp check_permissions(tool, name, agent_permissions) do
-    required = tool["permissions"] || []
-    granted = if is_list(agent_permissions), do: agent_permissions, else: []
+  def handle_call({:invoke, name, user_args, auth_context}, _from, state) do
+    with {:ok, auth} <- normalize_auth_context(auth_context),
+         :ok <- authorize(state.snapshot, name, auth.role, auth.permissions, auth.credential_org) do
+      args = inject_auth_context(user_args, auth)
 
-    case Enum.reject(required, &(&1 in granted)) do
-      [] ->
-        :ok
+      if name == "write_tool" do
+        commit_dynamic_tool(state, args, auth.credential_org)
+      else
+        {:reply,
+         execute_and_log(state.snapshot, name, args, auth.credential_org, auth.resource_org),
+         state}
+      end
+    else
+      {:error, reason} -> {:reply, {:error, reason}, state}
+    end
+  end
 
-      missing ->
+  defp commit_dynamic_tool(state, args, credential_org) do
+    case Acs.MCP.Tools.DynamicTools.persist_tool(args) do
+      {:ok, result, rollback} ->
+        {snapshot, errors} = refresh_snapshot(state.snapshot)
+
+        scope_error =
+          Enum.find(errors, fn {scope, _reason} -> scope == {:tenant, credential_org} end)
+
+        if scope_error do
+          :ok = Acs.MCP.Tools.DynamicTools.rollback_tool(rollback)
+          {_scope, reason} = scope_error
+          {:reply, {:error, "Tool validation failed; write rolled back: #{reason}"}, state}
+        else
+          Acs.broadcast(:tools_refresh, %{})
+          if errors != [], do: log_refresh_errors(errors)
+
+          {:reply, {:ok, Map.put(result, :reloaded, true)},
+           %{state | snapshot: snapshot, last_refresh_error: format_refresh_errors(errors)}}
+        end
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  @impl true
+  def handle_info(:refresh_tools, state) do
+    {snapshot, errors} = refresh_snapshot(state.snapshot)
+    Acs.broadcast(:tools_refresh, %{})
+    if errors != [], do: log_refresh_errors(errors)
+
+    {:noreply,
+     %{
+       state
+       | snapshot: snapshot,
+         last_refresh_error: format_refresh_errors(errors)
+     }}
+  end
+
+  defp refresh_snapshot(previous) do
+    grouped_sources = Enum.group_by(Acs.MCP.ToolLoader.sources(), &source_scope/1)
+
+    expected_tenants =
+      grouped_sources
+      |> Map.keys()
+      |> Enum.flat_map(fn
+        {:tenant, org} -> [org]
+        :shared -> []
+      end)
+      |> MapSet.new()
+
+    base = %{
+      previous
+      | shared:
+          if(Map.has_key?(grouped_sources, :shared), do: previous.shared, else: empty_scope()),
+        tenants: Map.take(previous.tenants, MapSet.to_list(expected_tenants))
+    }
+
+    Enum.reduce(grouped_sources, {base, []}, fn {scope, sources}, {snapshot, errors} ->
+      with {:ok, configs} <- Acs.MCP.ToolLoader.load_scope(sources),
+           {:ok, tools} <- configs_to_tools(configs) do
+        {put_loaded_scope(snapshot, scope, tools), errors}
+      else
+        {:error, reason} -> {snapshot, [{scope, reason} | errors]}
+      end
+    end)
+  end
+
+  defp source_scope({:shared, _path}), do: :shared
+  defp source_scope({:tenant, org, _path}), do: {:tenant, org}
+
+  defp put_loaded_scope(snapshot, :shared, tools),
+    do: %{snapshot | shared: scope_from_tools(tools)}
+
+  defp put_loaded_scope(snapshot, {:tenant, org}, tools),
+    do: %{snapshot | tenants: Map.put(snapshot.tenants, org, scope_from_tools(tools))}
+
+  defp format_refresh_errors([]), do: nil
+
+  defp format_refresh_errors(errors) do
+    errors
+    |> Enum.reverse()
+    |> Enum.map_join("; ", fn {scope, reason} -> "#{inspect(scope)}: #{reason}" end)
+  end
+
+  defp log_refresh_errors(errors) do
+    Enum.each(errors, fn {scope, reason} ->
+      Logger.warning("ToolRegistry retained last-known-good #{inspect(scope)} scope: #{reason}")
+    end)
+  end
+
+  defp configs_to_tools(configs) do
+    configs
+    |> Enum.flat_map(&Acs.MCP.ToolLoader.to_mcp_tools/1)
+    |> Enum.reduce_while({:ok, []}, fn tool, {:ok, tools} ->
+      cond do
+        Acs.MCP.Tools.has_tool?(tool["name"]) ->
+          {:halt, {:error, "Tool '#{tool["name"]}' collides with a reserved core tool"}}
+
+        true ->
+          {:cont, {:ok, tools ++ [tool]}}
+      end
+    end)
+  end
+
+  defp empty_snapshot, do: %{shared: empty_scope(), tenants: %{}}
+
+  defp effective_scope(snapshot, org) do
+    tenant = Map.get(snapshot.tenants, org, empty_scope())
+    scope_from_tools(Map.values(snapshot.shared.tools) ++ Map.values(tenant.tools))
+  end
+
+  defp scope_from_tools(tools) do
+    tools = Map.new(tools, &{&1["name"], &1})
+
+    by_category =
+      tools
+      |> Map.values()
+      |> Enum.group_by(&(&1["category"] || "uncategorized"))
+      |> Map.new(fn {category, entries} -> {category, Enum.sort_by(entries, & &1["name"])} end)
+
+    by_app =
+      tools
+      |> Map.values()
+      |> Enum.group_by(&(&1["app"] || "unknown"))
+      |> Map.new(fn {app, entries} -> {app, Enum.sort_by(entries, & &1["name"])} end)
+
+    apps_meta =
+      Map.new(by_app, fn {app, [tool | _]} -> {app, tool["_app_meta"] || %{}} end)
+
+    %{tools: tools, by_category: by_category, by_app: by_app, apps_meta: apps_meta}
+  end
+
+  defp empty_scope, do: %{tools: %{}, by_category: %{}, by_app: %{}, apps_meta: %{}}
+
+  defp register_runtime_tool(snapshot, tool_def, org)
+       when is_map(tool_def) and is_binary(org) and org != "" do
+    name = tool_def["name"]
+    scope = Map.get(snapshot.tenants, org, empty_scope())
+
+    cond do
+      not is_binary(name) or name == "" ->
+        {:error, "Tool name is required"}
+
+      Acs.MCP.Tools.has_tool?(name) ->
+        {:error, "Tool '#{name}' is reserved"}
+
+      is_binary(tool_def["handler"]) and tool_def["handler"] != "" ->
+        {:error, "Tenant runtime tools cannot define internal handlers"}
+
+      not is_binary(tool_def["endpoint"]) or tool_def["endpoint"] == "" ->
+        {:error, "Tenant runtime tools must define an endpoint"}
+
+      Map.has_key?(scope.tools, name) ->
+        {:error, "Tool '#{name}' already exists for tenant '#{org}'"}
+
+      true ->
+        tool =
+          tool_def
+          |> Map.delete("org")
+          |> Map.put("_scope", {:tenant, org})
+          |> Map.put("_source", %{path: "runtime", scope: {:tenant, org}, digest: nil})
+
+        tenant = scope_from_tools(Map.values(scope.tools) ++ [tool])
+        {:ok, %{snapshot | tenants: Map.put(snapshot.tenants, org, tenant)}}
+    end
+  end
+
+  defp register_runtime_tool(_snapshot, _tool_def, _org),
+    do: {:error, "Missing organization context"}
+
+  defp authorize(snapshot, name, role, permissions, credential_org) do
+    case resolve(snapshot, credential_org, name) do
+      {:core, _} ->
+        if Acs.MCP.CoreToolRoles.authorized?(name, role),
+          do: :ok,
+          else: {:error, "Role '#{role}' is not authorized to use tool '#{name}'"}
+
+      {:tool, tool} ->
+        if authorized?(tool, name, role, permissions),
+          do: :ok,
+          else: authorization_error(tool, name, role, permissions)
+
+      :missing ->
+        {:error, "Unknown tool: #{name}"}
+    end
+  end
+
+  defp resolve(snapshot, credential_org, name) do
+    cond do
+      Acs.MCP.Tools.has_tool?(name) -> {:core, name}
+      tool = get_in(snapshot, [:tenants, credential_org, :tools, name]) -> {:tool, tool}
+      tool = get_in(snapshot, [:shared, :tools, name]) -> {:tool, tool}
+      true -> :missing
+    end
+  end
+
+  defp authorized?(tool, _name, role, permissions) do
+    role in (tool["roles"] || ["admin"]) and
+      Enum.all?(tool["permissions"] || [], &(&1 in List.wrap(permissions)))
+  end
+
+  defp authorization_error(tool, name, role, permissions) do
+    cond do
+      role not in (tool["roles"] || ["admin"]) ->
+        {:error, "Role '#{role}' is not authorized to use tool '#{name}'"}
+
+      true ->
+        missing = Enum.reject(tool["permissions"] || [], &(&1 in List.wrap(permissions)))
         {:error, "Missing required permissions for '#{name}': #{Enum.join(missing, ", ")}"}
     end
   end
 
-  defp load_tools(state) do
-    case Acs.MCP.ToolLoader.load_all() do
-      {:ok, tools_by_app} when tools_by_app == %{} ->
-        Logger.warning("No tool definitions loaded - check MCP_TOOLS_PATH")
-        {:error, "No tools loaded", state}
+  defp execute_and_log(snapshot, name, args, credential_org, resource_org) do
+    if resolve(snapshot, credential_org, name) == :missing do
+      track_tool_discovery(name, args["agent_id"], args["execution_id"])
+    end
 
-      {:ok, tools_by_app} ->
-        {tools, by_app, by_category, apps, apps_meta} =
-          Enum.reduce(
-            tools_by_app,
-            {state.tools, state.by_app, state.by_category, state.apps, state.apps_meta},
-            fn {app_name, app_config},
-               {tools_acc, by_app_acc, by_cat_acc, apps_acc, apps_meta_acc} ->
-              tool_defs =
-                app_config
-                |> Acs.MCP.ToolLoader.to_mcp_tools()
-                |> Enum.reject(fn tool ->
-                  reserved = Acs.MCP.Tools.has_tool?(tool["name"])
+    started_at = System.monotonic_time(:millisecond)
+    result = execute(snapshot, name, args, credential_org, resource_org)
+    latency_ms = System.monotonic_time(:millisecond) - started_at
 
-                  if reserved,
-                    do:
-                      Logger.warning(
-                        "Ignoring YAML tool with reserved core name '#{tool["name"]}'"
-                      )
+    maybe_log_operation(
+      name,
+      result,
+      latency_ms,
+      args["agent_id"] || args["_auth_agent_id"],
+      args["execution_id"]
+    )
 
-                  reserved
-                end)
+    result
+  end
 
-              # Index by name
-              tools_acc =
-                Enum.reduce(tool_defs, tools_acc, fn td, acc ->
-                  Map.put(acc, td["name"], td)
-                end)
+  defp execute(snapshot, "list_plugins", args, credential_org, _resource_org) do
+    {:ok, plugins_result(effective_scope(snapshot, credential_org), args)}
+  end
 
-              # Index by category
-              by_cat_acc =
-                Enum.reduce(tool_defs, by_cat_acc, fn td, acc ->
-                  cat = td["category"] || "uncategorized"
-                  Map.update(acc, cat, [td], fn existing -> [td | existing] end)
-                end)
+  defp execute(snapshot, "help", args, credential_org, _resource_org) do
+    {:ok, help_result(effective_scope(snapshot, credential_org), args)}
+  end
 
-              # Index by app
-              by_app_acc = Map.put(by_app_acc, app_name, tool_defs)
+  defp execute(snapshot, name, args, credential_org, resource_org) do
+    case resolve(snapshot, credential_org, name) do
+      {:core, _} ->
+        Acs.Org.with_current(resource_org, fn ->
+          safe_execute(fn -> Acs.MCP.Tools.call_tool(name, args) end)
+        end)
 
-              # Collect app metadata
-              app_meta = %{
-                "version" => app_config["version"],
-                "plugin" => app_config["plugin"]
-              }
+      {:tool, tool} ->
+        Acs.Org.with_current(resource_org, fn ->
+          safe_execute(fn -> execute_tool(tool, args) end)
+        end)
 
-              apps_meta_acc = Map.put(apps_meta_acc, app_name, app_meta)
+      :missing ->
+        {:error, "Unknown tool: #{name}"}
+    end
+  end
 
-              {tools_acc, by_app_acc, by_cat_acc, [app_config | apps_acc], apps_meta_acc}
-            end
-          )
+  defp execute_tool(tool, args) do
+    cond do
+      is_binary(tool["handler"]) and tool["handler"] != "" ->
+        with {:ok, module} <- fetch_handler_module(tool["handler"]) do
+          module
+          |> apply(:call_tool, [tool["name"], args])
+          |> normalize_tool_result()
+        end
 
-        new_state = %{
-          state
-          | tools: tools,
-            by_app: by_app,
-            by_category: by_category,
-            apps: apps,
-            apps_meta: apps_meta
+      is_binary(tool["endpoint"]) and is_binary(tool["base_url"]) and tool["base_url"] != "" ->
+        Acs.MCP.Bridge.call_tool(tool, args)
+
+      true ->
+        {:error, "Tool '#{tool["name"]}' has no executable handler or endpoint"}
+    end
+  end
+
+  defp plugins_result(scope, args) do
+    role = args["_auth_role"]
+    permissions = args["_auth_permissions"]
+
+    plugins =
+      scope.by_app
+      |> Enum.map(fn {app, tools} ->
+        visible = Enum.filter(tools, &authorized?(&1, &1["name"], role, permissions))
+        meta = Map.get(scope.apps_meta, app, %{})
+
+        %{
+          app: app,
+          version: meta["version"],
+          plugin: meta["plugin"],
+          tool_count: length(visible),
+          tools: Enum.map(visible, & &1["name"])
         }
+      end)
+      |> Enum.reject(&(&1.tool_count == 0))
+      |> Enum.sort_by(& &1.app)
 
-        {:ok, new_state}
-
-      {:error, reason} ->
-        {:error, reason, state}
-    end
+    %{plugins: plugins, count: length(plugins)}
   end
 
-  defp safe_execute(fun) do
-    fun.()
-  rescue
-    e ->
-      msg = Exception.message(e)
-      Logger.error("ToolRegistry tool crash: #{msg}")
+  defp help_result(scope, args) do
+    category = args["category"]
+    level = args["level"]
+    role = args["_auth_role"]
+    permissions = args["_auth_permissions"]
 
-      guidance = """
-      Tool crashed: #{msg}
-      Possible causes:
-        - The task or resource may have been released (create+claim a new task first)
-        - A required service (DB, cache) may be unavailable
-        - Arguments may be invalid
-
-      Next steps:
-        1. Create and claim a task: `create_work(agent_id, title, claim: true)`
-        2. Lock files for the new task
-        3. Retry the failed operation
-      """
-
-      {:error, guidance}
-  catch
-    :exit, reason ->
-      Logger.error("ToolRegistry tool exit: #{inspect(reason)}")
-
-      guidance = """
-      Tool exited: #{inspect(reason)}
-      This usually means a required service is unavailable or the tool timed out.
-
-      Next steps:
-        1. Wait a moment, then retry
-        2. If it persists, check service connectivity: `connection_diagnostic()`
-        3. Create/claim a task first if you haven't: `create_work(agent_id, title, claim: true)`
-      """
-
-      {:error, guidance}
-  end
-
-  defp execute_tool(tool_def, args, state) do
-    name = tool_def["name"]
-
-    if tool_def["org"] && tool_def["org"] != authenticated_org(args) do
-      {:error, "Tool '#{name}' is not available for this organization"}
-    else
-      do_execute_tool(name, tool_def, args, state)
-    end
-  end
-
-  defp do_execute_tool(name, tool_def, args, state) do
-    case name do
-      "list_categories" ->
-        {:ok, %{categories: Map.keys(state.by_category)}}
-
-      "list_tools" ->
-        category = args["category"]
-        # Default to level 1 (essentials)
-        level = args["level"] || 1
-        tools = list_tools(state, category, level)
-        {:ok, %{category: category, level: level, tools: tools, count: length(tools)}}
-
-      "help" ->
-        acs_help(state, args)
-
-      "list_plugins" ->
-        plugins =
-          Enum.map(state.apps, fn app_config ->
-            app_name = app_config["app"]
-            tools = Map.get(state.by_app, app_name, [])
-            meta = Map.get(state.apps_meta, app_name, %{})
-
-            %{
-              app: app_name,
-              version: meta["version"],
-              plugin: meta["plugin"],
-              tool_count: length(tools),
-              tools: Enum.map(tools, & &1["name"])
-            }
-          end)
-          |> Enum.sort_by(& &1.app)
-
-        {:ok, %{plugins: plugins, count: length(plugins)}}
-
-      _ ->
-        execute_external_tool(tool_def, args, state)
-    end
-  end
-
-  defp list_tools(state, nil, level), do: filter_by_level(Map.values(state.tools), level)
-  defp list_tools(state, category, _level), do: Map.get(state.by_category, category, [])
-
-  defp filter_by_level(tools, level) do
-    Enum.filter(tools, fn t -> (t["level"] || 2) <= level end)
-  end
-
-  defp filter_by_role(tools, agent_role, org) when is_binary(agent_role) do
-    Enum.filter(tools, fn t ->
-      roles = t["roles"] || ["admin"]
-      agent_role in roles and (is_nil(t["org"]) or t["org"] == org)
-    end)
-  end
-
-  defp filter_by_role(_tools, _agent_role, _org), do: []
-
-  defp acs_help(state, args) do
-    category_filter = args["category"]
-    level_filter = args["level"]
-
-    all_tools = Map.values(state.tools)
-    categories = Map.keys(state.by_category)
-
-    filtered_tools =
-      all_tools
-      |> Enum.filter(fn t ->
-        matches_category = is_nil(category_filter) || t["category"] == category_filter
-        tool_level = t["level"] || 2
-        matches_level = is_nil(level_filter) || tool_level <= level_filter
-        matches_category and matches_level
+    tools =
+      ((scope.tools
+        |> Map.values()
+        |> Enum.filter(&authorized?(&1, &1["name"], role, permissions))) ++
+         (Acs.MCP.Tools.list_tools()
+          |> Enum.filter(&Acs.MCP.CoreToolRoles.authorized?(&1["name"], role))
+          |> Enum.map(fn tool ->
+            tool
+            |> Map.put("app", "steward")
+            |> Map.put("category", Acs.MCP.Tools.tool_category(tool["name"]) || "uncategorized")
+          end)))
+      |> Enum.filter(fn tool ->
+        (is_nil(category) or tool["category"] == category) and
+          (is_nil(level) or (tool["level"] || 2) <= level)
       end)
 
     tools_by_category =
-      filtered_tools
-      |> Enum.group_by(&(Map.get(&1, "category") || "uncategorized"))
-      |> Enum.map(fn {cat, tools} ->
-        {cat,
-         Enum.map(tools, fn t ->
+      tools
+      |> Enum.group_by(&(&1["category"] || "uncategorized"))
+      |> Map.new(fn {tool_category, entries} ->
+        {tool_category,
+         entries
+         |> Enum.map(fn tool ->
            %{
-             name: t["name"],
-             level: t["level"] || 2,
-             description: t["description"],
-             params: (t["params"] || []) |> Enum.map(fn p -> p["name"] end),
+             name: tool["name"],
+             level: tool["level"] || 2,
+             description: tool["description"],
+             params: Enum.map(tool["params"] || [], & &1["name"]),
              required_params:
-               (t["params"] || [])
-               |> Enum.filter(fn p -> p["required"] end)
-               |> Enum.map(fn p -> p["name"] end)
+               tool["params"]
+               |> Kernel.||([])
+               |> Enum.filter(& &1["required"])
+               |> Enum.map(& &1["name"])
            }
          end)
          |> Enum.sort_by(& &1.name)}
       end)
-      |> Enum.sort_by(fn {cat, _} -> cat end)
-      |> Enum.into(%{})
 
-    total_count = length(filtered_tools)
+    categories = Map.keys(tools_by_category) |> Enum.sort()
 
-    {:ok,
-     %{
-       total_tools: total_count,
-       categories: %{
-         available: categories,
-         filtered: Map.keys(tools_by_category)
-       },
-       tools: tools_by_category
-     }}
+    %{
+      total_tools: length(tools),
+      categories: %{available: categories, filtered: categories},
+      tools: tools_by_category
+    }
   end
 
-  defp add_next({:ok, map}, _args) when is_map(map) do
-    suggestions = [
-      %{
-        tool: "get_started",
-        prompt: "New here? Get oriented with the entry-point tool",
-        params: %{}
-      },
-      %{
-        tool: "generate_guidance_packet",
-        prompt: "Get detailed workflow guidance for any scope",
-        params: %{scope_path: "agent_coordination_system"}
-      },
-      %{tool: "list_tasks", prompt: "Find work to do", params: %{status_filter: "todo"}}
-    ]
-
-    {:ok, Map.put(map, :_next, suggestions)}
-  end
-
-  defp add_next(result, _args), do: result
-
-  defp execute_external_tool(tool_def, args, _state) do
-    cond do
-      tool_def["handler"] && tool_def["handler"] != "" ->
-        handler_mod = tool_def["handler"]
-
-        case fetch_handler_module(handler_mod) do
-          {:ok, module} ->
-            apply(module, :call_tool, [tool_def["name"], args])
-
-          {:error, reason} ->
-            {:error, "Handler module error: #{reason}"}
-        end
-
-      tool_def["endpoint"] && tool_def["base_url"] && tool_def["base_url"] != "" ->
-        Acs.MCP.Bridge.call_tool(tool_def, args)
-
-      true ->
-        result = Acs.MCP.Tools.call_tool(tool_def["name"], args)
-        normalize_tool_result(result)
-    end
-  end
-
-  # Safely convert handler module string to atom, catching invalid modules
-  defp fetch_handler_module(handler_mod) do
-    module_name = "Elixir.#{handler_mod}"
-
-    with true <- String.split(module_name, ".") |> Enum.all?(&valid_module_component?/1),
-         {:module, mod} <- Code.ensure_loaded(String.to_existing_atom(module_name)) do
-      {:ok, mod}
-    else
-      false -> {:error, "Invalid module name components"}
-      {:error, reason} -> {:error, "Module not loaded: #{inspect(reason)}"}
-    end
-  end
-
-  defp valid_module_component?(""), do: false
-
-  defp valid_module_component?(s) do
-    Regex.match?(~r/^[A-Z][a-zA-Z0-9_]*$/, s)
-  end
-
-  # Normalize various return formats to {:ok, ...} or {:error, ...}
   defp normalize_tool_result({:ok, _} = result), do: result
   defp normalize_tool_result({:error, _} = result), do: result
+  defp normalize_tool_result({:sleep, _, _} = result), do: result
   defp normalize_tool_result(:ok), do: {:ok, %{status: "ok"}}
-  defp normalize_tool_result({:ok}), do: {:ok, %{status: "ok"}}
   defp normalize_tool_result(nil), do: {:ok, %{status: "ok"}}
   defp normalize_tool_result(other), do: {:ok, %{status: "ok", result: inspect(other)}}
 
-  defp handle_request_tool_in_state(args, _state) do
-    definition = args["definition"]
-    agent_id = args["agent_id"] || "unknown"
+  defp fetch_handler_module(handler) do
+    module_name = "Elixir." <> handler
 
-    cond do
-      is_nil(definition) ->
-        {:error, "Missing required parameter: 'definition'"}
+    try do
+      module = String.to_existing_atom(module_name)
 
-      not is_map(definition) ->
-        {:error, "'definition' must be a JSON object"}
-
-      not is_map_key(definition, "name") ->
-        {:error, "Tool definition must include a 'name' field"}
-
-      true ->
-        case Acs.MCP.ToolRequests.create_request(agent_id, definition) do
-          {:ok, request} ->
-            Logger.info("ToolRegistry: tool request created '#{request.name}' (id=#{request.id})")
-
-            Acs.broadcast(:tool_request_created, %{
-              request_id: request.id,
-              name: request.name,
-              agent_id: agent_id
-            })
-
-            {:ok,
-             %{
-               status: "pending",
-               message:
-                 "Tool request '#{request.name}' has been submitted for approval. " <>
-                   "A human operator will review and approve it via the ACS dashboard.",
-               request_id: request.id,
-               tool: request.name
-             }}
-
-          {:error, changeset} ->
-            errors =
-              changeset.errors
-              |> Enum.map(fn {field, {msg, _}} -> "#{field}: #{msg}" end)
-              |> Enum.join("; ")
-
-            {:error, "Failed to create tool request: #{errors}"}
-        end
+      if function_exported?(module, :call_tool, 2),
+        do: {:ok, module},
+        else: {:error, "Module does not export call_tool/2"}
+    rescue
+      ArgumentError -> {:error, "Module is not loaded"}
     end
   end
 
-  defp get_or_create_execution_chain(state) do
-    chain_id = state.execution_chain || generate_uuid()
-    sequence = if state.execution_chain, do: state.sequence_order + 1, else: 0
-    {chain_id, sequence}
-  end
+  defp normalize_auth_context(context) do
+    credential_org = context[:credential_org] || context["credential_org"]
+    resource_org = context[:resource_org] || context["resource_org"] || credential_org
+    role = context[:role] || context["role"]
 
-  defp generate_uuid do
-    # Generate a UUID-like string using crypto
-    bin = :crypto.strong_rand_bytes(16)
-    <<a::binary-4, b::binary-2, c::binary-2, d::binary-2, e::binary-6>> = bin
-    "#{a}-#{b}-#{c}-#{d}-#{e}"
-  end
-
-  defp generate_params_hash(args) when is_map(args) do
-    case Jason.encode(args) do
-      {:ok, json} ->
-        :crypto.hash(:sha256, json) |> Base.encode16() |> String.slice(0, 16)
-
-      _ ->
-        :crypto.hash(:sha256, inspect(args)) |> Base.encode16() |> String.slice(0, 16)
-    end
-  end
-
-  defp generate_params_hash(_), do: nil
-
-  defp detect_error_burst(last_error_at, false = _is_error) do
-    # No error this time, just update timestamp if there was an error
-    {last_error_at, false}
-  end
-
-  defp detect_error_burst(last_error_at, true = _is_error) do
-    now = System.monotonic_time(:millisecond)
-
-    if is_nil(last_error_at) do
-      {now, false}
+    if valid_org?(credential_org) and valid_org?(resource_org) and is_binary(role) and role != "" do
+      {:ok,
+       %{
+         credential_org: credential_org,
+         resource_org: resource_org,
+         role: role,
+         permissions: context[:permissions] || context["permissions"] || [],
+         allowed_teams: context[:allowed_teams] || context["allowed_teams"],
+         allowed_projects: context[:allowed_projects] || context["allowed_projects"],
+         agent_id: context[:agent_id] || context["agent_id"]
+       }}
     else
-      elapsed = now - last_error_at
-
-      if elapsed < @error_burst_window_ms do
-        {now, true}
-      else
-        {now, false}
-      end
+      {:error, "Missing authentication context"}
     end
   end
 
-  defp get_attempt_number(_state, _tool_name, false = _is_error) do
-    1
+  defp inject_auth_context(args, auth) do
+    args
+    |> Enum.reject(fn {key, _value} ->
+      (is_binary(key) or is_atom(key)) and String.starts_with?(to_string(key), "_auth_")
+    end)
+    |> Map.new()
+    |> Map.merge(%{
+      "_auth_role" => auth.role,
+      "_auth_org_id" => auth.resource_org,
+      "_auth_credential_org_id" => auth.credential_org,
+      "_auth_permissions" => auth.permissions,
+      "_auth_allowed_teams" => auth.allowed_teams,
+      "_auth_allowed_projects" => auth.allowed_projects,
+      "_auth_agent_id" => auth.agent_id
+    })
   end
 
-  defp get_attempt_number(_state, _tool_name, true = _is_error) do
-    # For errors, we'd track attempt number per tool
-    # For now, return 1 on first failure - a more complete implementation
-    # would track this in persistent state
-    1
-  end
+  defp filter_category(tools, nil), do: tools
 
-  defp meta_harness_enabled? do
-    System.get_env("META_HARNESS_ENABLED", "false") == "true"
-  end
+  defp filter_category(tools, category),
+    do: Enum.filter(tools, &((&1["category"] || "uncategorized") == category))
 
-  defp maybe_log_operation(
-         name,
-         result,
-         latency_ms,
-         agent_id \\ nil,
-         execution_id \\ nil,
-         opts \\ []
-       ) do
-    if meta_harness_enabled?() do
+  defp valid_org?(org), do: is_binary(org) and org != ""
+
+  defp snapshot_tool_count(snapshot),
+    do:
+      map_size(snapshot.shared.tools) +
+        Enum.reduce(snapshot.tenants, 0, fn {_org, scope}, total ->
+          total + map_size(scope.tools)
+        end)
+
+  defp maybe_log_operation(name, result, latency_ms, agent_id, execution_id) do
+    if System.get_env("META_HARNESS_ENABLED", "false") == "true" do
       _ =
         Acs.MetaHarness.OperationLogger.log_tool_result_async(
           name,
@@ -995,16 +714,16 @@ defmodule Acs.MCP.ToolRegistry do
           latency_ms,
           agent_id,
           execution_id,
-          opts
+          []
         )
     end
+
+    :ok
   end
 
-  @doc """
-  Tracks when an agent requests a tool that doesn't exist.
-  """
+  @doc "Tracks attempts to invoke unknown tools for meta-harness discovery."
   def track_tool_discovery(tool_name, agent_id, execution_id) do
-    if meta_harness_enabled?() do
+    if System.get_env("META_HARNESS_ENABLED", "false") == "true" do
       Acs.MetaHarness.OperationLogger.log_async(
         tool_name,
         :discovery,
@@ -1016,59 +735,19 @@ defmodule Acs.MCP.ToolRegistry do
         tool_discovered: true
       )
     end
+
+    :ok
   end
 
-  # Core tools registered at startup (survives restarts)
-  defp add_core_tools(state) do
-    state =
-      maybe_add_tool(state, "ask", %{
-        "name" => "ask",
-        "description" =>
-          "Ask a natural language question about the knowledge base. Searches memories, documents, and agent status for relevant information.",
-        "inputSchema" => %{
-          "type" => "object",
-          "properties" => %{
-            "question" => %{
-              "type" => "string",
-              "description" => "Natural language question to ask"
-            },
-            "kind" => %{"type" => "string", "description" => "Filter by memory kind (optional)"},
-            "team" => %{"type" => "string", "description" => "Filter by team (optional)"},
-            "project" => %{"type" => "string", "description" => "Filter by project (optional)"}
-          },
-          "required" => ["question"]
-        },
-        "category" => "knowledge",
-        "roles" => ["admin", "collaborator"],
-        "level" => "normal",
-        "app" => "steward"
-      })
-
-    maybe_add_tool(state, "list_plugins", %{
-      "name" => "list_plugins",
-      "description" =>
-        "List all registered plugin apps with their metadata, tool counts, and health status.",
-      "inputSchema" => %{
-        "type" => "object",
-        "properties" => %{},
-        "required" => []
-      },
-      "category" => "acs_core",
-      "roles" => ["admin", "collaborator", "viewer"],
-      "level" => 1,
-      "app" => "steward"
-    })
-  end
-
-  defp maybe_add_tool(state, name, tool_def) do
-    if Map.has_key?(state.tools, name) do
-      state
-    else
-      tools = Map.put(state.tools, name, tool_def)
-      category = tool_def["category"] || "uncategorized"
-      by_category = Map.update(state.by_category, category, [tool_def], &[tool_def | &1])
-      by_app = Map.update(state.by_app, "steward", [tool_def], &[tool_def | &1])
-      %{state | tools: tools, by_category: by_category, by_app: by_app}
-    end
+  defp safe_execute(fun) do
+    fun.()
+  rescue
+    error ->
+      Logger.error("ToolRegistry tool crash: #{Exception.message(error)}")
+      {:error, "Tool execution failed"}
+  catch
+    :exit, reason ->
+      Logger.error("ToolRegistry tool exit: #{inspect(reason)}")
+      {:error, "Tool execution failed"}
   end
 end

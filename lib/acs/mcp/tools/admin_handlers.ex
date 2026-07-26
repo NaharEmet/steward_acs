@@ -98,14 +98,6 @@ defmodule Acs.MCP.Tools.AdminHandlers do
       true ->
         case Acs.Orgs.create(%{name: name, slug: slug, subdomain: subdomain, plan: plan}) do
           {:ok, org} ->
-            vault_base = Application.get_env(:steward_acs, :obsidian_vault_path)
-
-            if Acs.Org.multi_tenant?() and is_binary(vault_base) do
-              File.mkdir_p!(Acs.Org.memory_dir(org.slug))
-              File.mkdir_p!(Acs.Specs.Loader.specs_path(org.slug))
-              File.mkdir_p!(Acs.Skills.Store.skill_dir(org.slug))
-            end
-
             {:ok,
              %{
                id: org.id,

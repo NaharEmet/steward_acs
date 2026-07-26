@@ -43,8 +43,10 @@ defmodule Acs.Orgs.Provisioner do
   defp paths(slug) do
     [
       Acs.Org.memory_dir(slug),
-      Acs.Specs.Loader.specs_path(slug),
-      Acs.Skills.Store.skill_dir(slug)
+      Acs.Org.skills_dir(slug),
+      Acs.Org.specs_dir(slug),
+      Acs.Org.prompts_dir(slug),
+      Acs.Org.tools_dir(slug)
     ]
   end
 

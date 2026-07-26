@@ -6,8 +6,8 @@ defmodule Acs.Skills.StoreTest do
   setup do
     original_path = Application.get_env(:steward_acs, :obsidian_vault_path)
     vault = Path.join(System.tmp_dir!(), "acs_skills_#{System.unique_integer([:positive])}")
-    skills_dir = Path.join(vault, "skills")
     Application.put_env(:steward_acs, :obsidian_vault_path, vault)
+    skills_dir = Store.skill_dir()
     File.mkdir_p!(skills_dir)
 
     on_exit(fn ->

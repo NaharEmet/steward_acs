@@ -143,9 +143,9 @@ defmodule Acs.MultiTenantSecurityTest do
     skills_a = Acs.Org.with_current("org-a", &Store.skill_dir/0)
     skills_b = Acs.Org.with_current("org-b", &Store.skill_dir/0)
 
-    assert specs_a == Path.join([vault, "specs", "orgs", "org-a"])
-    assert specs_b == Path.join([vault, "specs", "orgs", "org-b"])
-    assert skills_a == Path.join([vault, "skills", "orgs", "org-a"])
-    assert skills_b == Path.join([vault, "skills", "orgs", "org-b"])
+    assert specs_a == Path.join([vault, "orgs", "org-a", "specs"])
+    assert specs_b == Path.join([vault, "orgs", "org-b", "specs"])
+    assert skills_a == Path.join([vault, "orgs", "org-a", "skills"])
+    assert skills_b == Path.join([vault, "orgs", "org-b", "skills"])
   end
 end

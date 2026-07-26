@@ -94,6 +94,8 @@ ssh -L 8384:127.0.0.1:8384 ubuntu@HOST
 
 Device sync uses published `22000` / `21027/udp`. Do not reverse-proxy Syncthing admin through Caddy.
 
+Each organization uses the non-overlapping folder `/var/syncthing/vaults/orgs/<slug>`, containing `private/memories`, `skills`, `specs`, `prompts`, and `acstools`. Never configure `/var/syncthing/vaults` itself as a tenant folder because it contains all organizations. Canonical files override legacy locations during migration; ACS writes only to the canonical tree. Use backup plus repeatable `rsync --dry-run`/`rsync` copies, migrate a non-configured tenant first, and keep legacy sources for rollback. When set, `SPECS_PATH` remains tenant-partitioned beneath `SPECS_PATH/orgs/<slug>`.
+
 ## Orgs
 
 Organizations are database-backed. During the OAuth migration, import the legacy registry once, then bootstrap each verified owner's identity after their first OIDC login:

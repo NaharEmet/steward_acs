@@ -73,7 +73,7 @@ defmodule Acs.OrgIsolationTest do
     end)
 
     Org.put_request_org("acme")
-    assert String.ends_with?(Acs.Skills.Store.skill_dir(), "/skills/orgs/acme")
+    assert Acs.Skills.Store.skill_dir() == "/vaults/orgs/acme/skills"
   end
 
   test "memory index isolates identical public IDs across orgs" do

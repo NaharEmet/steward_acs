@@ -57,10 +57,19 @@ defmodule Acs.Application do
           AcsWeb.Endpoint
         ]
 
+    background_workers? = Application.get_env(:steward_acs, :start_background_workers, true)
+
+    tools_watcher_children =
+      if background_workers? and vault_configured?() do
+        [Acs.MCP.Tools.FileWatcher]
+      else
+        []
+      end
+
     # Only start file watcher and retention sweeper in non-test environments
     # to avoid background tasks conflicting with Ecto sandbox connections.
     children =
-      if Application.get_env(:steward_acs, :start_background_workers, true) do
+      if background_workers? do
         [
           Acs.Memory.Auditor,
           Acs.Memory.FileWatcher,
@@ -68,7 +77,7 @@ defmodule Acs.Application do
           Acs.Specs.FileWatcher,
           {Acs.Log.RetentionSweeper, []},
           Acs.Skills.Auditor | children
-        ]
+        ] ++ tools_watcher_children
       else
         children
       end
@@ -151,6 +160,13 @@ defmodule Acs.Application do
 
   defp axiom_enabled? do
     Application.get_env(:steward_acs, :axiom, [])[:enabled] == true
+  end
+
+  defp vault_configured? do
+    case Application.get_env(:steward_acs, :obsidian_vault_path) do
+      path when is_binary(path) -> path != ""
+      _ -> false
+    end
   end
 
   defp meta_harness_enabled? do

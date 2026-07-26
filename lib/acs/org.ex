@@ -11,6 +11,7 @@ defmodule Acs.Org do
 
   @request_org_key :acs_request_org
   @obsidian_label "obsidian"
+  @org_slug_regex ~r/\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/
 
   @doc """
   Returns the active org slug for the current process.
@@ -44,7 +45,9 @@ defmodule Acs.Org do
     try do
       fun.()
     after
-      if previous, do: Process.put(@request_org_key, previous), else: Process.delete(@request_org_key)
+      if previous,
+        do: Process.put(@request_org_key, previous),
+        else: Process.delete(@request_org_key)
     end
   end
 
@@ -213,61 +216,238 @@ defmodule Acs.Org do
   def from_host(_), do: nil
 
   @doc """
-  Returns the Obsidian vault directory for an org.
-
-  Configured org: `/vaults/private/memories` (legacy-compatible)
-  Additional org: `/vaults/orgs/<org>/private/memories`
-  Single-tenant: `<OBSIDIAN_VAULT_PATH>/private/memories` or priv fallback
+  Returns the configured Obsidian vault base, or `nil` when no vault is configured.
   """
-  def memory_dir(org \\ current()) do
-    base = Application.get_env(:steward_acs, :obsidian_vault_path)
-
-    cond do
-      multi_tenant?() and is_binary(base) and base != "" and org != configured() ->
-        Path.join([base, "orgs", org, "private", "memories"])
-
-      is_binary(base) and base != "" ->
-        Path.join(base, "private/memories")
-
-      true ->
-        Path.join(Application.app_dir(:steward_acs), "priv/acs_memory")
+  def vault_base do
+    case Application.get_env(:steward_acs, :obsidian_vault_path) do
+      base when is_binary(base) and base != "" -> Path.expand(base)
+      _ -> nil
     end
   end
 
   @doc """
-  Returns the vault root to watch in multi-tenant mode (`/vaults`), or the
-  single-org memory dir otherwise.
+  Returns an org's canonical vault root: `<vault>/orgs/<slug>`.
   """
-  def vault_watch_root do
-    base = Application.get_env(:steward_acs, :obsidian_vault_path)
+  def org_vault_root(org \\ current()) when is_binary(org) do
+    org = validate_slug!(org)
 
-    if multi_tenant?() and is_binary(base) and base != "" do
-      base
+    case vault_base() do
+      nil -> nil
+      base -> Path.join([base, "orgs", org])
+    end
+  end
+
+  @doc """
+  Returns whether a value is a valid organization slug for vault paths.
+  """
+  def valid_slug?(org) when is_binary(org), do: Regex.match?(@org_slug_regex, org)
+  def valid_slug?(_), do: false
+
+  @doc """
+  Returns the canonical memory directory for an org.
+  """
+  def memory_dir(org \\ current()) when is_binary(org) do
+    artifact_dir(org, "private/memories", fn -> fallback_org_dir("priv/acs_memory", org) end)
+  end
+
+  def skills_dir(org \\ current()) when is_binary(org) do
+    artifact_dir(org, "skills", fn -> fallback_org_dir("priv/skills", org) end)
+  end
+
+  def specs_dir(org \\ current()) when is_binary(org) do
+    artifact_dir(org, "specs", fn -> fallback_org_dir("../../../acs/specs", org) end)
+  end
+
+  def prompts_dir(org \\ current()) when is_binary(org) do
+    artifact_dir(org, "prompts", fn -> fallback_org_dir("priv/prompts", org) end)
+  end
+
+  def tools_dir(org \\ current()) when is_binary(org) do
+    artifact_dir(org, "acstools", fn -> fallback_org_dir("../../../acs/acstools", org) end)
+  end
+
+  @doc """
+  Returns the configured org's pre-canonical memory directory, if any.
+  """
+  def legacy_memory_dir(org \\ current()) when is_binary(org) do
+    org = validate_slug!(org)
+
+    if org == configured() do
+      case vault_base() do
+        nil -> Path.join(Application.app_dir(:steward_acs), "priv/acs_memory")
+        base -> Path.join(base, "private/memories")
+      end
+    end
+  end
+
+  def legacy_skills_dir(org \\ current()), do: legacy_skills_dirs(org) |> List.first()
+  def legacy_specs_dir(org \\ current()), do: legacy_specs_dirs(org) |> List.first()
+  def legacy_prompts_dir(org \\ current()), do: legacy_prompts_dirs(org) |> List.first()
+  def legacy_tools_dir(_org \\ current()), do: nil
+
+  def legacy_memory_dirs(org \\ current()), do: List.wrap(legacy_memory_dir(org))
+
+  def legacy_skills_dirs(org \\ current()) when is_binary(org),
+    do: legacy_partitioned_dirs(org, "skills")
+
+  def legacy_specs_dirs(org \\ current()) when is_binary(org),
+    do: legacy_partitioned_dirs(org, "specs")
+
+  def legacy_prompts_dirs(org \\ current()) when is_binary(org) do
+    org = validate_slug!(org)
+
+    if vault_base() do
+      if multi_tenant?(),
+        do: [Path.join([vault_base(), org, "prompts"])],
+        else: if(org == configured(), do: [Path.join(vault_base(), "prompts")], else: [])
     else
-      memory_dir()
+      []
     end
   end
 
+  def legacy_tools_dirs(_org \\ current()), do: []
+
   @doc """
-  Extracts org slug from a vault file path under the watch root.
+  Returns the vault base when configured, or the active memory directory otherwise.
+  """
+  def vault_watch_root, do: vault_base() || memory_dir()
+
+  @doc """
+  Extracts an org slug from a canonical org path or configured-org legacy path.
+
+  Returns `nil` for paths outside those roots or with an invalid slug.
   """
   def org_from_vault_path(path) when is_binary(path) do
-    base = Application.get_env(:steward_acs, :obsidian_vault_path)
+    case vault_base() do
+      nil ->
+        if path_within?(path, legacy_memory_dir(configured())), do: configured(), else: nil
 
-    if multi_tenant?() and is_binary(base) and base != "" do
-      case Path.relative_to(path, base) do
-        relative when is_binary(relative) ->
-          case Path.split(relative) do
-            ["orgs", org | _] when org not in ["", ".", ".."] -> org
-            _ -> configured()
-          end
+      base ->
+        case Path.split(Path.relative_to(Path.expand(path), base)) do
+          ["orgs", org | _] ->
+            classify_known_org(org)
 
-        _ ->
-          configured()
-      end
-    else
-      current()
+          [artifact, "orgs", org | _] when artifact in ["skills", "specs"] ->
+            classify_known_org(org)
+
+          [org, "prompts" | _] ->
+            classify_known_org(org)
+
+          _ ->
+            legacy_path_org(path)
+        end
     end
+  end
+
+  def org_from_vault_path(_), do: nil
+
+  defp classify_known_org(org),
+    do: if(valid_slug?(org) and known_org?(org), do: org, else: nil)
+
+  defp artifact_dir(org, artifact, fallback) do
+    org = validate_slug!(org)
+
+    case org_vault_root(org) do
+      nil -> fallback.()
+      root -> Path.join(root, artifact)
+    end
+  end
+
+  defp legacy_partitioned_dirs(org, artifact) do
+    org = validate_slug!(org)
+
+    case vault_base() do
+      nil ->
+        []
+
+      base ->
+        root = Path.join(base, artifact)
+        if org == "default", do: [root], else: [Path.join([root, "orgs", org])]
+    end
+  end
+
+  defp fallback_org_dir(path, org) do
+    org = validate_slug!(org)
+    base = Path.expand(path, Application.app_dir(:steward_acs))
+    Path.join([base, "orgs", org])
+  end
+
+  defp legacy_path_org(path) do
+    configured_org = configured()
+
+    legacy_roots =
+      legacy_memory_dirs(configured_org) ++
+        legacy_skills_dirs(configured_org) ++
+        legacy_specs_dirs(configured_org) ++ legacy_prompts_dirs(configured_org)
+
+    if Enum.any?(legacy_roots, &path_within?(path, &1)) do
+      configured_org
+    end
+  end
+
+  defp path_within?(path, root) do
+    expanded_path = Path.expand(path)
+    expanded_root = Path.expand(root)
+    expanded_path == expanded_root or String.starts_with?(expanded_path, expanded_root <> "/")
+  end
+
+  defp validate_slug!(org) do
+    if valid_slug?(org),
+      do: org,
+      else: raise(ArgumentError, "Invalid organization: #{inspect(org)}")
+  end
+
+  @doc false
+  def known_org?(org) when is_binary(org) do
+    cond do
+      org == configured() ->
+        true
+
+      not multi_tenant?() ->
+        org == current()
+
+      true ->
+        Acs.Orgs.list_all()
+        |> Enum.any?(&(&1.slug == org and &1.provisioning_status == "ready"))
+    end
+  rescue
+    _ -> org == configured()
+  end
+
+  def known_org?(_), do: false
+
+  @doc "Returns true when path is lexically contained by root and no existing component is a symlink."
+  def safe_path?(root, path) when is_binary(root) and is_binary(path) do
+    expanded_root = Path.expand(root)
+    expanded_path = Path.expand(path)
+
+    path_within?(expanded_path, expanded_root) and
+      no_symlink_components?(expanded_root) and no_symlink_components?(expanded_path)
+  end
+
+  def safe_path?(_, _), do: false
+
+  defp no_symlink_components?(path) do
+    path
+    |> Path.split()
+    |> Enum.reduce_while(nil, fn
+      "/", _ ->
+        {:cont, "/"}
+
+      segment, nil ->
+        {:cont, segment}
+
+      segment, current ->
+        candidate = Path.join(current, segment)
+
+        case File.lstat(candidate) do
+          {:ok, %File.Stat{type: :symlink}} -> {:halt, false}
+          {:ok, _} -> {:cont, candidate}
+          {:error, :enoent} -> {:cont, candidate}
+          {:error, _} -> {:halt, false}
+        end
+    end)
+    |> Kernel.!=(false)
   end
 
   def developer_name do

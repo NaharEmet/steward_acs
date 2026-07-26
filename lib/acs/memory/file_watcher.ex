@@ -25,16 +25,6 @@ defmodule Acs.Memory.FileWatcher do
   def init(_opts) do
     dir = Acs.Org.vault_watch_root()
 
-    case File.mkdir_p(dir) do
-      :ok ->
-        :ok
-
-      {:error, reason} ->
-        Logger.warning(
-          "[Memory.FileWatcher] Could not create directory #{dir}: #{inspect(reason)}"
-        )
-    end
-
     case FileSystem.start_link(dirs: [dir], name: :acs_memory_fs_watcher) do
       {:ok, watcher_pid} ->
         FileSystem.subscribe(watcher_pid)
@@ -152,11 +142,30 @@ defmodule Acs.Memory.FileWatcher do
     end
   end
 
-  # Accept .yaml, .yml, .md files.
-  defp memory_file_event?(path) do
+  @doc false
+  # Accept .yaml, .yml, .md files only from memory roots.
+  def memory_file_event?(path) do
     ext = path |> Path.extname() |> String.downcase()
-    ext in [".yaml", ".yml", ".md"]
+    ext in [".yaml", ".yml", ".md"] and memory_path?(path)
   end
+
+  defp memory_path?(path) do
+    case Acs.Org.org_from_vault_path(path) do
+      org when is_binary(org) ->
+        path_within?(path, Acs.Org.memory_dir(org)) or
+          legacy_memory_path?(path, org)
+
+      nil ->
+        false
+    end
+  end
+
+  defp legacy_memory_path?(path, org) do
+    org == Acs.Org.configured() and
+      Enum.any?(Acs.Org.legacy_memory_dirs(org), &path_within?(path, &1))
+  end
+
+  defp path_within?(path, root), do: Acs.Org.safe_path?(root, path)
 
   # Exclude .obsidian/ directory (Obsidian internal config/metadata).
   defp obsidian_path?(path) do

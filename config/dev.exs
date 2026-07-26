@@ -36,7 +36,7 @@ config :steward_acs, AcsWeb.Endpoint,
 config :logger, level: :info
 
 config :steward_acs, Acs.MCP.ToolLoader,
-  tools_paths: [
+  shared_tools_paths: [
     # Path.expand("../../../anantha/acstools", __DIR__),
     Path.expand("../../../acs/acstools", __DIR__)
   ]
@@ -55,6 +55,7 @@ config :steward_acs,
 config :steward_acs,
        :org_name,
        System.get_env("ACS_ORG_NAME") || System.get_env("ACS_CLUSTER_NAME", "dev")
+
 config :steward_acs, :admin_emails, [System.get_env("ACS_ADMIN_EMAIL", "admin@localhost")]
 
 config :steward_acs, :allowed_paths, ["/tmp"]

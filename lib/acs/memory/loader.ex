@@ -20,15 +20,7 @@ defmodule Acs.Memory.Loader do
   synced via Syncthing/git/NAS/bind-mount). Otherwise falls back to
   the built-in priv/acs_memory/ directory inside the app.
   """
-  def memory_dir do
-    obsidian_path = Application.get_env(:steward_acs, :obsidian_vault_path)
-
-    if is_binary(obsidian_path) and obsidian_path != "" do
-      Path.join(obsidian_path, "private/memories")
-    else
-      Path.join(Application.app_dir(:steward_acs), "priv/acs_memory")
-    end
-  end
+  def memory_dir, do: Acs.Org.memory_dir()
 
   @doc """
   Lists all memory files in the store, optionally filtered by scope.
@@ -36,34 +28,24 @@ defmodule Acs.Memory.Loader do
   Returns a list of file paths.
   """
   def list_files(scope_path \\ nil) do
-    pattern = Path.join(memory_dir(), "**/*.{yaml,yml,md}")
-
-    files =
-      pattern
-      |> Path.wildcard()
-      |> Enum.filter(&memory_file?/1)
-      |> Enum.filter(&relevant_file?/1)
-
-    case scope_path do
-      nil ->
-        files
-
-      scope ->
-        scope_dir = Path.join(memory_dir(), scope)
-
-        Enum.filter(files, fn f ->
-          String.starts_with?(f, scope_dir)
-        end)
-    end
+    Acs.Org.current()
+    |> list_files_for_org()
+    |> filter_scope(scope_path, Acs.Org.current())
   end
 
-  @doc "List memory files for a specific org vault directory."
+  @doc "List memory files for a specific org with canonical-over-legacy precedence."
   def list_files_for_org(org) when is_binary(org) do
-    pattern = Path.join(Acs.Org.memory_dir(org), "**/*.{yaml,yml,md}")
-
-    pattern
-    |> Path.wildcard()
-    |> Enum.filter(&memory_file?/1)
+    memory_dirs(org)
+    |> Enum.flat_map(fn root ->
+      root
+      |> Path.join("**/*.{yaml,yml,md}")
+      |> Path.wildcard()
+      |> Enum.filter(&memory_file?/1)
+      |> Enum.filter(&relevant_file?(&1, root))
+      |> Enum.map(&{relative_memory_path(&1, root), &1})
+    end)
+    |> Enum.uniq_by(&elem(&1, 0))
+    |> Enum.map(&elem(&1, 1))
   end
 
   # Accept .yaml, .YAML, .yml, .YML, .md, .MD extensions.
@@ -73,12 +55,41 @@ defmodule Acs.Memory.Loader do
   end
 
   # Exclude build artifact copies of test fixtures, not intentional test paths.
-  defp relevant_file?(file_path) do
-    not String.contains?(file_path, "deps/") and
+  defp relevant_file?(file_path, root) do
+    safe_file =
+      if Acs.Org.vault_base() do
+        Acs.Org.safe_path?(root, file_path) and
+          match?({:ok, %File.Stat{type: :regular}}, File.lstat(file_path))
+      else
+        File.regular?(file_path)
+      end
+
+    safe_file and not String.contains?(file_path, "deps/") and
       not String.contains?(file_path, "/quarantine/") and
       not String.contains?(file_path, "/.obsidian/") and
-      not String.starts_with?(file_path, Path.join(memory_dir(), "specs/")) and
+      not String.starts_with?(file_path, Path.join(root, "specs/")) and
       not (String.contains?(file_path, "_build/") and String.contains?(file_path, "/test_app/"))
+  end
+
+  defp memory_dirs(org) do
+    [Acs.Org.memory_dir(org) | Acs.Org.legacy_memory_dirs(org)]
+    |> Enum.filter(&is_binary/1)
+    |> Enum.uniq()
+  end
+
+  defp relative_memory_path(file, root), do: Path.relative_to(file, root)
+
+  defp filter_scope(files, nil, _org), do: files
+
+  defp filter_scope(files, scope, org) do
+    Enum.filter(files, fn file ->
+      Enum.any?(memory_dirs(org), fn root ->
+        relative = Path.relative_to(file, root)
+
+        relative == scope or
+          String.starts_with?(relative, String.trim_trailing(scope, "/") <> "/")
+      end)
+    end)
   end
 
   @doc """
@@ -88,13 +99,35 @@ defmodule Acs.Memory.Loader do
   def load_file(file_path) do
     ext = file_path |> Path.extname() |> String.downcase()
 
-    case ext do
-      ".md" -> load_markdown_file(file_path)
-      _ -> load_yaml_file(file_path)
+    with :ok <- ensure_safe_vault_read(file_path) do
+      case ext do
+        ".md" -> load_markdown_file(file_path)
+        _ -> load_yaml_file(file_path)
+      end
     end
   rescue
     e ->
       {:error, "Failed to load #{file_path}: #{inspect(e)}"}
+  end
+
+  defp ensure_safe_vault_read(file_path) do
+    case Acs.Org.vault_base() do
+      nil ->
+        :ok
+
+      base ->
+        expanded_base = Path.expand(base)
+        expanded_file = Path.expand(file_path)
+
+        if expanded_file == expanded_base or
+             String.starts_with?(expanded_file, expanded_base <> "/") do
+          if Acs.Org.safe_path?(base, file_path),
+            do: :ok,
+            else: {:error, "Unsafe symlinked vault path: #{file_path}"}
+        else
+          :ok
+        end
+    end
   end
 
   # Parse a .md file: split frontmatter from body, then validate.
@@ -143,20 +176,24 @@ defmodule Acs.Memory.Loader do
   end
 
   defp enforce_path_org(memory_map, file_path) do
-    relative = Path.relative_to(file_path, memory_dir())
+    path_org =
+      case Acs.Org.org_from_vault_path(file_path) do
+        org when is_binary(org) ->
+          org
 
-    case Path.split(relative) do
-      ["orgs", path_org | _] ->
-        case Map.get(memory_map, "org") do
-          nil -> Map.put(memory_map, "org", path_org)
-          ^path_org -> memory_map
-          other -> raise ArgumentError, "memory org #{inspect(other)} does not match path org"
-        end
+        nil ->
+          if not is_nil(Acs.Org.vault_base()) and
+               Acs.Org.safe_path?(Acs.Org.vault_base(), file_path) do
+            raise ArgumentError, "memory path does not belong to a known organization"
+          else
+            Acs.Org.current()
+          end
+      end
 
-      _ ->
-        # The legacy root layout belongs only to the configured single-tenant
-        # instance. Refuse to re-attribute files to another request org.
-        Map.put(memory_map, "org", Acs.Org.configured())
+    case Map.get(memory_map, "org") do
+      nil -> Map.put(memory_map, "org", path_org)
+      ^path_org -> memory_map
+      other -> raise ArgumentError, "memory org #{inspect(other)} does not match path org"
     end
   end
 
@@ -368,9 +405,15 @@ defmodule Acs.Memory.Loader do
   """
   def save(%Acs.Memory{} = memory) do
     file_path = memory_to_path(memory)
+    target_root = Acs.Org.memory_dir(memory.org || Acs.Org.current())
 
-    # Ensure directory exists
+    unless Acs.Org.safe_path?(target_root, file_path),
+      do: raise(ArgumentError, "unsafe memory path")
+
     Path.dirname(file_path) |> File.mkdir_p!()
+
+    unless Acs.Org.safe_path?(target_root, file_path),
+      do: raise(ArgumentError, "unsafe memory path")
 
     ext = Path.extname(file_path)
     yaml_map = Acs.Memory.to_yaml_map(memory)
@@ -428,6 +471,18 @@ defmodule Acs.Memory.Loader do
   end
 
   defp do_quarantine_file(file_path, reason) do
+    if not path_within?(file_path, memory_dir()) do
+      Logger.warning(
+        "[Memory.Loader] Refusing to mutate legacy memory during read fallback: #{file_path} (reason: #{inspect(reason)})"
+      )
+
+      :ok
+    else
+      quarantine_canonical_file(file_path, reason)
+    end
+  end
+
+  defp quarantine_canonical_file(file_path, reason) do
     quarantine_dir = Path.join(memory_dir(), "quarantine")
     File.mkdir_p!(quarantine_dir)
 
@@ -627,17 +682,9 @@ defmodule Acs.Memory.Loader do
     scoped_memory_path(org, scope_path, id, ext)
   end
 
-  defp scoped_memory_path(org, scope_path, id, ext)
-       when org == "default" or org == nil do
-    # Preserve the legacy single-tenant layout for existing installations.
-    Path.join([memory_dir(), safe_scope_path(scope_path), safe_id(id) <> ext])
-  end
-
   defp scoped_memory_path(org, scope_path, id, ext) do
     Path.join([
-      memory_dir(),
-      "orgs",
-      safe_org(org),
+      Acs.Org.memory_dir(safe_org(org || Acs.Org.current())),
       safe_scope_path(scope_path),
       safe_id(id) <> ext
     ])
@@ -654,11 +701,9 @@ defmodule Acs.Memory.Loader do
   defp safe_id(id), do: raise(ArgumentError, "invalid memory id: #{inspect(id)}")
 
   defp safe_org(org) when is_binary(org) and org != "" do
-    if Regex.match?(~r/\A[a-zA-Z0-9][a-zA-Z0-9_-]*\z/, org) do
-      org
-    else
-      raise ArgumentError, "invalid org: #{inspect(org)}"
-    end
+    if Acs.Org.valid_slug?(org),
+      do: org,
+      else: raise(ArgumentError, "invalid org: #{inspect(org)}")
   end
 
   defp safe_org(org), do: raise(ArgumentError, "invalid org: #{inspect(org)}")
@@ -677,6 +722,8 @@ defmodule Acs.Memory.Loader do
       _ -> ".yaml"
     end
   end
+
+  defp path_within?(path, root), do: Acs.Org.safe_path?(root, path)
 
   @doc """
   Ensures the memory directory structure exists.

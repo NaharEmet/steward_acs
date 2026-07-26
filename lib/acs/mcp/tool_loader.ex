@@ -1,363 +1,126 @@
 defmodule Acs.MCP.ToolLoader do
-  @moduledoc """
-  Loads and validates MCP tool definitions from YAML files.
+  @moduledoc false
 
-  Reads all `.yaml` files from configured directories
-  (default: `acs/acstools/` relative to the app root)
-  and returns validated tool definitions merged from all files.
+  @type scope :: {:tenant, String.t()} | :shared
+  @type source :: {:tenant, String.t(), String.t()} | {:shared, String.t()}
 
-  Supports multiple directories via:
-  1. `MCP_TOOLS_PATH` environment variable (comma-separated paths)
-  2. Application config `:tools_paths` (list of paths) or `:tools_path` (single path, legacy)
-  3. Default: `acs/acstools/` relative to app directory
-  """
-
-  require Logger
-
-  @doc """
-  Returns the configured tools paths from environment and application config.
-
-  Resolution order:
-  1. `MCP_TOOLS_PATH` environment variable (comma-separated)
-  2. Application config `:steward_acs, Acs.MCP.ToolLoader, :tools_paths` (list)
-  3. Application config `:steward_acs, Acs.MCP.ToolLoader, :tools_path` (single, legacy)
-  4. Default: `acs/acstools/` relative to app directory
-
-  Only paths that exist on disk are returned.
-  """
+  @doc "Returns legacy shared tool paths for internal callers."
   def tools_paths do
-    env_paths = parse_env_paths(System.get_env("MCP_TOOLS_PATH"))
+    shared_paths()
+    |> Enum.filter(&File.dir?/1)
+  end
 
-    config_paths =
-      case Application.get_env(:steward_acs, Acs.MCP.ToolLoader) do
-        nil ->
-          []
+  @doc "Returns typed, trusted tool sources."
+  @spec sources() :: [source()]
+  def sources do
+    tenant_sources =
+      known_orgs()
+      |> Enum.map(fn org -> {:tenant, org, Acs.Org.tools_dir(org)} end)
+      |> Enum.filter(fn {:tenant, _org, path} ->
+        File.dir?(path) and Acs.Org.safe_path?(path, path)
+      end)
 
-        config ->
-          (config[:tools_paths] || [config[:tools_path]] |> List.wrap())
-          |> Enum.filter(& &1)
-      end
+    shared_sources =
+      shared_paths()
+      |> Enum.filter(&(File.dir?(&1) and Acs.Org.safe_path?(&1, &1)))
+      |> Enum.map(&{:shared, &1})
 
-    default = default_tools_path()
-
-    (env_paths ++ config_paths ++ [default])
-    |> List.flatten()
+    (tenant_sources ++ shared_sources)
     |> Enum.uniq()
-    |> Enum.filter(&File.exists?/1)
+    |> Enum.sort_by(&source_sort_key/1)
   end
 
-  defp parse_env_paths(nil), do: []
-
-  defp parse_env_paths(path) do
-    path |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
-  end
-
-  defp default_tools_path do
-    Path.expand("../../../acs/acstools", Application.app_dir(:steward_acs))
-  end
-
-  @doc """
-  Loads all tool definitions from YAML files in all configured tools directories.
-
-  Returns `{:ok, tools_by_app}` where tools_by_app is a map of:
-  `%{app_name => %{app_info: ..., tools: [tool_def, ...]}}`
-
-  Or `{:ok, %{}}` if no paths are found.
-  """
-  def load_all do
-    paths = tools_paths()
-
-    if paths == [] do
-      Logger.warning("No MCP tools paths found")
-      {:ok, %{}}
-    else
-      paths
-      |> Enum.reduce({:ok, %{}}, fn path, {:ok, acc} ->
-        case load_from_path(path) do
-          {:ok, app_configs} ->
-            {:ok, merge_configs(acc, app_configs)}
-
-          {:error, reason} ->
-            Logger.warning("Failed to load tools from #{path}: #{reason}")
-            {:ok, acc}
-        end
-      end)
-    end
-  end
-
-  defp load_from_path(path) do
-    path
-    |> Path.join("*.yaml")
-    |> Path.wildcard()
-    |> Enum.reduce({:ok, %{}}, fn file, {:ok, acc} ->
-      case load_file(file) do
-        {:ok, app_config} ->
-          app_name = app_config["app"]
-
-          {:ok,
-           Map.update(acc, app_name, app_config, fn existing ->
-             if existing["version"] != app_config["version"] do
-               Logger.warning(
-                 "Version mismatch for app '#{app_name}': existing '#{existing["version"]}', file '#{file}' has '#{app_config["version"]}' — using existing version"
-               )
-             end
-
-             Map.update(existing, "tools", app_config["tools"], fn existing_tools ->
-               existing_tools ++ app_config["tools"]
-             end)
-           end)}
-
-        {:error, reason} ->
-          Logger.warning("Failed to load tool file #{file}: #{reason}")
-          {:ok, acc}
+  @doc "Loads every configured source without flattening its scope."
+  @spec load_scoped() :: {:ok, [map()]} | {:error, String.t()}
+  def load_scoped do
+    sources()
+    |> Enum.reduce_while({:ok, []}, fn source, {:ok, configs} ->
+      case load_source(source) do
+        {:ok, source_configs} -> {:cont, {:ok, configs ++ source_configs}}
+        {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
-  end
-
-  defp merge_configs(acc, new_configs) do
-    Map.merge(acc, new_configs, fn _app, existing, new ->
-      Map.update(existing, "tools", new["tools"], fn existing_tools ->
-        existing_tools ++ new["tools"]
-      end)
-    end)
-  end
-
-  @doc """
-  Loads and validates a single YAML tool definition file.
-  """
-  def load_file(file_path) do
-    case YamlElixir.read_from_file(file_path) do
-      {:ok, config} when is_map(config) ->
-        case validate_config(config) do
-          :ok -> {:ok, config}
-          {:error, reason} -> {:error, reason}
-        end
-
-      {:ok, _} ->
-        {:error, "Invalid YAML structure: expected a map at root"}
-
-      {:error, reason} ->
-        {:error, "Failed to load #{file_path}: #{inspect(reason)}"}
+    |> case do
+      {:ok, configs} -> validate_scoped_duplicates(configs)
+      error -> error
     end
   end
 
-  @doc """
-  Validates a tool configuration map.
+  @doc "Legacy flattened shared-tool view for internal callers."
+  def load_all do
+    with {:ok, configs} <- load_scoped() do
+      configs
+      |> Enum.filter(&(&1["_scope"] == :shared))
+      |> Enum.reduce(%{}, fn config, acc ->
+        Map.update(acc, config["app"], config, fn existing ->
+          Map.update(existing, "tools", config["tools"], &(&1 ++ config["tools"]))
+        end)
+      end)
+      |> then(&{:ok, &1})
+    end
+  end
 
-  Required top-level fields:
-  - `app` (string) - App name
-  - `tools` (list) - List of tool definitions
+  @doc "Loads and validates a single YAML definition file as a trusted shared source."
+  def load_file(file_path), do: load_file(file_path, {:shared, Path.dirname(file_path)})
 
-  Each tool definition requires:
-  - `name` (string) - Tool name
-  - `description` (string) - Tool description
-  - Either `handler` (module) or `endpoint` (string) + `method` (string)
-  - `params` (list, optional) - Parameter definitions (used to build input_schema)
-  - `input_schema` (map, optional) - Direct JSON Schema for input parameters (alternative to `params`)
-  - `permissions` (list of strings, optional) - Required agent permissions
+  @doc "Loads and validates a single YAML definition file from a typed source."
+  @spec load_file(String.t(), source()) :: {:ok, map()} | {:error, String.t()}
+  def load_file(file_path, source) do
+    with {:ok, config} <- YamlElixir.read_from_file(file_path),
+         true <- is_map(config) || {:error, "Invalid YAML structure: expected a map at root"},
+         :ok <- validate_config(config, source),
+         {:ok, digest} <- digest_file(file_path) do
+      {:ok,
+       config
+       |> Map.put("_scope", source_scope(source))
+       |> Map.put("_source", %{
+         path: Path.expand(file_path),
+         scope: source_scope(source),
+         digest: digest
+       })}
+    else
+      {:error, reason} -> {:error, format_file_error(file_path, reason)}
+      false -> {:error, "Invalid YAML structure: expected a map at root"}
+    end
+  end
 
-  Returns `:ok` or `{:error, reason}`.
-  """
-  def validate_config(config) do
+  @doc "Validates a tool configuration map using legacy shared-source semantics."
+  def validate_config(config), do: validate_config(config, {:shared, "legacy"})
+
+  @doc "Validates a tool configuration map against its trusted source."
+  @spec validate_config(map(), source()) :: :ok | {:error, String.t()}
+  def validate_config(config, source) when is_map(config) do
     cond do
-      not is_map_key(config, "app") ->
+      Map.has_key?(config, "org") or Map.has_key?(config, "scope") ->
+        {:error, "Tool source ownership must not be declared in YAML"}
+
+      not is_binary(config["app"]) or config["app"] == "" ->
         {:error, "Missing required field: 'app'"}
 
-      not is_binary(config["app"]) ->
-        {:error, "'app' must be a string"}
-
-      not is_map_key(config, "tools") ->
-        {:error, "Missing required field: 'tools'"}
-
-      not is_list(config["tools"]) ->
-        {:error, "'tools' must be a list"}
-
-      config["tools"] == [] ->
-        {:error, "'tools' list cannot be empty"}
+      not is_list(config["tools"]) or config["tools"] == [] ->
+        {:error, "'tools' must be a non-empty list"}
 
       true ->
-        # Validate optional app-level metadata fields (version, plugin)
-        app_errors = validate_app_meta(config)
-
-        # Validate each tool
-        tool_errors =
-          config["tools"]
-          |> Enum.with_index()
-          |> Enum.reduce([], fn {tool, idx}, acc ->
-            case validate_tool(tool) do
-              :ok ->
-                acc
-
-              {:error, reason} ->
-                ["Tool ##{idx + 1} (#{tool["name"] || "unnamed"}): #{reason}" | acc]
-            end
-          end)
-          |> Enum.reverse()
-
-        errors = app_errors ++ tool_errors
-
-        if errors == [] do
-          :ok
-        else
-          {:error, Enum.join(errors, "; ")}
-        end
-    end
-  end
-
-  defp validate_app_meta(config) do
-    errors = []
-
-    errors =
-      if is_map_key(config, "version") and
-           not (is_binary(config["version"]) and config["version"] != "") do
-        ["'version' must be a string" | errors]
-      else
-        errors
-      end
-
-    errors =
-      if is_map_key(config, "plugin") and not is_map(config["plugin"]) do
-        ["'plugin' must be a map" | errors]
-      else
-        errors
-      end
-
-    errors =
-      if is_map_key(config, "plugin") and is_map(config["plugin"]) do
-        plugin = config["plugin"]
-
-        ["source", "description", "homepage"]
-        |> Enum.filter(&is_map_key(plugin, &1))
-        |> Enum.reduce(errors, fn key, acc ->
-          if is_binary(plugin[key]) and plugin[key] != "" do
-            acc
-          else
-            ["'plugin.#{key}' must be a string" | acc]
-          end
-        end)
-      else
-        errors
-      end
-
-    Enum.reverse(errors)
-  end
-
-  defp validate_tool(tool) do
-    cond do
-      not is_map_key(tool, "name") ->
-        {:error, "Missing required field: 'name'"}
-
-      not is_binary(tool["name"]) ->
-        {:error, "'name' must be a string"}
-
-      not is_map_key(tool, "description") ->
-        {:error, "Tool '#{tool["name"]}' missing 'description'"}
-
-      not is_binary(tool["description"]) ->
-        {:error, "Tool '#{tool["name"]}' 'description' must be a string"}
-
-      not has_handler?(tool) and not has_endpoint?(tool) ->
-        {:error, "Tool '#{tool["name"]}' must have either 'handler' or 'endpoint' + 'method'"}
-
-      has_endpoint?(tool) and not is_binary(tool["endpoint"]) ->
-        {:error, "Tool '#{tool["name"]}' 'endpoint' must be a string"}
-
-      has_endpoint?(tool) and not is_binary(tool["method"]) ->
-        {:error, "Tool '#{tool["name"]}' 'method' must be a string"}
-
-      has_endpoint?(tool) and tool["method"] not in ["GET", "POST", "PUT", "DELETE", "PATCH"] ->
-        {:error, "Tool '#{tool["name"]}' 'method' must be GET, POST, PUT, DELETE, or PATCH"}
-
-      is_map_key(tool, "category") and not is_binary(tool["category"]) ->
-        {:error, "Tool '#{tool["name"]}' 'category' must be a string"}
-
-      is_map_key(tool, "level") and not is_integer(tool["level"]) ->
-        {:error, "Tool '#{tool["name"]}' 'level' must be an integer"}
-
-      is_map_key(tool, "roles") and not is_list(tool["roles"]) ->
-        {:error, "Tool '#{tool["name"]}' 'roles' must be a list"}
-
-      is_map_key(tool, "roles") and Enum.any?(tool["roles"], fn r -> not is_binary(r) end) ->
-        {:error, "Tool '#{tool["name"]}' 'roles' must be a list of strings"}
-
-      is_map_key(tool, "permissions") and not is_list(tool["permissions"]) ->
-        {:error, "Tool '#{tool["name"]}' 'permissions' must be a list"}
-
-      is_map_key(tool, "permissions") and
-          Enum.any?(tool["permissions"], fn p -> not is_binary(p) end) ->
-        {:error, "Tool '#{tool["name"]}' 'permissions' must be a list of strings"}
-
-      is_map_key(tool, "params") and not is_list(tool["params"]) ->
-        {:error, "Tool '#{tool["name"]}' 'params' must be a list"}
-
-      is_map_key(tool, "input_schema") and not is_map(tool["input_schema"]) ->
-        {:error, "Tool '#{tool["name"]}' 'input_schema' must be a map"}
-
-      is_map_key(tool, "input_schema") and tool["input_schema"]["type"] != "object" ->
-        {:error, "Tool '#{tool["name"]}' 'input_schema.type' must be 'object'"}
-
-      true ->
-        # Validate params if present (not needed for input_schema)
-        params = tool["params"] || []
-
-        errors =
-          if is_nil(tool["input_schema"]), do: validate_params(tool["name"], params, 0), else: []
-
+        errors = validate_app_meta(config) ++ validate_tools(config["tools"], source)
         if errors == [], do: :ok, else: {:error, Enum.join(errors, "; ")}
     end
   end
 
-  defp has_handler?(tool), do: is_map_key(tool, "handler") and not is_nil(tool["handler"])
-  defp has_endpoint?(tool), do: is_map_key(tool, "endpoint") and not is_nil(tool["endpoint"])
+  def validate_config(_config, _source),
+    do: {:error, "Invalid YAML structure: expected a map at root"}
 
-  defp validate_params(_tool_name, [], _idx), do: []
-
-  defp validate_params(tool_name, [param | rest], idx) do
-    errors =
-      cond do
-        not is_map(param) ->
-          ["Param ##{idx + 1}: must be a map"]
-
-        not is_map_key(param, "name") ->
-          ["Param ##{idx + 1}: missing 'name'"]
-
-        not is_binary(param["name"]) ->
-          ["Param '#{param["name"]}': 'name' must be a string"]
-
-        not is_map_key(param, "type") ->
-          ["Param '#{param["name"]}': missing 'type'"]
-
-        not is_binary(param["type"]) ->
-          ["Param '#{param["name"]}': 'type' must be a string"]
-
-        true ->
-          []
-      end
-
-    errors ++ validate_params(tool_name, rest, idx + 1)
-  end
-
-  @doc """
-  Converts a loaded YAML config into the MCP tool definition format.
-
-  For internal tools (with `handler`), the handler module is stored as-is.
-  For external tools (with `endpoint`), the base_url and endpoint are stored.
-
-  Returns a list of tool maps ready for MCP protocol.
-  """
+  @doc "Converts a scoped loaded config into MCP tool definitions."
   def to_mcp_tools(app_config) do
     base_url = app_config["base_url"] || ""
     app_name = app_config["app"]
 
     Enum.map(app_config["tools"], fn tool ->
-      params = tool["params"] || []
+      params = tool["params"] || params_from_schema(tool["input_schema"])
 
       input_schema =
         if is_map(tool["input_schema"]) do
-          # Use directly provided JSON Schema input_schema
           tool["input_schema"]
         else
-          # Build from params list format
           %{
             "type" => "object",
             "properties" => build_properties(params),
@@ -367,11 +130,7 @@ defmodule Acs.MCP.ToolLoader do
 
       %{
         "name" =>
-          if app_config["prefix"] == false do
-            tool["name"]
-          else
-            "#{app_name}_#{tool["name"]}"
-          end,
+          if(app_config["prefix"] == false, do: tool["name"], else: "#{app_name}_#{tool["name"]}"),
         "description" => tool["description"],
         "inputSchema" => input_schema,
         "category" => tool["category"] || "uncategorized",
@@ -386,52 +145,335 @@ defmodule Acs.MCP.ToolLoader do
         "roles" => tool["roles"],
         "timeout" => tool["timeout"],
         "response_transform" => tool["response_transform"],
-        "_app_meta" => %{
-          "version" => app_config["version"],
-          "plugin" => app_config["plugin"]
-        }
+        "_app_meta" => %{"version" => app_config["version"], "plugin" => app_config["plugin"]},
+        "_scope" => app_config["_scope"],
+        "_source" => app_config["_source"]
       }
     end)
   end
 
+  @doc false
+  def load_scope(sources) when is_list(sources) do
+    sources
+    |> Enum.reduce_while({:ok, []}, fn source, {:ok, configs} ->
+      case load_source(source) do
+        {:ok, source_configs} -> {:cont, {:ok, configs ++ source_configs}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, configs} -> validate_scoped_duplicates(configs)
+      error -> error
+    end
+  end
+
+  @doc false
+  def load_source(source) do
+    source
+    |> source_path()
+    |> tool_files()
+    |> Enum.reduce_while({:ok, []}, fn file, {:ok, configs} ->
+      case load_file(file, source) do
+        {:ok, config} -> {:cont, {:ok, configs ++ [config]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp tool_files(path) do
+    [Path.join(path, "*.yaml"), Path.join(path, "*.yml")]
+    |> Enum.flat_map(&Path.wildcard/1)
+    |> Enum.filter(fn file ->
+      Acs.Org.safe_path?(path, file) and
+        match?({:ok, %File.Stat{type: :regular}}, File.lstat(file))
+    end)
+    |> Enum.sort()
+  end
+
+  defp validate_scoped_duplicates(configs) do
+    duplicates =
+      configs
+      |> Enum.flat_map(fn config ->
+        config
+        |> to_mcp_tools()
+        |> Enum.map(fn tool ->
+          {tool["_scope"], tool["name"], Map.fetch!(tool["_source"], :path)}
+        end)
+      end)
+      |> Enum.group_by(fn {scope, name, _path} -> {scope, name} end)
+      |> Enum.filter(fn {_key, entries} -> length(entries) > 1 end)
+      |> Enum.sort_by(fn {{scope, name}, _entries} -> {scope_sort_key(scope), name} end)
+
+    case duplicates do
+      [] ->
+        {:ok, configs}
+
+      [{{scope, name}, entries} | _] ->
+        paths = entries |> Enum.map(&elem(&1, 2)) |> Enum.sort() |> Enum.join(", ")
+        {:error, "Duplicate tool '#{name}' in #{format_scope(scope)}: #{paths}"}
+    end
+  end
+
+  defp validate_app_meta(config) do
+    []
+    |> maybe_invalid(config, "version", &is_nonempty_binary?/1, "'version' must be a string")
+    |> maybe_invalid(config, "plugin", &is_map/1, "'plugin' must be a map")
+    |> then(fn errors ->
+      if is_map(config["plugin"]) do
+        Enum.reduce(["source", "description", "homepage"], errors, fn key, acc ->
+          if Map.has_key?(config["plugin"], key) and
+               not is_nonempty_binary?(config["plugin"][key]) do
+            acc ++ ["'plugin.#{key}' must be a string"]
+          else
+            acc
+          end
+        end)
+      else
+        errors
+      end
+    end)
+  end
+
+  defp validate_tools(tools, source) do
+    tools
+    |> Enum.with_index(1)
+    |> Enum.flat_map(fn {tool, index} ->
+      case validate_tool(tool, source) do
+        :ok -> []
+        {:error, reason} -> ["Tool ##{index}: #{reason}"]
+      end
+    end)
+  end
+
+  defp validate_tool(tool, source) when is_map(tool) do
+    cond do
+      Map.has_key?(tool, "org") or Map.has_key?(tool, "scope") ->
+        {:error, "Tool source ownership must not be declared in YAML"}
+
+      not is_nonempty_binary?(tool["name"]) ->
+        {:error, "Missing required field: 'name'"}
+
+      not is_binary(tool["description"]) ->
+        {:error, "Tool '#{tool["name"]}' 'description' must be a string"}
+
+      has_handler?(tool) and source_scope(source) != :shared ->
+        {:error, "Tenant tools must use endpoints, not internal handlers"}
+
+      has_handler?(tool) and not trusted_handler?(tool["handler"]) ->
+        {:error, "Handler '#{tool["handler"]}' is not allowed for shared tools"}
+
+      not has_handler?(tool) and not has_endpoint?(tool) ->
+        {:error, "Tool '#{tool["name"]}' must have either 'handler' or 'endpoint' + 'method'"}
+
+      has_endpoint?(tool) and not is_binary(tool["endpoint"]) ->
+        {:error, "Tool '#{tool["name"]}' 'endpoint' must be a string"}
+
+      has_endpoint?(tool) and not is_binary(tool["method"]) ->
+        {:error, "Tool '#{tool["name"]}' 'method' must be a string"}
+
+      has_endpoint?(tool) and tool["method"] not in ["GET", "POST", "PUT", "DELETE", "PATCH"] ->
+        {:error, "Tool '#{tool["name"]}' 'method' must be GET, POST, PUT, DELETE, or PATCH"}
+
+      Map.has_key?(tool, "category") and not is_binary(tool["category"]) ->
+        {:error, "Tool '#{tool["name"]}' 'category' must be a string"}
+
+      Map.has_key?(tool, "level") and not is_integer(tool["level"]) ->
+        {:error, "Tool '#{tool["name"]}' 'level' must be an integer"}
+
+      not valid_string_list?(tool, "roles") ->
+        {:error, "Tool '#{tool["name"]}' 'roles' must be a list of strings"}
+
+      not valid_string_list?(tool, "permissions") ->
+        {:error, "Tool '#{tool["name"]}' 'permissions' must be a list of strings"}
+
+      Map.has_key?(tool, "params") and not is_list(tool["params"]) ->
+        {:error, "Tool '#{tool["name"]}' 'params' must be a list"}
+
+      Map.has_key?(tool, "input_schema") and not is_map(tool["input_schema"]) ->
+        {:error, "Tool '#{tool["name"]}' 'input_schema' must be a map"}
+
+      is_map(tool["input_schema"]) and tool["input_schema"]["type"] != "object" ->
+        {:error, "Tool '#{tool["name"]}' 'input_schema.type' must be 'object'"}
+
+      is_map(tool["input_schema"]) and
+          not is_map(tool["input_schema"]["properties"] || %{}) ->
+        {:error, "Tool '#{tool["name"]}' 'input_schema.properties' must be a map"}
+
+      is_map(tool["input_schema"]) and
+          Enum.any?(
+            Map.keys(tool["input_schema"]["properties"] || %{}),
+            &String.starts_with?(&1, "_auth_")
+          ) ->
+        {:error, "Tool '#{tool["name"]}' input schema contains a reserved auth parameter"}
+
+      true ->
+        errors =
+          if is_map(tool["input_schema"]), do: [], else: validate_params(tool["params"] || [])
+
+        if errors == [], do: :ok, else: {:error, Enum.join(errors, "; ")}
+    end
+  end
+
+  defp validate_tool(_tool, _source), do: {:error, "must be a map"}
+
+  defp validate_params(params) do
+    params
+    |> Enum.with_index(1)
+    |> Enum.flat_map(fn {param, index} ->
+      cond do
+        not is_map(param) ->
+          ["Param ##{index}: must be a map"]
+
+        not is_nonempty_binary?(param["name"]) ->
+          ["Param ##{index}: missing 'name'"]
+
+        String.starts_with?(param["name"], "_auth_") ->
+          ["Param '#{param["name"]}': reserved auth name"]
+
+        not is_nonempty_binary?(param["type"]) ->
+          ["Param '#{param["name"]}': missing 'type'"]
+
+        true ->
+          []
+      end
+    end)
+  end
+
+  defp params_from_schema(%{"properties" => properties} = schema) when is_map(properties) do
+    required = MapSet.new(schema["required"] || [])
+
+    properties
+    |> Enum.reject(fn {name, _definition} -> String.starts_with?(name, "_auth_") end)
+    |> Enum.map(fn {name, definition} ->
+      definition
+      |> Map.take(["type", "description", "items"])
+      |> Map.put("name", name)
+      |> Map.put("required", MapSet.member?(required, name))
+    end)
+  end
+
+  defp params_from_schema(_), do: []
+
   defp build_properties(params) do
     Map.new(params, fn param ->
       type = param["type"]
+      description = param["description"] || ""
 
-      prop =
+      property =
         case type do
           "array" ->
             %{
               "type" => "array",
               "items" => param["items"] || %{"type" => "string"},
-              "description" => param["description"] || ""
+              "description" => description
             }
 
           "json" ->
-            %{
-              "type" => "object",
-              "description" => param["description"] || ""
-            }
+            %{"type" => "object", "description" => description}
 
           "boolean" ->
-            %{
-              "type" => "boolean",
-              "description" => param["description"] || ""
-            }
+            %{"type" => "boolean", "description" => description}
 
           _ ->
-            %{
-              "type" => type,
-              "description" => param["description"] || ""
-            }
+            %{"type" => type, "description" => description}
         end
 
-      {param["name"], prop}
+      {param["name"], property}
     end)
   end
 
-  defp build_required(params) do
-    Enum.filter(params, & &1["required"])
-    |> Enum.map(& &1["name"])
+  defp build_required(params),
+    do: params |> Enum.filter(& &1["required"]) |> Enum.map(& &1["name"])
+
+  defp shared_paths do
+    env_paths = System.get_env("MCP_TOOLS_PATH") |> parse_env_paths()
+
+    config_paths =
+      case Application.get_env(:steward_acs, __MODULE__, []) do
+        config when is_list(config) ->
+          (config[:shared_tools_paths] || config[:tools_paths] || [config[:tools_path]])
+          |> List.wrap()
+          |> Enum.filter(&is_binary/1)
+
+        _ ->
+          []
+      end
+
+    (env_paths ++ config_paths ++ [default_tools_path()])
+    |> Enum.map(&Path.expand/1)
+    |> Enum.uniq()
   end
+
+  defp known_orgs do
+    configured = [Acs.Org.configured(), Acs.Org.current()]
+
+    orgs =
+      if Acs.Org.multi_tenant?() do
+        Acs.Orgs.list_all()
+        |> Enum.filter(&(&1.provisioning_status == "ready"))
+        |> Enum.map(& &1.slug)
+      else
+        []
+      end
+
+    (configured ++ orgs) |> Enum.filter(&is_nonempty_binary?/1) |> Enum.uniq() |> Enum.sort()
+  end
+
+  defp parse_env_paths(nil), do: []
+
+  defp parse_env_paths(paths),
+    do:
+      paths
+      |> String.split(",", trim: true)
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+
+  defp default_tools_path,
+    do: Path.expand("../../../acs/acstools", Application.app_dir(:steward_acs))
+
+  defp source_path({:tenant, _org, path}), do: path
+  defp source_path({:shared, path}), do: path
+  defp source_scope({:tenant, org, _path}), do: {:tenant, org}
+  defp source_scope({:shared, _path}), do: :shared
+  defp source_sort_key({:tenant, org, path}), do: {0, org, Path.expand(path)}
+  defp source_sort_key({:shared, path}), do: {1, "", Path.expand(path)}
+  defp scope_sort_key(:shared), do: {1, ""}
+  defp scope_sort_key({:tenant, org}), do: {0, org}
+  defp format_scope(:shared), do: "shared scope"
+  defp format_scope({:tenant, org}), do: "tenant '#{org}'"
+
+  defp trusted_handler?(handler) when is_binary(handler) do
+    Application.get_env(:steward_acs, __MODULE__, [])
+    |> Keyword.get(:trusted_handler_modules, [])
+    |> Enum.map(&to_string/1)
+    |> Enum.member?(handler)
+  end
+
+  defp trusted_handler?(_), do: false
+  defp has_handler?(tool), do: is_binary(tool["handler"]) and tool["handler"] != ""
+  defp has_endpoint?(tool), do: not is_nil(tool["endpoint"])
+
+  defp valid_string_list?(tool, key),
+    do: not Map.has_key?(tool, key) or (is_list(tool[key]) and Enum.all?(tool[key], &is_binary/1))
+
+  defp is_nonempty_binary?(value), do: is_binary(value) and value != ""
+
+  defp maybe_invalid(errors, map, key, validator, message),
+    do:
+      if(Map.has_key?(map, key) and not validator.(map[key]),
+        do: errors ++ [message],
+        else: errors
+      )
+
+  defp digest_file(path) do
+    case File.read(path) do
+      {:ok, content} ->
+        {:ok, :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)}
+
+      {:error, reason} ->
+        {:error, "cannot read source for digest: #{inspect(reason)}"}
+    end
+  end
+
+  defp format_file_error(file, reason), do: "Failed to load tool file #{file}: #{inspect(reason)}"
 end
