@@ -30,7 +30,9 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
         form: to_form(attrs, as: :organization),
         errors: %{},
         slug_touched: false,
-        subdomain_touched: false
+        subdomain_touched: false,
+        name_form: user_name_form(socket.assigns[:current_user]),
+        name_errors: %{}
       )
       |> load_organization()
 
@@ -52,6 +54,30 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
      socket
      |> assign(slug_touched: slug_touched, subdomain_touched: subdomain_touched)
      |> assign_form(attrs, validate_attributes(attrs))}
+  end
+
+  def handle_event("validate-name", %{"user" => %{"name" => name}}, socket) do
+    errors = validate_name_present(name)
+    {:noreply, assign(socket, name_errors: errors)}
+  end
+
+  def handle_event("save-name", %{"user" => %{"name" => name}}, socket) do
+    name = String.trim(name)
+
+    if name == "" do
+      {:noreply, assign(socket, name_errors: %{name: ["Enter your name."]})}
+    else
+      case Accounts.update_user_name(socket.assigns.current_user, name) do
+        {:ok, user} ->
+          {:noreply,
+           socket
+           |> assign(current_user: user, name_form: user_name_form(user), name_errors: %{})
+           |> put_flash(:info, "Name saved.")}
+
+        {:error, _reason} ->
+          {:noreply, assign(socket, name_errors: %{name: ["Could not save name."]})}
+      end
+    end
   end
 
   def handle_event("create-organization", %{"organization" => params}, socket) do
@@ -367,6 +393,25 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
 
   defp empty_attributes, do: %{"name" => "", "slug" => "", "subdomain" => ""}
 
+  defp user_name_form(nil), do: nil
+
+  defp user_name_form(user) do
+    name = field(user, :name, "")
+    if is_binary(name) and String.trim(name) != "", do: nil, else: to_form(%{"name" => ""}, as: :user)
+  end
+
+  defp user_needs_name?(nil), do: true
+
+  defp user_needs_name?(user) do
+    name = field(user, :name, "")
+    not (is_binary(name) and String.trim(name) != "")
+  end
+
+  defp validate_name_present(name) do
+    name = String.trim(name || "")
+    if name == "", do: %{name: ["Enter your name."]}, else: %{}
+  end
+
   defp stringify_keys(params) do
     Map.new(params, fn {key, value} -> {to_string(key), value} end)
   end
@@ -473,19 +518,56 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
       <% else %>
         <%= if @self_service_enabled do %>
           <article class="card account-card animate-in delay-2">
-            <div class="account-card-heading">
-              <div>
-                <p class="account-kicker">New organization</p>
-                <h2>Set the operating identity</h2>
+            <%= if @name_form do %>
+              <div class="account-card-heading">
+                <div>
+                  <p class="account-kicker">Your name</p>
+                  <h2>What should we call you?</h2>
+                </div>
+                <span class="coordinate-mark" aria-hidden="true">IDENTITY</span>
               </div>
-              <span class="coordinate-mark" aria-hidden="true">ORG / 001</span>
-            </div>
 
-            <.form for={@form} id="onboarding-form" phx-change="validate" phx-submit="create-organization" novalidate>
-              <div class="form-stack">
-                <div class="form-field">
-                  <label for="organization-name" class="form-label">Organization name</label>
-                  <input
+              <.form for={@name_form} id="name-form" phx-change="validate-name" phx-submit="save-name" novalidate>
+                <div class="form-stack">
+                  <div class="form-field">
+                    <label for="user-name" class="form-label">Your name</label>
+                    <input
+                      id="user-name"
+                      name={@name_form[:name].name}
+                      value={@name_form[:name].value}
+                      type="text"
+                      class="form-control"
+                      autocomplete="name"
+                      maxlength="160"
+                      placeholder="Alex Rivera"
+                      aria-invalid={Map.has_key?(@name_errors, :name)}
+                      aria-describedby="user-name-errors"
+                    />
+                    <div id="user-name-errors" class="field-errors" aria-live="polite">
+                      <%= for message <- Map.get(@name_errors, :name, []) do %>
+                        <p><%= message %></p>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-footer">
+                  <button type="submit" class="btn btn-primary">Continue <span aria-hidden="true">→</span></button>
+                </div>
+              </.form>
+            <% else %>
+              <div class="account-card-heading">
+                <div>
+                  <p class="account-kicker">New organization</p>
+                  <h2>Set the operating identity</h2>
+                </div>
+                <span class="coordinate-mark" aria-hidden="true">ORG / 001</span>
+              </div>
+
+              <.form for={@form} id="onboarding-form" phx-change="validate" phx-submit="create-organization" novalidate>
+                <div class="form-stack">
+                  <div class="form-field">
+                    <label for="organization-name" class="form-label">Organization name</label>
+                    <input
                     id="organization-name"
                     name={@form[:name].name}
                     value={@form[:name].value}
