@@ -2,10 +2,29 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 
+const GETTING_STARTED_DISMISSED_KEY = "acs.getting_started_dismissed"
+const DASHBOARD_SEEN_KEY = "acs.dashboard_seen"
+
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken}})
+let liveSocket = new LiveSocket("/live", Socket, {
+  params: {
+    _csrf_token: csrfToken,
+    getting_started_dismissed:
+      (localStorage.getItem(GETTING_STARTED_DISMISSED_KEY) === "1" ||
+        localStorage.getItem(DASHBOARD_SEEN_KEY) === "1")
+        ? "1"
+        : "0"
+  }
+})
 liveSocket.connect()
 window.liveSocket = liveSocket
+
+window.addEventListener("phx:store", (event) => {
+  const {key, value} = event.detail || {}
+  if (typeof key === "string" && typeof value === "string") {
+    localStorage.setItem(key, value)
+  }
+})
 
 const toastLifetime = 5000
 

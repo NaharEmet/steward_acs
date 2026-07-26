@@ -281,7 +281,21 @@ defmodule AcsWeb.UserAuth do
   defp redirect_account_user(conn, user) do
     case organization_for_user(user) do
       org when is_map(org) ->
-        redirect_with_handoff(conn, user, org)
+        cond do
+          not organization_ready?(org) ->
+            conn
+            |> redirect(to: "/onboarding")
+            |> halt()
+
+          # ponytail: single-tenant has no subdomain boundary; skip handoff.
+          not Acs.Org.multi_tenant?() ->
+            conn
+            |> redirect(to: "/")
+            |> halt()
+
+          true ->
+            redirect_with_handoff(conn, user, org)
+        end
 
       _ ->
         conn

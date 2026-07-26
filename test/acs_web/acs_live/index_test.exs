@@ -12,6 +12,14 @@ defmodule AcsWeb.AcsLive.IndexTest do
     assert html =~ "Connect your first agent"
     assert html =~ "Configure MCP"
     assert html =~ "View tools"
+    assert html =~ "dismiss-getting-started"
+  end
+
+  test "hides getting started after it has been dismissed" do
+    html = render_dashboard(getting_started_dismissed: true)
+
+    refute html =~ "Connect your first agent"
+    refute html =~ "dismiss-getting-started"
   end
 
   test "shows reset only to organization administrators" do
@@ -35,7 +43,8 @@ defmodule AcsWeb.AcsLive.IndexTest do
           tasks: [],
           locked_files: [],
           selected_status: "all",
-          can_reset_data: false
+          can_reset_data: false,
+          getting_started_dismissed: false
         },
         Map.new(overrides)
       )

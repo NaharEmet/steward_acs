@@ -10,7 +10,6 @@ WORKDIR /app
 RUN mix local.hex --force && mix local.rebar --force
 COPY mix.exs mix.lock ./
 RUN --mount=type=cache,target=/root/.mix \
-    --mount=type=cache,target=_build \
     HEX_HTTP_TIMEOUT=120 mix deps.get && mix deps.compile
 
 COPY config config
@@ -47,8 +46,8 @@ ARG PGPASSWORD=build_time_not_used_at_runtime
 
 RUN mix local.hex --force && mix local.rebar --force
 COPY mix.exs mix.lock ./
+# Do not cache _build — stale sqlite vs postgres Acs.Repo beams stick across rebuilds.
 RUN --mount=type=cache,target=/root/.mix \
-    --mount=type=cache,target=_build \
     HEX_HTTP_CONCURRENCY=8 HEX_HTTP_TIMEOUT=120 \
     mix deps.get --only prod && mix deps.compile
 
@@ -57,10 +56,15 @@ COPY lib lib
 COPY priv priv
 COPY assets assets
 
-RUN export COOKIE_SIGNING_SALT=$(printf '%s' "$SECRET_KEY_BASE" | sha256sum | awk '{print $1}' | cut -c1-16) && \
-    mix compile && \
-    mix assets.deploy && \
-    mix release
+# Include REPO_ADAPTER in the RUN so BuildKit cannot reuse a sqlite compile layer.
+RUN echo "REPO_ADAPTER=${REPO_ADAPTER}" \
+    && test -n "${REPO_ADAPTER}" \
+    && export COOKIE_SIGNING_SALT=$(printf '%s' "$SECRET_KEY_BASE" | sha256sum | awk '{print $1}' | cut -c1-16) \
+    && mix compile \
+    && mix assets.deploy \
+    && mix release \
+    && (strings /app/_build/prod/lib/steward_acs/ebin/Elixir.Acs.Repo.beam | grep -q 'Ecto.Adapters.Postgres' \
+        || (echo "ERROR: Acs.Repo beam is not Postgres — REPO_ADAPTER=${REPO_ADAPTER}" >&2; exit 1))
 
 # --- Production runtime ---
 FROM alpine:3.22 AS release

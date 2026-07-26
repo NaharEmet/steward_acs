@@ -82,6 +82,9 @@ services:
       AXIOM_LOGS: "${AXIOM_LOGS:-}"
       AXIOM_DATASET: "${AXIOM_DATASET:-steward-acs}"
       AXIOM_DOMAIN: "${AXIOM_DOMAIN:-https://api.axiom.co}"
+      # Invitation email (optional — copy-link only when either is empty).
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      RESEND_FROM_EMAIL: "${RESEND_FROM_EMAIL:-}"
     volumes:
       - acs_data:/data
       - vaults:/vaults
@@ -96,7 +99,7 @@ services:
   # Needs AXIOM_LOGS (Infisical) + Metrics dataset AXIOM_METRICS_DATASET.
   otel_collector:
     profiles: ["axiom"]
-    image: otel/opentelemetry-collector-contrib:0.124.1
+    image: otel/opentelemetry-collector-contrib:0.129.1
     container_name: steward_otel
     restart: unless-stopped
     command: ["--config=/etc/otelcol-contrib/config.yaml"]

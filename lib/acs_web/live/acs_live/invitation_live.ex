@@ -24,6 +24,7 @@ defmodule AcsWeb.AcsLive.InvitationLive do
        acceptance_error: nil,
        accepted: false,
        can_continue: false,
+       org_move_from: nil,
        organization: current_organization(socket.assigns[:current_user])
      )}
   end
@@ -127,6 +128,7 @@ defmodule AcsWeb.AcsLive.InvitationLive do
       acceptance_error: nil,
       accepted: true,
       can_continue: not is_nil(organization),
+      org_move_from: nil,
       organization: organization
     )
     |> put_flash(:info, "Invitation accepted. Your Steward workspace is ready to continue.")
@@ -154,6 +156,7 @@ defmodule AcsWeb.AcsLive.InvitationLive do
           acceptance_error: nil,
           accepted: false,
           can_continue: false,
+          org_move_from: nil,
           organization: organization
         )
 
@@ -164,6 +167,7 @@ defmodule AcsWeb.AcsLive.InvitationLive do
           acceptance_error: nil,
           accepted: false,
           can_continue: false,
+          org_move_from: nil,
           organization: organization
         )
 
@@ -178,7 +182,8 @@ defmodule AcsWeb.AcsLive.InvitationLive do
       invitation_state: :invalid,
       acceptance_error: nil,
       accepted: false,
-      can_continue: false
+      can_continue: false,
+      org_move_from: nil
     )
   end
 
@@ -187,6 +192,7 @@ defmodule AcsWeb.AcsLive.InvitationLive do
     state = invitation_state(invitation)
     matching_user = not email_mismatch?(invitation, socket.assigns.current_user)
     can_continue = state == :accepted and matching_user and not is_nil(organization)
+    org_move_from = org_move_source(socket.assigns.current_user, invitation, organization)
 
     assign(socket,
       invitation: invitation,
@@ -194,8 +200,28 @@ defmodule AcsWeb.AcsLive.InvitationLive do
       acceptance_error: nil,
       accepted: false,
       can_continue: can_continue,
+      org_move_from: org_move_from,
       organization: organization
     )
+  end
+
+  defp org_move_source(user, invitation, current_organization) do
+    invitation_org_id = field(invitation, :organization_id)
+    user_org_id = field(user, :organization_id)
+
+    cond do
+      is_nil(user_org_id) ->
+        nil
+
+      to_string(user_org_id) == to_string(invitation_org_id) ->
+        nil
+
+      is_map(current_organization) ->
+        field(current_organization, :name, field(current_organization, :slug, "your current organization"))
+
+      true ->
+        "your current organization"
+    end
   end
 
   defp invitation_state(invitation) do
@@ -368,9 +394,11 @@ defmodule AcsWeb.AcsLive.InvitationLive do
       reason when reason in [:email_mismatch, :invitation_email_mismatch, :mismatched_email] ->
         :mismatch
 
-      reason
-      when reason in [:already_in_organization, :already_has_organization, :already_member] ->
-        :already_org
+      reason when reason in [:already_member] ->
+        :already_member
+
+      reason when reason in [:last_owner, :cannot_remove_last_owner] ->
+        :last_owner
 
       reason when reason in [:already_accepted, :invitation_accepted, :used] ->
         :already_accepted
@@ -393,8 +421,12 @@ defmodule AcsWeb.AcsLive.InvitationLive do
   defp invitation_error_message(:mismatch),
     do: "The signed-in email does not match this invitation. Use the invited email address."
 
-  defp invitation_error_message(:already_org),
-    do: "Your account already belongs to an organization and cannot accept another invitation."
+  defp invitation_error_message(:already_member),
+    do: "Your account already belongs to this organization."
+
+  defp invitation_error_message(:last_owner),
+    do:
+      "You are the sole owner of your current organization. Assign another owner there before accepting this invitation."
 
   defp invitation_error_message(:already_accepted),
     do: "This invitation has already been accepted."
@@ -405,6 +437,9 @@ defmodule AcsWeb.AcsLive.InvitationLive do
   defp invitation_error_message(:unknown),
     do:
       "Steward could not accept this invitation. Ask the organization administrator for a new link."
+
+  defp invitation_error_message(:already_org),
+    do: invitation_error_message(:already_member)
 
   defp error_state(kind, _current) when kind in [:expired, :revoked], do: kind
   defp error_state(:already_accepted, _current), do: :accepted
@@ -526,13 +561,27 @@ defmodule AcsWeb.AcsLive.InvitationLive do
                 </div>
 
               <% @invitation_state == :pending -> %>
-                <div class="decision-copy">
-                  <span class="decision-icon" aria-hidden="true">→</span>
-                  <div>
-                    <h3>Ready for acceptance</h3>
-                    <p>Accepting assigns this account to the organization and role shown above.</p>
+                <%= if @org_move_from do %>
+                  <div id="invitation-org-move-warning" class="decision-copy decision-warning">
+                    <span class="decision-icon" aria-hidden="true">!</span>
+                    <div>
+                      <h3>You will leave <%= @org_move_from %></h3>
+                      <p>
+                        Your account currently belongs to <strong><%= @org_move_from %></strong>.
+                        Accepting moves you to <strong><%= invitation_organization(@invitation) %></strong>
+                        and removes you from <%= @org_move_from %>. An account can belong to only one organization.
+                      </p>
+                    </div>
                   </div>
-                </div>
+                <% else %>
+                  <div class="decision-copy">
+                    <span class="decision-icon" aria-hidden="true">→</span>
+                    <div>
+                      <h3>Ready for acceptance</h3>
+                      <p>Accepting assigns this account to the organization and role shown above.</p>
+                    </div>
+                  </div>
+                <% end %>
                 <button
                   id="accept-invitation"
                   type="button"
@@ -540,7 +589,7 @@ defmodule AcsWeb.AcsLive.InvitationLive do
                   phx-disable-with="Accepting invitation…"
                   class="btn btn-primary"
                 >
-                  Accept invitation
+                  <%= if @org_move_from, do: "Leave current org and accept", else: "Accept invitation" %>
                 </button>
 
               <% @invitation_state == :expired -> %>

@@ -1,17 +1,59 @@
 defmodule AcsWeb.UserSessionController do
   use AcsWeb, :controller
 
+  require Logger
+
   alias Acs.Accounts
+  alias Acs.Accounts.User
+  alias Acs.Orgs
   alias AcsWeb.UserAuth
 
   def new(conn, _params) do
+    unless oidc_config() do
+      maybe_warn_default_basic_auth()
+    end
+
     render(conn, :new, layout: false, oidc_enabled: not is_nil(oidc_config()))
+  end
+
+  def create(conn, %{"user" => %{"username" => username, "password" => password}}) do
+    if oidc_config() do
+      conn
+      |> put_flash(:error, "Use Auth0 to sign in.")
+      |> redirect(to: ~p"/users/log_in")
+    else
+      config = basic_auth_config()
+
+      if secure_compare(username, config[:username]) and
+           secure_compare(password, config[:password]) do
+        case local_dashboard_user(conn) do
+          {:ok, user} ->
+            UserAuth.log_in_user(conn, user)
+
+          {:error, _} ->
+            conn
+            |> put_flash(:error, "Could not create user.")
+            |> redirect(to: ~p"/users/log_in")
+        end
+      else
+        conn
+        |> put_flash(:error, "Invalid username or password.")
+        |> redirect(to: ~p"/users/log_in")
+      end
+    end
+  end
+
+  def create(conn, _params) do
+    conn
+    |> put_flash(:error, "Invalid username or password.")
+    |> redirect(to: ~p"/users/log_in")
   end
 
   def auth_log_in(conn, params) do
     case oidc_config() do
       nil ->
-        oidc_error(conn)
+        conn
+        |> redirect(to: ~p"/users/log_in")
 
       config ->
         return_to = return_to(conn, params)
@@ -121,10 +163,17 @@ defmodule AcsWeb.UserSessionController do
   defp complete_sign_in(conn, user, return_to) do
     case UserAuth.organization_for_user(user) do
       org when is_map(org) ->
-        if UserAuth.organization_ready?(org) do
-          handoff_user(conn, user, org, return_to)
-        else
-          UserAuth.log_in_user(conn, user, redirect_to: "/onboarding")
+        cond do
+          not UserAuth.organization_ready?(org) ->
+            UserAuth.log_in_user(conn, user, redirect_to: "/onboarding")
+
+          # Single-tenant / local: stay on this host. Handoff is for multi-tenant
+          # subdomain cookie transfer only.
+          not Acs.Org.multi_tenant?() ->
+            UserAuth.log_in_user(conn, user, redirect_to: return_to)
+
+          true ->
+            handoff_user(conn, user, org, return_to)
         end
 
       _ ->
@@ -161,21 +210,24 @@ defmodule AcsWeb.UserSessionController do
   end
 
   defp oidc_config do
-    issuer = Application.get_env(:steward_acs, :oidc_issuer)
-    client_id = Application.get_env(:steward_acs, :oidc_client_id)
-    client_secret = Application.get_env(:steward_acs, :oidc_client_secret)
-    redirect_uri = Application.get_env(:steward_acs, :oidc_redirect_uri)
+    # ponytail: Auth0 dashboard login is multi-tenant only; local uses basic auth.
+    if Acs.Org.multi_tenant?() do
+      issuer = Application.get_env(:steward_acs, :oidc_issuer)
+      client_id = Application.get_env(:steward_acs, :oidc_client_id)
+      client_secret = Application.get_env(:steward_acs, :oidc_client_secret)
+      redirect_uri = Application.get_env(:steward_acs, :oidc_redirect_uri)
 
-    if Application.get_env(:steward_acs, :oidc_browser_enabled, false) and
-         Enum.all?([issuer, client_id, client_secret, redirect_uri], &present?/1) do
-      [
-        client_id: client_id,
-        client_secret: client_secret,
-        base_url: issuer,
-        redirect_uri: redirect_uri,
-        authorization_params: [scope: "profile email"],
-        code_verifier: true
-      ]
+      if Application.get_env(:steward_acs, :oidc_browser_enabled, false) and
+           Enum.all?([issuer, client_id, client_secret, redirect_uri], &present?/1) do
+        [
+          client_id: client_id,
+          client_secret: client_secret,
+          base_url: issuer,
+          redirect_uri: redirect_uri,
+          authorization_params: [scope: "profile email"],
+          code_verifier: true
+        ]
+      end
     end
   end
 
@@ -239,4 +291,69 @@ defmodule AcsWeb.UserSessionController do
   end
 
   defp present?(value), do: is_binary(value) and value != ""
+
+  defp basic_auth_config do
+    Application.get_env(:steward_acs, :basic_auth, %{username: "admin", password: "admin"})
+  end
+
+  defp maybe_warn_default_basic_auth do
+    config = basic_auth_config()
+
+    if config[:username] == "admin" and config[:password] == "admin" do
+      Logger.warning(
+        "[Auth] Dashboard using default admin/admin credentials — set ACS_USERNAME/ACS_PASSWORD env vars"
+      )
+    end
+  end
+
+  defp local_dashboard_user(conn) do
+    slug = conn.assigns[:current_org] || Acs.Org.configured()
+    organization = ensure_local_organization!(slug)
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    owner_attrs = %{
+      organization_id: organization.id,
+      org_role: "owner",
+      org: organization.slug,
+      confirmed_at: now
+    }
+
+    case Accounts.get_user_by_email("admin@localhost", organization.slug) do
+      %User{} = user ->
+        user
+        |> User.changeset(Map.put(owner_attrs, :confirmed_at, user.confirmed_at || now))
+        |> Acs.Repo.update()
+
+      nil ->
+        Accounts.register_user(Map.put(owner_attrs, :email, "admin@localhost"))
+    end
+  end
+
+  defp ensure_local_organization!(slug) when is_binary(slug) do
+    case Orgs.get_by_slug(slug) do
+      %{id: id} = organization when is_integer(id) ->
+        organization
+
+      _ when slug == "default" ->
+        Orgs.ensure_default!()
+
+      _ ->
+        case Orgs.create(%{name: humanize_slug(slug), slug: slug, subdomain: slug}) do
+          {:ok, organization} -> organization
+          {:error, _} -> Orgs.ensure_default!()
+        end
+    end
+  end
+
+  defp humanize_slug(slug) do
+    slug
+    |> String.split(~r/[-_]/)
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+  end
+
+  defp secure_compare(left, right) when is_binary(left) and is_binary(right) do
+    byte_size(left) == byte_size(right) and Plug.Crypto.secure_compare(left, right)
+  end
+
+  defp secure_compare(_, _), do: false
 end

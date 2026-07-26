@@ -1,4 +1,6 @@
 defmodule Acs.Org do
+  require Logger
+
   @moduledoc """
   Org identity and filtering context for multi-tenancy.
 
@@ -416,38 +418,37 @@ defmodule Acs.Org do
 
   def known_org?(_), do: false
 
-  @doc "Returns true when path is lexically contained by root and no existing component is a symlink."
+  @doc "Returns true when path is lexically contained by root after resolving all symlinks."
   def safe_path?(root, path) when is_binary(root) and is_binary(path) do
-    expanded_root = Path.expand(root)
-    expanded_path = Path.expand(path)
-
-    path_within?(expanded_path, expanded_root) and
-      no_symlink_components?(expanded_root) and no_symlink_components?(expanded_path)
+    real_root = realpath(root)
+    real_path = realpath(path)
+    path_within?(real_path, real_root)
+  rescue
+    _ -> false
   end
 
   def safe_path?(_, _), do: false
 
-  defp no_symlink_components?(path) do
+  defp realpath(path) do
     path
+    |> Path.expand()
     |> Path.split()
     |> Enum.reduce_while(nil, fn
-      "/", _ ->
-        {:cont, "/"}
-
-      segment, nil ->
-        {:cont, segment}
-
+      "/", _ -> {:cont, "/"}
+      segment, nil -> {:cont, segment}
       segment, current ->
         candidate = Path.join(current, segment)
-
-        case File.lstat(candidate) do
-          {:ok, %File.Stat{type: :symlink}} -> {:halt, false}
-          {:ok, _} -> {:cont, candidate}
-          {:error, :enoent} -> {:cont, candidate}
-          {:error, _} -> {:halt, false}
+        resolved = case File.lstat(candidate) do
+          {:ok, %File.Stat{type: :symlink}} ->
+            link = File.read_link!(candidate)
+            target = if String.starts_with?(link, "/"), do: link, else: Path.join(Path.dirname(candidate), link)
+            Path.expand(target)
+          {:ok, _} -> candidate
+          {:error, :enoent} -> candidate
+          {:error, _} -> candidate
         end
+        {:cont, resolved}
     end)
-    |> Kernel.!=(false)
   end
 
   def developer_name do

@@ -35,7 +35,11 @@ defmodule Acs.Application do
       end
 
     observability_children =
-      if axiom_enabled?(), do: [Acs.Observability.AxiomLogExporter], else: []
+      if axiom_enabled?() do
+        [Acs.Observability.AxiomLogExporter, Acs.Observability.VmMetrics]
+      else
+        []
+      end
 
     children =
       [Acs.Apps.Config, Acs.Repo] ++

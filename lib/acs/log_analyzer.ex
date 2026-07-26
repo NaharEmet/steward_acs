@@ -160,11 +160,27 @@ defmodule Acs.LogAnalyzer do
                  g.pattern,
                  metadata
                ) do
-            {:ok, _action, trace} when is_map(trace) ->
+            {:ok, action, trace} when is_map(trace) and action in [:created, :updated] ->
+              Logger.info(
+                "[LogAnalyzer] ErrorTrace #{action} #{g.service}/#{g.component} count=#{trace.count}",
+                action: "error_trace",
+                status: Atom.to_string(action),
+                org: Map.get(trace, :org),
+                service: g.service,
+                component: g.component,
+                count: trace.count
+              )
+
               # Only create task if:
               # 1. Pattern count >= 8 (severe)
               # 2. Trace status is :new (not already tasked)
               # 3. Component is not in the ignored list
+              if trace.count >= 8 and trace.status == :new and
+                   g.component not in ignored_components do
+                create_task_for_trace(g, trace)
+              end
+
+            {:ok, _action, trace} when is_map(trace) ->
               if trace.count >= 8 and trace.status == :new and
                    g.component not in ignored_components do
                 create_task_for_trace(g, trace)
@@ -422,21 +438,38 @@ defmodule Acs.LogAnalyzer do
          ) do
       {:ok, task} ->
         Logger.info(
-          "[LogAnalyzer] Created auto-task #{task.id} for #{g.service}/#{g.component} (#{g.count}x)"
+          "[LogAnalyzer] Created auto-task #{task.id} for #{g.service}/#{g.component} (#{g.count}x)",
+          action: "error_trace_task",
+          status: "created",
+          task_id: task.id,
+          service: g.service,
+          component: g.component,
+          count: g.count
         )
 
         ErrorTrace.mark_tasked(trace.id, task.id)
 
       {:warn, task, _similar} ->
         Logger.info(
-          "[LogAnalyzer] Created auto-task #{task.id} (with similar warnings) for #{g.service}/#{g.component}"
+          "[LogAnalyzer] Created auto-task #{task.id} (with similar warnings) for #{g.service}/#{g.component}",
+          action: "error_trace_task",
+          status: "created",
+          task_id: task.id,
+          service: g.service,
+          component: g.component,
+          count: g.count
         )
 
         ErrorTrace.mark_tasked(trace.id, task.id)
 
       {:error, reason} ->
         Logger.warning(
-          "[LogAnalyzer] Failed to create auto-task for #{g.service}/#{g.component}: #{inspect(reason)}"
+          "[LogAnalyzer] Failed to create auto-task for #{g.service}/#{g.component}: #{inspect(reason)}",
+          action: "error_trace_task",
+          status: "error",
+          service: g.service,
+          component: g.component,
+          error_type: String.slice(inspect(reason), 0, 200)
         )
 
         ErrorTrace.mark_failed(trace.id, inspect(reason))

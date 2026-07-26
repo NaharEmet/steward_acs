@@ -1,5 +1,6 @@
 defmodule AcsWeb.Plugs.ResolveOrg do
   import Plug.Conn
+  require Logger
 
   def init(opts), do: opts
 
@@ -84,6 +85,13 @@ defmodule AcsWeb.Plugs.ResolveOrg do
   end
 
   defp unknown_host(conn) do
+    Logger.warning("unknown org host",
+      action: "org_resolve",
+      status: "404",
+      error_type: "unknown_host",
+      org: conn.host
+    )
+
     conn
     |> assign(:host_type, :unknown)
     |> put_resp_content_type("text/plain")

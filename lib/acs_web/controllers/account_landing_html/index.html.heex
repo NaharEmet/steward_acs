@@ -13,7 +13,7 @@
 
     <div style="display: flex; flex-direction: column; gap: 12px;">
       <a
-        href={~p"/auth/log_in"}
+        href={~p"/users/log_in"}
         class="btn btn-primary"
         style="display: block; width: 100%; text-align: center;"
       >
@@ -22,7 +22,7 @@
 
       <%= if @self_service_enabled do %>
         <a
-          href={~p"/auth/log_in?#{[return_to: "/onboarding"]}"}
+          href={~p"/users/log_in?#{[return_to: "/onboarding"]}"}
           class="btn btn-ghost"
           style="display: block; width: 100%; text-align: center;"
         >

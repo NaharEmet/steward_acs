@@ -39,6 +39,11 @@ defmodule Acs.Observability.AxiomLogBackend do
     :params,
     :org,
     :tags,
+    :role,
+    :request_id,
+    :component,
+    :service,
+    :count,
     :trace_id,
     :span_id,
     :trace_flags

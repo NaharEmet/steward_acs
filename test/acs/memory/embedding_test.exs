@@ -140,5 +140,18 @@ defmodule Acs.Memory.EmbeddingTest do
       assert match?({:ok, _} when elem(result, 0) == :ok, result) or
                match?({:error, _}, result)
     end
+
+    test "health check Req options are accepted" do
+      # Regression: invalid opts (e.g. connect_timeout on Req 0.6) raise ArgumentError
+      # and available?/0 permanently rescues to false even when Ollama is up.
+      result =
+        try do
+          Req.get("http://127.0.0.1:9/api/tags", receive_timeout: 5_000, retry: false)
+        rescue
+          ArgumentError -> :bad_options
+        end
+
+      refute result == :bad_options
+    end
   end
 end

@@ -9,6 +9,8 @@ config :steward_acs, Acs.Repo,
   database: Path.expand("../tmp/acs_test.db", __DIR__),
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 5,
+  busy_timeout: 10_000,
+  default_transaction_mode: :immediate,
   show_sensitive_data_on_connection_error: true
 
 # Print only warnings and errors during test
@@ -32,3 +34,7 @@ config :steward_acs, dev_routes: false
 config :steward_acs, AcsWeb.Endpoint,
   secret_key_base: "test_secret_key_base_for_exunit_only_not_for_production_use_1234567890",
   live_view: [signing_salt: "test_signing_salt"]
+
+config :steward_acs, Acs.Mailer, adapter: Swoosh.Adapters.Test
+config :steward_acs, :email_delivery_enabled, false
+config :steward_acs, :resend_from_email, {"Steward ACS", "noreply@example.test"}

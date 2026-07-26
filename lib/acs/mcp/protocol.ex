@@ -320,6 +320,15 @@ defmodule Acs.MCP.Protocol do
         {:ok, error_response(id, -32602, "Invalid params", "'arguments' must be an object")}
 
       cross_org_tool_disallowed?(name, requested_arguments, agent_org_id, agent_permissions) ->
+        Acs.Observability.Events.warning("MCP cross-org tool blocked: #{name}",
+          action: name,
+          status: "forbidden",
+          org: resource_org,
+          agent_id: agent_identity,
+          role: agent_role,
+          error_type: "cross_org_disallowed"
+        )
+
         {:ok,
          success_response(id, %{
            "content" => [
@@ -343,6 +352,15 @@ defmodule Acs.MCP.Protocol do
              })}
 
           {:error, reason} ->
+            Acs.Observability.Events.warning("MCP tool unauthorized: #{name}",
+              action: name,
+              status: "forbidden",
+              org: resource_org,
+              agent_id: agent_identity,
+              role: agent_role,
+              error_type: String.slice(to_string(reason), 0, 200)
+            )
+
             {:ok,
              success_response(id, %{
                "content" => [%{"type" => "text", "text" => "Error: #{inspect(reason)}"}],

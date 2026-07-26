@@ -148,6 +148,64 @@ defmodule Acs.AccountsOrganizationTest do
 
       assert {:error, :email_mismatch} = Accounts.accept_invitation(other_user, token)
     end
+
+    test "allows inviting a user from another organization with an org-move warning" do
+      source = organization!()
+      destination = organization!()
+      owner = member!(destination, "owner")
+      invitee = member!(source, "member")
+
+      assert {:ok, invitation, token, warning} =
+               Accounts.invite_user(owner, %{email: invitee.email, role: "member"})
+
+      assert invitation.organization_id == destination.id
+      assert is_binary(token)
+      assert warning.org_move == true
+      assert warning.from_organization_id == source.id
+      assert warning.from_organization_name == source.name
+    end
+
+    test "rejects inviting a user who already belongs to the same organization" do
+      organization = organization!()
+      owner = member!(organization, "owner")
+      member = member!(organization, "member")
+
+      assert {:error, :already_member} =
+               Accounts.invite_user(owner, %{email: member.email, role: "member"})
+    end
+
+    test "accepting moves the invitee from their previous organization" do
+      source = organization!()
+      destination = organization!()
+      owner = member!(destination, "owner")
+      _other_owner = member!(source, "owner")
+      invitee = member!(source, "member")
+
+      assert {:ok, _invitation, token, _warning} =
+               Accounts.invite_user(owner, %{email: invitee.email, role: "admin"})
+
+      assert {:ok, accepted_user, accepted_invitation} =
+               Accounts.accept_invitation(invitee, token)
+
+      assert accepted_user.organization_id == destination.id
+      assert accepted_user.org_role == "admin"
+      assert accepted_user.org == destination.slug
+      assert accepted_invitation.accepted_at
+      refute Repo.get!(User, invitee.id).organization_id == source.id
+    end
+
+    test "rejects org move when the invitee is the sole owner of their current organization" do
+      source = organization!()
+      destination = organization!()
+      owner = member!(destination, "owner")
+      sole_owner = member!(source, "owner")
+
+      assert {:ok, _invitation, token, _warning} =
+               Accounts.invite_user(owner, %{email: sole_owner.email, role: "member"})
+
+      assert {:error, :last_owner} = Accounts.accept_invitation(sole_owner, token)
+      assert Repo.get!(User, sole_owner.id).organization_id == source.id
+    end
   end
 
   describe "membership changes" do

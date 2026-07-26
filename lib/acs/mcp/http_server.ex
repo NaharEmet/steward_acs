@@ -144,12 +144,28 @@ defmodule Acs.MCP.HTTPServer do
     case body do
       %{"logs" => logs} when is_list(logs) ->
         if length(logs) > @max_log_batch do
+          Acs.Observability.Events.warning("log ingest batch too large",
+            action: "log_ingest",
+            status: "413",
+            org: conn.assigns[:agent_org_id],
+            count: length(logs),
+            error_type: "batch_too_large"
+          )
+
           conn
           |> put_resp_content_type("application/json")
           |> send_resp(413, Jason.encode!(%{error: "Batch too large (max #{@max_log_batch})"}))
         else
           results = Enum.map(logs, &process_log_entry/1)
           success_count = Enum.count(results, &(&1 == :ok))
+
+          Acs.Observability.Events.info("log ingest batch stored",
+            action: "log_ingest",
+            status: "ok",
+            org: conn.assigns[:agent_org_id],
+            count: success_count,
+            tags: ["ingest"]
+          )
 
           conn
           |> put_resp_content_type("application/json")
@@ -162,11 +178,26 @@ defmodule Acs.MCP.HTTPServer do
       %{} = log_entry when map_size(log_entry) > 0 ->
         case process_log_entry(log_entry) do
           :ok ->
+            Acs.Observability.Events.info("log ingest entry stored",
+              action: "log_ingest",
+              status: "ok",
+              org: conn.assigns[:agent_org_id],
+              count: 1,
+              tags: ["ingest"]
+            )
+
             conn
             |> put_resp_content_type("application/json")
             |> send_resp(200, Jason.encode!(%{status: "ok"}))
 
           {:error, _reason} ->
+            Acs.Observability.Events.warning("log ingest entry failed",
+              action: "log_ingest",
+              status: "error",
+              org: conn.assigns[:agent_org_id],
+              error_type: "store_failed"
+            )
+
             conn
             |> put_resp_content_type("application/json")
             |> send_resp(

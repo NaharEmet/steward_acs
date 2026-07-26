@@ -13,6 +13,7 @@ defmodule Acs do
   alias Acs.Acs.Cache
   alias Acs.Acs.Similarity
   alias Acs.Memory.Guidance
+  alias Acs.Memory.Retry
   alias Acs.Org, as: Org
 
   @doc false
@@ -58,7 +59,9 @@ defmodule Acs do
             task_attrs
           end
 
-        case %AcsTask{} |> AcsTask.changeset(task_attrs) |> Repo.insert() do
+        case Retry.with_busy_retry(fn ->
+               %AcsTask{} |> AcsTask.changeset(task_attrs) |> Repo.insert()
+             end) do
           {:ok, task} = result ->
             Cache.put_task(task.id, to_task_map(task))
             broadcast(:task_created, %{task_id: task.id, title: task.title})
@@ -106,33 +109,35 @@ defmodule Acs do
   """
   def claim_task(task_id, agent_id, opts \\ []) when is_binary(task_id) and is_binary(agent_id) do
     result =
-      Repo.transaction(fn ->
-        query = from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())
-        task = Repo.one(query, lock: "FOR UPDATE")
+      Retry.with_busy_retry(fn ->
+        Repo.transaction(fn ->
+          query = from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())
+          task = Repo.one(query, lock: "FOR UPDATE")
 
-        case task do
-          nil ->
-            Repo.rollback({:error, :task_not_found})
+          case task do
+            nil ->
+              Repo.rollback({:error, :task_not_found})
 
-          %AcsTask{locked_by_agent: locked_by} when not is_nil(locked_by) ->
-            Repo.rollback({:error, :already_locked})
+            %AcsTask{locked_by_agent: locked_by} when not is_nil(locked_by) ->
+              Repo.rollback({:error, :already_locked})
 
-          %AcsTask{} = task ->
-            now = DateTime.utc_now()
-            auto_release = DateTime.add(now, 10, :minute)
+            %AcsTask{} = task ->
+              now = DateTime.utc_now()
+              auto_release = DateTime.add(now, 10, :minute)
 
-            {:ok, updated} =
-              task
-              |> AcsTask.changeset(%{
-                "locked_by_agent" => agent_id,
-                "locked_at" => now,
-                "auto_release_at" => auto_release,
-                "status" => "in_progress"
-              })
-              |> Repo.update()
+              {:ok, updated} =
+                task
+                |> AcsTask.changeset(%{
+                  "locked_by_agent" => agent_id,
+                  "locked_at" => now,
+                  "auto_release_at" => auto_release,
+                  "status" => "in_progress"
+                })
+                |> Repo.update()
 
-            updated
-        end
+              updated
+          end
+        end)
       end)
 
     case result do
@@ -159,32 +164,34 @@ defmodule Acs do
   """
   def release_task(task_id, agent_id) when is_binary(task_id) and is_binary(agent_id) do
     result =
-      Repo.transaction(fn ->
-        query = from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())
+      Retry.with_busy_retry(fn ->
+        Repo.transaction(fn ->
+          query = from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())
 
-        case Repo.one(query, lock: "FOR UPDATE") do
-          nil ->
-            nil
+          case Repo.one(query, lock: "FOR UPDATE") do
+            nil ->
+              nil
 
-          %{locked_by_agent: locked_by} when not is_nil(locked_by) and locked_by != agent_id ->
-            Repo.rollback({:error, :not_owner})
+            %{locked_by_agent: locked_by} when not is_nil(locked_by) and locked_by != agent_id ->
+              Repo.rollback({:error, :not_owner})
 
-          %{locked_by_agent: nil} ->
-            nil
+            %{locked_by_agent: nil} ->
+              nil
 
-          %AcsTask{} = task ->
-            {:ok, updated} =
-              task
-              |> AcsTask.changeset(%{
-                "locked_by_agent" => nil,
-                "locked_at" => nil,
-                "auto_release_at" => nil,
-                "status" => "done"
-              })
-              |> Repo.update()
+            %AcsTask{} = task ->
+              {:ok, updated} =
+                task
+                |> AcsTask.changeset(%{
+                  "locked_by_agent" => nil,
+                  "locked_at" => nil,
+                  "auto_release_at" => nil,
+                  "status" => "done"
+                })
+                |> Repo.update()
 
-            updated
-        end
+              updated
+          end
+        end)
       end)
 
     case result do
