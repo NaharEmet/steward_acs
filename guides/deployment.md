@@ -150,7 +150,7 @@ AXIOM_DATASET=steward-acs
 
 Export is enabled only when the release runs in `prod` and `AXIOM_LOGS` is non-empty. Development and test never ship telemetry, even when a local `.env` contains the token. Keep the token ingest-scoped to the configured dataset.
 
-After deploying, request `/mcp/health`, exercise a database-backed route, and confirm both traces and log events arrive in the dataset. HTTP query-string values are redacted from spans; metrics are not exported.
+After deploying, request `/mcp/health`, exercise a database-backed route, and confirm both traces and log events arrive in the dataset. HTTP query-string values are redacted from spans. Every ~30s, `message == "vm.metrics"` events ship BEAM memory/`scheduler_utilization` plus best-effort Linux host fields (`host_memory_*_bytes` from `/proc/meminfo`, `cgroup_memory_*_bytes` / `cgroup_cpu_utilization` from the process cgroup). These are Events-dataset rows, not a separate OTLP metrics stream. Full bare-metal host telemetry (disk, NICs, other processes) still needs a host agent.
 
 ### Secrets
 

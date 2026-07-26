@@ -119,7 +119,7 @@ The YAML registry remains a read-only compatibility fallback during rollout. New
 3. Invite a member, copy the one-time link, accept with the exact verified email, and verify `/settings/members`
 4. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
 5. No `inotify-tools` errors in `docker logs steward_acs`
-6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request
+6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request. After deploy, `message == "vm.metrics"` events appear every ~30s (BEAM memory + scheduler utilization; plus `host_memory_*` / `cgroup_*` fields on Linux)
 
 ## Agent deploy rules
 
