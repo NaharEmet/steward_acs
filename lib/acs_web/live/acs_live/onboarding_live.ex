@@ -400,13 +400,6 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
     if is_binary(name) and String.trim(name) != "", do: nil, else: to_form(%{"name" => ""}, as: :user)
   end
 
-  defp user_needs_name?(nil), do: true
-
-  defp user_needs_name?(user) do
-    name = field(user, :name, "")
-    not (is_binary(name) and String.trim(name) != "")
-  end
-
   defp validate_name_present(name) do
     name = String.trim(name || "")
     if name == "", do: %{name: ["Enter your name."]}, else: %{}
@@ -644,7 +637,8 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
                   Create organization <span aria-hidden="true">→</span>
                 </button>
               </div>
-            </.form>
+              </.form>
+            <% end %>
           </article>
         <% else %>
           <article id="onboarding-disabled" class="card account-card status-panel status-pending animate-in delay-2">
