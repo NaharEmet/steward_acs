@@ -33,7 +33,14 @@ defmodule AcsWeb.AcsLive.SpecsLive do
         status_filter: nil,
         search_query: ""
       )
-      |> load_data()
+
+    socket =
+      if connected?(socket) do
+        send(self(), :load_data)
+        socket
+      else
+        load_data(socket)
+      end
 
     {:ok, socket}
   end
@@ -204,6 +211,10 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   end
 
   @impl true
+  def handle_info(:load_data, socket) do
+    {:noreply, load_data(socket)}
+  end
+
   def handle_info(:refresh, socket) do
     {:noreply, load_data(socket)}
   end
@@ -219,28 +230,27 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   end
 
   defp load_data(socket) do
-    status_filter = socket.assigns.status_filter
     search_query = socket.assigns.search_query
-
-    all_specs =
-      case Loader.load_all() do
-        {:ok, entries} -> entries
-        _ -> []
-      end
-
-    stats = compute_stats(all_specs)
 
     specs =
       if search_query && search_query != "" do
-        case Search.search(search_query, status: status_filter, entries: all_specs) do
+        case Search.search(search_query, status: socket.assigns.status_filter) do
           {:ok, entries} -> entries
           _ -> []
         end
       else
-        maybe_filter_by_status_in_view(all_specs, status_filter)
+        case Loader.load_all(app: nil) do
+          {:ok, entries} ->
+            entries
+            |> maybe_filter_by_status_in_view(socket.assigns.status_filter)
+
+          _ ->
+            []
+        end
       end
 
-    # Re-select the same spec if still in the list
+    stats = compute_stats(specs)
+
     selected_spec =
       if socket.assigns.selected_spec do
         Enum.find(specs, fn s ->
@@ -257,21 +267,28 @@ defmodule AcsWeb.AcsLive.SpecsLive do
     Enum.filter(entries, fn e -> e.status == status end)
   end
 
-  defp compute_stats(entries) do
+  defp compute_stats(specs) do
     statuses =
       ~w(proposed under_review approved deprecated contradicted runtime_divergent historical)
 
-    base = statuses |> Map.new(fn status -> {status, 0} end) |> Map.put("total", length(entries))
+    base = Map.new(statuses, fn s -> {s, 0} end)
 
-    Enum.reduce(entries, base, fn entry, acc ->
-      Map.update(acc, entry.status || "unknown", 1, &(&1 + 1))
+    Enum.reduce(specs, Map.put(base, "total", length(specs)), fn entry, acc ->
+      status = entry.status || "unknown"
+      Map.update(acc, status, 1, &(&1 + 1))
     end)
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="specs-governance">
+    <div class="documents-governance">
+      <section class="account-intro animate-in" aria-labelledby="documents-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Knowledge</span> / Documents</p>
+        <h2 id="documents-title" style="font-size: 1.3rem; margin-bottom: 6px;">Documents</h2>
+        <p style="font-size: 0.82rem;">Specifications, knowledge files, and shared artifacts for the workspace.</p>
+      </section>
+
       <!-- Header with stats -->
       <div style="display: flex; gap: 24px; margin-bottom: 20px; flex-wrap: wrap;">
         <div class="card" style="padding: 16px 20px; min-width: 100px;">
@@ -299,7 +316,7 @@ defmodule AcsWeb.AcsLive.SpecsLive do
             name="query"
             type="text"
             class="search-input"
-            placeholder="Search specs by title, purpose, invariants..."
+            placeholder="Search documents by title, purpose, invariants..."
             value={@search_query}
             style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: 0.85rem; outline: none;"
           />
@@ -353,7 +370,7 @@ defmodule AcsWeb.AcsLive.SpecsLive do
             phx-click="approve-all-proposed"
             class="btn btn-primary"
             style="padding: 6px 14px; font-size: 0.72rem;"
-            title={"Approve all #{@stats["proposed"]} proposed specs"}
+            title={"Approve all #{@stats["proposed"]} proposed documents"}
           >
             ✓ Approve All (<%= @stats["proposed"] %>)
           </button>
@@ -370,13 +387,13 @@ defmodule AcsWeb.AcsLive.SpecsLive do
                 <div class="empty-state-icon">◈</div>
                 <p class="empty-state-title">
                   <%= if @search_query != "" do %>
-                    No specs match your search
+                    No documents match your search
                   <% else %>
-                    No specs found
+                    No documents found
                   <% end %>
                 </p>
                 <p class="empty-state-desc">
-                  Use the specs tools via agents or create specs manually.
+                  Use the document tools via agents or create documents manually.
                 </p>
               </div>
             </div>

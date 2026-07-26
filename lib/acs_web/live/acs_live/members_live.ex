@@ -653,7 +653,23 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
   defp member_name(member) do
     user = field(member, :user)
-    field(user, :name) || field(member, :name) || "Member"
+    first = field(user, :first_name) || field(member, :first_name)
+    last = field(user, :last_name) || field(member, :last_name)
+    name = field(user, :name) || field(member, :name)
+
+    cond do
+      is_binary(first) and is_binary(last) and first != "" and last != "" ->
+        "#{first} #{last}"
+
+      is_binary(first) and first != "" ->
+        first
+
+      is_binary(name) and name != "" ->
+        name
+
+      true ->
+        member_email(member) |> String.split("@") |> List.first()
+    end
   end
 
   defp member_role(nil), do: nil
@@ -762,9 +778,9 @@ defmodule AcsWeb.AcsLive.MembersLive do
     <section id="members-live" class="account-shell members-shell">
       <div class="members-heading animate-in">
         <div class="account-intro">
-          <p class="account-kicker"><span>Access control</span> / <%= organization_slug(@organization) %></p>
-          <h1>Members & invitations</h1>
-          <p>
+          <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Access control</span> / <%= organization_slug(@organization) %></p>
+          <h1 style="font-size: 1.3rem; margin-bottom: 6px;">Members & invitations</h1>
+          <p style="font-size: 0.82rem;">
             Keep <strong><%= organization_name(@organization) %></strong> deliberately small. Roles here define who can operate, administer, and own this Steward boundary.
           </p>
         </div>

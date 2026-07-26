@@ -5,7 +5,9 @@ defmodule AcsWeb.AcsLive.Tools do
   """
 
   use AcsWeb, :live_view
-  alias Acs.MCP.{Bridge, HealthCheckCache, ToolRegistry, ToolRequests}
+  alias Acs.MCP.ToolRegistry
+  alias Acs.MCP.Bridge
+  alias Acs.MCP.ToolRequests
 
   def on_mount(_params, _session, socket) do
     # Don't use get_connect_info - it fails on push_navigate reconnections
@@ -30,9 +32,8 @@ defmodule AcsWeb.AcsLive.Tools do
       )
       |> load_tools()
       |> load_collapsed_apps()
-      |> load_cached_health()
 
-    socket = if connected?(socket), do: start_health_checks(socket), else: socket
+    if connected?(socket), do: send(self(), :check_health)
 
     {:ok, socket}
   end
@@ -57,10 +58,9 @@ defmodule AcsWeb.AcsLive.Tools do
 
   @impl true
   def handle_event("refresh", _, socket) do
-    {:noreply,
-     socket
-     |> load_tools()
-     |> start_health_checks(force: true)}
+    socket = load_data(socket)
+    if connected?(socket), do: send(self(), :check_health)
+    {:noreply, socket}
   end
 
   @impl true
@@ -84,28 +84,68 @@ defmodule AcsWeb.AcsLive.Tools do
 
   @impl true
   def handle_info(:refresh, socket) do
-    socket = socket |> load_tools() |> load_cached_health() |> start_health_checks()
+    socket = load_tools(socket)
     {:noreply, socket}
   end
 
   @impl true
+  def handle_info(:check_health, socket) do
+    tools = socket.assigns.tools
+
+    apps =
+      tools
+      |> Enum.map(fn t -> {t["app"] || "unknown", t["base_url"]} end)
+      |> Enum.uniq()
+      |> Enum.filter(fn {_app, url} -> url != "" && url != nil end)
+
+    cached = Acs.MCP.HealthCache.get_all()
+
+    {needed, _} =
+      Enum.split_with(apps, fn {app, _url} -> not Map.has_key?(cached, app) end)
+
+    fresh =
+      if needed != [] do
+        needed
+        |> Task.async_stream(
+          fn {app, url} ->
+            case Bridge.health_check(url) do
+              {:ok, _} -> {app, :up}
+              {:error, _} -> {app, :down}
+            end
+          end,
+          timeout: 6_000,
+          on_timeout: :kill_task
+        )
+        |> Enum.reduce(%{}, fn
+          {:ok, {app, status}}, acc -> Map.put(acc, app, status)
+          _, acc -> acc
+        end)
+        |> tap(&Acs.MCP.HealthCache.put_all/1)
+      else
+        %{}
+      end
+
+    {:noreply, assign(socket, app_health: Map.merge(cached, fresh))}
+  end
+
+  @impl true
   def handle_info({:tool_request_created, _payload}, socket) do
-    {:noreply, socket |> load_tools() |> load_cached_health() |> start_health_checks()}
+    {:noreply, schedule_health_check(load_data(socket))}
   end
 
   @impl true
   def handle_info({:tool_request_approved, _payload}, socket) do
-    {:noreply, socket |> load_tools() |> load_cached_health() |> start_health_checks()}
+    {:noreply, schedule_health_check(load_data(socket))}
   end
 
   @impl true
   def handle_info({:tool_request_rejected, _payload}, socket) do
-    {:noreply, socket |> load_tools() |> load_cached_health() |> start_health_checks()}
+    {:noreply, schedule_health_check(load_data(socket))}
   end
 
   @impl true
   def handle_info({:tools_refresh, _payload}, socket) do
-    {:noreply, socket |> load_tools() |> load_cached_health() |> start_health_checks()}
+    {:noreply, schedule_health_check(load_data(socket))}
   end
 
   @impl true
@@ -113,19 +153,15 @@ defmodule AcsWeb.AcsLive.Tools do
     {:noreply, socket}
   end
 
-  @impl true
-  def handle_async(:health_checks, {:ok, health}, socket) do
-    {:noreply, assign(socket, app_health: health)}
+  defp load_data(socket) do
+    socket
+    |> load_tools()
+    |> load_collapsed_apps()
   end
 
-  def handle_async(:health_checks, {:exit, _reason}, socket) do
-    health =
-      Map.new(socket.assigns.app_health, fn
-        {app, :checking} -> {app, :down}
-        entry -> entry
-      end)
-
-    {:noreply, assign(socket, app_health: health)}
+  defp schedule_health_check(socket) do
+    if connected?(socket), do: send(self(), :check_health)
+    socket
   end
 
   defp load_collapsed_apps(socket) do
@@ -137,7 +173,9 @@ defmodule AcsWeb.AcsLive.Tools do
     tools = ToolRegistry.list_tools()
     stats = ToolRegistry.stats()
 
-    tools_by_app = Enum.group_by(tools, fn tool -> tool["app"] || "unknown" end)
+    tools_by_app =
+      tools
+      |> Enum.group_by(fn t -> t["app"] || "unknown" end)
 
     assign(socket,
       tools: tools,
@@ -147,68 +185,16 @@ defmodule AcsWeb.AcsLive.Tools do
     )
   end
 
-  defp health_apps(tools) do
-    tools
-    |> Enum.map(fn tool -> {tool["app"] || "unknown", tool["base_url"]} end)
-    |> Enum.uniq()
-    |> Enum.filter(fn {_app, url} -> url not in ["", nil] end)
-  end
-
-  defp load_cached_health(socket) do
-    health =
-      Map.new(health_apps(socket.assigns.tools), fn {app, url} ->
-        status =
-          case HealthCheckCache.get(url) do
-            {:ok, cached} -> cached
-            :miss -> :checking
-          end
-
-        {app, status}
-      end)
-
-    assign(socket, app_health: health)
-  end
-
-  defp start_health_checks(socket, opts \\ []) do
-    force? = Keyword.get(opts, :force, false)
-    apps = health_apps(socket.assigns.tools)
-
-    socket
-    |> cancel_async(:health_checks)
-    |> start_async(:health_checks, fn ->
-      initial = Map.new(apps, fn {app, _url} -> {app, :down} end)
-
-      apps
-      |> Task.async_stream(
-        fn {app, url} ->
-          status =
-            case if(force?, do: :miss, else: HealthCheckCache.get(url)) do
-              {:ok, cached} -> cached
-              :miss -> check_and_cache(url)
-            end
-
-          {app, status}
-        end,
-        timeout: 6_000,
-        on_timeout: :kill_task
-      )
-      |> Enum.reduce(initial, fn
-        {:ok, {app, status}}, health -> Map.put(health, app, status)
-        _, health -> health
-      end)
-    end)
-  end
-
-  defp check_and_cache(url) do
-    status = if match?({:ok, _}, Bridge.health_check(url)), do: :up, else: :down
-    :ok = HealthCheckCache.put(url, status)
-    status
-  end
-
   @impl true
   def render(assigns) do
     ~H"""
     <div class="tools-dashboard">
+      <section class="account-intro animate-in" aria-labelledby="tools-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Workspace</span> / Tools</p>
+        <h2 id="tools-title" style="font-size: 1.3rem; margin-bottom: 6px;">Tools</h2>
+        <p style="font-size: 0.82rem;">MCP tools available to connected agents in this workspace.</p>
+      </section>
+
       <!-- Stats Bar -->
       <div class="animate-in delay-1" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px;">
         <div class="card" style="padding: 20px;">
@@ -252,12 +238,8 @@ defmodule AcsWeb.AcsLive.Tools do
                   <h3 class="section-title" style="font-size: 1.1rem;"><%= app_name %></h3>
                   <span class="section-count"><%= length(app_tools) %> tools</span>
                   <span style="flex: 1;"></span>
-                  <%= cond do %>
-                    <% @app_health[app_name] == :checking -> %>
-                      <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);">checking…</span>
-                    <% is_nil(@app_health[app_name]) -> %>
-                      <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);">internal</span>
-                    <% true -> %>
+                  <%= if is_nil(@app_health[app_name]) do %>
+                    <span style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);">internal</span>
                   <% end %>
                   <span style="font-size: 0.85rem; color: var(--muted); margin-left: 8px;">
                     <%= if MapSet.member?(@collapsed_apps, app_name), do: "▶", else: "▼" %>

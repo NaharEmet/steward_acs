@@ -1611,7 +1611,7 @@ defmodule Acs.MCP.Tools do
         read_steps =
           cond do
             length(skills) == 1 ->
-              name = hd(skills).name || hd(skills)["name"]
+              name = hd(skills)["name"]
 
               [
                 %{
@@ -1625,7 +1625,7 @@ defmodule Acs.MCP.Tools do
               skills
               |> Enum.take(5)
               |> Enum.map(fn s ->
-                n = s.name || s["name"]
+                n = s["name"]
 
                 %{
                   tool: "skill_get",
@@ -1642,10 +1642,13 @@ defmodule Acs.MCP.Tools do
           related
           |> Enum.take(3)
           |> Enum.map(fn s ->
+            n = s["name"]
+            tagline = s["when_to_use"] || s["description"]
+
             %{
               tool: "skill_get",
-              prompt: "Related skill: #{s.name} — #{s.when_to_use || s.description}",
-              params: %{name: s.name}
+              prompt: "Related skill: #{n} — #{tagline}",
+              params: %{name: n}
             }
           end)
 
@@ -1654,10 +1657,13 @@ defmodule Acs.MCP.Tools do
             catalog
             |> Enum.take(5)
             |> Enum.map(fn s ->
+              n = s["name"]
+              tagline = s["when_to_use"] || s["description"]
+
               %{
                 tool: "skill_get",
-                prompt: "Available: #{s.name} — #{s.when_to_use || s.description}",
-                params: %{name: s.name}
+                prompt: "Available: #{n} — #{tagline}",
+                params: %{name: n}
               }
             end)
           else

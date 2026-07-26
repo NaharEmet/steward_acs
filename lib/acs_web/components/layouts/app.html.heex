@@ -13,14 +13,7 @@
         Map.get(current_user, :role) || Map.get(current_user, "role")
     end
 
-  organization =
-    cond do
-      is_map(assigns[:organization]) ->
-        assigns[:organization]
-
-      true ->
-        nil
-    end
+  organization = assigns[:organization]
 
   organization_name =
     if is_map(organization) do
@@ -82,43 +75,33 @@
             <% end %>
           </.link>
           <.link navigate={~p"/memories"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/memories"), do: "active"}"} aria-current={if String.starts_with?(nav_current_path, "/memories"), do: "page"}>Memories</.link>
-          <.link navigate={~p"/specs"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/specs"), do: "active"}"} aria-current={if String.starts_with?(nav_current_path, "/specs"), do: "page"}>Specs</.link>
+          <.link navigate={~p"/documents"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/documents"), do: "active"}"} aria-current={if String.starts_with?(nav_current_path, "/documents"), do: "page"}>Documents</.link>
           <.link navigate={~p"/skills"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/skills"), do: "active"}"} aria-current={if String.starts_with?(nav_current_path, "/skills"), do: "page"}>Skills</.link>
-          <.link navigate={~p"/error-traces"} class={"nav-tab #{if String.starts_with?(nav_current_path, "/error-traces"), do: "active"}"} aria-current={if String.starts_with?(nav_current_path, "/error-traces"), do: "page"}>Error Traces</.link>
-          <%= if admin? do %>
-            <.link
-              id="members-navigation-link"
-              navigate={~p"/settings/members"}
-              class={"nav-tab #{if String.starts_with?(nav_current_path, "/settings/members"), do: "active"}"}
-              aria-current={if String.starts_with?(nav_current_path, "/settings/members"), do: "page"}
-            >
-              Members
-            </.link>
-          <% end %>
         </nav>
       <% end %>
     </div>
 
     <%= if current_user do %>
       <div class="header-meta">
-        <%= if organization_name do %>
-          <span id="current-organization-name" class="organization-pill" title="Current organization">
-            <span class="organization-signal" aria-hidden="true"></span>
-            <%= organization_name %>
-          </span>
-        <% end %>
-        <button id="layout-refresh" type="button" phx-click="refresh" class="btn btn-ghost header-button">
-          <span aria-hidden="true">↻</span> Refresh
-        </button>
-        <div class="user-identity">
-          <span id="current-user-email"><%= current_user.email %></span>
-          <%= if current_role do %>
-            <span class={"user-role role-#{current_role}"}><%= current_role %></span>
-          <% end %>
-        </div>
-        <.link id="layout-log-out" href={~p"/users/log_out"} method="delete" class="btn btn-ghost header-button">
-          Log out
-        </.link>
+        <details class="user-menu" id="user-menu">
+          <summary class="user-identity">
+            <span id="current-user-name"><%= Acs.Accounts.User.display_name(current_user) %></span>
+          </summary>
+          <div class="user-dropdown">
+            <div class="user-dropdown-email"><%= current_user.email %></div>
+            <%= if current_role do %>
+              <div class="user-dropdown-role"><%= current_role %></div>
+            <% end %>
+            <div class="user-dropdown-divider"></div>
+            <.link navigate={~p"/error-traces"} class="gear-item">Error Traces</.link>
+            <%= if admin? do %>
+              <.link navigate={~p"/settings"} class="gear-item">Settings</.link>
+              <.link navigate={~p"/settings/members"} class="gear-item">Members</.link>
+            <% end %>
+            <div class="user-dropdown-divider"></div>
+            <.link href={~p"/users/log_out"} method="delete" class="gear-item">Log out</.link>
+          </div>
+        </details>
       </div>
     <% end %>
   </div>

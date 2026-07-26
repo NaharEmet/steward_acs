@@ -19,16 +19,20 @@ defmodule AcsWeb.AcsLive.SkillsLive do
     socket =
       socket
       |> assign(
-        all_skills: [],
         skills: [],
         selected_skill: nil,
         search_query: "",
         status_filter: "proposed",
-        stats: empty_stats(),
-        loading: true
+        stats: empty_stats()
       )
 
-    socket = if connected?(socket), do: load_data_async(socket), else: socket
+    socket =
+      if connected?(socket) do
+        send(self(), :load_data)
+        socket
+      else
+        load_data(socket)
+      end
 
     {:ok, socket}
   end
@@ -41,12 +45,12 @@ defmodule AcsWeb.AcsLive.SkillsLive do
 
   @impl true
   def handle_event("search", %{"query" => query}, socket) do
-    {:noreply, socket |> assign(search_query: query, selected_skill: nil) |> apply_filters()}
+    {:noreply, socket |> assign(search_query: query, selected_skill: nil) |> load_data()}
   end
 
   def handle_event("filter-status", %{"status" => status}, socket) do
     filter = if status == "", do: nil, else: status
-    {:noreply, socket |> assign(status_filter: filter, selected_skill: nil) |> apply_filters()}
+    {:noreply, socket |> assign(status_filter: filter, selected_skill: nil) |> load_data()}
   end
 
   def handle_event("select-skill", %{"id" => id}, socket) do
@@ -60,8 +64,11 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   def handle_event("reject", %{"id" => id}, socket),
     do: update_status(socket, id, "rejected")
 
-  def handle_event("refresh", _params, socket), do: {:noreply, load_data_async(socket)}
+  def handle_event("refresh", _params, socket), do: {:noreply, load_data(socket)}
   def handle_event(_event, _params, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_info(:load_data, socket), do: {:noreply, load_data(socket)}
 
   defp update_status(socket, id, status) do
     case Store.update_status(id, status, "human") do
@@ -72,34 +79,15 @@ defmodule AcsWeb.AcsLive.SkillsLive do
          socket
          |> assign(selected_skill: nil)
          |> put_flash(:info, "Skill '#{id}' #{verb}")
-         |> load_data_async()}
+         |> load_data()}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to update skill: #{inspect(reason)}")}
     end
   end
 
-  @impl true
-  def handle_async(:load_skills, {:ok, all_skills}, socket) do
-    {:noreply, socket |> assign(all_skills: all_skills, loading: false) |> apply_filters()}
-  end
-
-  def handle_async(:load_skills, {:exit, _reason}, socket) do
-    {:noreply,
-     socket |> assign(loading: false) |> put_flash(:error, "Skills could not be loaded.")}
-  end
-
-  defp load_data_async(socket) do
-    org = socket.assigns.current_org
-
-    socket
-    |> cancel_async(:load_skills)
-    |> assign(loading: true)
-    |> start_async(:load_skills, fn -> Acs.Org.with_current(org, &Store.all_skills/0) end)
-  end
-
-  defp apply_filters(socket) do
-    all_skills = socket.assigns.all_skills
+  defp load_data(socket) do
+    all_skills = Store.all_skills()
 
     skills =
       all_skills
@@ -156,6 +144,12 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   def render(assigns) do
     ~H"""
     <div class="skills-governance">
+      <section class="account-intro animate-in" aria-labelledby="skills-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Knowledge</span> / Skills</p>
+        <h2 id="skills-title" style="font-size: 1.3rem; margin-bottom: 6px;">Skills</h2>
+        <p style="font-size: 0.82rem;">Reusable workflow guides with step-by-step procedures for repeatable tasks.</p>
+      </section>
+
       <div style="display: flex; gap: 24px; margin-bottom: 20px; flex-wrap: wrap;">
         <.stat_card label="Total" value={@stats["total"]} />
         <.stat_card label="Pending" value={@stats["proposed"]} color="var(--amber)" />
@@ -192,7 +186,7 @@ defmodule AcsWeb.AcsLive.SkillsLive do
             <div class="card" style="padding: 48px;">
               <div class="empty-state">
                 <div class="empty-state-icon">◇</div>
-                <p class="empty-state-title"><%= if @loading, do: "Loading skills…", else: "No skills found" %></p>
+                <p class="empty-state-title">No skills found</p>
                 <p class="empty-state-desc">Skill files are managed outside Steward and discovered from the skills directory.</p>
               </div>
             </div>

@@ -89,14 +89,22 @@ defmodule AcsWeb.Router do
       live "/tools", AcsLive.Tools, :index
       live "/tools/requests", AcsLive.ToolRequests, :index
       live "/memories", AcsLive.MemoryLive, :index
-      live "/specs", AcsLive.SpecsLive, :index
+      live "/documents", AcsLive.SpecsLive, :index
       live "/skills", AcsLive.SkillsLive, :index
       live "/error-traces", AcsLive.ErrorTracesLive, :index
     end
 
-    scope "/", AcsWeb do
-      pipe_through [:browser, :require_auth, :tenant_user, :org_admin]
+  scope "/", AcsWeb do
+    pipe_through [:browser, :require_auth, :tenant_user]
 
+    live_session :org_admin,
+      session: {AcsWeb.UserAuth, :fetch_user_token, []},
+      on_mount: [
+        {AcsWeb.UserAuth, :assign_org},
+        {AcsWeb.UserAuth, :ensure_authenticated},
+        {AcsWeb.UserAuth, :ensure_tenant_member}
+      ] do
+      live "/settings", AcsLive.SettingsLive, :index
       live "/settings/members", AcsLive.MembersLive, :index
     end
   end

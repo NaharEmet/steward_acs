@@ -25,19 +25,18 @@ defmodule AcsWeb.AcsLive.Index do
         locked_files: [],
         agent_status: %{},
         selected_status: "all",
-        can_reset_data: admin_user?(socket.assigns[:current_user]),
         pending_requests_count: Acs.MCP.ToolRequests.pending_count(),
         getting_started_dismissed: getting_started_dismissed?(socket)
       )
-      |> load_data()
 
     socket =
       if connected?(socket) do
         Phoenix.PubSub.subscribe(AcsWeb.PubSub, "acs")
-        # Remember dashboard access so Getting started stays hidden on later visits.
         push_event(socket, "store", %{key: @dashboard_seen_key, value: "1"})
-      else
+        send(self(), :load_data)
         socket
+      else
+        load_data(socket)
       end
 
     {:ok, socket}
@@ -70,26 +69,15 @@ defmodule AcsWeb.AcsLive.Index do
   end
 
   @impl true
-  def handle_event("reset-all", _, socket) do
-    if admin_user?(socket.assigns[:current_user]) do
-      Acs.reset_all()
-
-      {:noreply,
-       socket
-       |> put_flash(:info, "All Steward task, lock, and agent data has been reset.")
-       |> load_data()}
-    else
-      {:noreply,
-       put_flash(socket, :error, "Only organization administrators can reset workspace data.")}
-    end
-  end
-
-  @impl true
   def handle_event(_event, _params, socket) do
     {:noreply, socket}
   end
 
   @impl true
+  def handle_info(:load_data, socket) do
+    {:noreply, load_data(socket)}
+  end
+
   def handle_info({:task_created, _payload}, socket) do
     {:noreply, load_data(socket)}
   end
@@ -182,9 +170,9 @@ defmodule AcsWeb.AcsLive.Index do
     ~H"""
     <div class="acs-dashboard">
       <section class="account-intro animate-in" aria-labelledby="dashboard-title">
-        <p class="account-kicker"><span>Workspace</span> / Live operations</p>
-        <h1 id="dashboard-title">Workspace overview</h1>
-        <p>Monitor connected agents, active work, and file coordination in one place.</p>
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Workspace</span> / Live operations</p>
+        <h1 id="dashboard-title" style="font-size: 1.3rem; margin-bottom: 6px;">Workspace overview</h1>
+        <p style="font-size: 0.82rem;">Monitor connected agents, active work, and file coordination in one place.</p>
       </section>
 
       <%= if show_getting_started?(@agent_status, @tasks, @locked_files, @getting_started_dismissed) do %>
@@ -226,7 +214,7 @@ defmodule AcsWeb.AcsLive.Index do
       <% end %>
 
       <!-- Agent Status Section -->
-      <section style="margin-bottom: 28px;">
+      <section>
         <div class="section-header">
           <span class="status-dot working"></span>
           <h2 class="section-title">Active Agents</h2>
@@ -415,25 +403,6 @@ defmodule AcsWeb.AcsLive.Index do
         </section>
 
       </div>
-
-      <%= if @can_reset_data do %>
-        <section style="margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--border);" aria-labelledby="workspace-actions-title">
-          <div class="section-header" style="align-items: flex-start;">
-            <div>
-              <h2 id="workspace-actions-title" class="section-title">Workspace data</h2>
-              <p class="text-dim" style="font-size: 0.8rem; margin-top: 5px;">Administrative recovery actions. Resetting removes every task, file lock, and agent status in this workspace.</p>
-            </div>
-            <button
-              phx-click="reset-all"
-              data-confirm="Permanently delete all tasks, file locks, and agent statuses in this workspace? This cannot be undone."
-              class="btn btn-danger"
-              style="margin-left: auto;"
-            >
-              Reset workspace data
-            </button>
-          </div>
-        </section>
-      <% end %>
     </div>
     """
   end
@@ -447,16 +416,6 @@ defmodule AcsWeb.AcsLive.Index do
     connected?(socket) and
       get_connect_params(socket)["getting_started_dismissed"] in ["1", "true"]
   end
-
-  defp admin_user?(user) when is_map(user) do
-    role =
-      Map.get(user, :org_role) || Map.get(user, "org_role") || Map.get(user, :role) ||
-        Map.get(user, "role")
-
-    role in ["owner", "admin"]
-  end
-
-  defp admin_user?(_user), do: false
 
   # Status helpers
   defp status_dot_class("working"), do: "status-dot working"

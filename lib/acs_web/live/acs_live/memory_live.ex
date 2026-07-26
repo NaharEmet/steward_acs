@@ -38,9 +38,18 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         status_filter: "proposed",
         kind_filter: nil,
         search_query: "",
-        conflict_alerts: %{},
-        conflict_generation: nil
+        conflict_alerts: %{}
       )
+
+    socket =
+      if connected?(socket) do
+        send(self(), :load_data)
+        socket
+      else
+        load_data(socket)
+      end
+
+    if connected?(socket), do: send(self(), :check_conflicts)
 
     {:ok, socket}
   end
@@ -187,6 +196,15 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   end
 
   @impl true
+  def handle_info(:load_data, socket) do
+    {:noreply, load_data(socket)}
+  end
+
+  def handle_info(:check_conflicts, socket) do
+    {:noreply, assign(socket, conflict_alerts: compute_conflict_alerts(socket.assigns.memories, socket.assigns.status_filter))}
+  end
+
+  @impl true
   def handle_info(:refresh, socket) do
     {:noreply, load_data(socket)}
   end
@@ -200,17 +218,6 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   def handle_info(_msg, socket) do
     {:noreply, socket}
   end
-
-  @impl true
-  def handle_async(:load_conflicts, {:ok, {generation, alerts}}, socket) do
-    if socket.assigns.conflict_generation == generation do
-      {:noreply, assign(socket, conflict_alerts: alerts)}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_async(:load_conflicts, {:exit, _reason}, socket), do: {:noreply, socket}
 
   defp update_memory_status(socket, id, new_status, flash_opts) do
     case Indexer.update_status(id, new_status, socket.assigns.current_org) do
@@ -303,45 +310,26 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         end
       end
 
+    conflict_alerts = if connected?(socket), do: %{}, else: compute_conflict_alerts(memories, status_filter)
+
     selected_memory =
       if socket.assigns.selected_memory do
         Enum.find(memories, fn m -> m.id == socket.assigns.selected_memory.id end)
       end
 
-    socket =
-      assign(socket,
-        memories: memories,
-        selected_memory: selected_memory,
-        pending_count: pending_count,
-        approved_count: approved_count,
-        rejected_count: rejected_count,
-        quarantined_count: quarantined_count,
-        review_count: review_count,
-        conflict_alerts: %{}
-      )
-
-    start_conflict_check(socket, memories, status_filter, org)
+    assign(socket,
+      memories: memories,
+      selected_memory: selected_memory,
+      pending_count: pending_count,
+      approved_count: approved_count,
+      rejected_count: rejected_count,
+      quarantined_count: quarantined_count,
+      review_count: review_count,
+      conflict_alerts: conflict_alerts
+    )
   end
 
-  defp start_conflict_check(socket, memories, status_filter, org) do
-    generation = make_ref()
-    socket = socket |> cancel_async(:load_conflicts) |> assign(conflict_generation: generation)
-
-    if connected?(socket) and status_filter in [nil, "proposed"] do
-      start_async(socket, :load_conflicts, fn ->
-        alerts =
-          Acs.Org.with_current(org, fn ->
-            compute_conflict_alerts(memories, status_filter, org)
-          end)
-
-        {generation, alerts}
-      end)
-    else
-      socket
-    end
-  end
-
-  defp compute_conflict_alerts(memories, status_filter, org) do
+  defp compute_conflict_alerts(memories, status_filter) do
     # Conflict alerts only make sense for proposed (pending approval) memories
     if status_filter == nil || status_filter == "proposed" do
       proposed = Enum.filter(memories, fn m -> m.status == "proposed" end)
@@ -351,7 +339,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
           Acs.Memory.Search.list(
             scope_path: nil,
             status: "approved",
-            org: org
+            org: Acs.Org.current()
           )
 
         Enum.reduce(proposed, %{}, fn memory, acc ->
@@ -390,6 +378,12 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   def render(assigns) do
     ~H"""
     <div class="memory-governance">
+      <section class="account-intro animate-in" aria-labelledby="memories-title">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Knowledge</span> / Memories</p>
+        <h2 id="memories-title" style="font-size: 1.3rem; margin-bottom: 6px;">Memories</h2>
+        <p style="font-size: 0.82rem;">Agent memories store learnings, patterns, and eternal truths discovered during work.</p>
+      </section>
+
       <!-- Search Bar -->
       <div style="margin-bottom: 20px;">
         <form phx-change="search">
