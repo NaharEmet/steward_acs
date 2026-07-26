@@ -5,8 +5,8 @@ Supported setups (only these three):
 | Setup | Command |
 |-------|---------|
 | Local dev | `docker compose up -d` |
-| Multi-tenant prod (SQLite) | `docker compose -f docker-compose.multitenant.yml up -d` |
-| Multi-tenant prod (Postgres) | `docker compose -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d` |
+| Multi-tenant prod (Neon Postgres) | `docker compose -f docker-compose.multitenant.yml up -d` |
+| Multi-tenant + local Postgres container | `WITH_POSTGRES=true` / `-f docker-compose.postgres.yml` |
 
 Agent-facing detail lives in [`priv/skills/deployment.md`](../priv/skills/deployment.md). Keep that skill current; this guide is the human index.
 
@@ -26,11 +26,12 @@ docker compose up -d
 ## Multi-tenant production (canonical)
 
 ```bash
+# Thin non-secret config on the host
 cp .env.multitenant .env
-# fill SECRET_KEY_BASE, MCP_API_KEY, Auth0 web credentials, Syncthing keys, and MCP OAuth as needed
+# Secrets: Infisical steward_prod / prod (see guides/secrets.md)
+# Machine identity: .infisical.env with INFISICAL_UNIVERSAL_AUTH_CLIENT_ID/_SECRET
 # register https://${ACCOUNT_HOST}/auth/callback in the Auth0 Regular Web Application
-# ACCOUNT_HOST should be the ACS app host (prod.stewardacs.xyz), not the Astro apex
-docker compose -f docker-compose.multitenant.yml up -d
+./scripts/infisical-compose.sh -f docker-compose.multitenant.yml up -d
 ```
 
 Or deploy from a workstation with an immutable Git-SHA tag (clean tree required):
@@ -46,14 +47,35 @@ SERVER=ubuntu@YOUR_HOST ACS_IMAGE_TAG=<tag> ./scripts/deploy.sh --resume
 SERVER=ubuntu@YOUR_HOST ./scripts/deploy.sh --rollback
 ```
 
-`deploy.sh` cutover is a single SSH session (survives fewer mid-deploy drops). Images carry `org.opencontainers.image.revision` + `.dirty` labels for `status.sh`.
+`deploy.sh` cutover is a single SSH session (survives fewer mid-deploy drops). Images carry `org.opencontainers.image.revision` + `.dirty` labels for `status.sh`. Compose on the host runs through `scripts/infisical-compose.sh` (Infisical secrets + thin `.env`).
+
+### Neon database
+
+Prod uses one Postgres database on Neon (`DATABASE_URL` in Infisical `prod`). Prefer Neon's **pooled** connection string. Set `PGSSL=true` in thin `.env` (default in compose). Never commit the URL.
+
+Release entrypoint runs migrations on boot. Manual recovery:
+
+```bash
+./scripts/infisical-compose.sh -f docker-compose.multitenant.yml exec steward_acs \
+  /app/bin/steward_acs eval "Acs.Release.migrate"
+```
+
+### Local Postgres container (optional)
+
+When you want Postgres on the host instead of Neon:
+
+```bash
+# same .env plus DB_PASSWORD=; compose override sets DATABASE_URL to the local db
+docker compose -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
+# or: WITH_POSTGRES=true SERVER=ubuntu@HOST ./scripts/deploy.sh
+```
 
 ### GitHub Actions + new servers
 
 ```bash
 # One-time new host
 SERVER=ubuntu@NEW_HOST ./scripts/bootstrap-server.sh
-# fill secrets in remote .env, then:
+# write REMOTE_DIR/.infisical.env (machine identity), confirm Infisical prod secrets, then:
 SERVER=ubuntu@NEW_HOST ACS_IMAGE_TAG=<sha> ./scripts/bootstrap-server.sh --start
 ```
 
@@ -65,10 +87,11 @@ CI: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) builds/pus
 | Caddy | `Caddyfile.multitenant` |
 | Env template | `.env.multitenant` |
 | Image | `naharemete/steward_acs:${ACS_IMAGE_TAG:-multitenant}` |
-| DB (default) | SQLite at `/data/steward.sqlite` |
+| DB | Neon Postgres via `DATABASE_URL` (optional local Postgres override) |
 | Memory | Obsidian vaults under `/vaults` |
 | Auth | API/developer keys for services; Auth0 OIDC for individual dashboard users and human MCP access |
 | Syncthing admin | **Not** on public HTTPS — SSH tunnel to `127.0.0.1:8384` |
+| Email (optional) | Set `RESEND_API_KEY` + `RESEND_FROM_EMAIL` for invitation email; omit to keep copy-link only |
 
 ### Per-organization vault folders
 
@@ -114,6 +137,7 @@ docker compose -f docker-compose.multitenant.yml exec steward_acs \
   /app/bin/steward_acs eval "Acs.Release.migrate"
 ```
 
+
 ### Org registry
 
 `ORGS_FILE=/data/orgs.yaml` (volume). Seed from `priv/orgs.yaml` once if the volume copy is missing:
@@ -136,7 +160,7 @@ docker compose -f docker-compose.multitenant.yml exec steward_acs \
   /app/bin/steward_acs eval 'Acs.Release.bootstrap_owner("owner@example.com", "org-slug")'
 ```
 
-Keep `SELF_SERVICE_ORGS_ENABLED=false` until imports, owner bootstrap, wildcard DNS/TLS, and Auth0 callback settings are verified. New invitations initially expose a single-use link to the administrator for delivery; only the hash is stored.
+Keep `SELF_SERVICE_ORGS_ENABLED=false` until imports, owner bootstrap, wildcard DNS/TLS, and Auth0 callback settings are verified. New invitations email when Resend is configured (`RESEND_API_KEY` + `RESEND_FROM_EMAIL`); otherwise they expose a single-use link to the administrator. Only the token hash is stored.
 
 ### Axiom observability
 
@@ -150,10 +174,10 @@ AXIOM_DATASET=steward-acs
 
 Export is enabled only when the release runs in `prod` and `AXIOM_LOGS` is non-empty. Development and test never ship telemetry, even when a local `.env` contains the token. Keep the token ingest-scoped to the configured dataset.
 
-After deploying, request `/mcp/health`, exercise a database-backed route, and confirm both traces and log events arrive in the dataset. HTTP query-string values are redacted from spans; metrics are not exported.
+After deploying, request `/mcp/health`, exercise a database-backed route, and confirm both traces and log events arrive in the dataset. HTTP query-string values are redacted from spans. BEAM memory and scheduler utilization ship every 30s as `message == "vm.metrics"` events (not a separate OTLP metrics dataset).
 
 ### Secrets
 
-Use `pass` / untracked `.env` only. Never commit Axiom or Auth0 tokens. See [`guides/secrets.md`](secrets.md).
+Local: untracked `.env`. Multi-tenant prod: Infisical via `scripts/infisical-compose.sh` (thin host `.env` is non-secret config only). See [`guides/secrets.md`](secrets.md).
 
 Archived older compose files: [`archive/deploy/`](../archive/deploy/).

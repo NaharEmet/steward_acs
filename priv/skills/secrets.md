@@ -1,55 +1,63 @@
 ---
-audit_reasoning: "The skill provides clear, actionable steps for daily operations and first-time setup using pass. It includes verification (list secrets) and failure recovery (rotate credentials if leaked). The description is distinct from the name and content opening. It is unique compared to existing skills, which focus on deployment, installation, and Auth0 users, not secrets management."
-audit_score: 8
-audit_status: "ok"
-audited_at: "2026-07-15T14:43:57.812210Z"
-description: Managing secrets with pass (password-store)
+description: Local .env vs Infisical for multi-tenant prod secrets
 name: "secrets"
-scope_paths: ["guides/secrets", "guides/deployment", "config"]
+scope_paths: ["guides/secrets", "guides/deployment", "config", "scripts"]
 when_to_use: Before touching .env, deploying, or storing credentials — never commit secrets to git
-tags: ["secrets", "pass", "deploy"]
+tags: ["secrets", "infisical", "deploy", "env"]
 ---
 
 # Secrets Management
 
-Manage secrets with `pass` (password-store) — don't edit `.env` directly.
+Two paths only:
 
-## Daily ops (SSH into the server)
+| Environment | Source of truth |
+|-------------|-----------------|
+| **Local** (`docker compose` / `mix phx.server`) | Untracked `.env` (from `.env.example`) |
+| **Multi-tenant prod** | Infisical project `steward_prod` → env `prod` |
 
-```bash
-# Set/update a secret
-pass insert steward/SECRET_KEY_BASE
+Do **not** use `pass` for ACS. Do **not** put prod secrets in the server `.env`.
 
-# Read a secret
-pass show steward/SECRET_KEY_BASE
-
-# List all secrets
-pass ls steward/
-
-# Regenerate .env from pass store
-./scripts/secrets-env.sh -w .env
-```
-
-Regenerate `.env` after any change, then `docker compose up -d`.
-
-## First-time setup
+## Local
 
 ```bash
-# Install pass (one-time)
-sudo apt install pass    # Debian/Ubuntu
-brew install pass        # macOS
-
-# Generate a GPG key (one-time)
-gpg --full-generate-key
-
-# Initialize for this project
-pass init <YOUR_GPG_KEY_ID>
-mkdir -p ~/.password-store/steward
-pass insert steward/SECRET_KEY_BASE
+cp .env.example .env
+# fill keys you need for local (SQLite; no Neon DATABASE_URL)
+chmod 600 .env
+docker compose up -d
+# or: mix phx.server
 ```
 
-The container doesn't need `pass` — it receives env vars from Docker as before.
+Never commit `.env`. Never copy Infisical prod secrets into local `.env`.
+
+## Prod (Infisical)
+
+Secrets (and optional placeholders) live in Infisical. Agents may create/list **names** via Infisical MCP; humans paste **values** in the Infisical UI. Leave unused keys as blank or `REPLACE_ME` — inject skips those.
+
+### Host files (thin)
+
+| File | Purpose |
+|------|---------|
+| `.env` | Non-secret config only (hosts, `ACS_IMAGE_TAG`, flags). Template: `.env.multitenant` |
+| `.infisical.env` | Read-only machine identity (`INFISICAL_UNIVERSAL_AUTH_CLIENT_ID` / `_SECRET`). Mode 600. Never commit. |
+| `.env.infisical` | Generated at deploy time by `scripts/infisical-compose.sh` (gitignored). |
+
+### Deploy / compose
+
+```bash
+# On the prod host (or via scripts/deploy.sh cutover):
+./scripts/infisical-compose.sh -f docker-compose.multitenant.yml up -d
+```
+
+`deploy.sh` syncs `scripts/infisical-compose.sh` and runs compose through it.
+
+### Agent / MCP
+
+Cursor project MCP (`.cursor/mcp.json`, gitignored) can use Infisical Universal Auth to create/list secret **names**. Do not print secret values into chat. Confirm fills by name presence / “not REPLACE_ME”, not by dumping values.
+
+## Ops Auth0 M2M (not ACS runtime)
+
+`./scripts/setup-auth0.sh` and related scripts use `AUTH0_M2M_*` / `certs/Oauth.md`. Those are **not** loaded by the ACS app.
 
 ## Never commit live credentials
 
-Tracked templates (`.env.example`, `.env.multitenant`, `.env.remote`) must keep Auth0 / DB / API secrets empty. If a Management API secret ever lands in git history, rotate it in Auth0 immediately and scrub the file.
+Tracked templates (`.env.example`, `.env.multitenant`, `.env.remote`) keep secrets empty. If a secret lands in git, rotate it in the provider and scrub history.

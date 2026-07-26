@@ -24,7 +24,6 @@ defmodule Acs.MCP.CoreToolRoles do
     list_developer_keys
     revoke_developer_key
     create_org
-    create_user
     specs_approve
     specs_reject
   )

@@ -51,6 +51,7 @@ on:
       - "Caddyfile.multitenant"
       - "scripts/deploy.sh"
       - "scripts/bootstrap-server.sh"
+      - "scripts/infisical-compose.sh"
       - ".github/workflows/deploy.yml"
 
 concurrency:
@@ -100,7 +101,7 @@ jobs:
             ${{ env.REGISTRY }}:${{ steps.meta.outputs.tag }}
             ${{ env.REGISTRY }}:multitenant
           build-args: |
-            REPO_ADAPTER=sqlite
+            REPO_ADAPTER=postgres
             GIT_SHA=${{ steps.meta.outputs.tag }}
             GIT_DIRTY=clean
             SECRET_KEY_BASE=build_time_secret_key_base_not_used_at_runtime

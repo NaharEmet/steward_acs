@@ -117,10 +117,6 @@ defmodule Acs.MCP.Tools.AdminHandlers do
     end
   end
 
-  def create_user(_args) do
-    {:error, "MCP user creation is deprecated. Invite users from the dashboard instead."}
-  end
-
   defp format_datetime(nil), do: nil
   defp format_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
   defp format_datetime(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_iso8601(ndt)

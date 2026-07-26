@@ -13,14 +13,16 @@ audited_at: "2026-07-15T14:43:57.368487Z"
 
 ```bash
 # Local
+cp .env.example .env   # local secrets only — never Neon/prod Auth0
 docker compose up -d
 
-# Prod SQLite (canonical)
-cp .env.multitenant .env   # fill secrets
-docker compose -f docker-compose.multitenant.yml up -d
+# Prod Neon Postgres (canonical) — secrets from Infisical
+# Host: thin .env from .env.multitenant + .infisical.env (machine identity)
+./scripts/infisical-compose.sh -f docker-compose.multitenant.yml up -d
 
-# Prod Postgres override
-docker compose -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
+# Optional: local Postgres container instead of Neon
+./scripts/infisical-compose.sh -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
+# or: WITH_POSTGRES=true SERVER=ubuntu@HOST ./scripts/deploy.sh
 
 # Immutable remote deploy (from laptop) — clean tree required
 SERVER=ubuntu@HOST ./scripts/deploy.sh
@@ -42,7 +44,7 @@ SERVER=ubuntu@HOST ./scripts/deploy.sh --rollback
 
 # New server (once)
 SERVER=ubuntu@NEW_HOST ./scripts/bootstrap-server.sh
-# fill .env on the host, then:
+# then write REMOTE_DIR/.infisical.env (machine identity), confirm Infisical prod secrets, then:
 SERVER=ubuntu@NEW_HOST ACS_IMAGE_TAG=<tag> ./scripts/bootstrap-server.sh --start
 ```
 
@@ -59,19 +61,22 @@ Workflow: [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)
 | Setup | Compose | Notes |
 |-------|---------|-------|
 | Local | `docker-compose.yml` | SQLite, port 4001 |
-| Prod SQLite | `docker-compose.multitenant.yml` + `Caddyfile.multitenant` | Current stewardacs prod |
-| Prod Postgres | above + `docker-compose.postgres.yml` | For upcoming migration |
+| Prod Neon | `docker-compose.multitenant.yml` + `Caddyfile.multitenant` | Canonical; set `DATABASE_URL` |
+| Local Postgres override | above + `docker-compose.postgres.yml` | Optional; `WITH_POSTGRES=true` |
 
 Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/` and must not be used.
 
 ## Env templates
 
-- Local: `.env.example` → `.env`
-- Prod: `.env.multitenant` → `.env`
-- Dashboard Auth0 OIDC: `OIDC_BROWSER_ENABLED`, `ACCOUNT_HOST` (ACS app host, e.g. `prod.stewardacs.xyz` — not the Astro apex), and `AUTH0_WEB_*` / callback on that host.
+- Local: `.env.example` → `.env` (all local secrets here)
+- Prod thin config: `.env.multitenant` → host `.env` (non-secrets only: hosts, `ACS_IMAGE_TAG`, flags)
+- Prod secrets: Infisical `steward_prod` / `prod` via `scripts/infisical-compose.sh`
+- Host Infisical agent: `.infisical.env` with Universal Auth machine identity (read-only)
+- Neon: `DATABASE_URL` in Infisical (pooled string preferred); `PGSSL` / `POOL_SIZE` may be thin `.env`
+- Dashboard Auth0 OIDC: `AUTH0_WEB_*` in Infisical; `ACCOUNT_HOST` / callback URI in thin `.env`
 - Self-service org creation: keep `SELF_SERVICE_ORGS_ENABLED=false` through migration/bootstrap, then enable deliberately.
-- Auth0 M2M: `AUTH0_MGMT_CLIENT_ID` / `AUTH0_MGMT_CLIENT_SECRET` (aliases: `AUTH0_M2M_*`). Keep in `pass`, never in git.
-- Axiom (optional): `AXIOM_LOGS` (ingest token), `AXIOM_DATASET` (defaults to `steward-acs`), and `AXIOM_DOMAIN` only for edge deployments. Export is strictly prod-only and disabled without the token.
+- Auth0 M2M for ops scripts only (`./scripts/setup-auth0.sh`, etc.): `AUTH0_M2M_*` / `certs/Oauth.md` — not loaded by the ACS app.
+- Axiom (optional): `AXIOM_LOGS` in Infisical; `AXIOM_DATASET` may be thin `.env`. Export is strictly prod-only and disabled without the token.
 
 ## Migrations
 
@@ -84,6 +89,10 @@ docker compose -f docker-compose.multitenant.yml exec steward_acs \
 
 Do **not** use `mix ecto.migrate` against the release image (no Mix).
 
+## Backups
+
+- **DB:** Neon PITR / console export (not `backup-prod.sh`).
+- **Vaults + orgs.yaml:** `SERVER=ubuntu@HOST ./scripts/backup-prod.sh`
 ## Syncthing
 
 Admin UI is loopback-only (`127.0.0.1:8384`). Tunnel:
@@ -108,7 +117,7 @@ docker compose -f docker-compose.multitenant.yml exec steward_acs \
   /app/bin/steward_acs eval 'Acs.Release.bootstrap_owner("owner@example.com", "org-slug")'
 ```
 
-The YAML registry remains a read-only compatibility fallback during rollout. New organizations come from onboarding; MCP `create_org` and `create_user` are deprecated.
+The YAML registry remains a read-only compatibility fallback during rollout. New organizations come from onboarding; MCP `create_org` is deprecated. Claude Connector users are created in Auth0 (dashboard or `./scripts/setup-auth0.sh`), not via ACS.
 
 ## Smoke checks after deploy
 
@@ -119,7 +128,7 @@ The YAML registry remains a read-only compatibility fallback during rollout. New
 3. Invite a member, copy the one-time link, accept with the exact verified email, and verify `/settings/members`
 4. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
 5. No `inotify-tools` errors in `docker logs steward_acs`
-6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request
+6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request. After deploy, `message == "vm.metrics"` events appear every ~30s (BEAM memory + scheduler utilization).
 
 ## Agent deploy rules
 

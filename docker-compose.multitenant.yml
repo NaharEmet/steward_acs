@@ -38,7 +38,7 @@ services:
       dockerfile: Dockerfile
       target: release
       args:
-        REPO_ADAPTER: sqlite
+        REPO_ADAPTER: postgres
     image: naharemete/steward_acs:${ACS_IMAGE_TAG:-multitenant}
     container_name: steward_acs
     restart: unless-stopped
@@ -51,8 +51,12 @@ services:
       MULTI_TENANT: "true"
       ACS_ORG_NAME: "${ACS_ORG_NAME:-default}"
       BASE_DOMAIN: "${BASE_DOMAIN:-stewardacs.xyz}"
-      REPO_ADAPTER: sqlite
-      DATABASE_PATH: /data/steward.sqlite
+      REPO_ADAPTER: postgres
+      # Neon/Postgres. Empty DATABASE_PATH so runtime does not force SQLite.
+      DATABASE_PATH: ""
+      DATABASE_URL: "${DATABASE_URL:?Set DATABASE_URL to Neon postgres connection string}"
+      PGSSL: "${PGSSL:-true}"
+      POOL_SIZE: "${POOL_SIZE:-10}"
       ORGS_FILE: /data/orgs.yaml
       SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
       MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
@@ -61,8 +65,6 @@ services:
       AUTH0_DOMAIN: "${AUTH0_DOMAIN:-}"
       AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-}"
       AUTH0_ISSUER: "${AUTH0_ISSUER:-}"
-      AUTH0_MGMT_CLIENT_ID: "${AUTH0_MGMT_CLIENT_ID:-}"
-      AUTH0_MGMT_CLIENT_SECRET: "${AUTH0_MGMT_CLIENT_SECRET:-}"
       AUTH0_CONNECTION: "${AUTH0_CONNECTION:-email}"
       OAUTH_FIXED_DCR_CLIENT_ID: "${OAUTH_FIXED_DCR_CLIENT_ID:-}"
       MCP_PUBLIC_URL: "${MCP_PUBLIC_URL:-https://prod.stewardacs.xyz}"

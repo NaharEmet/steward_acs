@@ -6,10 +6,12 @@ SERVER="${SERVER:-}"
 REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/steward_acs}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.multitenant.yml}"
 
-# Keys we expect in prod .env (presence only). Optional keys reported separately.
+# Keys we expect after Infisical inject (presence only). Optional keys reported separately.
+# Thin .env holds non-secrets; .env.infisical holds secrets from last compose inject.
 REQUIRED_ENV_KEYS=(
   SECRET_KEY_BASE
   MCP_API_KEY
+  DATABASE_URL
   ACS_IMAGE_TAG
   MCP_PUBLIC_URL
 )
@@ -61,9 +63,16 @@ cd "$REMOTE_DIR"
 echo "compose_file=${COMPOSE_FILE}"
 if [[ -f "$COMPOSE_FILE" ]]; then echo compose_present=yes; else echo compose_present=no; fi
 echo "env_mode=$(stat -c '%a' .env 2>/dev/null || echo n/a)"
+echo "infisical_agent=$(test -f .infisical.env && echo yes || echo no)"
+echo "infisical_secrets_file=$(test -f .env.infisical && echo yes || echo no)"
+echo "infisical_compose=$(test -x scripts/infisical-compose.sh && echo yes || echo no)"
 
 env_has() {
   local key="$1"
+  # Prefer injected secrets file, then thin .env (non-secrets like ACS_IMAGE_TAG / MCP_PUBLIC_URL).
+  if [[ -f .env.infisical ]] && grep -qE "^${key}=." .env.infisical 2>/dev/null; then
+    return 0
+  fi
   [[ -f .env ]] && grep -qE "^${key}=." .env 2>/dev/null
 }
 

@@ -41,7 +41,7 @@ Production deployment remains **conditional** until the operational items in “
 - `mix hex.audit` — no retired or advisory-affected locked packages.
 - `mix deps.unlock --check-unused` — enforced in CI; unused lock entries were pruned.
 - `git diff --check` — passed.
-- Shell syntax checks for `bin/setup.sh`, `scripts/deploy.sh`, and `scripts/secrets-env.sh` — passed.
+- Shell syntax checks for `bin/setup.sh`, `scripts/deploy.sh`, and `scripts/infisical-compose.sh` — passed.
 - Focused security regression suite — 107 tests, 0 failures before the final full-suite run.
 
 Docker Compose validation could not be executed in the audit environment because the Docker CLI is not installed. It must be run in CI or on the deployment host before release.

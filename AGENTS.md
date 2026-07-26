@@ -8,7 +8,7 @@ Check if `@AGENTS_STEWARD.md` exists. If yes, follow the instructions there. If 
 
 Project-specific workflows live in `guides/`. Check them before starting work:
 
-- [`guides/secrets.md`](guides/secrets.md) — managing secrets with `pass`
+- [`guides/secrets.md`](guides/secrets.md) — local `.env` vs Infisical for multi-tenant prod
 - [`guides/steward-installer.md`](guides/steward-installer.md) — installing ACS for new users
 - [`guides/deployment.md`](guides/deployment.md) — local + multi-tenant prod (+ Postgres override)
 - [`priv/skills/steward-installer.md`](priv/skills/steward-installer.md) — installer walkthrough (`bin/setup.sh`)
