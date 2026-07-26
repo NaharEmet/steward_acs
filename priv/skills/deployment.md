@@ -76,7 +76,7 @@ Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/
 - Dashboard Auth0 OIDC: `AUTH0_WEB_*` in Infisical; `ACCOUNT_HOST` / callback URI in thin `.env`
 - Self-service org creation: keep `SELF_SERVICE_ORGS_ENABLED=false` through migration/bootstrap, then enable deliberately.
 - Auth0 M2M for ops scripts only (`./scripts/setup-auth0.sh`, etc.): `AUTH0_M2M_*` / `certs/Oauth.md` — not loaded by the ACS app.
-- Axiom (optional): `AXIOM_LOGS` in Infisical; `AXIOM_DATASET` / `AXIOM_METRICS_DATASET` / `COMPOSE_PROFILES=axiom` may be thin `.env`. Hostmetrics: `otel_collector`. Dashboard: `./scripts/axiom-upsert-server-dashboard.sh`. Export is prod-only.
+- Axiom (optional): secret `AXIOM_LOGS` in Infisical only; thin `.env` has `AXIOM_DATASET` / `AXIOM_METRICS_DATASET` / `COMPOSE_PROFILES=axiom`. Hostmetrics: `otel_collector`. Dashboard: `./scripts/axiom-upsert-server-dashboard.sh`. Export is prod-only.
 
 ## Migrations
 

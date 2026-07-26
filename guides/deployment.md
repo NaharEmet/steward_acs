@@ -168,17 +168,17 @@ Production can export inbound HTTP/Phoenix/Ecto traces and structured applicatio
 
 1. Create an **Events** dataset (logs/traces) and a **Metrics** dataset (hostmetrics) in Axiom.
 2. Give an ingest token access to both datasets.
-3. Set in Infisical / thin `.env`:
+3. **Infisical** (`steward_prod` / `prod`): set secret `AXIOM_LOGS` (ingest token). Never put it in the host thin `.env`.
+4. Thin host `.env` (non-secret only):
 
 ```bash
-AXIOM_LOGS=xaat-your-ingest-token
 AXIOM_DATASET=steward-acs
 AXIOM_METRICS_DATASET=steward-acs-metrics
 # AXIOM_DOMAIN=https://us-east-1.aws.edge.axiom.co  # edge URL preferred for OTLP
 COMPOSE_PROFILES=axiom
 ```
 
-App export is enabled only when the release runs in `prod` and `AXIOM_LOGS` is non-empty. Development and test never ship telemetry. Keep the token ingest-scoped to the configured datasets.
+App export is enabled only when the release runs in `prod` and Infisical injects a non-empty `AXIOM_LOGS`. Development and test never ship telemetry. Keep the token ingest-scoped to the configured datasets.
 
 `COMPOSE_PROFILES=axiom` starts `otel_collector` (see `otel/collector-config.yaml`), which scrapes host CPU/memory/disk/network every 30s into `AXIOM_METRICS_DATASET`.
 
