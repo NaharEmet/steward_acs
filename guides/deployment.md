@@ -164,17 +164,32 @@ Keep `SELF_SERVICE_ORGS_ENABLED=false` until imports, owner bootstrap, wildcard 
 
 ### Axiom observability
 
-Production can export inbound HTTP/Phoenix/Ecto traces and structured application logs to Axiom. Create an **Events** dataset in Axiom once, then set these values in the untracked production `.env`:
+Production can export inbound HTTP/Phoenix/Ecto traces and structured application logs to Axiom, plus optional host metrics via an OTel collector sidecar.
+
+1. Create an **Events** dataset (logs/traces) and a **Metrics** dataset (hostmetrics) in Axiom.
+2. Give an ingest token access to both datasets.
+3. Set in Infisical / thin `.env`:
 
 ```bash
 AXIOM_LOGS=xaat-your-ingest-token
 AXIOM_DATASET=steward-acs
-# AXIOM_DOMAIN=https://api.axiom.co  # only needed for an Axiom edge deployment
+AXIOM_METRICS_DATASET=steward-acs-metrics
+# AXIOM_DOMAIN=https://us-east-1.aws.edge.axiom.co  # edge URL preferred for OTLP
+COMPOSE_PROFILES=axiom
 ```
 
-Export is enabled only when the release runs in `prod` and `AXIOM_LOGS` is non-empty. Development and test never ship telemetry, even when a local `.env` contains the token. Keep the token ingest-scoped to the configured dataset.
+App export is enabled only when the release runs in `prod` and `AXIOM_LOGS` is non-empty. Development and test never ship telemetry. Keep the token ingest-scoped to the configured datasets.
 
-After deploying, request `/mcp/health`, exercise a database-backed route, and confirm both traces and log events arrive in the dataset. HTTP query-string values are redacted from spans. BEAM memory and scheduler utilization ship every 30s as `message == "vm.metrics"` events (not a separate OTLP metrics dataset).
+`COMPOSE_PROFILES=axiom` starts `otel_collector` (see `otel/collector-config.yaml`), which scrapes host CPU/memory/disk/network every 30s into `AXIOM_METRICS_DATASET`.
+
+After deploying, request `/mcp/health`, exercise a database-backed route, and confirm traces and log events arrive. BEAM `message == "vm.metrics"` Events (when VmMetrics is deployed) complement hostmetrics. Create/update the monitoring dashboard:
+
+```bash
+AXIOM_TOKEN=xaat-… AXIOM_DATASET=steward-acs AXIOM_METRICS_DATASET=steward-acs-metrics \
+  ./scripts/axiom-upsert-server-dashboard.sh
+```
+
+That script ensures the Metrics dataset exists and upserts the **Steward ACS — server** dashboard (host MPL panels + BEAM `vm.metrics` APL panels).
 
 ### Secrets
 

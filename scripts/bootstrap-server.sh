@@ -68,6 +68,9 @@ fi
 if [[ -f priv/orgs.yaml ]]; then
   scp priv/orgs.yaml "${SERVER}:${REMOTE_DIR}/priv/orgs.yaml"
 fi
+if [[ -d otel ]]; then
+  scp -r otel "${SERVER}:${REMOTE_DIR}/"
+fi
 
 if ssh "${SERVER}" "test -f '${REMOTE_DIR}/.env'"; then
   info "Remote thin .env already present — leaving it"

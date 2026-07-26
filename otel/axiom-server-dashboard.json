@@ -1,0 +1,87 @@
+{
+  "name": "Steward ACS — server",
+  "description": "Host CPU/memory/disk/network (OTel hostmetrics) plus BEAM vm.metrics from the ACS Events dataset.",
+  "owner": "X-AXIOM-EVERYONE",
+  "refreshTime": 60,
+  "schemaVersion": 2,
+  "timeWindowStart": "qr-now-6h",
+  "timeWindowEnd": "qr-now",
+  "charts": [
+    {
+      "id": "cpu",
+      "type": "TimeSeries",
+      "name": "CPU utilization (non-idle)",
+      "query": {
+        "mpl": "__METRICS_DATASET__:`system.cpu.utilization`\n| where state != \"idle\" and state != \"interrupt\" and state != \"nice\"\n| align to 1m using avg\n| group by state using avg"
+      }
+    },
+    {
+      "id": "mem",
+      "type": "TimeSeries",
+      "name": "Memory utilization",
+      "query": {
+        "mpl": "__METRICS_DATASET__:`system.memory.utilization`\n| where state == \"used\"\n| align to 1m using avg\n| group using avg"
+      }
+    },
+    {
+      "id": "load",
+      "type": "TimeSeries",
+      "name": "Load average",
+      "query": {
+        "mpl": "__METRICS_DATASET__:`system.cpu.load_average.1m`\n| align to 1m using avg\n| group using avg"
+      }
+    },
+    {
+      "id": "disk",
+      "type": "TimeSeries",
+      "name": "Filesystem utilization",
+      "query": {
+        "mpl": "__METRICS_DATASET__:`system.filesystem.utilization`\n| align to 1m using avg\n| group by mountpoint using avg"
+      }
+    },
+    {
+      "id": "net",
+      "type": "TimeSeries",
+      "name": "Network IO",
+      "query": {
+        "mpl": "__METRICS_DATASET__:`system.network.io`\n| align to 1m using prom::rate\n| group by device, direction using sum"
+      }
+    },
+    {
+      "id": "beam_mem",
+      "type": "TimeSeries",
+      "name": "BEAM memory (vm.metrics)",
+      "query": {
+        "apl": "['__EVENTS_DATASET__']\n| where ['message'] == \"vm.metrics\"\n| summarize avg_memory=avg(['memory_total_bytes']), avg_sched=avg(['scheduler_utilization']) by bin(_time, 1m)"
+      }
+    },
+    {
+      "id": "beam_stat",
+      "type": "Statistic",
+      "name": "BEAM scheduler util (latest)",
+      "colorScheme": "Teal",
+      "query": {
+        "apl": "['__EVENTS_DATASET__']\n| where ['message'] == \"vm.metrics\"\n| summarize v=avg(['scheduler_utilization'])"
+      }
+    },
+    {
+      "id": "cgroup_stat",
+      "type": "Statistic",
+      "name": "Container cgroup CPU (latest)",
+      "colorScheme": "Orange",
+      "query": {
+        "apl": "['__EVENTS_DATASET__']\n| where ['message'] == \"vm.metrics\"\n| summarize v=avg(['cgroup_cpu_utilization'])"
+      }
+    }
+  ],
+  "layout": [
+    { "i": "cpu", "x": 0, "y": 0, "w": 6, "h": 3 },
+    { "i": "mem", "x": 6, "y": 0, "w": 6, "h": 3 },
+    { "i": "load", "x": 0, "y": 3, "w": 4, "h": 3 },
+    { "i": "disk", "x": 4, "y": 3, "w": 4, "h": 3 },
+    { "i": "net", "x": 8, "y": 3, "w": 4, "h": 3 },
+    { "i": "beam_mem", "x": 0, "y": 6, "w": 8, "h": 3 },
+    { "i": "beam_stat", "x": 8, "y": 6, "w": 2, "h": 3 },
+    { "i": "cgroup_stat", "x": 10, "y": 6, "w": 2, "h": 3 }
+  ]
+}

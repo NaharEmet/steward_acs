@@ -125,6 +125,9 @@ if [[ "$MODE" != "rollback" ]]; then
   if [[ -f priv/orgs.yaml ]]; then
     scp priv/orgs.yaml "${SERVER}:${REMOTE_DIR}/priv/orgs.yaml"
   fi
+  if [[ -d otel ]]; then
+    scp -r otel "${SERVER}:${REMOTE_DIR}/"
+  fi
 fi
 
 # --- single remote cutover (pull/up/caddy/health) ---
@@ -206,6 +209,12 @@ ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose pull steward_acs
 
 echo "[remote] up steward_acs"
 ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --remove-orphans steward_acs
+
+# Host metrics sidecar when COMPOSE_PROFILES includes axiom (see .env.multitenant).
+if ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose config --services 2>/dev/null | grep -qx otel_collector; then
+  echo "[remote] up otel_collector"
+  ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --pull missing otel_collector
+fi
 
 echo "[remote] recreate caddy"
 ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --force-recreate caddy

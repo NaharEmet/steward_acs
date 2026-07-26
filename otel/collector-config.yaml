@@ -1,0 +1,67 @@
+# OpenTelemetry Collector — host metrics → Axiom Metrics dataset.
+# Env vars expanded by the collector: AXIOM_DOMAIN, AXIOM_LOGS, AXIOM_METRICS_DATASET.
+#
+# Requires a Metrics-kind dataset (otel:metrics:v1), not the Events logs/traces dataset.
+# Header must be x-axiom-metrics-dataset (not x-axiom-dataset).
+
+receivers:
+  hostmetrics:
+    root_path: /hostfs
+    collection_interval: 30s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      load:
+      filesystem:
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+        exclude_fs_types:
+          fs_types:
+            - tmpfs
+            - squashfs
+            - overlay
+            - nsfs
+          match_type: strict
+      network:
+        metrics:
+          system.network.io:
+            enabled: true
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 256
+    spike_limit_mib: 64
+  resourcedetection:
+    detectors: [env, system]
+    timeout: 5s
+    system:
+      hostname_sources: [os]
+  batch:
+    send_batch_size: 512
+    timeout: 10s
+
+exporters:
+  otlphttp/axiom:
+    compression: zstd
+    endpoint: ${env:AXIOM_DOMAIN}
+    headers:
+      authorization: Bearer ${env:AXIOM_LOGS}
+      x-axiom-metrics-dataset: ${env:AXIOM_METRICS_DATASET}
+
+service:
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [otlphttp/axiom]
