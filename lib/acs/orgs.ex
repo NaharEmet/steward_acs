@@ -31,12 +31,14 @@ defmodule Acs.Orgs do
 
   def get_by_slug(slug) when is_binary(slug) do
     slug = normalize_subdomain(slug)
-    Enum.find(list_all(), &(&1.slug == slug))
+    Repo.get_by(Organization, slug: slug) || Enum.find(load_yaml_orgs(), &(&1.slug == slug))
   end
 
   def get_by_subdomain(subdomain) when is_binary(subdomain) do
     subdomain = normalize_subdomain(subdomain)
-    Enum.find(list_all(), &(&1.subdomain == subdomain))
+
+    Repo.get_by(Organization, subdomain: subdomain) ||
+      legacy_org_by_subdomain(subdomain)
   end
 
   def resolve_subdomain(subdomain) do
@@ -177,6 +179,18 @@ defmodule Acs.Orgs do
       Map.has_key?(attrs, :slug) -> Map.put(attrs, :subdomain, Map.get(attrs, :slug))
       Map.has_key?(attrs, "slug") -> Map.put(attrs, "subdomain", Map.get(attrs, "slug"))
       true -> attrs
+    end
+  end
+
+  defp legacy_org_by_subdomain(subdomain) do
+    case Enum.find(load_yaml_orgs(), &(&1.subdomain == subdomain)) do
+      %Organization{slug: slug} = legacy ->
+        if Repo.exists?(from organization in Organization, where: organization.slug == ^slug),
+          do: nil,
+          else: legacy
+
+      nil ->
+        nil
     end
   end
 

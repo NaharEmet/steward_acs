@@ -172,6 +172,8 @@ defmodule Acs.Accounts do
     :ok
   end
 
+  def organization_for_user(%User{organization: %Organization{} = organization}), do: organization
+
   def organization_for_user(%User{organization_id: organization_id})
       when is_integer(organization_id) do
     Repo.get(Organization, organization_id)

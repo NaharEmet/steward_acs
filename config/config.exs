@@ -74,6 +74,8 @@ config :logger, :console,
     :latency_ms,
     :error_type,
     :component,
+    :live_view,
+    :page,
     :service,
     :count
   ]

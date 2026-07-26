@@ -44,19 +44,19 @@ defmodule Acs.Accounts.UserToken do
         cutoff = DateTime.add(DateTime.utc_now(), -validity, unit)
 
         query =
-          from token in token_and_context_query(hashed_token, context),
-            join: user in assoc(token, :user),
-            where: token.inserted_at > ^cutoff,
-            select: user
+          from user in Acs.Accounts.User,
+            join: token in __MODULE__,
+            on: token.user_id == user.id,
+            left_join: organization in assoc(user, :organization),
+            where:
+              token.token == ^hashed_token and token.context == ^context and
+                token.inserted_at > ^cutoff,
+            preload: [organization: organization]
 
         {:ok, query}
 
       :error ->
         :error
     end
-  end
-
-  defp token_and_context_query(token, context) do
-    from __MODULE__, where: [token: ^token, context: ^context]
   end
 end

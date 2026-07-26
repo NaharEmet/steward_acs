@@ -140,7 +140,15 @@ defmodule AcsWeb.UserAuth do
     case session["current_org"] do
       org when is_binary(org) and org != "" ->
         :ok = Acs.Org.put_current(org)
-        organization = Orgs.get_by_slug(org)
+        organization =
+          case socket.assigns[:current_user] do
+            %{organization: %_struct{slug: ^org} = preloaded} ->
+              preloaded
+
+            _ ->
+              Orgs.get_by_slug(org)
+          end
+
         socket = Phoenix.Component.assign(socket, :current_org, org)
         {:cont, Phoenix.Component.assign(socket, :organization, organization)}
 
