@@ -667,7 +667,8 @@ defmodule Acs.MCP.ToolRegistry do
          permissions: context[:permissions] || context["permissions"] || [],
          allowed_teams: context[:allowed_teams] || context["allowed_teams"],
          allowed_projects: context[:allowed_projects] || context["allowed_projects"],
-         agent_id: context[:agent_id] || context["agent_id"]
+         agent_id: context[:agent_id] || context["agent_id"],
+         audience: context[:audience] || context["audience"]
        }}
     else
       {:error, "Missing authentication context"}
@@ -687,8 +688,10 @@ defmodule Acs.MCP.ToolRegistry do
       "_auth_permissions" => auth.permissions,
       "_auth_allowed_teams" => auth.allowed_teams,
       "_auth_allowed_projects" => auth.allowed_projects,
-      "_auth_agent_id" => auth.agent_id
+      "_auth_agent_id" => auth.agent_id,
+      "_auth_audience" => auth[:audience] && to_string(auth[:audience])
     })
+    |> Map.reject(fn {_k, v} -> is_nil(v) end)
   end
 
   defp filter_category(tools, nil), do: tools

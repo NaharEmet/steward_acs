@@ -119,7 +119,7 @@ defmodule Acs.MCP.Plugs.MCPAuth do
        )
        when is_binary(issuer) and issuer != "" and is_binary(subject) and subject != "" do
     if accounts_authorization_available?() do
-      case Acs.Accounts.get_user_by_oidc_identity(issuer, subject) do
+      case resolve_oidc_user(issuer, subject, result, request_org) do
         nil ->
           {:error, "OAuth user is not authorized for this organization"}
 
@@ -132,6 +132,25 @@ defmodule Acs.MCP.Plugs.MCPAuth do
   end
 
   defp authorize_oidc_user(result, _request_org), do: {:ok, result}
+
+  # Claude MCP forces Auth0 connection=email; web login often uses Google. Same person,
+  # different `sub`. Fall back to verified email within the request org.
+  defp resolve_oidc_user(issuer, subject, result, request_org) do
+    case Acs.Accounts.get_user_by_oidc_identity(issuer, subject) do
+      %{id: _} = user ->
+        user
+
+      nil ->
+        email = result[:email] || result["email"]
+
+        if is_binary(email) and email != "" and
+             function_exported?(Acs.Accounts, :get_user_by_email, 2) do
+          Acs.Accounts.get_user_by_email(email, resolved_request_org(request_org))
+        else
+          nil
+        end
+    end
+  end
 
   defp authorize_local_user(result, user, request_org) do
     request_org = resolved_request_org(request_org)

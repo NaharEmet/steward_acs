@@ -149,7 +149,8 @@ defmodule Acs do
 
         guidance =
           unless opts[:skip_guidance] do
-            Acs.Memory.Guidance.for_task(task.id, tier: :claim)
+            mode = Keyword.get(opts, :mode, :mcp)
+            Acs.Memory.Guidance.for_task(task.id, tier: :claim, mode: mode)
           end
 
         {:ok, task, guidance}

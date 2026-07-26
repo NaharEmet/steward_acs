@@ -139,6 +139,49 @@ defmodule Acs.Memory.GuidanceTest do
       assert String.contains?(packet.maintenance_instructions, "save_memory")
       assert String.contains?(packet.maintenance_instructions, "specs_propose")
     end
+
+    test "includes org_knowledge_conventions for business and code scopes" do
+      packet = Guidance.generate("acme/support/refunds")
+
+      assert is_binary(packet.org_knowledge_conventions)
+      assert packet.org_knowledge_conventions =~ "acme/sales/pricing"
+      assert packet.org_knowledge_conventions =~ "memories"
+      assert packet.org_knowledge_conventions =~ "skills"
+    end
+
+    test "knowledge mode omits file locking protocol" do
+      packet = Guidance.generate("acme/sales/pricing", mode: :knowledge, tier: :full)
+
+      assert packet.mode == :knowledge
+      assert packet.file_locking_protocol in [nil, ""]
+      assert packet.workflow_basics =~ "retrieve org knowledge"
+      refute packet.workflow_basics =~ "lock_file"
+    end
+  end
+
+  describe "task_context business domains" do
+    test "pricing titles get commercial context" do
+      {:ok, task} =
+        Acs.create_task(
+          %{"title" => "Update Q3 pricing discounts", "description" => "", "file_paths" => []},
+          "test_agent"
+        )
+
+      packet = Guidance.for_task(task.id)
+      assert packet.task_context =~ "Pricing"
+      assert packet.task_context =~ "org/sales/pricing"
+    end
+
+    test "refund titles get support context" do
+      {:ok, task} =
+        Acs.create_task(
+          %{"title" => "Clarify refund policy for tickets", "description" => "", "file_paths" => []},
+          "test_agent"
+        )
+
+      packet = Guidance.for_task(task.id)
+      assert packet.task_context =~ "Support"
+    end
   end
 
   # Helper functions

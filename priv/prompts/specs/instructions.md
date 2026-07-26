@@ -31,10 +31,23 @@ Use when the user or agent produced a **document** to keep or share:
 
 Required: `document_type`, `title`, `content` (full markdown). Optional: `source` (file path or asset URL), `project`, `tags`.
 
+## Scope convention (org knowledge structure)
+
+`scope_path` / document paths are hierarchical labels for **how the org is structured**, not only code:
+
+- Business: `acme/sales/pricing`, `acme/support/refunds`, `acme/ops/onboarding`, `acme/policy/privacy`
+- Code: `acs/memory/guidance` under app `steward_acs`
+
+What goes where:
+- **memories** — short eternal truths
+- **specs** — long shareable documents (this tool)
+- **skills** — repeatable procedures
+
 Path examples:
 - Code: `app: steward_acs`, `path: acs/memory/guidance`
 - Project doc: `app: acme-corp`, `path: documents/project/onboarding-brief`
 - Marketing: `app: acme-corp`, `path: documents/marketing/q3-launch-copy`
+- Policy: `app: acme-corp`, `path: documents/policy/refunds`
 
 ## When code and a module spec disagree
 

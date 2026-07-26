@@ -7,19 +7,29 @@ Skills are reusable workflow guides — step-by-step know-how for repeatable tas
 
 ## Writing a good skill
 
-1. **name** — short kebab-case identifier (e.g. `deployment`, `secrets-management`)
+1. **name** — short kebab-case identifier (e.g. `deployment`, `secrets-management`, `refund-playbook`)
 2. **description** — one sentence: what this skill covers and when to use it (must differ from name)
 3. **tags** — at least one tag for discovery (e.g. `["deployment", "ops"]`)
-4. **content** — markdown body with:
+4. **scope_paths** — business domains and/or code paths this skill applies to (e.g. `["acme/support/refunds"]` or `["guides/deployment"]`)
+5. **content** — markdown body with:
    - When to use this skill
    - Prerequisites
    - Numbered steps (commands, file paths, verification)
    - Common failures and how to recover
 
+## Scope convention
+
+Scopes are hierarchical labels for **org structure**, not only files:
+- Business: `org/domain/topic` (e.g. `acme/sales/pricing`, `acme/support/refunds`)
+- Code: module/path areas (e.g. `lib/acs/memory`)
+
+Set `scope_paths` on each skill so agents entering that scope receive it in `relevant_skills` from `claim_work` or `generate_guidance_packet`.
+
 ## Examples of GOOD skills
 
 - `deployment` — compares local vs org-memory deployment with compose files and verification steps
 - `secrets-management` — how to use `pass`, what never to commit, rotation workflow
+- `refund-playbook` — support refund steps scoped to `acme/support/refunds`
 
 ## Examples of BAD skills
 
@@ -36,5 +46,3 @@ Skills are reusable workflow guides — step-by-step know-how for repeatable tas
 - `skill_get()` — full catalog with `when_to_use` for every skill
 - `skill_save(name, content, tags, description, scope_paths, when_to_use)` — create or update
 - `skill_audit_status()` — run LLM quality audit on all skills
-
-Set `scope_paths` on each skill so agents entering that scope receive it in `relevant_skills` from `claim_work` or `generate_guidance_packet`.

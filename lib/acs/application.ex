@@ -53,6 +53,7 @@ defmodule Acs.Application do
           Acs.Acs.SleepRegistry,
           Acs.MCP.RateLimitStore,
           Acs.MCP.BridgeSessionStore,
+          Acs.MCP.ClientSession,
           Acs.MCP.ToolRegistry,
           Acs.MCP.SSESessionManager,
           Acs.MCP.LogStore,
