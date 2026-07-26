@@ -25,7 +25,9 @@ defmodule AcsWeb.AcsLive.InvitationLive do
        accepted: false,
        can_continue: false,
        org_move_from: nil,
-       organization: current_organization(socket.assigns[:current_user])
+       organization: current_organization(socket.assigns[:current_user]),
+       name_form: user_name_form(socket.assigns[:current_user]),
+       name_errors: %{}
      )}
   end
 
@@ -47,6 +49,9 @@ defmodule AcsWeb.AcsLive.InvitationLive do
     socket = refresh_account_context(socket)
 
     cond do
+      user_needs_name?(socket.assigns.current_user) ->
+        {:noreply, assign(socket, name_errors: %{name: ["Enter your name before accepting."]})}
+
       not is_binary(socket.assigns.invite_token) or socket.assigns.invite_token == "" ->
         {:noreply, put_flash(socket, :error, "This invitation link is not valid.")}
 
@@ -72,6 +77,32 @@ defmodule AcsWeb.AcsLive.InvitationLive do
 
   def handle_event("refresh", _params, socket) do
     {:noreply, load_invitation(socket)}
+  end
+
+  def handle_event("validate-name", %{"user" => %{"name" => name}}, socket) do
+    errors = if String.trim(name) == "", do: %{name: ["Enter your name."]}, else: %{}
+    {:noreply, assign(socket, name_errors: errors)}
+  end
+
+  def handle_event("save-name", %{"user" => %{"name" => name}}, socket) do
+    name = String.trim(name)
+
+    if name == "" do
+      {:noreply, assign(socket, name_errors: %{name: ["Enter your name."]})}
+    else
+      socket = refresh_account_context(socket)
+
+      case Accounts.update_user_name(socket.assigns.current_user, name) do
+        {:ok, user} ->
+          {:noreply,
+           socket
+           |> assign(current_user: user, name_form: nil, name_errors: %{})
+           |> put_flash(:info, "Name saved.")}
+
+        {:error, _reason} ->
+          {:noreply, assign(socket, name_errors: %{name: ["Could not save name."]})}
+      end
+    end
   end
 
   def handle_event(_event, _params, socket), do: {:noreply, socket}
@@ -471,6 +502,20 @@ defmodule AcsWeb.AcsLive.InvitationLive do
   defp format_datetime(value) when is_binary(value), do: value
   defp format_datetime(_value), do: "Not specified"
 
+  defp user_name_form(nil), do: nil
+
+  defp user_name_form(user) do
+    name = field(user, :name, "")
+    if is_binary(name) and String.trim(name) != "", do: nil, else: to_form(%{"name" => ""}, as: :user)
+  end
+
+  defp user_needs_name?(nil), do: true
+
+  defp user_needs_name?(user) do
+    name = field(user, :name, "")
+    not (is_binary(name) and String.trim(name) != "")
+  end
+
   defp normalize_email(value) when is_binary(value),
     do: value |> String.trim() |> String.downcase()
 
@@ -582,6 +627,39 @@ defmodule AcsWeb.AcsLive.InvitationLive do
                     </div>
                   </div>
                 <% end %>
+
+                <%= if @name_form do %>
+                  <div class="card" style="padding: 20px; margin-bottom: 16px;">
+                    <.form for={@name_form} id="invitation-name-form" phx-change="validate-name" phx-submit="save-name" novalidate>
+                      <div class="form-stack">
+                        <div class="form-field">
+                          <label for="invitation-user-name" class="form-label">Your name</label>
+                          <input
+                            id="invitation-user-name"
+                            name={@name_form[:name].name}
+                            value={@name_form[:name].value}
+                            type="text"
+                            class="form-control"
+                            autocomplete="name"
+                            maxlength="160"
+                            placeholder="Alex Rivera"
+                            aria-invalid={Map.has_key?(@name_errors, :name)}
+                            aria-describedby="invitation-user-name-errors"
+                          />
+                          <div id="invitation-user-name-errors" class="field-errors" aria-live="polite">
+                            <%= for message <- Map.get(@name_errors, :name, []) do %>
+                              <p><%= message %></p>
+                            <% end %>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="form-footer" style="margin-top: 12px;">
+                        <button type="submit" class="btn btn-primary">Save name <span aria-hidden="true">→</span></button>
+                      </div>
+                    </.form>
+                  </div>
+                <% end %>
+
                 <button
                   id="accept-invitation"
                   type="button"

@@ -649,13 +649,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
   defp member_name(member) do
     user = field(member, :user)
-    name = field(user, :name) || field(member, :name)
-
-    if is_binary(name) and String.trim(name) != "" do
-      name
-    else
-      member_email(member) |> String.split("@") |> List.first()
-    end
+    field(user, :name) || field(member, :name) || "Member"
   end
 
   defp member_role(nil), do: nil
@@ -975,7 +969,6 @@ defmodule AcsWeb.AcsLive.MembersLive do
                         <span class="member-avatar" aria-hidden="true"><%= member_initial(member) %></span>
                         <span>
                           <strong><%= member_name(member) %></strong>
-                          <small><%= member_email(member) %></small>
                         </span>
                         <%= if current_member?(member, @current_user) do %>
                           <span class="you-badge">You</span>
@@ -989,7 +982,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                         <%= if can_edit_role?(member, @current_user, @current_role) do %>
                           <form id={dom_id("role-form", member_id(member))} phx-submit="change-role" class="role-form">
                             <input type="hidden" name="target_id" value={member_id(member)} />
-                            <label class="sr-only" for={dom_id("member-role", member_id(member))}>Role for <%= member_email(member) %></label>
+                             <label class="sr-only" for={dom_id("member-role", member_id(member))}>Role for <%= member_name(member) %></label>
                             <select id={dom_id("member-role", member_id(member))} name="role" class="form-control form-select form-control-sm">
                               <%= for role <- role_options() do %>
                                 <option value={role} selected={member_role(member) == role}><%= role %></option>
@@ -998,7 +991,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                             <button
                               type="submit"
                               class="btn btn-ghost btn-sm"
-                              data-confirm={"Change #{member_email(member)} to the selected role?"}
+                              data-confirm={"Change #{member_name(member)} to the selected role?"}
                             >
                               Save
                             </button>
@@ -1012,7 +1005,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                             phx-click="remove-member"
                             phx-value-id={member_id(member)}
                             class="btn btn-danger btn-sm"
-                            data-confirm={"Remove #{member_email(member)} from #{organization_name(@organization)}? Their active sessions will end."}
+                             data-confirm={"Remove #{member_name(member)} from #{organization_name(@organization)}? Their active sessions will end."}
                           >
                             Remove
                           </button>

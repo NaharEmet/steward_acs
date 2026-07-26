@@ -49,6 +49,13 @@ defmodule Acs.Accounts.User do
     change(user, confirmed_at: now)
   end
 
+  def name_changeset(user, name) when is_binary(name) do
+    user
+    |> change(name: String.trim(name))
+    |> validate_length(:name, max: 160)
+    |> validate_required(:name)
+  end
+
   defp normalize_fields(changeset) do
     changeset
     |> update_change(:email, &trim/1)

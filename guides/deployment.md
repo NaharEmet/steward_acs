@@ -176,20 +176,20 @@ Production can export inbound HTTP/Phoenix/Ecto traces and structured applicatio
 4. Thin host `.env` (non-secret only):
 
 ```bash
-AXIOM_DATASET=steward-acs
+AXIOM_DATASET=steward_logs
 AXIOM_METRICS_DATASET=steward-acs-metrics
 # AXIOM_DOMAIN=https://us-east-1.aws.edge.axiom.co  # edge URL preferred for OTLP
 COMPOSE_PROFILES=axiom
 ```
 
-App export is enabled only when the release runs in `prod` and Infisical injects a non-empty `AXIOM_LOGS`. Development and test never ship telemetry. Keep the token ingest-scoped to the configured datasets.
+App export is enabled only when the release runs in `prod` and Infisical injects a non-empty `AXIOM_LOGS`. Development and test never ship telemetry. Keep the token ingest-scoped to the configured datasets. `AXIOM_DATASET` must be the existing Events dataset name (`steward_logs`) — the default `steward-acs` name does not exist in this org and ingest is dropped.
 
 `COMPOSE_PROFILES=axiom` starts `otel_collector` (see `otel/collector-config.yaml`), which scrapes host CPU/memory/disk/network every 30s into `AXIOM_METRICS_DATASET`.
 
 After deploying, request `/mcp/health`, exercise a database-backed route, and confirm traces and log events arrive. Every ~30s, `message == "vm.metrics"` Events ship BEAM memory/`scheduler_utilization` plus best-effort Linux fields (`host_memory_*_bytes` from `/proc/meminfo`, `cgroup_memory_*_bytes` / `cgroup_cpu_utilization`). Those are Events-dataset rows (not a separate OTLP metrics stream) and complement hostmetrics. Create/update the monitoring dashboard:
 
 ```bash
-AXIOM_TOKEN=xaat-… AXIOM_DATASET=steward-acs AXIOM_METRICS_DATASET=steward-acs-metrics \
+AXIOM_TOKEN=xaat-… AXIOM_DATASET=steward_logs AXIOM_METRICS_DATASET=steward-acs-metrics \
   ./scripts/axiom-upsert-server-dashboard.sh
 ```
 

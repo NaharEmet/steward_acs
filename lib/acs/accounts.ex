@@ -14,6 +14,14 @@ defmodule Acs.Accounts do
 
   def get_user!(id), do: Repo.get!(User, id)
 
+  def update_user_name(%User{} = user, name) when is_binary(name) and name != "" do
+    user
+    |> User.name_changeset(name)
+    |> Repo.update()
+  end
+
+  def update_user_name(_user, _name), do: {:error, "Name cannot be blank"}
+
   def get_user_by_email(email, org \\ Acs.Org.current()) when is_binary(email) do
     email = normalize_email(email)
 

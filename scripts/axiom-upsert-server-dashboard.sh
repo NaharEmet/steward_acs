@@ -11,7 +11,7 @@
 #   AXIOM_TOKEN / AXIOM_LOGS     API token (required)
 #   AXIOM_API                   management API base (default https://api.axiom.co)
 #   AXIOM_METRICS_DATASET       Metrics dataset (default steward-acs-metrics)
-#   AXIOM_DATASET               Events dataset for vm.metrics panels (default steward-acs)
+#   AXIOM_DATASET               Events dataset for vm.metrics panels (default steward_logs)
 #   AXIOM_DASHBOARD_UID         stable uid (default steward-acs-server)
 set -euo pipefail
 
@@ -19,7 +19,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TOKEN="${AXIOM_TOKEN:-${AXIOM_LOGS:-}}"
 API="${AXIOM_API:-https://api.axiom.co}"
 METRICS_DS="${AXIOM_METRICS_DATASET:-steward-acs-metrics}"
-EVENTS_DS="${AXIOM_DATASET:-steward-acs}"
+EVENTS_DS="${AXIOM_DATASET:-steward_logs}"
 DASH_UID="${AXIOM_DASHBOARD_UID:-steward-acs-server}"
 TEMPLATE="${ROOT}/otel/axiom-server-dashboard.json"
 
