@@ -77,15 +77,17 @@ defmodule Acs.MCP.HTTPServer do
 
     case conn.body_params do
       %{} = params ->
-        case Protocol.handle_message(
-               params,
-               conn.assigns[:agent_role],
-               conn.assigns[:agent_org_id],
-               conn.assigns[:agent_permissions],
-               conn.assigns[:agent_allowed_teams],
-               conn.assigns[:agent_allowed_projects],
-               conn.assigns[:agent_identity]
-             ) do
+        case Acs.MCP.ClientSession.bind(session_id, fn ->
+               Protocol.handle_message(
+                 params,
+                 conn.assigns[:agent_role],
+                 conn.assigns[:agent_org_id],
+                 conn.assigns[:agent_permissions],
+                 conn.assigns[:agent_allowed_teams],
+                 conn.assigns[:agent_allowed_projects],
+                 conn.assigns[:agent_identity]
+               )
+             end) do
           {:sleep, id, agent_id, timeout} ->
             timeout = cap_sleep_timeout(timeout)
 
@@ -129,11 +131,14 @@ defmodule Acs.MCP.HTTPServer do
 
             conn
             |> put_resp_content_type("application/json")
-            |> send_resp(400, Jason.encode!(error))
+            |> put_resp_header("x-mcp-session-id", session_id)
+            |> send_resp(200, Jason.encode!(error))
         end
 
       _ ->
-        conn |> send_resp(400, ~s({"error": "Invalid JSON"}))
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(400, Jason.encode!(%{error: "Invalid JSON"}))
     end
   end
 
@@ -480,15 +485,17 @@ defmodule Acs.MCP.HTTPServer do
   defp handle_mcp_message(conn, session_id) do
     case conn.body_params do
       %{} = params ->
-        case Protocol.handle_message(
-               params,
-               conn.assigns[:agent_role],
-               conn.assigns[:agent_org_id],
-               conn.assigns[:agent_permissions],
-               conn.assigns[:agent_allowed_teams],
-               conn.assigns[:agent_allowed_projects],
-               conn.assigns[:agent_identity]
-             ) do
+        case Acs.MCP.ClientSession.bind(session_id, fn ->
+               Protocol.handle_message(
+                 params,
+                 conn.assigns[:agent_role],
+                 conn.assigns[:agent_org_id],
+                 conn.assigns[:agent_permissions],
+                 conn.assigns[:agent_allowed_teams],
+                 conn.assigns[:agent_allowed_projects],
+                 conn.assigns[:agent_identity]
+               )
+             end) do
           {:sleep, id, agent_id, timeout} ->
             timeout = cap_sleep_timeout(timeout)
 

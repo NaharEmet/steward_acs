@@ -57,6 +57,7 @@ After `release_work`: save your work first — `skill_save` (repeatable user wor
 Start: create or claim a task in ACS before work. After claiming: 1) `lock_file`  2) do work  3) `unlock_file`  4) `release_work`  5) `skill_save` / `save_memory` / `specs_propose` as needed  6) `submit_task_feedback`
 Finish: `release_work` → save skills/memories/specs → `submit_task_feedback` last. Never tell the user you're done until feedback is submitted.
 Every response includes `_next` with suggested next tools. No tasks? `sleep`
+Scopes may be code paths OR business domains (`org/domain/topic`).
 """
 
   @file_locking_protocol """
@@ -80,29 +81,44 @@ Find your agent_id: `get_present_status(agent_id: "")` auto-registers and return
 """
 
   @knowledge_workflow """
-Start: claim a task before work. After claiming: lock files → do work → unlock files → release → save skills/memories/specs → submit feedback last.
-Finish: release → skill_save / save_memory / specs_propose → submit_task_feedback. Feedback closes the task after information is saved.
-No tasks? `sleep`.
+Start: retrieve org knowledge before answering (`query_memories`, `query_specs`, `generate_guidance_packet`). Optionally `create_work`/`claim_work` for multi-step tracked work.
+Finish: save durable knowledge (`save_memory` / `skill_save` / `specs_propose`) → `submit_task_feedback` if a task is open. Do not invent org policy when ACS has no match — say so and offer to save after the user confirms.
 """
 
   @knowledge_file_locking """
-`lock_file` before editing. `unlock_file` when done. 10-min auto-release if silent. `get_locked_files()` to check.
 """
 
   @knowledge_memory """
-`save_memory(kind, title, content, scope_path)` for patterns, pitfalls, decisions. Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom.
+`save_memory(kind, title, content, scope_path)` — eternal truths only. Prefer business scopes: `org/domain/topic` (e.g. `acme/support/refunds`). Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom.
 """
 
   @knowledge_error """
-1) `list_error_traces()` — check known  2) `get_logs()` → `connection_diagnostic()` to debug  3) `save_memory()` to document what you learned
+1) `list_error_traces()` if investigating a known ACS error  2) `query_memories` / `query_specs` for prior decisions  3) `save_memory()` to capture what you learned
 """
 
   @knowledge_sleep """
-No tasks? `sleep()` blocks until dispatched. Release active tasks first. `wake()` to cancel.
+No tasks? Stay available for the next user question. Coding-style `sleep` dispatch is optional for chat assistants.
 """
 
   @knowledge_identity """
 Find your agent_id: `get_present_status(agent_id: "")` returns your assigned name. Use it in all tool calls — it persists across sessions.
+"""
+
+  @org_knowledge_conventions """
+## Org knowledge structure
+
+Scopes are hierarchical labels — **business domains or code paths**, not only files.
+
+Examples:
+- Business: `acme/sales/pricing`, `acme/support/refunds`, `acme/ops/onboarding`, `acme/policy/privacy`
+- Code: `steward_acs/lib/acs/memory`, `agent_coordination_system/tools/knowledge`
+
+What goes where:
+- **memories** — short eternal truths (decisions, invariants, warnings)
+- **specs/documents** — long shareable artifacts (briefs, policies, marketing, reports)
+- **skills** — repeatable step-by-step procedures
+
+Always attach a clear `scope_path` when saving so the next agent can retrieve by domain.
 """
 
   @doc """
@@ -318,6 +334,7 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
     end
 
     merge_scope_context(packet, scope_path)
+    |> with_conventions()
   end
 
   @doc """
@@ -363,6 +380,7 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
             agent_identity: @knowledge_identity,
             scope_category: nil
           }
+          |> with_conventions()
         else
           %{
             scope: nil,
@@ -387,6 +405,7 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
             agent_identity: @agent_identity,
             scope_category: nil
           }
+          |> with_conventions()
         end
 
       task when is_map(task) ->
@@ -418,6 +437,7 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
         |> Map.put(:skills_instructions, skills_instructions_for_tier(tier))
         |> Map.put(:specs_instructions, specs_instructions_for_tier(tier))
         |> Map.put(:skills_finish_protocol, @skills_finish_protocol)
+        |> with_conventions()
     end
   end
 
@@ -479,15 +499,64 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
 
   defp build_task_context(title) do
     cond do
+      title =~ ~r/pricing|price|discount|quote|rate.?card|sku/i ->
+        """
+        ## Pricing / Commercial Context
+
+        Prefer business scopes like `org/sales/pricing`. Before answering or changing policy:
+        - `query_memories` / `query_specs` for approved pricing rules
+        - Do not invent discounts or list prices — save confirmed decisions with `save_memory`
+        - Long pricing sheets or rate cards → `specs_propose` (document_type: policy/reference)
+        """
+
+      title =~ ~r/refund|support|ticket|escalat|customer.?care|help.?desk/i ->
+        """
+        ## Support Context
+
+        Prefer scopes like `org/support/<topic>`. Retrieve playbooks first (`skill_get` / `query_specs`).
+        Capture recurring resolutions as skills; one-off truths as memories. Never invent refund policy.
+        """
+
+      title =~ ~r/sales|pipeline|crm|lead|prospect|outbound|deal/i ->
+        """
+        ## Sales Context
+
+        Prefer scopes like `org/sales/<topic>`. Check CRM tools if available, then org memories for process.
+        Save durable sales rules (qualification, handoff) as memories; playbooks as skills.
+        """
+
+      title =~ ~r/onboard|offboard|hiring|recruit|hr\\b|people.?ops|interview/i ->
+        """
+        ## People / Onboarding Context
+
+        Prefer scopes like `org/ops/onboarding` or `org/hr/<topic>`. Treat process docs as specs;
+        checklists as skills; invariants (who approves what) as memories.
+        """
+
+      title =~ ~r/policy|compliance|legal|privacy|gdpr|security.?policy|terms/i ->
+        """
+        ## Policy / Compliance Context
+
+        Prefer scopes like `org/policy/<topic>`. Never paraphrase policy as fact unless retrieved from ACS.
+        Long policy text → `specs_propose`; short must-follow rules → `save_memory` (kind: invariant/axiom).
+        """
+
+      title =~ ~r/billing|invoice|finance|accounting|payroll|expense|budget/i ->
+        """
+        ## Finance / Billing Context
+
+        Prefer scopes like `org/finance/<topic>` or `org/billing/<topic>`. Confirm numbers from ACS or source systems.
+        Save approved rules as memories; runbooks (how to invoice) as skills.
+        """
+
       title =~ ~r/marketing|campaign|promot|content|seo|social|blog|advert/i ->
         """
         ## Marketing Context
 
-        This task involves marketing activities. Considerations:
+        Prefer scopes like `org/marketing/<campaign>`. Considerations:
         - Ensure analytics/UTM tracking is set up if the product requires it
-        - Verify conversion events are firing correctly
-        - Coordinate publishing timing with content calendar
-        - Test all links and calls-to-action before release
+        - Store long copy via `specs_propose` (document_type: marketing)
+        - Capture brand invariants as memories
         """
 
       title =~ ~r/test|spec|coverage|testing|rspec|exunit|assert/i ->
@@ -555,9 +624,9 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
         ## Documentation Context
 
         This task involves documentation. Considerations:
-        - Keep docs close to the code they describe
+        - Keep docs close to the code or business domain they describe
+        - Use business scope_paths for org docs; code paths for module specs
         - Update specs alongside documentation
-        - Use clear, concise language — avoid jargon
         """
 
       title =~ ~r/feature|add|new|implement|support|integrat/i ->
@@ -614,6 +683,10 @@ Find your agent_id: `get_present_status(agent_id: "")` returns your assigned nam
       true ->
         nil
     end
+  end
+
+  defp with_conventions(packet) when is_map(packet) do
+    Map.put(packet, :org_knowledge_conventions, @org_knowledge_conventions)
   end
 
   defp scope_from_path(nil), do: ""

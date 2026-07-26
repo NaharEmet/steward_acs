@@ -83,9 +83,10 @@ defmodule Acs.Accounts do
       user =
         get_user_by_oidc_identity(issuer, subject) ||
           linkable_user_by_email(normalized_email) ||
+          relinkable_user_by_email(normalized_email) ||
           %User{}
 
-      if is_nil(user.id) and oidc_email_claimed?(normalized_email) do
+      if is_nil(user.id) and oidc_email_claimed_by_other?(normalized_email, subject) do
         Repo.rollback(:email_identity_conflict)
       end
 
@@ -852,10 +853,26 @@ defmodule Acs.Accounts do
     end
   end
 
-  defp oidc_email_claimed?(normalized_email) do
+  # Same email, different Auth0 connection (email OTP vs Google). Re-point oidc_subject.
+  defp relinkable_user_by_email(normalized_email) do
+    case Repo.all(
+           from user in User,
+             where: user.normalized_email == ^normalized_email and not is_nil(user.oidc_subject),
+             order_by: [asc: user.id],
+             limit: 2
+         ) do
+      [] -> nil
+      [user] -> user
+      _duplicates -> Repo.rollback(:email_identity_conflict)
+    end
+  end
+
+  defp oidc_email_claimed_by_other?(normalized_email, subject) do
     Repo.exists?(
       from user in User,
-        where: user.normalized_email == ^normalized_email and not is_nil(user.oidc_subject)
+        where:
+          user.normalized_email == ^normalized_email and not is_nil(user.oidc_subject) and
+            user.oidc_subject != ^subject
     )
   end
 

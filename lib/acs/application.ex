@@ -55,6 +55,7 @@ defmodule Acs.Application do
           Acs.MCP.RateLimitStore,
           Acs.MCP.HealthCheckCache,
           Acs.MCP.BridgeSessionStore,
+          Acs.MCP.ClientSession,
           Acs.MCP.ToolRegistry,
           Acs.MCP.SSESessionManager,
           Acs.MCP.LogStore,

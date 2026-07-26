@@ -149,18 +149,21 @@ defmodule Acs.MCP.Protocol do
   defp handle_request(
          id,
          "initialize",
-         _params,
+         params,
          _agent_role,
          _agent_org_id,
          _agent_permissions,
          _agent_allowed_teams,
          _agent_allowed_projects,
-         _agent_identity
+         agent_identity
        ) do
+    audience = Acs.MCP.ClientSession.remember_initialize(params || %{}, agent_identity)
+
     result = %{
       "protocolVersion" => @mcp_version,
       "capabilities" => server_capabilities(),
-      "serverInfo" => server_info()
+      "serverInfo" => server_info(),
+      "instructions" => audience_instructions(audience)
     }
 
     {:ok, success_response(id, result)}
@@ -309,7 +312,8 @@ defmodule Acs.MCP.Protocol do
       permissions: agent_permissions,
       allowed_teams: agent_allowed_teams,
       allowed_projects: agent_allowed_projects,
-      agent_id: agent_identity
+      agent_id: agent_identity,
+      audience: Acs.MCP.ClientSession.resolve_audience(agent_identity)
     }
 
     cond do
@@ -384,5 +388,19 @@ defmodule Acs.MCP.Protocol do
 
   defp server_info do
     %{"name" => "Acs MCP Server", "version" => "0.1.0"}
+  end
+
+  defp audience_instructions(:chat) do
+    """
+    ACS audience: chat assistant. Store and retrieve org knowledge (memories, specs, skills) using business scope_paths like org/domain/topic. Call get_started for the chat workflow. Prefer generate_guidance_packet(mode: \"knowledge\") / query_memories / query_specs before inventing policy. Do not use file locking unless the user asks for code edits.
+    """
+    |> String.trim()
+  end
+
+  defp audience_instructions(_coding) do
+    """
+    ACS audience: coding agent. Create/claim tasks, lock files before edits, save learnings. Scopes may be code paths or business domains (org/domain/topic). Call get_started or generate_guidance_packet(scope_path:) when entering a new area.
+    """
+    |> String.trim()
   end
 end

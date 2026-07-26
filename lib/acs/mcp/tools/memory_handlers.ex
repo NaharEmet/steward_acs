@@ -233,7 +233,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     allowed_projects = args["_auth_allowed_projects"]
     agent_role = args["_auth_role"]
 
-    with {:ok, mode} <- parse_guidance_mode(args["mode"]) do
+    with {:ok, mode} <- resolve_guidance_mode(args) do
       packet =
         cond do
           task_id && task_id != "" ->
@@ -268,7 +268,9 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
               error_response_protocol: "",
               sleep_wake_protocol: "",
               agent_identity:
-                "Find your agent_id: `get_present_status(agent_id: \"\")` returns your assigned name. Use it in all tool calls."
+                "Find your agent_id: `get_present_status(agent_id: \"\")` returns your assigned name. Use it in all tool calls.",
+              org_knowledge_conventions:
+                "Scopes are hierarchical labels (business domains or code paths). Memories = truths, specs = documents, skills = procedures."
             }
         end
 
@@ -276,12 +278,28 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     end
   end
 
-  defp parse_guidance_mode(nil), do: {:ok, :mcp}
+  defp resolve_guidance_mode(args) do
+    case parse_guidance_mode(args["mode"] || args["audience"]) do
+      {:ok, mode} ->
+        {:ok, mode}
+
+      {:error, _} = err ->
+        err
+
+      :default ->
+        audience = Acs.MCP.Audience.from_args(args)
+        {:ok, Acs.MCP.Audience.to_guidance_mode(audience)}
+    end
+  end
+
+  defp parse_guidance_mode(nil), do: :default
   defp parse_guidance_mode("mcp"), do: {:ok, :mcp}
+  defp parse_guidance_mode("coding"), do: {:ok, :mcp}
   defp parse_guidance_mode("knowledge"), do: {:ok, :knowledge}
+  defp parse_guidance_mode("chat"), do: {:ok, :knowledge}
 
   defp parse_guidance_mode(mode) when is_binary(mode),
-    do: {:error, "Invalid mode '#{mode}'. Must be 'mcp' or 'knowledge'"}
+    do: {:error, "Invalid mode '#{mode}'. Use mcp|coding or knowledge|chat"}
 
   # Layer 1: Check for exact duplicate by ID (same kind + same normalized title)
   defp check_exact_memory_duplicate(id) do

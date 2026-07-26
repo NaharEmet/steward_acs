@@ -72,12 +72,18 @@ defmodule Acs.MCP.Tools do
     [
       tool_def(
         "get_started",
-        "Call this when you receive new instructions to refresh context. Returns general ACS instructions, entry-point tools, and recommended next steps.",
+        "Call this when you receive new instructions to refresh context. Returns audience-aware ACS instructions (coding vs chat), org knowledge structure conventions, entry-point tools, and recommended next steps. Audience is inferred from the MCP session (clientInfo) or override with audience=coding|chat.",
         %{
           "agent_id" => %{
             "type" => "string",
             "description" =>
               "Optional: your agent name. If provided, returns personalized suggestions."
+          },
+          "audience" => %{
+            "type" => "string",
+            "description" =>
+              "Optional override: coding (IDE agents) or chat (Claude/ChatGPT assistants)",
+            "enum" => ["coding", "chat"]
           }
         },
         []
@@ -91,11 +97,14 @@ defmodule Acs.MCP.Tools do
             "description" =>
               "Your team member name (e.g., 'alice'). Used as your identity in the ACS."
           },
-          "task_id" => %{"type" => "string"},
+          "task_id" => %{
+            "type" => "string",
+            "description" => "Task slug (kebab-case from title, e.g. fix-login-bug)"
+          },
           "scope_path" => %{
             "type" => "string",
             "description" =>
-              "Optional scope path to generate guidance for (e.g. agent_coordination_system/cache). If provided, returns targeted knowledge memories for this scope."
+              "Optional scope: business domain (acme/support/refunds) or code path (lib/acs/memory). Returns targeted guidance for this scope."
           },
           "application" => %{"type" => "string"},
           "component" => %{"type" => "string"}
@@ -107,7 +116,10 @@ defmodule Acs.MCP.Tools do
         "Release a task lock. Then save skills/memories/specs, then submit_task_feedback last to formally close. Do not tell the user you're done until feedback is submitted.",
         %{
           "agent_id" => %{"type" => "string", "description" => "Your team member name."},
-          "task_id" => %{"type" => "string"}
+          "task_id" => %{
+            "type" => "string",
+            "description" => "Task slug (kebab-case from title, e.g. fix-login-bug)"
+          }
         },
         ["agent_id", "task_id"]
       ),
@@ -136,7 +148,10 @@ defmodule Acs.MCP.Tools do
         "Lock a single file",
         %{
           "agent_id" => %{"type" => "string"},
-          "task_id" => %{"type" => "string"},
+          "task_id" => %{
+            "type" => "string",
+            "description" => "Task slug (e.g. fix-login-bug)"
+          },
           "file_path" => %{"type" => "string"}
         },
         ["agent_id", "task_id", "file_path"]
@@ -148,7 +163,7 @@ defmodule Acs.MCP.Tools do
           "agent_id" => %{"type" => "string"},
           "task_id" => %{
             "type" => "string",
-            "description" => "Task ID to unlock all files for (alternative to file_path)"
+            "description" => "Task slug to unlock all files for (alternative to file_path)"
           },
           "file_path" => %{"type" => "string"}
         },
@@ -285,7 +300,8 @@ defmodule Acs.MCP.Tools do
           },
           "scope_path" => %{
             "type" => "string",
-            "description" => "Scope path (e.g. agent_coordination_system/cache)"
+            "description" =>
+              "Hierarchical scope label — business domain (acme/sales/pricing) or code path (lib/acs/memory). Prefer business scopes for org knowledge."
           },
           "tags" => %{
             "type" => "array",
@@ -361,21 +377,27 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "generate_guidance_packet",
-        "Generate organizational memory for a scope path. Returns critical axioms, warnings, patterns, and compressed knowledge.\n\nUSE WHEN:\n- Starting work on a new scope path (coding agents)\n- Answering questions about project patterns (Claude Chat/ChatGPT)\n- Needing context-specific guidance before making decisions\n\nNOTE: If you see this tool, ACS is available. Check for AGENTS_ACS.md in the project root for startup instructions.\n\nMODES:\n- 'mcp' (default): For coding agents (Claude Code, OpenCode) — includes tool references\n- 'knowledge': For chat agents (Claude Chat, ChatGPT) — read-only, no tool references",
+        "Generate organizational guidance for a scope. Returns critical axioms, warnings, patterns, compressed knowledge, and org_knowledge_conventions (how to structure scopes).\n\nScopes are hierarchical labels — business domains (acme/support/refunds) OR code paths (lib/acs/memory).\n\nUSE WHEN:\n- Entering a new business domain or code area\n- Answering questions from org knowledge (chat assistants)\n- Needing context before decisions\n\nMODES (aliases): mcp|coding for coding agents; knowledge|chat for chat assistants. If omitted, defaults from the MCP session audience (inferred from clientInfo at initialize).",
         %{
           "scope_path" => %{
             "type" => "string",
-            "description" => "Scope path to generate guidance for (e.g., 'lib/acs', 'lib/my_app')"
+            "description" =>
+              "Business scope (org/domain/topic) or code scope (path/to/module), e.g. acme/sales/pricing or lib/acs"
           },
           "task_id" => %{
             "type" => "string",
-            "description" => "Optional task ID to derive scope from"
+            "description" => "Optional task ID/slug to derive scope from"
           },
           "mode" => %{
             "type" => "string",
             "description" =>
-              "Output mode: 'mcp' for coding agents with tool references, 'knowledge' for chat agents without tool references",
-            "enum" => ["mcp", "knowledge"]
+              "Output mode: mcp|coding (file locks, tool refs) or knowledge|chat (retrieve/save knowledge, no file locks). Defaults from session audience.",
+            "enum" => ["mcp", "knowledge", "coding", "chat"]
+          },
+          "audience" => %{
+            "type" => "string",
+            "description" => "Alias for mode: coding or chat",
+            "enum" => ["coding", "chat"]
           }
         },
         []
@@ -595,7 +617,7 @@ defmodule Acs.MCP.Tools do
         "submit_task_feedback",
         "Submit task feedback to formally close a completed task. Call this LAST — after release_work and after saving skills (skill_save), memories (save_memory), and specs (specs_propose). Auto-generates knowledge memories from your learnings.",
         %{
-          "task_id" => %{"type" => "string", "description" => "The completed task ID"},
+          "task_id" => %{"type" => "string", "description" => "The completed task slug (e.g. fix-login-bug)"},
           "agent_id" => %{
             "type" => "string",
             "description" =>
@@ -763,7 +785,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "skill_get",
-        "Retrieve skills — reusable workflow guides with step-by-step procedures. Pass `scope_path` to list skills for a code scope (same as generate_guidance_packet). Pass `name` for one skill, `search` to find by keywords, `tag` to filter, or nothing to get the full `catalog` with when_to_use hints. USE BEFORE: deployment, secrets, install, or any repeatable procedure.",
+        "Retrieve skills — reusable workflow guides with step-by-step procedures. Pass `scope_path` to list skills for a business or code scope (same as generate_guidance_packet). Pass `name` for one skill, `search` to find by keywords, `tag` to filter, or nothing to get the full `catalog` with when_to_use hints. USE BEFORE: deployment, secrets, install, support playbooks, or any repeatable procedure.",
         %{
           "name" => %{
             "type" => "string",
@@ -772,7 +794,7 @@ defmodule Acs.MCP.Tools do
           "scope_path" => %{
             "type" => "string",
             "description" =>
-              "Scope path (e.g. lib/acs/skills, guides/deployment) — returns skills available for this scope"
+              "Business or code scope (e.g. acme/ops/onboarding, lib/acs/skills) — returns skills for this scope"
           },
           "search" => %{
             "type" => "string",

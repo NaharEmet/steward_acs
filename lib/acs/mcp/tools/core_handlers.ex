@@ -43,7 +43,8 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   def acs_claim_work(%{"agent_id" => agent_id, "task_id" => task_id} = args) do
     scope_path = args["scope_path"]
-    opts = if scope_path, do: [skip_guidance: true], else: []
+    mode = Acs.MCP.Audience.to_guidance_mode(Acs.MCP.Audience.from_args(args))
+    opts = [mode: mode] ++ if(scope_path, do: [skip_guidance: true], else: [])
 
     case Acs.claim_task(task_id, agent_id, opts) do
       {:ok, _task, guidance} ->
@@ -56,7 +57,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
         final_guidance =
           if scope_path do
-            Acs.Memory.Guidance.generate(scope_path, tier: :claim)
+            Acs.Memory.Guidance.generate(scope_path, tier: :claim, mode: mode)
           else
             guidance
           end
@@ -66,6 +67,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
            status: "claimed",
            task_id: task_id,
            agent_id: agent_id,
+           audience: Acs.MCP.Audience.from_args(args),
            guidance: final_guidance
          }}
 
@@ -98,6 +100,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   def acs_create_work(%{"agent_id" => agent_id, "title" => title} = args) do
     claim = args["claim"] || false
+    mode = Acs.MCP.Audience.to_guidance_mode(Acs.MCP.Audience.from_args(args))
 
     attrs = %{
       "title" => title,
@@ -108,7 +111,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     case Acs.create_task(attrs, agent_id) do
       {:ok, task} ->
         if claim do
-          case Acs.claim_task(task.id, agent_id) do
+          case Acs.claim_task(task.id, agent_id, mode: mode) do
             {:ok, _task, guidance} ->
               {:ok, %{status: "claimed", task_id: task.id, title: task.title, guidance: guidance}}
 
@@ -123,7 +126,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
       {:warn, task, similar} ->
         if claim do
-          case Acs.claim_task(task.id, agent_id) do
+          case Acs.claim_task(task.id, agent_id, mode: mode) do
             {:ok, _task, guidance} ->
               {:ok,
                %{
@@ -222,61 +225,129 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     {:error, "Either file_path or task_id is required"}
   end
 
-  def acs_get_started(_args) do
-    {:ok,
-     %{
-       general:
-         "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings as memories, release. Every response includes `_next` with suggested next tools.",
-       get_started:
-         "1) `get_present_status(agent_id: \"your_name\")` — register  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check module docs  5) `lock_file` files  6) do work  7) `save_memory` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback`",
-       tools: [
-         %{
-           tool: "get_present_status",
-           description: "Register and see all active agents",
-           params: %{agent_id: "your_name"}
-         },
-         %{
-           tool: "create_work",
-           description: "Create and self-claim a task (default flow)",
-           params: %{agent_id: "your_name", title: "...", claim: true}
-         },
-         %{
-           tool: "list_tasks",
-           description: "Find existing tasks to claim",
-           params: %{status_filter: "todo"}
-         },
-         %{
-           tool: "claim_work",
-           description: "Claim an existing task",
-           params: %{agent_id: "your_name", task_id: "<id>"}
-         },
-         %{
-           tool: "generate_guidance_packet",
-           description: "Get detailed guidance for a scope path",
-           params: %{scope_path: "agent_coordination_system"}
-         },
-         %{
-           tool: "help",
-           description: "List all tools with full descriptions",
-           params: %{level: 1}
-         },
-         %{
-           tool: "skill_get",
-           description: "Find or list reusable workflow guides",
-           params: %{search: "...", tag: "..."}
-         },
-         %{
-           tool: "skill_save",
-           description: "Create a reusable workflow guide for other agents",
-           params: %{name: "...", content: "...", tags: ["..."]}
-         },
-         %{
-           tool: "skill_audit_status",
-           description: "Audit all skills for quality and completeness",
-           params: %{}
-         }
-       ]
-     }}
+  def acs_get_started(args) do
+    case Acs.MCP.Audience.from_args(args) do
+      :chat -> {:ok, chat_get_started()}
+      _ -> {:ok, coding_get_started()}
+    end
+  end
+
+  defp coding_get_started do
+    %{
+      audience: :coding,
+      general:
+        "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings as memories, release. Scopes may be code paths or business domains (org/domain/topic). Every response includes `_next` with suggested next tools.",
+      get_started:
+        "1) `get_present_status(agent_id: \"your_name\")` — register  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check docs  5) `lock_file` files  6) do work  7) `save_memory` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback`",
+      org_knowledge_conventions:
+        "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=truths, specs=documents, skills=procedures.",
+      tools: [
+        %{
+          tool: "get_present_status",
+          description: "Register and see all active agents",
+          params: %{agent_id: "your_name"}
+        },
+        %{
+          tool: "create_work",
+          description: "Create and self-claim a task (default flow)",
+          params: %{agent_id: "your_name", title: "...", claim: true}
+        },
+        %{
+          tool: "list_tasks",
+          description: "Find existing tasks to claim",
+          params: %{status_filter: "todo"}
+        },
+        %{
+          tool: "claim_work",
+          description: "Claim an existing task",
+          params: %{agent_id: "your_name", task_id: "<id>"}
+        },
+        %{
+          tool: "generate_guidance_packet",
+          description: "Get guidance for a code or business scope",
+          params: %{scope_path: "org/domain/topic"}
+        },
+        %{
+          tool: "help",
+          description: "List all tools with full descriptions",
+          params: %{level: 1}
+        },
+        %{
+          tool: "skill_get",
+          description: "Find or list reusable workflow guides",
+          params: %{search: "...", tag: "..."}
+        },
+        %{
+          tool: "skill_save",
+          description: "Create a reusable workflow guide for other agents",
+          params: %{name: "...", content: "...", tags: ["..."], scope_paths: ["org/domain"]}
+        },
+        %{
+          tool: "skill_audit_status",
+          description: "Audit all skills for quality and completeness",
+          params: %{}
+        }
+      ]
+    }
+  end
+
+  defp chat_get_started do
+    %{
+      audience: :chat,
+      general:
+        "ACS is the org's durable knowledge store. Retrieve before answering; save durable truths. Use business scopes (org/domain/topic). Tasks are optional for multi-step work. Do not use file locking unless asked to edit code.",
+      get_started:
+        "1) `get_present_status(agent_id: \"\")` — register  2) `generate_guidance_packet(scope_path: \"org/domain\", mode: \"knowledge\")`  3) `query_memories(query:)` / `query_specs(query:)` / `skill_get(search:)`  4) answer from retrieved knowledge  5) `save_memory` or `specs_propose` for durable results  6) optional `create_work` for tracked multi-step work",
+      org_knowledge_conventions:
+        "Prefer business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy. memories=short truths, specs=long documents, skills=step-by-step procedures. Never invent org policy when ACS has no match.",
+      tools: [
+        %{
+          tool: "get_present_status",
+          description: "Register your agent identity",
+          params: %{agent_id: ""}
+        },
+        %{
+          tool: "generate_guidance_packet",
+          description: "Org guidance for a business scope (chat mode)",
+          params: %{scope_path: "org/domain/topic", mode: "knowledge"}
+        },
+        %{
+          tool: "query_memories",
+          description: "Search eternal truths by domain",
+          params: %{query: "...", scope_path: "org/domain"}
+        },
+        %{
+          tool: "query_specs",
+          description: "Search documents, policies, briefs",
+          params: %{query: "..."}
+        },
+        %{
+          tool: "skill_get",
+          description: "Find repeatable procedures",
+          params: %{search: "..."}
+        },
+        %{
+          tool: "save_memory",
+          description: "Store a durable org truth",
+          params: %{
+            kind: "decision",
+            title: "...",
+            content: "...",
+            scope_path: "org/domain/topic"
+          }
+        },
+        %{
+          tool: "specs_propose",
+          description: "Save a long document (policy, brief, marketing)",
+          params: %{document_type: "policy", title: "...", content: "..."}
+        },
+        %{
+          tool: "create_work",
+          description: "Optional: track multi-step work",
+          params: %{agent_id: "your_name", title: "...", claim: true}
+        }
+      ]
+    }
   end
 
   def acs_get_present_status(%{"status_filter" => "sleeping"}) do
