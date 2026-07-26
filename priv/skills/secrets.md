@@ -43,12 +43,14 @@ Secrets (and optional placeholders) live in Infisical. Agents may create/list **
 
 ### Deploy / compose
 
+Prod cutover is **GitHub Actions** (`.github/workflows/deploy.yml` → `deploy.sh --resume`). That syncs `scripts/infisical-compose.sh` and runs compose through it.
+
 ```bash
-# On the prod host (or via scripts/deploy.sh cutover):
+# On the prod host (manual recreate / debug only):
 ./scripts/infisical-compose.sh -f docker-compose.multitenant.yml up -d
 ```
 
-`deploy.sh` syncs `scripts/infisical-compose.sh` and runs compose through it.
+Laptop `SERVER=… ./scripts/deploy.sh` is break-glass only — see `guides/deployment.md`.
 
 ### Agent / MCP
 

@@ -16,6 +16,8 @@ defmodule Acs.Memory.Embedding do
   # Ollama base URL
   @default_ollama_url "http://localhost:11434"
   @default_model "nomic-embed-text"
+  # nomic-embed-text output size; must match pgvector column on Neon.
+  @default_dimensions 768
 
   @doc """
   Returns the configured Ollama URL.
@@ -31,6 +33,14 @@ defmodule Acs.Memory.Embedding do
   def model do
     Application.get_env(:steward_acs, __MODULE__, [])
     |> Keyword.get(:model, @default_model)
+  end
+
+  @doc """
+  Embedding vector length (nomic-embed-text = 768).
+  """
+  def dimensions do
+    Application.get_env(:steward_acs, __MODULE__, [])
+    |> Keyword.get(:dimensions, @default_dimensions)
   end
 
   @doc """
@@ -244,7 +254,8 @@ defmodule Acs.Memory.Embedding do
   defp check_ollama do
     url = ollama_url()
 
-    case Req.get("#{url}/api/tags", receive_timeout: 5_000, connect_timeout: 3_000, retry: false) do
+    # ponytail: no connect_timeout — Req 0.6 rejects it (ArgumentError → always "unavailable")
+    case Req.get("#{url}/api/tags", receive_timeout: 5_000, retry: false) do
       {:ok, %{status: 200}} ->
         true
 
@@ -255,10 +266,14 @@ defmodule Acs.Memory.Embedding do
       {:error, %{reason: reason}} ->
         Logger.debug("[Embedding] Ollama check failed: #{inspect(reason)}")
         false
+
+      {:error, reason} ->
+        Logger.debug("[Embedding] Ollama check failed: #{inspect(reason)}")
+        false
     end
   rescue
     e ->
-      Logger.debug("[Embedding] Ollama check exception: #{inspect(e)}")
+      Logger.warning("[Embedding] Ollama check exception: #{inspect(e)}")
       false
   end
 

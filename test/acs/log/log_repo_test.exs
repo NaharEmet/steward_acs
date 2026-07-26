@@ -13,6 +13,7 @@ defmodule Acs.Log.LogRepoTest do
       assert entry.level == "info"
       assert entry.message == "test message"
       assert entry.service == "test-service"
+      assert entry.metadata["key"] == "val" or entry.metadata[:key] == "val"
     end
 
     test "accepts optional workflow_id and execution_id" do

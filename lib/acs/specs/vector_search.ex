@@ -9,6 +9,7 @@ defmodule Acs.Specs.VectorSearch do
 
   require Logger
 
+  alias Acs.Repo.Pgvector
   alias Acs.Specs.Entry
   alias Acs.Specs.Loader
 
@@ -17,20 +18,44 @@ defmodule Acs.Specs.VectorSearch do
   @chunk_overlap_words 50
 
   def create_table(repo \\ Acs.Repo) do
-    repo.query("""
-      CREATE TABLE IF NOT EXISTS #{@table_name} (
-        id TEXT NOT NULL,
-        app TEXT NOT NULL DEFAULT '',
-        path TEXT NOT NULL DEFAULT '',
-        chunk_index INTEGER NOT NULL DEFAULT 0,
-        source TEXT DEFAULT '',
-        content TEXT NOT NULL DEFAULT '',
-        org TEXT NOT NULL DEFAULT 'default',
-        embedding TEXT NOT NULL,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id, org)
-      )
-    """)
+    if Pgvector.enabled?(repo) do
+      repo.query("CREATE EXTENSION IF NOT EXISTS vector")
+
+      repo.query("""
+        CREATE TABLE IF NOT EXISTS #{@table_name} (
+          id TEXT NOT NULL,
+          app TEXT NOT NULL DEFAULT '',
+          path TEXT NOT NULL DEFAULT '',
+          chunk_index INTEGER NOT NULL DEFAULT 0,
+          source TEXT DEFAULT '',
+          content TEXT NOT NULL DEFAULT '',
+          org TEXT NOT NULL DEFAULT 'default',
+          embedding vector(#{Pgvector.dimensions()}) NOT NULL,
+          updated_at TIMESTAMPTZ DEFAULT NOW(),
+          PRIMARY KEY (id, org)
+        )
+      """)
+
+      repo.query("""
+        CREATE INDEX IF NOT EXISTS spec_embeddings_embedding_hnsw_idx
+          ON #{@table_name} USING hnsw (embedding vector_cosine_ops)
+      """)
+    else
+      repo.query("""
+        CREATE TABLE IF NOT EXISTS #{@table_name} (
+          id TEXT NOT NULL,
+          app TEXT NOT NULL DEFAULT '',
+          path TEXT NOT NULL DEFAULT '',
+          chunk_index INTEGER NOT NULL DEFAULT 0,
+          source TEXT DEFAULT '',
+          content TEXT NOT NULL DEFAULT '',
+          org TEXT NOT NULL DEFAULT 'default',
+          embedding TEXT NOT NULL,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id, org)
+        )
+      """)
+    end
 
     repo.query("""
       CREATE INDEX IF NOT EXISTS idx_spec_embeddings_app_path
@@ -42,20 +67,35 @@ defmodule Acs.Specs.VectorSearch do
 
   def upsert_chunk(id, app, path, chunk_index, source, content, embedding, org \\ Acs.Org.current(), repo \\ Acs.Repo)
       when is_binary(id) and is_list(embedding) do
-    embedding_json = Jason.encode!(embedding)
+    vector_literal = Pgvector.encode(embedding)
 
-    repo.query(
-      """
-      INSERT INTO #{@table_name} (id, app, path, chunk_index, source, content, org, embedding, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-      ON CONFLICT(id, org) DO UPDATE SET
-        embedding = excluded.embedding,
-        content = excluded.content,
-        source = excluded.source,
-        updated_at = excluded.updated_at
-      """,
-      [id, app, path, chunk_index, source, content, org, embedding_json]
-    )
+    if Pgvector.enabled?(repo) do
+      repo.query(
+        """
+        INSERT INTO #{@table_name} (id, app, path, chunk_index, source, content, org, embedding, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, ($8::text)::vector, NOW())
+        ON CONFLICT (id, org) DO UPDATE SET
+          embedding = EXCLUDED.embedding,
+          content = EXCLUDED.content,
+          source = EXCLUDED.source,
+          updated_at = EXCLUDED.updated_at
+        """,
+        [id, app, path, chunk_index, source, content, org, vector_literal]
+      )
+    else
+      repo.query(
+        """
+        INSERT INTO #{@table_name} (id, app, path, chunk_index, source, content, org, embedding, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id, org) DO UPDATE SET
+          embedding = excluded.embedding,
+          content = excluded.content,
+          source = excluded.source,
+          updated_at = excluded.updated_at
+        """,
+        [id, app, path, chunk_index, source, content, org, vector_literal]
+      )
+    end
 
     :ok
   end
@@ -80,42 +120,119 @@ defmodule Acs.Specs.VectorSearch do
     org = org_filter(opts)
 
     with {:ok, embedding} <- Acs.Memory.Embedding.embed_text(query) do
-      {sql, params} = build_search_sql(org, app)
-
-      case Acs.Repo.query(sql, params) do
-        {:ok, %{rows: rows}} when is_list(rows) ->
-          scored =
-            rows
-            |> Enum.map(fn [id, chunk_app, chunk_path, chunk_index, source, content, embedding_json] ->
-              case Jason.decode(embedding_json) do
-                {:ok, emb} ->
-                  %{
-                    id: id,
-                    app: chunk_app,
-                    path: chunk_path,
-                    chunk_index: chunk_index,
-                    source: source,
-                    content: content,
-                    similarity: Acs.Memory.Embedding.cosine_similarity(embedding, emb)
-                  }
-
-                _ ->
-                  nil
-              end
-            end)
-            |> Enum.reject(&is_nil/1)
-            |> Enum.sort_by(& &1.similarity, :desc)
-            |> Enum.take(limit)
-
-          {:ok, scored}
-
-        _ ->
-          {:ok, []}
+      if Pgvector.enabled?() do
+        search_pg(embedding, org, app, limit)
+      else
+        search_sqlite(embedding, org, app, limit)
       end
     else
       {:error, reason} ->
         Logger.warning("[Specs.VectorSearch] Embedding failed: #{reason}")
         {:error, reason}
+    end
+  end
+
+  defp search_pg(embedding, org, app, limit) do
+    vector_literal = Pgvector.encode(embedding)
+    {sql, params} = build_pg_search_sql(org, app, vector_literal, limit)
+
+    case Acs.Repo.query(sql, params) do
+      {:ok, %{rows: rows}} when is_list(rows) ->
+        scored =
+          Enum.map(rows, fn [id, chunk_app, chunk_path, chunk_index, source, content, similarity] ->
+            %{
+              id: id,
+              app: chunk_app,
+              path: chunk_path,
+              chunk_index: chunk_index,
+              source: source,
+              content: content,
+              similarity: Pgvector.to_float(similarity)
+            }
+          end)
+
+        {:ok, scored}
+
+      _ ->
+        {:ok, []}
+    end
+  end
+
+  defp build_pg_search_sql(nil, nil, vector_literal, limit) do
+    {"""
+     SELECT id, app, path, chunk_index, source, content,
+            1 - (embedding <=> ($1::text)::vector) AS similarity
+     FROM #{@table_name}
+     ORDER BY embedding <=> ($1::text)::vector
+     LIMIT $2
+     """, [vector_literal, limit]}
+  end
+
+  defp build_pg_search_sql(nil, app, vector_literal, limit) do
+    {"""
+     SELECT id, app, path, chunk_index, source, content,
+            1 - (embedding <=> ($1::text)::vector) AS similarity
+     FROM #{@table_name}
+     WHERE app = $2
+     ORDER BY embedding <=> ($1::text)::vector
+     LIMIT $3
+     """, [vector_literal, app, limit]}
+  end
+
+  defp build_pg_search_sql(org, nil, vector_literal, limit) do
+    {"""
+     SELECT id, app, path, chunk_index, source, content,
+            1 - (embedding <=> ($1::text)::vector) AS similarity
+     FROM #{@table_name}
+     WHERE org = $2
+     ORDER BY embedding <=> ($1::text)::vector
+     LIMIT $3
+     """, [vector_literal, org, limit]}
+  end
+
+  defp build_pg_search_sql(org, app, vector_literal, limit) do
+    {"""
+     SELECT id, app, path, chunk_index, source, content,
+            1 - (embedding <=> ($1::text)::vector) AS similarity
+     FROM #{@table_name}
+     WHERE org = $2 AND app = $3
+     ORDER BY embedding <=> ($1::text)::vector
+     LIMIT $4
+     """, [vector_literal, org, app, limit]}
+  end
+
+  defp search_sqlite(embedding, org, app, limit) do
+    {sql, params} = build_search_sql(org, app)
+
+    case Acs.Repo.query(sql, params) do
+      {:ok, %{rows: rows}} when is_list(rows) ->
+        scored =
+          rows
+          |> Enum.map(fn [id, chunk_app, chunk_path, chunk_index, source, content, embedding_json] ->
+            case Jason.decode(embedding_json) do
+              {:ok, emb} ->
+                %{
+                  id: id,
+                  app: chunk_app,
+                  path: chunk_path,
+                  chunk_index: chunk_index,
+                  source: source,
+                  content: content,
+                  similarity: Acs.Memory.Embedding.cosine_similarity(embedding, emb)
+                }
+
+              _ ->
+                nil
+            end
+          end)
+          |> Enum.reject(&is_nil/1)
+          |> Enum.sort_by(& &1.similarity, :desc)
+          |> Enum.take(limit)
+
+        {:ok, scored}
+
+      _ ->
+        {:ok, []}
     end
   end
 

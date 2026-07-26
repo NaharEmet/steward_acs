@@ -15,3 +15,4 @@ Quick rules:
 - Optional Infisical keys may stay `REPLACE_ME` / blank — inject skips them.
 - Never commit credentials. Auth0 M2M for ops scripts (`certs/Oauth.md`) is not ACS runtime.
 - After any leaked secret, rotate in the provider.
+- Prod image/cutover: GitHub Actions (Infisical inject happens on the host during `deploy.sh --resume`).

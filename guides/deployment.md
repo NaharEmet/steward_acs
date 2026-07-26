@@ -2,11 +2,11 @@
 
 Supported setups (only these three):
 
-| Setup | Command |
-|-------|---------|
-| Local dev | `docker compose up -d` |
-| Multi-tenant prod (Neon Postgres) | `docker compose -f docker-compose.multitenant.yml up -d` |
-| Multi-tenant + local Postgres container | `WITH_POSTGRES=true` / `-f docker-compose.postgres.yml` |
+| Setup | How |
+|-------|-----|
+| Local dev | `docker compose up -d` (SQLite) |
+| Multi-tenant prod (Neon) | **GitHub Actions** → image + Infisical cutover |
+| Multi-tenant + local Postgres container | compose override / `WITH_POSTGRES=true` (rare) |
 
 Agent-facing detail lives in [`priv/skills/deployment.md`](../priv/skills/deployment.md). Keep that skill current; this guide is the human index.
 
@@ -25,29 +25,60 @@ docker compose up -d
 
 ## Multi-tenant production (canonical)
 
+**Prod deploys go through GitHub Actions**, not a laptop `deploy.sh` by default.
+
+Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
+
+1. Merge/push to `main` (paths under `lib/`, `config/`, `priv/`, `assets/`, `Dockerfile`, compose/Caddy, deploy scripts, or the workflow itself), **or** run **Actions → Deploy → Run workflow**.
+2. Job `build-push` builds the Postgres release image and pushes `naharemete/steward_acs:<git-sha>` (+ `:multitenant`).
+3. Job `cutover` SSHs to the Environment host and runs `./scripts/deploy.sh --resume` (pull, Infisical compose up, health + smoke).
+
+### GitHub Environment secrets
+
+Create Environment **prod** (optional **staging**) with:
+
+| Secret / var | Purpose |
+|--------------|---------|
+| `DEPLOY_HOST` | Server IP/hostname |
+| `DEPLOY_USER` | SSH user (e.g. `ubuntu`) |
+| `SSH_PRIVATE_KEY` | Deploy key for that host |
+| `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` | Image push/pull |
+| `PUBLIC_URL` (optional) | Smoke base URL |
+| `REMOTE_DIR` (optional) | Default `/home/ubuntu/steward_acs` |
+| `REGISTRY` (optional var) | Default `naharemete/steward_acs` |
+
+Host still needs thin `.env` (from `.env.multitenant`) and `.infisical.env` (machine identity). Secrets stay in Infisical `steward_prod` / `prod` — see [`guides/secrets.md`](secrets.md). Compose on the host always runs through `scripts/infisical-compose.sh`.
+
+### Manual workflow_dispatch
+
+- **environment**: `prod` or `staging`
+- **cutover**: `true` (default) to pull + recreate; `false` to build/push only
+- **image_tag**: override (empty = short git SHA)
+
+### New server (once)
+
 ```bash
-# Thin non-secret config on the host
-cp .env.multitenant .env
-# Secrets: Infisical steward_prod / prod (see guides/secrets.md)
-# Machine identity: .infisical.env with INFISICAL_UNIVERSAL_AUTH_CLIENT_ID/_SECRET
-# register https://${ACCOUNT_HOST}/auth/callback in the Auth0 Regular Web Application
-./scripts/infisical-compose.sh -f docker-compose.multitenant.yml up -d
+SERVER=ubuntu@NEW_HOST ./scripts/bootstrap-server.sh
+# write REMOTE_DIR/.infisical.env, confirm Infisical prod secrets, thin .env
+# add GitHub Environment secrets for that host, then Actions → Deploy
+# optional first start:
+SERVER=ubuntu@NEW_HOST ACS_IMAGE_TAG=<sha> ./scripts/bootstrap-server.sh --start
 ```
 
-Or deploy from a workstation with an immutable Git-SHA tag (clean tree required):
+### Escape hatch (laptop / emergency)
+
+Prefer Actions. Use workstation deploy only for break-glass (e.g. Actions down, or a one-off dirty hotfix you intend to replace with a clean main build ASAP):
 
 ```bash
-SERVER=ubuntu@YOUR_HOST ./scripts/deploy.sh
-SERVER=ubuntu@YOUR_HOST ./scripts/status.sh
-SERVER=ubuntu@YOUR_HOST ./scripts/backup-prod.sh
-
-# Dirty hotfix / resume / rollback
+SERVER=ubuntu@YOUR_HOST ./scripts/deploy.sh          # clean tree → SHA tag
 ALLOW_DIRTY=1 SERVER=ubuntu@YOUR_HOST ./scripts/deploy.sh
 SERVER=ubuntu@YOUR_HOST ACS_IMAGE_TAG=<tag> ./scripts/deploy.sh --resume
 SERVER=ubuntu@YOUR_HOST ./scripts/deploy.sh --rollback
+SERVER=ubuntu@YOUR_HOST ./scripts/status.sh
+SERVER=ubuntu@YOUR_HOST ./scripts/backup-prod.sh
 ```
 
-`deploy.sh` cutover is a single SSH session (survives fewer mid-deploy drops). Images carry `org.opencontainers.image.revision` + `.dirty` labels for `status.sh`. Compose on the host runs through `scripts/infisical-compose.sh` (Infisical secrets + thin `.env`).
+`deploy.sh` cutover is a single SSH session. Images carry `org.opencontainers.image.revision` + `.dirty` labels for `status.sh`.
 
 ### Neon database
 
@@ -66,20 +97,8 @@ When you want Postgres on the host instead of Neon:
 
 ```bash
 # same .env plus DB_PASSWORD=; compose override sets DATABASE_URL to the local db
-docker compose -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
-# or: WITH_POSTGRES=true SERVER=ubuntu@HOST ./scripts/deploy.sh
+./scripts/infisical-compose.sh -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
 ```
-
-### GitHub Actions + new servers
-
-```bash
-# One-time new host
-SERVER=ubuntu@NEW_HOST ./scripts/bootstrap-server.sh
-# write REMOTE_DIR/.infisical.env (machine identity), confirm Infisical prod secrets, then:
-SERVER=ubuntu@NEW_HOST ACS_IMAGE_TAG=<sha> ./scripts/bootstrap-server.sh --start
-```
-
-CI: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) builds/pushes the image and runs `deploy.sh --resume` against the GitHub Environment’s `DEPLOY_HOST`. Add Environment secrets (`DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`, `DOCKERHUB_*`) per server/stage.
 
 | Aspect | Value |
 |--------|-------|
@@ -122,21 +141,6 @@ rsync -a --dry-run "/vaults/$slug/prompts/"      "/vaults/orgs/$slug/prompts/"
 For the configured legacy organization, also copy `/vaults/private/memories/` into its canonical `private/memories/` directory. If its slug is `default`, its old skills/specs roots are `/vaults/skills/` and `/vaults/specs/`; copy only files owned by `default` and exclude their nested `orgs/` directories. Keep legacy sources through the rollback window; do not use `mv` while Syncthing peers may still reference the old paths.
 
 `MCP_TOOLS_PATH` and `EXTERNAL_TOOLS_PATH` are read-only shared/plugin sources; tenant writes never target them. Tenant YAML may define HTTP endpoints only. Shared YAML handlers are disabled unless each module is explicitly listed in the comma-separated `TRUSTED_MCP_HANDLER_MODULES` allowlist.
-
-### Postgres override (planned prod migration)
-
-```bash
-# same .env plus DB_PASSWORD=
-docker compose -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
-```
-
-Entry point runs release migrations on boot. Manual recovery:
-
-```bash
-docker compose -f docker-compose.multitenant.yml exec steward_acs \
-  /app/bin/steward_acs eval "Acs.Release.migrate"
-```
-
 
 ### Org registry
 
@@ -182,7 +186,7 @@ App export is enabled only when the release runs in `prod` and Infisical injects
 
 `COMPOSE_PROFILES=axiom` starts `otel_collector` (see `otel/collector-config.yaml`), which scrapes host CPU/memory/disk/network every 30s into `AXIOM_METRICS_DATASET`.
 
-After deploying, request `/mcp/health`, exercise a database-backed route, and confirm traces and log events arrive. BEAM `message == "vm.metrics"` Events (when VmMetrics is deployed) complement hostmetrics. Create/update the monitoring dashboard:
+After deploying, request `/mcp/health`, exercise a database-backed route, and confirm traces and log events arrive. Every ~30s, `message == "vm.metrics"` Events rows ship BEAM memory/`scheduler_utilization` plus best-effort Linux cgroup/meminfo fields. Create/update the monitoring dashboard:
 
 ```bash
 AXIOM_TOKEN=xaat-… AXIOM_DATASET=steward-acs AXIOM_METRICS_DATASET=steward-acs-metrics \
