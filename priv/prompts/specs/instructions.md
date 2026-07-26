@@ -1,27 +1,24 @@
-Specs are the **document store** — anything produced during work that should be saved and shared. Not just code module docs.
+# Specs & Documents
 
-## What belongs in specs (vs skills vs memories)
+One store, two kinds:
+
+| Kind | When | How to save |
+|------|------|-------------|
+| **Spec** (code) | Documenting **why a code module exists** | Structured fields: `purpose`, `invariants`, `workflows`, `failure_modes`, `constraints` — or `document_type: "spec"` + markdown `content` |
+| **Document** (non-code) | Anything outside code to keep/share | `document_type` + `title` + `content` (full markdown) |
+
+Tools are still named `specs_*` (compatibility). Treat them as **specs for code** and **documents for everything else**.
+
+## What belongs where
 
 | System | What to store | Examples |
 |--------|---------------|----------|
-| **specs** | Long documents & artifacts to share | Module specs, architecture write-ups, project briefs, marketing copy, reports, deliverables with image links |
-| **skills** | Short repeatable **procedures** (step-by-step) | How to deploy, how to run migrations |
-| **memories** | Short **eternal truths** (principles) | Invariants, pitfalls, decisions that stay true forever |
+| **specs** (code) | Module documentation | purpose, invariants, failure modes for `Acs.Memory.Guidance` |
+| **documents** (non-code) | Long shareable artifacts | project briefs, marketing copy, policies, reports, research |
+| **skills** | Short repeatable **procedures** | How to deploy, how to run a refund |
+| **memories** | Short **eternal truths** | Invariants, pitfalls, decisions that stay true forever |
 
-## Two spec modes
-
-### 1. Module spec (code work)
-
-Use when documenting **why code exists**. Structured fields:
-
-- `purpose`, `invariants`, `workflows`, `failure_modes`, `constraints`, `tags`
-- Or `document_type: "spec"` with full `content` markdown for long module write-ups
-
-`query_specs(undocumented: true)` finds modules missing specs.
-
-### 2. Document (any shareable output)
-
-Use when the user or agent produced a **document** to keep or share:
+## Document types (non-code)
 
 - **knowledge** — long knowledge files about systems, architecture, research
 - **project** — project plans, briefs, status docs, client deliverables
@@ -29,40 +26,30 @@ Use when the user or agent produced a **document** to keep or share:
 - **deliverable** — any other output the user wants preserved
 - **policy / process / guideline / reference** — org knowledge documents
 
-Required: `document_type`, `title`, `content` (full markdown). Optional: `source` (file path or asset URL), `project`, `tags`.
+Required for documents: `document_type`, `title`, `content`. Optional: `source`, `project`, `tags`.
 
 ## Scope convention (org knowledge structure)
 
-`scope_path` / document paths are hierarchical labels for **how the org is structured**, not only code:
+Hierarchical labels for **how the org is structured**:
 
-- Business: `acme/sales/pricing`, `acme/support/refunds`, `acme/ops/onboarding`, `acme/policy/privacy`
-- Code: `acs/memory/guidance` under app `steward_acs`
-
-What goes where:
-- **memories** — short eternal truths
-- **specs** — long shareable documents (this tool)
-- **skills** — repeatable procedures
-
-Path examples:
-- Code: `app: steward_acs`, `path: acs/memory/guidance`
-- Project doc: `app: acme-corp`, `path: documents/project/onboarding-brief`
-- Marketing: `app: acme-corp`, `path: documents/marketing/q3-launch-copy`
-- Policy: `app: acme-corp`, `path: documents/policy/refunds`
+- Code specs: `app: steward_acs`, `path: acs/memory/guidance`
+- Business documents: `app: acme-corp`, `path: documents/policy/refunds`
+- Business scopes on memories/skills: `acme/sales/pricing`, `acme/support/refunds`
 
 ## When code and a module spec disagree
 
 1. Pause  2. Identify the diff  3. Ask the user which to update  4. Never assume one is wrong
 
-## When to call specs_propose
+## When to call `specs_propose`
 
-- After implementing or changing a **module** (module spec)
-- After producing **any document** the user wants saved or shared (document mode)
+- After implementing or changing a **module** → save a **spec**
+- After producing **any non-code document** the user wants saved → save a **document** (`document_type` + `content`)
 - At task finish (`release_work` flow), before `submit_task_feedback`
 
 ## Tools
 
-- `specs_get(app, path)` — read one entry
-- `query_specs(query:)` — search all specs and documents
-- `query_specs(undocumented: true)` — modules missing code specs only
+- `specs_get(app, path)` — read one **spec** or **document**
+- `query_specs(query:)` — search both specs and documents
+- `query_specs(undocumented: true)` — code modules missing **specs** only
 - `specs_propose(app, path, ...)` — create or update (status → proposed)
 - `specs_approve(app, path, reviewer)` / `specs_reject(app, path)`

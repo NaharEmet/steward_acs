@@ -75,6 +75,7 @@ echo "Assigned MCP User role (if role exists)"
 ACTION_CODE="exports.onExecutePostLogin = async (event, api) => {
   const org = event.user.app_metadata && event.user.app_metadata.org;
   if (org) api.accessToken.setCustomClaim('${ORG_CLAIM}', org);
+  if (event.user.email) api.accessToken.setCustomClaim('email', event.user.email);
 };"
 
 ACTION_ID=$(api GET "/actions/actions?triggerId=post-login" | python3 -c "

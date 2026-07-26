@@ -145,9 +145,9 @@ defmodule Acs.Memory.ToolGuidance do
         },
         %{
           id: "toolguidance_core_axiom_5",
-          title: "Sleep/wake cycle for task dispatch",
+          title: "List tasks when idle",
           summary:
-            "The sleep/wake cycle: agents call sleep() to block until a task arrives, then claim_work to claim it.",
+            "When idle, call list_tasks to find work or wait for the next user request. Do not use sleep/wake.",
           importance: 3
         }
       ],
@@ -164,13 +164,6 @@ defmodule Acs.Memory.ToolGuidance do
           title: "Cannot release another agent's task",
           summary: "Never release another agent's task — release_work validates ownership.",
           importance: 5
-        },
-        %{
-          id: "toolguidance_core_warning_3",
-          title: "Cannot sleep with active task",
-          summary:
-            "Calling sleep() with an active task will fail. Complete or release the current task first.",
-          importance: 4
         }
       ],
       relevant_patterns: [
@@ -197,7 +190,7 @@ defmodule Acs.Memory.ToolGuidance do
         }
       ],
       compressed_knowledge:
-        "Core ACS workflow: create_work/claim_work → lock_file → edit → unlock_file → release_work → skill_save/save_memory/specs_propose → submit_task_feedback (last). File locks: 10 min auto-release. Task states: available → claimed → in_progress → completed. Use get_present_status to check agent activity. Use list_tasks(agent_id:, status_filter:) to find work. Sleep() blocks until task dispatch."
+        "Core ACS workflow: create_work/claim_work → lock_file → edit → unlock_file → release_work → skill_save/save_memory/specs_propose → submit_task_feedback (last). File locks: 10 min auto-release. Task states: available → claimed → in_progress → completed. Use get_present_status to check agent activity. Use list_tasks(agent_id:, status_filter:) to find work."
     },
     "agent_coordination_system/tools/knowledge" => %{
       critical_axioms: [
@@ -299,14 +292,14 @@ defmodule Acs.Memory.ToolGuidance do
           id: "toolguidance_specs_axiom_2",
           title: "Module specs vs documents",
           summary:
-            "Module spec: purpose/invariants/workflows for code. Document: document_type + content for project docs, marketing, long knowledge. Use skills for procedures, memories for eternal truths.",
+            "Module **spec**: purpose/invariants/workflows for code. Non-code **document**: document_type + content (policy, marketing, briefs). Use skills for procedures, memories for eternal truths.",
           importance: 5
         },
         %{
           id: "toolguidance_specs_axiom_3",
           title: "Save documents the user wants to share",
           summary:
-            "When work produces output the user wants kept (reports, copy, briefs), specs_propose with document_type and full markdown content.",
+            "When work produces non-code output the user wants kept (reports, copy, briefs, policies), specs_propose as a **document** with document_type and full markdown content.",
           importance: 5
         },
         %{
@@ -338,19 +331,19 @@ defmodule Acs.Memory.ToolGuidance do
           id: "toolguidance_specs_pattern_1",
           title: "After code work: module spec or document",
           summary:
-            "After code: query_specs(undocumented: true) for missing module specs. After any deliverable: specs_propose with document_type + content.",
+            "After code: query_specs(undocumented: true) for missing module **specs**. After any non-code deliverable: specs_propose as a **document** with document_type + content.",
           importance: 4
         },
         %{
           id: "toolguidance_specs_pattern_2",
           title: "Document quality checklist",
           summary:
-            "Module spec: purpose, invariants, workflows, failure_modes, constraints. Document: document_type, title, content (markdown, images as links), tags, source.",
+            "Spec (code): purpose, invariants, workflows, failure_modes, constraints. Document (non-code): document_type, title, content (markdown), tags, source.",
           importance: 4
         }
       ],
       compressed_knowledge:
-        "Specs: module docs + shareable documents (knowledge, project, marketing, deliverable). specs_get, query_specs, specs_propose, specs_approve/reject. document_type + content for long docs. skills=procedures, memories=truths."
+        "Specs (code) + documents (non-code) share specs_* tools. specs_get, query_specs, specs_propose, specs_approve/reject. document_type \"spec\" or structured fields for code; other document_types for policies/briefs/marketing. skills=procedures, memories=truths."
     },
     "agent_coordination_system/tools/skills" => %{
       critical_axioms: [

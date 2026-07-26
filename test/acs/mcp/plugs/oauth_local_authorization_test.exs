@@ -18,6 +18,27 @@ defmodule Acs.MCP.Plugs.OAuthLocalAuthorizationTest.OIDCStrategy do
   end
 end
 
+defmodule Acs.MCP.Plugs.OAuthLocalAuthorizationTest.OIDCEmailFallbackStrategy do
+  @behaviour Acs.MCP.Plugs.AuthStrategy
+
+  @impl true
+  def authenticate(_key, _conn) do
+    {:ok,
+     %{
+       role: "collaborator",
+       org_id: nil,
+       permissions: ["mcp:tools"],
+       agent_identity: "oidc-member@example.test",
+       oidc_issuer: "https://issuer.example.test/",
+       # Different Auth0 connection than the one stored on the user (e.g. email vs Google).
+       oidc_subject: "email|other-connection-subject",
+       email: "oidc-member@example.test",
+       allowed_teams: nil,
+       allowed_projects: nil
+     }}
+  end
+end
+
 defmodule Acs.MCP.Plugs.OAuthLocalAuthorizationTest do
   use Acs.DataCase, async: false
 
@@ -80,6 +101,32 @@ defmodule Acs.MCP.Plugs.OAuthLocalAuthorizationTest do
 
     assert Jason.decode!(result.resp_body)["error"] ==
              "OAuth user is not authorized for this organization"
+  end
+
+  test "authorizes when Auth0 subject differs but email matches the local user" do
+    organization = organization!()
+
+    {:ok, _user} =
+      Accounts.register_user(%{
+        email: "oidc-member@example.test",
+        org: organization.slug,
+        organization_id: organization.id,
+        org_role: "member",
+        oidc_issuer: "https://issuer.example.test/",
+        oidc_subject: "google-oauth2|stored-subject"
+      })
+
+    Application.put_env(:steward_acs, :auth_strategies, [
+      Acs.MCP.Plugs.OAuthLocalAuthorizationTest.OIDCEmailFallbackStrategy
+    ])
+
+    result =
+      Plug.Test.conn(:get, "/mcp/v1/messages")
+      |> Plug.Conn.assign(:current_org, organization.slug)
+      |> MCPAuth.call([])
+
+    assert result.assigns.agent_role == "collaborator"
+    assert result.assigns.agent_org_id == organization.slug
   end
 
   defp organization! do

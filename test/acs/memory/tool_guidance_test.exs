@@ -199,8 +199,9 @@ defmodule Acs.Memory.ToolGuidanceTest do
       assert packet.tier == :claim
       assert is_list(packet.critical_axioms)
       assert is_list(packet.warnings)
-      assert packet.relevant_patterns == []
-      assert packet.compressed_knowledge == ""
+      # claim tier omits patterns/knowledge keys entirely (smaller packet)
+      assert Map.get(packet, :relevant_patterns, []) == []
+      assert Map.get(packet, :compressed_knowledge, "") in [nil, ""]
     end
 
     test ":full tier returns all categories" do

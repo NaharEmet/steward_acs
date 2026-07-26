@@ -240,7 +240,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       get_started:
         "1) `get_present_status(agent_id: \"your_name\")` — register  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check docs  5) `lock_file` files  6) do work  7) `save_memory` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback`",
       org_knowledge_conventions:
-        "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=truths, specs=documents, skills=procedures.",
+        "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=truths, specs=code module docs, documents=non-code artifacts (same specs_* tools + document_type), skills=procedures.",
       tools: [
         %{
           tool: "get_present_status",
@@ -297,9 +297,9 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       general:
         "ACS is the org's durable knowledge store. Retrieve before answering; save durable truths. Use business scopes (org/domain/topic). Tasks are optional for multi-step work. Do not use file locking unless asked to edit code.",
       get_started:
-        "1) `get_present_status(agent_id: \"\")` — register  2) `generate_guidance_packet(scope_path: \"org/domain\", mode: \"knowledge\")`  3) `query_memories(query:)` / `query_specs(query:)` / `skill_get(search:)`  4) answer from retrieved knowledge  5) `save_memory` or `specs_propose` for durable results  6) optional `create_work` for tracked multi-step work",
+        "1) `get_present_status(agent_id: \"\")` — register  2) `generate_guidance_packet(scope_path: \"org/domain\", mode: \"knowledge\")`  3) `query_memories(query:)` / `query_specs(query:)` / `skill_get(search:)`  4) answer from retrieved knowledge  5) `save_memory` or `specs_propose` as a **document** (document_type + content)  6) optional `create_work` for tracked multi-step work",
       org_knowledge_conventions:
-        "Prefer business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy. memories=short truths, specs=long documents, skills=step-by-step procedures. Never invent org policy when ACS has no match.",
+        "Prefer business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy. memories=short truths, documents=long non-code artifacts via specs_propose, skills=procedures. Never invent org policy when ACS has no match.",
       tools: [
         %{
           tool: "get_present_status",
@@ -318,7 +318,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         },
         %{
           tool: "query_specs",
-          description: "Search documents, policies, briefs",
+          description: "Search code specs and non-code documents",
           params: %{query: "..."}
         },
         %{
@@ -338,7 +338,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         },
         %{
           tool: "specs_propose",
-          description: "Save a long document (policy, brief, marketing)",
+          description: "Save a non-code document (policy, brief, marketing) or a code spec",
           params: %{document_type: "policy", title: "...", content: "..."}
         },
         %{

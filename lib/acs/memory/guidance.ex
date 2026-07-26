@@ -1,23 +1,17 @@
 defmodule Acs.Memory.Guidance do
   @moduledoc """
-  Generates guidance packets for agents when they claim tasks.
+  Generates audience-specific guidance packets.
 
-  Guidance packets are context-appropriate memory snippets injected
-  into an agent's context at task claim time. They help agents
-  follow established practices without having to search manually.
+  Two **completely different** packet shapes (not the same map with empty fields):
 
-  ## Token Budget (per guidance packet category)
-  - critical_axioms: max 5 entries
-  - warnings: max 3 entries
-  - relevant_patterns: max 5 entries
-  - compressed_knowledge: max 500 tokens (approximate)
+  - **`:coding` / `:mcp`** — task workflow, file locks, tool refs, code specs
+  - **`:chat` / `:knowledge`** — retrieve/answer/save org knowledge; no locks or coding protocols
 
-  ## Delivery Tiers
-  - `:claim` — Compact packet delivered at task claim time
-    Includes: axioms, warnings, maintenance, tool_reference, specs_*, workflow_basics
-  - `:full` — Complete packet delivered on explicit request
-    Includes: all of :claim + patterns, knowledge, file_locking_protocol,
-    memory_protocol, error_response_protocol, sleep_wake_protocol, agent_identity
+  ## Token Budget (shared memory slices)
+  - critical_axioms: max 5
+  - warnings: max 3
+  - relevant_patterns: max 5 (full tier)
+  - compressed_knowledge: max ~2000 chars (full tier)
   """
 
   @critical_axioms_max 5
@@ -25,135 +19,106 @@ defmodule Acs.Memory.Guidance do
   @patterns_max 5
   @knowledge_max_chars 2000
 
-  @maintenance_instructions """
-Outdated items? 1) `set_memory_status(id, "stale", notes)` 2) `save_memory(kind, title, content, scope_path)` for corrected version 3) `specs_propose` for outdated specs
+  # ── Coding packet copy ──────────────────────────────────────────────
+
+  @coding_workflow """
+Start: create or claim a task. Then: lock_file → work → unlock_file → release_work → skill_save / save_memory / specs_propose → submit_task_feedback last.
+No tasks? list_tasks or wait for the next user request. Scopes: code paths OR business domains (org/domain/topic).
 """
 
-  @tool_reference """
-All tools callable by name. `help(category, level)` for filtered listing. `get_logs(level: "error")` first when stuck. Tools are organized by category (acs_core, knowledge, specs, error, diagnostic, skills).
+  @coding_file_locking """
+lock_file before edit; unlock_file when done (by path or task_id). 10-min auto-release. get_locked_files() to check.
 """
 
-  @specs_instructions """
-`specs_propose` saves module specs AND shareable documents (project docs, marketing copy, knowledge files). Module spec: purpose, invariants, workflows. Document: document_type + title + content. `query_specs` searches all. `query_specs(undocumented: true)` finds code modules missing specs only.
+  @coding_memory """
+save_memory(kind, title, content, scope_path) — eternal truths only. Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom.
+"""
+
+  @coding_error """
+1) list_error_traces()  2) ack_error_trace(id)  3) fix → resolve_error_trace(id)  4) get_logs(level:"error") → connection_diagnostic()
+"""
+
+  @coding_tools """
+All tools callable by name. help(category, level) to list. get_logs(level: "error") when stuck.
+"""
+
+  @coding_specs_mismatch """
+Code differs from its module spec? Pause → identify diff → ask user which to update. Never assume one is wrong.
+"""
+
+  @coding_finish """
+After release_work: skill_save / save_memory / specs_propose (code specs or documents) → submit_task_feedback last.
+"""
+
+  @coding_maintenance """
+Outdated? set_memory_status(id, "stale", notes) → save_memory corrected version → specs_propose for outdated specs/documents.
+"""
+
+  @coding_identity """
+get_present_status(agent_id: "") → assigned_agent_id. Use that name in all tool calls.
+"""
+
+  @coding_conventions """
+## Knowledge structure (coding)
+Scopes: code paths OR org/domain/topic.
+- memories — eternal truths
+- specs — code module docs (purpose, invariants, workflows)
+- documents — non-code artifacts (same specs_* tools + document_type)
+- skills — procedures
 """
 
   @specs_instructions_short """
-After completing work, `specs_propose` for module changes OR any document the user wants saved (project, marketing, deliverable). Use `document_type` + `content` for long docs. `query_specs(query:)` to find prior artifacts.
+After work: specs_propose for code specs (module changes) OR documents (document_type + content). query_specs finds both.
+"""
+
+  @specs_instructions """
+specs_propose saves specs (code) and documents (non-code). Spec: purpose, invariants, workflows. Document: document_type + title + content. query_specs searches both. query_specs(undocumented: true) finds code modules missing specs only.
 """
 
   @skills_instructions_short """
-  Check `relevant_skills` in this packet — call `skill_get(name:)` before starting procedural work. Use `skill_save` for repeatable workflows; `save_memory` for eternal truths.
-  """
-
-  @specs_mismatch_protocol """
-Code differs from spec? 1) Pause. 2) Identify what differs (spec says X, code does Y). 3) Ask user which to update. 4) Execute decision. Never assume one is wrong.
+Check relevant_skills — skill_get(name:) before procedural work. skill_save for workflows; save_memory for eternal truths.
 """
 
-  @skills_finish_protocol """
-After `release_work`: save your work first — `skill_save` (repeatable user workflow), `save_memory` (eternal truths), `specs_propose` (new/changed modules). Then `submit_task_feedback` to formally close. Feedback comes last, after information is saved.
+  # ── Chat packet copy ────────────────────────────────────────────────
+
+  @chat_workflow """
+Retrieve before answering: query_memories → query_specs → skill_get → generate_guidance_packet.
+Answer from ACS; if nothing matches, say so. Optionally create_work for multi-step tracked work.
+Save durable results: save_memory / skill_save / specs_propose as a document (document_type + content).
 """
 
-  @workflow_basics """
-Start: create or claim a task in ACS before work. After claiming: 1) `lock_file`  2) do work  3) `unlock_file`  4) `release_work`  5) `skill_save` / `save_memory` / `specs_propose` as needed  6) `submit_task_feedback`
-Finish: `release_work` → save skills/memories/specs → `submit_task_feedback` last. Never tell the user you're done until feedback is submitted.
-Every response includes `_next` with suggested next tools. No tasks? `sleep`
-Scopes may be code paths OR business domains (`org/domain/topic`).
+  @chat_store """
+memories = short truths · documents = long non-code (specs_propose + document_type) · skills = procedures.
+Prefer business scopes: org/domain/topic (e.g. acme/support/refunds).
 """
 
-  @file_locking_protocol """
-`lock_file` before edit, `unlock_file` when done (by path or task_id). 10-min auto-release. `get_locked_files()` to check.
+  @chat_honesty """
+Never invent org policy. If ACS has no match, say so and offer to save after the user confirms.
 """
 
-  @memory_protocol """
-`save_memory(kind, title, content, scope_path)` — eternal truths only (patterns, decisions, invariants). Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom. Not one-off events.
+  @chat_identity """
+get_present_status(agent_id: "") returns your agent name. Use it on tool calls that require agent_id.
 """
 
-  @error_response_protocol """
-1) `list_error_traces()`  2) `ack_error_trace(id)` — investigating  3) fix → `resolve_error_trace(id)`  4) debug: `get_logs(level:"error")` → `connection_diagnostic()`
-"""
-
-  @sleep_wake_protocol """
-`sleep(agent_id, timeout)` — blocks until task dispatched. `wake(agent_id)` to cancel. Release active tasks first.
-"""
-
-  @agent_identity """
-Find your agent_id: `get_present_status(agent_id: "")` auto-registers and returns `assigned_agent_id`. Then use that name in all tool calls. The assigned name persists across sessions.
-"""
-
-  @knowledge_workflow """
-Start: retrieve org knowledge before answering (`query_memories`, `query_specs`, `generate_guidance_packet`). Optionally `create_work`/`claim_work` for multi-step tracked work.
-Finish: save durable knowledge (`save_memory` / `skill_save` / `specs_propose`) → `submit_task_feedback` if a task is open. Do not invent org policy when ACS has no match — say so and offer to save after the user confirms.
-"""
-
-  @knowledge_file_locking """
-"""
-
-  @knowledge_memory """
-`save_memory(kind, title, content, scope_path)` — eternal truths only. Prefer business scopes: `org/domain/topic` (e.g. `acme/support/refunds`). Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom.
-"""
-
-  @knowledge_error """
-1) `list_error_traces()` if investigating a known ACS error  2) `query_memories` / `query_specs` for prior decisions  3) `save_memory()` to capture what you learned
-"""
-
-  @knowledge_sleep """
-No tasks? Stay available for the next user question. Coding-style `sleep` dispatch is optional for chat assistants.
-"""
-
-  @knowledge_identity """
-Find your agent_id: `get_present_status(agent_id: "")` returns your assigned name. Use it in all tool calls — it persists across sessions.
-"""
-
-  @org_knowledge_conventions """
-## Org knowledge structure
-
-Scopes are hierarchical labels — **business domains or code paths**, not only files.
-
-Examples:
-- Business: `acme/sales/pricing`, `acme/support/refunds`, `acme/ops/onboarding`, `acme/policy/privacy`
-- Code: `steward_acs/lib/acs/memory`, `agent_coordination_system/tools/knowledge`
-
-What goes where:
-- **memories** — short eternal truths (decisions, invariants, warnings)
-- **specs/documents** — long shareable artifacts (briefs, policies, marketing, reports)
-- **skills** — repeatable step-by-step procedures
-
-Always attach a clear `scope_path` when saving so the next agent can retrieve by domain.
+  @chat_conventions """
+## Knowledge structure (chat)
+Business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy.
+- memories — short eternal truths
+- documents — policies, briefs, marketing (specs_propose + document_type)
+- skills — step-by-step playbooks
+Tools are still named specs_*; for chat you almost always want documents, not code specs.
 """
 
   @doc """
   Generates a guidance packet for a given scope_path.
 
   ## Options
-  - `tier`: `:full` (default) - includes all categories including patterns and knowledge
-            `:claim` - only high-importance (>= 4) axioms and warnings, no patterns/knowledge
-  - `mode`: `:mcp` (default) - includes MCP tool references for coding agents
-            `:knowledge` - strips tool references, for Claude Chat/ChatGPT consumption
-
-  Returns a map with:
-  - :scope - the scope path
-  - :tier - the tier used
-  - :critical_axioms - list of high-importance axioms/invariants
-  - :warnings - list of warnings for this scope
-  - :relevant_patterns - list of relevant patterns/learnings
-  - :compressed_knowledge - condensed knowledge string
-  - :maintenance_instructions - instructions for flagging outdated items
-  - :tool_reference - guidance on using help, list_tools, and get_logs
-  - :specs_instructions - specs system instructions
-  - :specs_mismatch_protocol - how to handle code vs spec disagreements
-  - :skills_instructions - skills system instructions
-  - :relevant_skills - skills relevant to this task (claim tier)
-  - :relevant_specs - specs relevant to this task (claim tier)
-  - :workflow_basics - standard agent workflow (claim tier and above)
-  - :file_locking_protocol - file locking rules (full tier only)
-  - :memory_protocol - knowledge memory protocol (full tier only)
-  - :error_response_protocol - error handling (full tier only)
-  - :sleep_wake_protocol - sleep/wake behavior (full tier only)
-  - :agent_identity - agent identification (full tier only)
+  - `tier`: `:full` (default) | `:claim`
+  - `mode`: `:mcp` / `:coding` | `:knowledge` / `:chat`
   """
   def generate(scope_path, opts \\ []) do
     tier = Keyword.get(opts, :tier, :full)
-    mode = Keyword.get(opts, :mode, :mcp)
+    audience = audience_from_mode(Keyword.get(opts, :mode, :mcp))
     allowed_teams = Keyword.get(opts, :allowed_teams)
     allowed_projects = Keyword.get(opts, :allowed_projects)
     agent_role = Keyword.get(opts, :agent_role)
@@ -170,243 +135,38 @@ Always attach a clear `scope_path` when saving so the next agent can retrieve by
 
     search_opts = if agent_role, do: search_opts ++ [agent_role: agent_role], else: search_opts
 
-    scope_memories =
-      Acs.Memory.Search.list(search_opts)
+    sorted =
+      search_opts
+      |> Acs.Memory.Search.list()
+      |> Enum.sort_by(& &1.importance, :desc)
 
-    sorted = Enum.sort_by(scope_memories, & &1.importance, :desc)
-
-    # Merge hardcoded tool guidance for known ACS tool scopes
-    tool_guidance = Acs.Memory.ToolGuidance.for_scope(scope_path)
+    # Chat skips ToolGuidance — it's coding-tool noise
+    tool_guidance =
+      if audience == :chat, do: nil, else: Acs.Memory.ToolGuidance.for_scope(scope_path)
 
     packet =
-      case tier do
-      :claim ->
-        if mode == :knowledge do
-          %{
-            scope: scope_path,
-            scope_category: scope_path,
-            tier: :claim,
-            mode: :knowledge,
-            critical_axioms:
-              merge_items(
-                extract_axioms(sorted, min_importance: 4),
-                tool_guidance,
-                :critical_axioms,
-                @critical_axioms_max
-              ),
-            warnings:
-              merge_items(
-                extract_warnings(sorted, min_importance: 4),
-                tool_guidance,
-                :warnings,
-                @warnings_max
-              ),
-            relevant_patterns: [],
-            compressed_knowledge: "",
-            maintenance_instructions: @maintenance_instructions,
-            tool_reference: "",
-            specs_instructions: specs_instructions_for_tier(:claim),
-            specs_mismatch_protocol: "",
-            skills_instructions: skills_instructions_for_tier(:claim),
-            relevant_skills: [],
-            relevant_specs: [],
-            workflow_basics: @knowledge_workflow,
-            file_locking_protocol: @knowledge_file_locking,
-            memory_protocol: @knowledge_memory,
-            error_response_protocol: @knowledge_error,
-            sleep_wake_protocol: "",
-            agent_identity: @knowledge_identity
-          }
-        else
-          %{
-            scope: scope_path,
-            scope_category: scope_path,
-            tier: :claim,
-            mode: :mcp,
-            critical_axioms:
-              merge_items(
-                extract_axioms(sorted, min_importance: 4),
-                tool_guidance,
-                :critical_axioms,
-                @critical_axioms_max
-              ),
-            warnings:
-              merge_items(
-                extract_warnings(sorted, min_importance: 4),
-                tool_guidance,
-                :warnings,
-                @warnings_max
-              ),
-            relevant_patterns: [],
-            compressed_knowledge: "",
-            maintenance_instructions: @maintenance_instructions,
-            tool_reference: "",
-            specs_instructions: specs_instructions_for_tier(:claim),
-            specs_mismatch_protocol: "",
-            skills_instructions: skills_instructions_for_tier(:claim),
-            relevant_skills: [],
-            relevant_specs: [],
-            workflow_basics: @workflow_basics,
-            file_locking_protocol: @file_locking_protocol,
-            memory_protocol: @memory_protocol,
-            error_response_protocol: @error_response_protocol,
-            sleep_wake_protocol: "",
-            agent_identity: @agent_identity
-          }
-        end
-
-      :full ->
-        if mode == :knowledge do
-          %{
-            scope: scope_path,
-            scope_category: scope_path,
-            tier: :full,
-            mode: :knowledge,
-            critical_axioms:
-              merge_items(
-                extract_axioms(sorted),
-                tool_guidance,
-                :critical_axioms,
-                @critical_axioms_max
-              ),
-            warnings:
-              merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
-            relevant_patterns:
-              merge_items(
-                extract_patterns(sorted),
-                tool_guidance,
-                :relevant_patterns,
-                @patterns_max
-              ),
-            compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
-            maintenance_instructions: @maintenance_instructions,
-            tool_reference: "",
-            specs_instructions: specs_instructions_for_tier(:full),
-            specs_mismatch_protocol: @specs_mismatch_protocol,
-            skills_instructions: skills_instructions_for_tier(:full),
-            relevant_skills: [],
-            relevant_specs: [],
-            workflow_basics: @knowledge_workflow,
-            file_locking_protocol: @knowledge_file_locking,
-            memory_protocol: @knowledge_memory,
-            error_response_protocol: @knowledge_error,
-            sleep_wake_protocol: @knowledge_sleep,
-            agent_identity: @knowledge_identity
-          }
-        else
-          %{
-            scope: scope_path,
-            scope_category: scope_path,
-            tier: :full,
-            mode: :mcp,
-            critical_axioms:
-              merge_items(
-                extract_axioms(sorted),
-                tool_guidance,
-                :critical_axioms,
-                @critical_axioms_max
-              ),
-            warnings:
-              merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
-            relevant_patterns:
-              merge_items(
-                extract_patterns(sorted),
-                tool_guidance,
-                :relevant_patterns,
-                @patterns_max
-              ),
-            compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
-            maintenance_instructions: @maintenance_instructions,
-            tool_reference: @tool_reference,
-            specs_instructions: specs_instructions_for_tier(:full),
-            specs_mismatch_protocol: @specs_mismatch_protocol,
-            skills_instructions: skills_instructions_for_tier(:full),
-            relevant_skills: [],
-            relevant_specs: [],
-            workflow_basics: @workflow_basics,
-            file_locking_protocol: @file_locking_protocol,
-            memory_protocol: @memory_protocol,
-            error_response_protocol: @error_response_protocol,
-            sleep_wake_protocol: @sleep_wake_protocol,
-            agent_identity: @agent_identity
-          }
-        end
-    end
+      case audience do
+        :chat -> build_chat_packet(scope_path, sorted, tier)
+        :coding -> build_coding_packet(scope_path, sorted, tool_guidance, tier)
+      end
 
     merge_scope_context(packet, scope_path)
-    |> with_conventions()
   end
 
   @doc """
   Generates a guidance packet for a specific task.
-  Uses the task's scope path.
-
-  ## Options
-  - `tier`: `:full` (default) or `:claim`
-  - `mode`: `:mcp` (default) or `:knowledge`
   """
   def for_task(task_id, opts \\ []) do
     tier = Keyword.get(opts, :tier, :full)
     mode = Keyword.get(opts, :mode, :mcp)
+    audience = audience_from_mode(mode)
     allowed_teams = Keyword.get(opts, :allowed_teams)
     allowed_projects = Keyword.get(opts, :allowed_projects)
     agent_role = Keyword.get(opts, :agent_role)
 
-    task = Acs.Acs.get_task(task_id)
-
-    case task do
+    case Acs.Acs.get_task(task_id) do
       nil ->
-        if mode == :knowledge do
-          %{
-            scope: nil,
-            tier: tier,
-            mode: :knowledge,
-            critical_axioms: [],
-            warnings: [],
-            relevant_patterns: [],
-            compressed_knowledge: "",
-            maintenance_instructions: @maintenance_instructions,
-            tool_reference: "",
-            specs_instructions: specs_instructions_for_tier(:claim),
-            specs_mismatch_protocol: "",
-            skills_instructions: skills_instructions_for_tier(:claim),
-            relevant_skills: [],
-            relevant_specs: [],
-            workflow_basics: @knowledge_workflow,
-            file_locking_protocol: @knowledge_file_locking,
-            memory_protocol: @knowledge_memory,
-            error_response_protocol: @knowledge_error,
-            sleep_wake_protocol: "",
-            agent_identity: @knowledge_identity,
-            scope_category: nil
-          }
-          |> with_conventions()
-        else
-          %{
-            scope: nil,
-            tier: tier,
-            mode: :mcp,
-            critical_axioms: [],
-            warnings: [],
-            relevant_patterns: [],
-            compressed_knowledge: "",
-            maintenance_instructions: @maintenance_instructions,
-            tool_reference: "",
-            specs_instructions: specs_instructions_for_tier(:claim),
-            specs_mismatch_protocol: "",
-            skills_instructions: skills_instructions_for_tier(:claim),
-            relevant_skills: [],
-            relevant_specs: [],
-            workflow_basics: @workflow_basics,
-            file_locking_protocol: @file_locking_protocol,
-            memory_protocol: @memory_protocol,
-            error_response_protocol: @error_response_protocol,
-            sleep_wake_protocol: "",
-            agent_identity: @agent_identity,
-            scope_category: nil
-          }
-          |> with_conventions()
-        end
+        empty_packet(tier, audience)
 
       task when is_map(task) ->
         task_map = if is_struct(task), do: Map.from_struct(task), else: task
@@ -426,20 +186,149 @@ Always attach a clear `scope_path` when saving so the next agent can retrieve by
 
         guidance = generate(scope_path, Keyword.merge([tier: tier, mode: mode], abac_opts))
         claim_context = Acs.ClaimContext.for_task(task_map)
-
         title = (task_map[:title] || "") |> String.downcase()
-        task_context = build_task_context(title)
 
         guidance
-        |> Map.put(:task_context, task_context)
+        |> Map.put(:task_context, build_task_context(title))
         |> Map.put(:relevant_skills, claim_context.relevant_skills)
         |> Map.put(:relevant_specs, claim_context.relevant_specs)
-        |> Map.put(:skills_instructions, skills_instructions_for_tier(tier))
-        |> Map.put(:specs_instructions, specs_instructions_for_tier(tier))
-        |> Map.put(:skills_finish_protocol, @skills_finish_protocol)
-        |> with_conventions()
+        |> maybe_put_coding_finish(audience, tier)
     end
   end
+
+  defp audience_from_mode(mode) when mode in [:knowledge, :chat, "knowledge", "chat"], do: :chat
+  defp audience_from_mode(_), do: :coding
+
+  defp empty_packet(tier, :chat) do
+    build_chat_packet(nil, [], tier)
+  end
+
+  defp empty_packet(tier, :coding) do
+    build_coding_packet(nil, [], nil, tier)
+  end
+
+  defp build_coding_packet(scope_path, sorted, tool_guidance, :claim) do
+    %{
+      audience: :coding,
+      mode: :mcp,
+      scope: scope_path,
+      scope_category: scope_path,
+      tier: :claim,
+      critical_axioms:
+        merge_items(
+          extract_axioms(sorted, min_importance: 4),
+          tool_guidance,
+          :critical_axioms,
+          @critical_axioms_max
+        ),
+      warnings:
+        merge_items(
+          extract_warnings(sorted, min_importance: 4),
+          tool_guidance,
+          :warnings,
+          @warnings_max
+        ),
+      workflow: @coding_workflow,
+      file_locking: @coding_file_locking,
+      memory: @coding_memory,
+      agent_identity: @coding_identity,
+      org_knowledge_conventions: @coding_conventions,
+      specs_instructions: specs_instructions_for_tier(:claim),
+      skills_instructions: skills_instructions_for_tier(:claim),
+      relevant_skills: [],
+      relevant_specs: [],
+      # aliases kept for older callers / tests
+      workflow_basics: @coding_workflow,
+      file_locking_protocol: @coding_file_locking,
+      memory_protocol: @coding_memory
+    }
+  end
+
+  defp build_coding_packet(scope_path, sorted, tool_guidance, :full) do
+    %{
+      audience: :coding,
+      mode: :mcp,
+      scope: scope_path,
+      scope_category: scope_path,
+      tier: :full,
+      critical_axioms:
+        merge_items(extract_axioms(sorted), tool_guidance, :critical_axioms, @critical_axioms_max),
+      warnings: merge_items(extract_warnings(sorted), tool_guidance, :warnings, @warnings_max),
+      relevant_patterns:
+        merge_items(extract_patterns(sorted), tool_guidance, :relevant_patterns, @patterns_max),
+      compressed_knowledge: merge_knowledge(compress_knowledge(sorted), tool_guidance),
+      workflow: @coding_workflow,
+      file_locking: @coding_file_locking,
+      memory: @coding_memory,
+      error_response: @coding_error,
+      tool_reference: @coding_tools,
+      specs_mismatch: @coding_specs_mismatch,
+      skills_finish: @coding_finish,
+      maintenance: @coding_maintenance,
+      agent_identity: @coding_identity,
+      org_knowledge_conventions: @coding_conventions,
+      specs_instructions: specs_instructions_for_tier(:full),
+      skills_instructions: skills_instructions_for_tier(:full),
+      relevant_skills: [],
+      relevant_specs: [],
+      workflow_basics: @coding_workflow,
+      file_locking_protocol: @coding_file_locking,
+      memory_protocol: @coding_memory,
+      error_response_protocol: @coding_error,
+      maintenance_instructions: @coding_maintenance,
+      specs_mismatch_protocol: @coding_specs_mismatch,
+      skills_finish_protocol: @coding_finish
+    }
+  end
+
+  defp build_chat_packet(scope_path, sorted, :claim) do
+    %{
+      audience: :chat,
+      mode: :knowledge,
+      scope: scope_path,
+      scope_category: scope_path,
+      tier: :claim,
+      critical_axioms: extract_axioms(sorted, min_importance: 4),
+      warnings: extract_warnings(sorted, min_importance: 4),
+      workflow: @chat_workflow,
+      store: @chat_store,
+      honesty: @chat_honesty,
+      agent_identity: @chat_identity,
+      org_knowledge_conventions: @chat_conventions,
+      relevant_skills: [],
+      relevant_specs: [],
+      # thin aliases so existing tests reading workflow_basics still work
+      workflow_basics: @chat_workflow
+    }
+  end
+
+  defp build_chat_packet(scope_path, sorted, :full) do
+    %{
+      audience: :chat,
+      mode: :knowledge,
+      scope: scope_path,
+      scope_category: scope_path,
+      tier: :full,
+      critical_axioms: extract_axioms(sorted),
+      warnings: extract_warnings(sorted),
+      relevant_patterns: extract_patterns(sorted),
+      compressed_knowledge: compress_knowledge(sorted),
+      workflow: @chat_workflow,
+      store: @chat_store,
+      honesty: @chat_honesty,
+      agent_identity: @chat_identity,
+      org_knowledge_conventions: @chat_conventions,
+      relevant_skills: [],
+      relevant_specs: [],
+      workflow_basics: @chat_workflow
+    }
+  end
+
+  defp maybe_put_coding_finish(packet, :coding, _tier) do
+    Map.put(packet, :skills_finish_protocol, @coding_finish)
+  end
+
+  defp maybe_put_coding_finish(packet, :chat, _tier), do: packet
 
   defp extract_axioms(memories, opts \\ []) do
     min_importance = Keyword.get(opts, :min_importance, 1)
@@ -506,7 +395,7 @@ Always attach a clear `scope_path` when saving so the next agent can retrieve by
         Prefer business scopes like `org/sales/pricing`. Before answering or changing policy:
         - `query_memories` / `query_specs` for approved pricing rules
         - Do not invent discounts or list prices — save confirmed decisions with `save_memory`
-        - Long pricing sheets or rate cards → `specs_propose` (document_type: policy/reference)
+        - Long pricing sheets or rate cards → `specs_propose` as a **document** (document_type: policy/reference)
         """
 
       title =~ ~r/refund|support|ticket|escalat|customer.?care|help.?desk/i ->
@@ -538,7 +427,7 @@ Always attach a clear `scope_path` when saving so the next agent can retrieve by
         ## Policy / Compliance Context
 
         Prefer scopes like `org/policy/<topic>`. Never paraphrase policy as fact unless retrieved from ACS.
-        Long policy text → `specs_propose`; short must-follow rules → `save_memory` (kind: invariant/axiom).
+        Long policy text → `specs_propose` as a **document**; short must-follow rules → `save_memory` (kind: invariant/axiom).
         """
 
       title =~ ~r/billing|invoice|finance|accounting|payroll|expense|budget/i ->
@@ -555,7 +444,7 @@ Always attach a clear `scope_path` when saving so the next agent can retrieve by
 
         Prefer scopes like `org/marketing/<campaign>`. Considerations:
         - Ensure analytics/UTM tracking is set up if the product requires it
-        - Store long copy via `specs_propose` (document_type: marketing)
+        - Store long copy via `specs_propose` as a **document** (document_type: marketing)
         - Capture brand invariants as memories
         """
 
@@ -625,8 +514,8 @@ Always attach a clear `scope_path` when saving so the next agent can retrieve by
 
         This task involves documentation. Considerations:
         - Keep docs close to the code or business domain they describe
-        - Use business scope_paths for org docs; code paths for module specs
-        - Update specs alongside documentation
+        - Code module docs → **specs**; org/policy/marketing → **documents** (same `specs_*` tools)
+        - Update specs/documents alongside the work they describe
         """
 
       title =~ ~r/feature|add|new|implement|support|integrat/i ->
@@ -685,10 +574,6 @@ Always attach a clear `scope_path` when saving so the next agent can retrieve by
     end
   end
 
-  defp with_conventions(packet) when is_map(packet) do
-    Map.put(packet, :org_knowledge_conventions, @org_knowledge_conventions)
-  end
-
   defp scope_from_path(nil), do: ""
 
   defp scope_from_path(path) when is_binary(path) do
@@ -736,13 +621,21 @@ Always attach a clear `scope_path` when saving so the next agent can retrieve by
 
   defp merge_scope_context(packet, scope_path) when scope_path in [nil, ""], do: packet
 
+  defp merge_scope_context(%{audience: :chat} = packet, scope_path) do
+    ctx = Acs.ClaimContext.for_scope(scope_path)
+
+    packet
+    |> Map.put(:relevant_skills, ctx.relevant_skills)
+    |> Map.put(:relevant_specs, ctx.relevant_specs)
+  end
+
   defp merge_scope_context(packet, scope_path) do
     ctx = Acs.ClaimContext.for_scope(scope_path)
 
     packet
     |> Map.put(:relevant_skills, ctx.relevant_skills)
     |> Map.put(:relevant_specs, ctx.relevant_specs)
-    |> Map.put(:skills_finish_protocol, @skills_finish_protocol)
+    |> Map.put(:skills_finish_protocol, @coding_finish)
   end
 
   def specs_instructions_for_tier(:claim) do

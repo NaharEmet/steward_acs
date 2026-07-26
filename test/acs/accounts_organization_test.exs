@@ -17,6 +17,27 @@ defmodule Acs.AccountsOrganizationTest do
                })
     end
 
+    test "relinks the same email when Auth0 connection/subject changes" do
+      assert {:ok, first} =
+               Accounts.upsert_oidc_user(%{
+                 issuer: "https://issuer.example.test/",
+                 subject: "google-oauth2|abc",
+                 email: "same-person@example.test",
+                 email_verified: true
+               })
+
+      assert {:ok, second} =
+               Accounts.upsert_oidc_user(%{
+                 issuer: "https://issuer.example.test/",
+                 subject: "email|def",
+                 email: "same-person@example.test",
+                 email_verified: true
+               })
+
+      assert first.id == second.id
+      assert second.oidc_subject == "email|def"
+    end
+
     test "keeps users with the same subject at different issuers separate" do
       assert {:ok, first} =
                Accounts.upsert_oidc_user(%{

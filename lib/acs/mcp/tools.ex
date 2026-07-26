@@ -90,7 +90,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "claim_work",
-        "Claim a task for an agent. Returns task status, task_id, and a guidance packet with relevant knowledge memories, relevant_skills, and relevant_specs for context. Review relevant_skills (call skill_get) and relevant_specs (call specs_get) before starting. Optionally pass scope_path for targeted guidance.",
+        "Claim a task for an agent. Returns task status, task_id, and a guidance packet with relevant knowledge memories, relevant_skills, and relevant_specs (code specs and/or non-code documents). Review relevant_skills (skill_get) and relevant_specs (specs_get) before starting. Optionally pass scope_path for targeted guidance.",
         %{
           "agent_id" => %{
             "type" => "string",
@@ -125,7 +125,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "create_work",
-        "Create a new task. Set claim=true to immediately claim it (sets status to in_progress and locks it to you). Without claim, the task is created as todo and dispatched to a sleeping agent if available.",
+        "Create a new task. Set claim=true to immediately claim it (sets status to in_progress and locks it to you). Without claim, the task is created as todo for another agent to claim.",
         %{
           "agent_id" => %{
             "type" => "string",
@@ -171,12 +171,12 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "get_present_status",
-        "Get current status of all agents. Use status_filter='sleeping' to list sleeping agents.",
+        "Get current status of all agents.",
         %{
           "agent_id" => %{"type" => "string"},
           "status_filter" => %{
             "type" => "string",
-            "description" => "Set to 'sleeping' to list sleeping agents"
+            "description" => "Optional status filter"
           }
         },
         []
@@ -377,7 +377,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "generate_guidance_packet",
-        "Generate organizational guidance for a scope. Returns critical axioms, warnings, patterns, compressed knowledge, and org_knowledge_conventions (how to structure scopes).\n\nScopes are hierarchical labels — business domains (acme/support/refunds) OR code paths (lib/acs/memory).\n\nUSE WHEN:\n- Entering a new business domain or code area\n- Answering questions from org knowledge (chat assistants)\n- Needing context before decisions\n\nMODES (aliases): mcp|coding for coding agents; knowledge|chat for chat assistants. If omitted, defaults from the MCP session audience (inferred from clientInfo at initialize).",
+        "Generate an audience-specific guidance packet for a scope.\n\nTwo completely different shapes (not the same map with blanks):\n- coding/mcp — workflow, file locks, tool refs, code specs\n- chat/knowledge — retrieve/answer/save; store + honesty; no locks\n\nScopes: business domains (acme/support/refunds) OR code paths. Defaults from MCP session audience (clientInfo).",
         %{
           "scope_path" => %{
             "type" => "string",
@@ -445,7 +445,7 @@ defmodule Acs.MCP.Tools do
       # Specs Tools
       tool_def(
         "specs_get",
-        "Load a spec or document by app and path. Returns module specs (purpose, invariants, …) OR long-form documents (marketing copy, project briefs, knowledge files) depending on document_type. USE WHEN: before editing code, reading prior project output, or reviewing shared deliverables.",
+        "Load a **spec** (code module docs) or **document** (non-code artifact) by app and path. Specs use purpose/invariants/workflows; documents use document_type + markdown content (policy, marketing, briefs, etc.). USE WHEN: before editing code, reading prior project output, or reviewing shared deliverables.",
         %{
           "app" => %{"type" => "string", "description" => "App name (e.g., 'my_app')"},
           "path" => %{
@@ -458,7 +458,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "query_specs",
-        "Search specs and documents. Finds module specs, knowledge files, project docs, marketing copy, and other shareable artifacts. Hybrid search by default. Use `undocumented: true` only for code modules missing specs.",
+        "Search **specs** (code module docs) and **documents** (non-code: policies, briefs, marketing, knowledge files). Hybrid search by default. Use `undocumented: true` only for code modules missing specs.",
         %{
           "query" => %{"type" => "string", "description" => "Search query text (optional)"},
           "app" => %{"type" => "string", "description" => "Optional app filter"},
@@ -494,7 +494,7 @@ defmodule Acs.MCP.Tools do
           "document_type" => %{
             "type" => "string",
             "description" =>
-              "Document type: spec, knowledge, project, marketing, deliverable, policy, process, guideline, reference. Omit for structured module specs.",
+              "Kind of entry: \"spec\" for code module docs; knowledge|project|marketing|deliverable|policy|process|guideline|reference for non-code documents. Omit when using structured module-spec fields (purpose/invariants/…).",
             "enum" => [
               "spec",
               "knowledge",
@@ -615,7 +615,7 @@ defmodule Acs.MCP.Tools do
       # Task Completion Feedback
       tool_def(
         "submit_task_feedback",
-        "Submit task feedback to formally close a completed task. Call this LAST — after release_work and after saving skills (skill_save), memories (save_memory), and specs (specs_propose). Auto-generates knowledge memories from your learnings.",
+        "Submit task feedback to formally close a completed task. Call this LAST — after release_work and after saving skills (skill_save), memories (save_memory), and specs/documents (specs_propose). Auto-generates knowledge memories from your learnings.",
         %{
           "task_id" => %{"type" => "string", "description" => "The completed task slug (e.g. fix-login-bug)"},
           "agent_id" => %{
@@ -1258,9 +1258,9 @@ defmodule Acs.MCP.Tools do
               params: %{agent_id: agent_id, task_id: task_id}
             },
             %{
-              tool: "sleep",
-              prompt: "No agent working now — sleep to wait for dispatch",
-              params: %{agent_id: agent_id, timeout: 300}
+              tool: "list_tasks",
+              prompt: "Or list other todo tasks",
+              params: %{status_filter: "todo"}
             }
           ]
         end
@@ -1357,9 +1357,9 @@ defmodule Acs.MCP.Tools do
             params: %{status_filter: "todo"}
           },
           %{
-            tool: "sleep",
-            prompt: "No tasks found — sleep to wait for dispatch",
-            params: %{agent_id: agent_id, timeout: 300}
+            tool: "create_work",
+            prompt: "Or create a new task for the current request",
+            params: %{agent_id: agent_id, title: "...", claim: true}
           }
         ]
 
@@ -1377,9 +1377,9 @@ defmodule Acs.MCP.Tools do
         else
           [
             %{
-              tool: "sleep",
-              prompt: "No tasks available — sleep to wait for dispatch",
-              params: %{agent_id: agent_id, timeout: 300}
+              tool: "create_work",
+              prompt: "No todo tasks — create one for the current request",
+              params: %{agent_id: agent_id, title: "...", claim: true}
             }
           ]
         end
@@ -1528,14 +1528,14 @@ defmodule Acs.MCP.Tools do
       "submit_task_feedback" ->
         [
           %{
-            tool: "sleep",
-            prompt: "Task formally closed — sleep to wait for next assignment",
-            params: %{agent_id: agent_id, timeout: 300}
+            tool: "list_tasks",
+            prompt: "Check if more work is waiting",
+            params: %{status_filter: "todo"}
           },
           %{
-            tool: "list_tasks",
-            prompt: "Or check if more work is waiting",
-            params: %{status_filter: "todo"}
+            tool: "create_work",
+            prompt: "Or create the next task",
+            params: %{agent_id: agent_id, title: "...", claim: true}
           }
         ]
 
@@ -1829,10 +1829,10 @@ defmodule Acs.MCP.Tools do
 
   defp specs_propose_description do
     base =
-      "Create or update a spec or shareable document (status → proposed). " <>
-        "MODULE SPECS: purpose, invariants, workflows, failure_modes for code. " <>
-        "DOCUMENTS: set document_type + title + content for project docs, marketing copy, knowledge files, deliverables. " <>
-        "USE WHEN: after code changes, or when the user produced output they want saved/shared. " <>
+      "Create or update a **spec** (code) or **document** (non-code); status → proposed. " <>
+        "SPECS (code): purpose, invariants, workflows, failure_modes — or document_type \"spec\" + content. " <>
+        "DOCUMENTS (outside code): document_type + title + content for policy, marketing, project briefs, knowledge files. " <>
+        "USE WHEN: after code changes (spec) or when the user produced output to keep (document). " <>
         "When code and a module spec disagree, ask the user which to update."
 
     instructions = Acs.Prompts.instructions("specs")

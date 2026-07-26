@@ -17,7 +17,7 @@ Steward ACS is an **infrastructure layer** for multi-agent coordination. It runs
 | **Knowledge Memory** | Persistent "eternal truths" — patterns, decisions, warnings shared across all agents. LLM-powered semantic search. |
 | **MCP Tool Gateway** | Expose any REST API as an agent-callable MCP tool. YAML-defined, hot-reloadable, no server restart. |
 | **Agent Presence** | Real-time tracking of every agent's current task, purpose, application, and component. |
-| **Cognition Specs** | Structured module documentation — purpose, invariants, workflows, failure modes. Auto-generated guidance packets. |
+| **Specs & Documents** | **Specs** = code module docs (purpose, invariants, workflows). **Documents** = non-code artifacts (policies, briefs, marketing). Same store; guidance packets surface both. |
 | **Error Tracking** | Persistent error traces with acknowledgment and resolution workflow. Create investigation tasks from errors. |
 | **Cluster Coordination** | Multi-cluster support with isolated namespaces per environment or team. |
 

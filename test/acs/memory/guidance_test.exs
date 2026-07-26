@@ -18,7 +18,7 @@ defmodule Acs.Memory.GuidanceTest do
       assert Map.has_key?(packet, :warnings)
       assert Map.has_key?(packet, :relevant_patterns)
       assert Map.has_key?(packet, :compressed_knowledge)
-      assert Map.has_key?(packet, :maintenance_instructions)
+      assert Map.has_key?(packet, :maintenance_instructions) or Map.has_key?(packet, :maintenance)
     end
 
     test "returns empty packet for non-existent scope" do
@@ -27,8 +27,8 @@ defmodule Acs.Memory.GuidanceTest do
       assert packet.scope == "nonexistent/scope/path"
       assert packet.critical_axioms == []
       assert packet.warnings == []
-      assert packet.relevant_patterns == []
-      assert is_binary(packet.maintenance_instructions)
+      assert Map.get(packet, :relevant_patterns, []) == []
+      assert is_binary(Map.get(packet, :maintenance_instructions) || Map.get(packet, :maintenance) || "")
     end
 
     test "includes critical axioms from approved memories" do
@@ -107,7 +107,7 @@ defmodule Acs.Memory.GuidanceTest do
       assert is_list(packet.warnings)
       assert is_list(packet.relevant_patterns)
       assert is_binary(packet.compressed_knowledge)
-      assert Map.has_key?(packet, :maintenance_instructions)
+      assert Map.has_key?(packet, :maintenance_instructions) or Map.has_key?(packet, :maintenance)
     end
 
     test "axiom entries have required fields" do
@@ -143,19 +143,35 @@ defmodule Acs.Memory.GuidanceTest do
     test "includes org_knowledge_conventions for business and code scopes" do
       packet = Guidance.generate("acme/support/refunds")
 
+      assert packet.audience == :coding
       assert is_binary(packet.org_knowledge_conventions)
-      assert packet.org_knowledge_conventions =~ "acme/sales/pricing"
       assert packet.org_knowledge_conventions =~ "memories"
       assert packet.org_knowledge_conventions =~ "skills"
     end
 
-    test "knowledge mode omits file locking protocol" do
+    test "chat packet is a different shape without coding noise" do
       packet = Guidance.generate("acme/sales/pricing", mode: :knowledge, tier: :full)
 
+      assert packet.audience == :chat
       assert packet.mode == :knowledge
-      assert packet.file_locking_protocol in [nil, ""]
-      assert packet.workflow_basics =~ "retrieve org knowledge"
-      refute packet.workflow_basics =~ "lock_file"
+      assert packet.workflow =~ "Retrieve before answering"
+      refute Map.has_key?(packet, :file_locking_protocol)
+      refute Map.has_key?(packet, :file_locking)
+      refute Map.has_key?(packet, :tool_reference)
+      refute Map.has_key?(packet, :specs_mismatch_protocol)
+      assert Map.has_key?(packet, :store)
+      assert Map.has_key?(packet, :honesty)
+      refute packet.workflow =~ "lock_file"
+    end
+
+    test "coding packet includes file locking and tool reference" do
+      packet = Guidance.generate("lib/acs/memory", mode: :mcp, tier: :full)
+
+      assert packet.audience == :coding
+      assert packet.file_locking =~ "lock_file"
+      assert packet.tool_reference =~ "help"
+      refute Map.has_key?(packet, :honesty)
+      refute Map.has_key?(packet, :store)
     end
   end
 

@@ -8,10 +8,19 @@ defmodule AcsWeb.UserSessionControllerTest do
       nonce = Keyword.fetch!(config, :nonce)
       true = is_binary(nonce) and byte_size(nonce) >= 32
 
+      params = Keyword.get(config, :authorization_params, [])
+      connection = Keyword.get(params, :connection)
+      true = connection in [nil, "email"] or is_binary(connection)
+
       {:ok,
        %{
-         url: "https://auth.example.test/authorize?state=provider-state",
-         session_params: %{state: "provider-state", nonce: "provider-nonce"}
+         url:
+           "https://auth.example.test/authorize?state=provider-state&connection=#{connection || ""}",
+         session_params: %{
+           state: "provider-state",
+           nonce: "provider-nonce",
+           connection: connection
+         }
        }}
     end
 
@@ -132,14 +141,19 @@ defmodule AcsWeb.UserSessionControllerTest do
       Map.put(conn, :host, "localhost")
     end
 
-    test "starts OIDC authorization and stores provider session parameters", %{conn: conn} do
+    test "starts OIDC authorization with email connection and stores provider session parameters",
+         %{conn: conn} do
+      Application.put_env(:steward_acs, :auth0_connection, "email")
+
       conn = get(account_conn(conn), "/auth/log_in", %{"return_to" => "/onboarding"})
 
       assert redirected_to(conn) ==
-               "https://auth.example.test/authorize?state=provider-state"
+               "https://auth.example.test/authorize?state=provider-state&connection=email"
 
-      assert %{session_params: %{state: "provider-state"}, return_to: "/onboarding"} =
-               get_session(conn, :oidc_session)
+      assert %{
+               session_params: %{state: "provider-state", connection: "email"},
+               return_to: "/onboarding"
+             } = get_session(conn, :oidc_session)
     end
 
     test "callback creates a global verified identity and redirects an orgless user", %{conn: conn} do

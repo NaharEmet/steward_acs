@@ -331,11 +331,32 @@ print(json.dumps({'is_domain_connection': False, 'enabled_clients': clients}))
   ok "Database connection demoted (not domain-level; Claude apps removed)"
 fi
 
+# One Auth0 identity per person: web + Claude both use email OTP only (no Google split).
+WEB_CLIENT_ID="${AUTH0_WEB_CLIENT_ID:-}"
+info "Demoting google-oauth2 for Steward web + Claude MCP clients (email OTP only)..."
+GOOGLE_CONN=$(api GET "/connections?strategy=google-oauth2" | python3 -c "
+import sys, json
+conns = json.load(sys.stdin)
+print(conns[0]['id'] if conns else '')
+" 2>/dev/null || true)
+if [[ -n "$GOOGLE_CONN" ]]; then
+  PATCH_JSON=$(api GET "/connections/${GOOGLE_CONN}" | python3 -c "
+import sys, json
+conn = json.load(sys.stdin)
+strip = set(x for x in '''${CLAUDE_IDS} ${WEB_CLIENT_ID}'''.split() if x)
+clients = [c for c in (conn.get('enabled_clients') or []) if c not in strip]
+print(json.dumps({'enabled_clients': clients}))
+")
+  api PATCH "/connections/${GOOGLE_CONN}" -d "$PATCH_JSON" >/dev/null
+  ok "google-oauth2 disabled for Steward web + Claude MCP clients"
+fi
+
 echo ""
 ok "Auth0 setup complete for ${DOMAIN}"
 echo "  MCP API:     ${AUDIENCE}"
 echo "  DCR:         enabled"
 echo "  Login:       Identifier First + passwordless email OTP (connection=email)"
+echo "  Identity:    one Auth0 user per email (Google disabled for web/Claude)"
 echo "  RBAC:        enabled with mcp:tools"
 echo ""
 echo "Next: Remove + re-add Claude connector at ${AUDIENCE} and connect."

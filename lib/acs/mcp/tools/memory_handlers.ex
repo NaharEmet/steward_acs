@@ -249,29 +249,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
             )
 
           true ->
-            %{
-              scope: nil,
-              scope_category: nil,
-              tier: :full,
-              mode: mode,
-              critical_axioms: [],
-              warnings: [],
-              relevant_patterns: [],
-              compressed_knowledge: "",
-              maintenance_instructions: "",
-              tool_reference: "",
-              specs_instructions: "",
-              specs_mismatch_protocol: "",
-              workflow_basics: "",
-              file_locking_protocol: "",
-              memory_protocol: "",
-              error_response_protocol: "",
-              sleep_wake_protocol: "",
-              agent_identity:
-                "Find your agent_id: `get_present_status(agent_id: \"\")` returns your assigned name. Use it in all tool calls.",
-              org_knowledge_conventions:
-                "Scopes are hierarchical labels (business domains or code paths). Memories = truths, specs = documents, skills = procedures."
-            }
+            Acs.Memory.Guidance.generate("", tier: :full, mode: mode)
         end
 
       {:ok, packet}

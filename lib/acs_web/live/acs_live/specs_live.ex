@@ -1,10 +1,10 @@
 defmodule AcsWeb.AcsLive.SpecsLive do
   @moduledoc """
-  LiveView for human governance of the Cognition Spec System.
+  LiveView for human governance of specs (code) and documents (non-code).
 
   Provides:
-  - List all specs with status filters (proposed, approved, deprecated, etc.)
-  - Spec detail view with full content
+  - List all specs/documents with status filters (proposed, approved, deprecated, etc.)
+  - Detail view with full content
   - Approve/reject/delete actions
   - Stats summary
   """
