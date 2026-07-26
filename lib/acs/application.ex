@@ -26,6 +26,7 @@ defmodule Acs.Application do
   @impl true
   def start(_type, _args) do
     if axiom_enabled?(), do: setup_observability()
+    Acs.MCP.HealthCache.setup()
 
     meta_harness_children =
       if meta_harness_enabled?() do
@@ -152,7 +153,30 @@ defmodule Acs.Application do
       end)
     end
 
+    attach_mount_telemetry()
+
     {:ok, pid}
+  end
+
+  defp attach_mount_telemetry do
+    :telemetry.attach(
+      "axiom-lv-mount",
+      [:phoenix, :live_view, :mount],
+      fn _event, measurements, metadata, _config ->
+        duration_ms = measurements.duration |> System.convert_time_unit(:native, :microsecond) |> then(&(&1 / 1000))
+
+        if axiom_enabled?() and Process.whereis(Acs.Observability.AxiomLogExporter) do
+          Acs.Observability.AxiomLogExporter.enqueue(%{
+            _time: DateTime.utc_now(),
+            duration_ms: duration_ms,
+            view: inspect(metadata.socket.view),
+            org: metadata.session["current_org"],
+            connected: metadata.socket.connected?
+          })
+        end
+      end,
+      nil
+    )
   end
 
   defp setup_observability do

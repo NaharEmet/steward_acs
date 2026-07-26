@@ -235,13 +235,34 @@ defmodule AcsWeb.UserSessionController do
     with subject when is_binary(subject) and subject != "" <- Map.get(claims, "sub"),
          email when is_binary(email) and email != "" <- Map.get(claims, "email"),
          true <- Map.get(claims, "email_verified") do
+      name = Map.get(claims, "name")
+      first_name = Map.get(claims, "given_name") || Map.get(claims, "first_name")
+      last_name = Map.get(claims, "family_name") || Map.get(claims, "last_name")
+
+      {first_name, last_name} =
+        if first_name || last_name do
+          {first_name, last_name}
+        else
+          case name do
+            nil -> {nil, nil}
+            name when is_binary(name) ->
+              case String.split(name, " ", parts: 2) do
+                [f, l] -> {f, l}
+                [f] -> {f, nil}
+                _ -> {nil, nil}
+              end
+          end
+        end
+
       {:ok,
        %{
          issuer: issuer,
          subject: subject,
          email: email,
          email_verified: true,
-         name: Map.get(claims, "name")
+         name: name,
+         first_name: first_name,
+         last_name: last_name
        }}
     else
       _ -> {:error, :invalid_claims}
@@ -324,7 +345,11 @@ defmodule AcsWeb.UserSessionController do
         |> Acs.Repo.update()
 
       nil ->
-        Accounts.register_user(Map.put(owner_attrs, :email, "admin@localhost"))
+        Accounts.register_user(
+          owner_attrs
+          |> Map.put(:email, "admin@localhost")
+          |> Map.put(:first_name, "Admin")
+        )
     end
   end
 
