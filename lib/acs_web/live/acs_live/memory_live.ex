@@ -40,7 +40,14 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         search_query: "",
         conflict_alerts: %{}
       )
-      |> load_data()
+
+    socket =
+      if connected?(socket) do
+        send(self(), :load_data)
+        socket
+      else
+        load_data(socket)
+      end
 
     if connected?(socket), do: send(self(), :check_conflicts)
 
@@ -189,6 +196,10 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   end
 
   @impl true
+  def handle_info(:load_data, socket) do
+    {:noreply, load_data(socket)}
+  end
+
   def handle_info(:check_conflicts, socket) do
     {:noreply, assign(socket, conflict_alerts: compute_conflict_alerts(socket.assigns.memories, socket.assigns.status_filter))}
   end

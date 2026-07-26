@@ -32,6 +32,10 @@ defmodule Acs.MCP.Tools.SkillHandlers do
         results = Store.list_skills(tag)
         {:ok, %{skills: results, total: length(results)}}
 
+      scope_path = args["scope_path"] ->
+        results = Store.list_skills_by_scope(scope_path)
+        {:ok, %{skills: results, total: length(results)}}
+
       true ->
         results = Store.list_skills()
         {:ok, %{skills: results, total: length(results)}}

@@ -25,7 +25,14 @@ defmodule AcsWeb.AcsLive.SkillsLive do
         status_filter: "proposed",
         stats: empty_stats()
       )
-      |> load_data()
+
+    socket =
+      if connected?(socket) do
+        send(self(), :load_data)
+        socket
+      else
+        load_data(socket)
+      end
 
     {:ok, socket}
   end
@@ -59,6 +66,9 @@ defmodule AcsWeb.AcsLive.SkillsLive do
 
   def handle_event("refresh", _params, socket), do: {:noreply, load_data(socket)}
   def handle_event(_event, _params, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_info(:load_data, socket), do: {:noreply, load_data(socket)}
 
   defp update_status(socket, id, status) do
     case Store.update_status(id, status, "human") do
