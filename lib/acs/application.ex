@@ -26,6 +26,7 @@ defmodule Acs.Application do
   @impl true
   def start(_type, _args) do
     if axiom_enabled?(), do: setup_observability()
+    :ok = Acs.Observability.LiveViewMetrics.attach()
     Acs.MCP.HealthCache.setup()
     Acs.OrgsCache.setup()
 
@@ -52,6 +53,7 @@ defmodule Acs.Application do
           Acs.Acs.Sweeper,
           Acs.Acs.SleepRegistry,
           Acs.MCP.RateLimitStore,
+          Acs.MCP.HealthCheckCache,
           Acs.MCP.BridgeSessionStore,
           Acs.MCP.ClientSession,
           Acs.MCP.ToolRegistry,

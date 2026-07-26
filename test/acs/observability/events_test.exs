@@ -27,6 +27,8 @@ defmodule Acs.Observability.EventsTest do
         status: "ok",
         latency_ms: 12,
         component: "Acs.MCP.Tools",
+        live_view: "AcsWeb.AcsLive.Tools",
+        page: "/tools",
         service: "steward_acs",
         count: 3,
         request_id: "req-9"
@@ -39,6 +41,8 @@ defmodule Acs.Observability.EventsTest do
     assert event["status"] == "ok"
     assert event["latency_ms"] == 12
     assert event["component"] == "Acs.MCP.Tools"
+    assert event["live_view"] == "AcsWeb.AcsLive.Tools"
+    assert event["page"] == "/tools"
     assert event["service"] == "steward_acs"
     assert event["count"] == 3
     assert event["request_id"] == "req-9"

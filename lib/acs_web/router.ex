@@ -75,16 +75,16 @@ defmodule AcsWeb.Router do
     end
   end
 
-  scope "/", AcsWeb do
-    pipe_through [:browser, :require_auth, :tenant_user]
+  live_session :acs,
+    session: {AcsWeb.UserAuth, :fetch_user_token, []},
+    on_mount: [
+      {AcsWeb.UserAuth, :ensure_authenticated},
+      {AcsWeb.UserAuth, :assign_org},
+      {AcsWeb.UserAuth, :ensure_tenant_member}
+    ] do
+    scope "/", AcsWeb do
+      pipe_through [:browser, :require_auth, :tenant_user]
 
-    live_session :acs,
-      session: {AcsWeb.UserAuth, :fetch_user_token, []},
-      on_mount: [
-        {AcsWeb.UserAuth, :assign_org},
-        {AcsWeb.UserAuth, :ensure_authenticated},
-        {AcsWeb.UserAuth, :ensure_tenant_member}
-      ] do
       live "/", AcsLive.Index, :index
       live "/tools", AcsLive.Tools, :index
       live "/tools/requests", AcsLive.ToolRequests, :index
@@ -93,7 +93,6 @@ defmodule AcsWeb.Router do
       live "/skills", AcsLive.SkillsLive, :index
       live "/error-traces", AcsLive.ErrorTracesLive, :index
     end
-  end
 
   scope "/", AcsWeb do
     pipe_through [:browser, :require_auth, :tenant_user]

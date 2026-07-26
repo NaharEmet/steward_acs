@@ -5,6 +5,8 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
   use AcsWeb, :live_view
 
+  on_mount {AcsWeb.UserAuth, :ensure_org_admin}
+
   alias Acs.Accounts
   alias Acs.Accounts.InvitationNotifier
 
@@ -21,7 +23,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
     socket =
       assign(socket,
-        organization: nil,
+        organization: socket.assigns[:organization],
         members: [],
         pending_invitations: [],
         current_role: nil,
@@ -228,7 +230,9 @@ defmodule AcsWeb.AcsLive.MembersLive do
     organization = current_organization(current_user)
     socket = assign(socket, current_user: current_user, organization: organization)
 
-    if organization && Accounts.authorized_admin?(current_user, organization) do
+    if organization && organization.slug == socket.assigns.current_org &&
+         AcsWeb.UserAuth.organization_ready?(organization) &&
+         Accounts.authorized_admin?(current_user, organization) do
       {:ok, socket}
     else
       {:error, socket}

@@ -45,13 +45,22 @@ defmodule Acs.Specs.Search do
   defp validate_app_filter(nil), do: :ok
   defp validate_app_filter(app), do: Loader.validate_app(app)
 
+  defp maybe_filter_by_app(entries, nil), do: entries
+  defp maybe_filter_by_app(entries, app), do: Enum.filter(entries, &(&1.app == app))
+
   defp search_keyword(query, opts) do
     app = opts[:app]
     status_filter = opts[:status]
     limit = opts[:limit] || @max_results
     query_words = tokenize(query)
 
-    with {:ok, entries} <- Loader.load_all(app: app) do
+    entries_result =
+      case Keyword.fetch(opts, :entries) do
+        {:ok, entries} when is_list(entries) -> {:ok, maybe_filter_by_app(entries, app)}
+        _ -> Loader.load_all(app: app)
+      end
+
+    with {:ok, entries} <- entries_result do
       results =
         entries
         |> Enum.map(fn entry ->
