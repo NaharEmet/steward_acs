@@ -73,6 +73,25 @@ else:
     }" >/dev/null
     echo "  added third-party grant"
   fi
+
+  # MCP User / claude_mcp roles must include mcp:tools on THIS audience or
+  # Claude tokens for tenant hosts fail ACS oidc_role checks.
+  for ROLE_NAME in "MCP User" "claude_mcp"; do
+    ROLE_ID=$(api GET "/roles?name_filter=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$ROLE_NAME")" | python3 -c "
+import sys, json
+want = sys.argv[1]
+for r in json.load(sys.stdin):
+    if r.get('name') == want:
+        print(r['id']); break
+" "$ROLE_NAME" 2>/dev/null || true)
+    if [[ -n "$ROLE_ID" ]]; then
+      api POST "/roles/${ROLE_ID}/permissions" -d "[{
+        \"resource_server_identifier\": \"${AUDIENCE}\",
+        \"permission_name\": \"mcp:tools\"
+      }]" >/dev/null 2>&1 || true
+      echo "  ensured ${ROLE_NAME} has mcp:tools on audience"
+    fi
+  done
 done < <(python3 - "$ORGS_FILE" "$BASE_DOMAIN" <<'PY'
 import sys
 import yaml

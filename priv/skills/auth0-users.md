@@ -113,7 +113,7 @@ Revoke active sessions: disconnect the connector in Claude; tokens expire per Au
 | Auth0 `cls` success then `fn` fail: Resend `domain is not verified` | Passwordless **From** and Branding → Email Provider **From** must use a Resend-verified domain (e.g. `noreply@stewardacs.xyz`), **not** an unverified org domain like `@safetyconnect.io`. Recipient can still be `@safetyconnect.io`. Fix: `AUTH0_EMAIL_FROM='Steward ACS <noreply@stewardacs.xyz>' python3 scripts/fix-auth0-email-from.py --fix` |
 | “Couldn't register with sign-in service” | Enable **OIDC Dynamic Application Registration** or use manual Claude Client ID from setup script |
 | User logs in but no MCP tools | Assign **MCP User** role; **reconnect** connector for a fresh token with `permissions` |
-| Claude: “Couldn't connect / Taking you back to the desktop app” after OTP | Auth0 login succeeded but ACS rejected the token. Often: ACS user missing for that org, or legacy Google-linked `oidc_subject` before email-only login. Prefer email OTP only (web + Claude). Ensure Auth0 post-login Action sets `email` on the access token. |
+| Claude: “Couldn't connect / Taking you back to the desktop app” after OTP | Auth0 login succeeded but ACS rejected the token. Check prod logs for `OAuth user is not authorized`. Common causes: (1) ACS user missing for that org; (2) **MCP User role missing `mcp:tools` on that tenant audience** (role had only `https://prod.stewardacs.xyz/mcp/sse` — run `scripts/ensure-auth0-org-audiences.sh` and attach role permissions per org API); (3) legacy Google vs email identity split. Reconnect after fixing so Claude gets a fresh token. |
 
 Verify ACS OAuth metadata:
 

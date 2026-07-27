@@ -162,7 +162,11 @@ defmodule Acs.MCP.Plugs.MCPAuth do
              {:ok, role} <- oidc_role(Map.get(user, :org_role), result.permissions) do
           {:ok, %{result | role: role, org_id: slug}}
         else
-          _ -> {:error, "OAuth user is not authorized for this organization"}
+          {:error, reason} when is_binary(reason) ->
+            {:error, reason}
+
+          _ ->
+            {:error, "OAuth user is not authorized for this organization"}
         end
 
       _ ->
