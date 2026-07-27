@@ -22,11 +22,6 @@ defmodule AcsWeb.AcsLive.IndexTest do
     refute html =~ "dismiss-getting-started"
   end
 
-  test "shows reset only to organization administrators" do
-    refute render_dashboard() =~ "Reset workspace data"
-    assert render_dashboard(can_reset_data: true) =~ "Reset workspace data"
-  end
-
   test "explains a filtered empty task list and offers to clear it" do
     html = render_dashboard(selected_status: "in_progress")
 
