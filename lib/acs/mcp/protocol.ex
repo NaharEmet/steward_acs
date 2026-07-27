@@ -178,10 +178,14 @@ defmodule Acs.MCP.Protocol do
          agent_permissions,
          _agent_allowed_teams,
          _agent_allowed_projects,
-         _agent_identity
+         agent_identity
        ) do
     with :ok <- require_agent_role(agent_role) do
-      tools = ToolRegistry.list_tools_mcp(agent_role, agent_org_id, agent_permissions)
+      audience = Acs.MCP.ClientSession.resolve_audience(agent_identity)
+
+      tools =
+        ToolRegistry.list_tools_mcp(agent_role, agent_org_id, agent_permissions, audience)
+
       {:ok, success_response(id, %{"tools" => tools})}
     else
       {:error, reason} ->
@@ -392,7 +396,7 @@ defmodule Acs.MCP.Protocol do
 
   defp audience_instructions(:chat) do
     """
-    ACS audience: chat assistant. Store and retrieve org knowledge (memories, specs, skills) using business scope_paths like org/domain/topic. Call get_started for the chat workflow. Prefer generate_guidance_packet(mode: \"knowledge\") / query_memories / query_specs before inventing policy. Do not use file locking unless the user asks for code edits.
+    ACS audience: chat. Curated tools only: get_started, ask, save_memory, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback. Retrieve with ask; save truths with save_memory; save long docs with documents_propose; save procedures with skill_save. Prefer business scopes (org/domain/topic). Claimed tasks: save → release_work → submit_task_feedback(learned_for_agents:) last; simple Q&A needs no feedback.
     """
     |> String.trim()
   end

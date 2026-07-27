@@ -154,7 +154,13 @@ defmodule Acs.Memory.GuidanceTest do
 
       assert packet.audience == :chat
       assert packet.mode == :knowledge
-      assert packet.workflow =~ "Retrieve before answering"
+      assert packet.workflow =~ "ask"
+      assert packet.workflow =~ "skill_save"
+      assert packet.workflow =~ "create_work"
+      assert packet.workflow =~ "documents_propose"
+      assert packet.workflow =~ "submit_task_feedback"
+      refute packet.workflow =~ "specs_propose"
+      refute packet.workflow =~ "query_memories"
       refute Map.has_key?(packet, :file_locking_protocol)
       refute Map.has_key?(packet, :file_locking)
       refute Map.has_key?(packet, :tool_reference)

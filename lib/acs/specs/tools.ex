@@ -29,7 +29,8 @@ defmodule Acs.Specs.Tools do
       case name do
         "specs_get" -> specs_get(args)
         "query_specs" -> query_specs(args)
-        "specs_propose" -> specs_propose(args)
+        # documents_propose = chat-facing alias; same store/handler as specs_propose
+        name when name in ["specs_propose", "documents_propose"] -> specs_propose(args)
         "specs_approve" -> specs_approve(args)
         "specs_reject" -> specs_reject(args)
         _ -> {:error, "Unknown specs tool: #{name}"}

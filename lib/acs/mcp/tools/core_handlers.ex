@@ -295,36 +295,27 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     %{
       audience: :chat,
       general:
-        "ACS is the org's durable knowledge store. Retrieve before answering; save durable truths. Use business scopes (org/domain/topic). Tasks are optional for multi-step work. Do not use file locking unless asked to edit code.",
+        "ACS chat surface: retrieve with ask; save truths (save_memory), documents (documents_propose), and procedures (skill_save). Prefer business scopes (org/domain/topic). Create tracked work with create_work(claim: true).",
       get_started:
-        "1) `get_present_status(agent_id: \"\")` — register  2) `generate_guidance_packet(scope_path: \"org/domain\", mode: \"knowledge\")`  3) `query_memories(query:)` / `query_specs(query:)` / `skill_get(search:)`  4) answer from retrieved knowledge  5) `save_memory` or `specs_propose` as a **document** (document_type + content)  6) optional `create_work` for tracked multi-step work",
+        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed  6) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback(learned_for_agents:) last. Simple Q&A needs no feedback.",
       org_knowledge_conventions:
-        "Prefer business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy. memories=short truths, documents=long non-code artifacts via specs_propose, skills=procedures. Never invent org policy when ACS has no match.",
+        "Business scopes: acme/sales/pricing, acme/support/refunds. memories=truths, documents=long artifacts via documents_propose, skills=procedures via skill_save. Never invent org policy when ask returns nothing. Feedback only after claimed tasks — save knowledge first, then release_work, then submit_task_feedback.",
       tools: [
+        %{tool: "get_started", description: "This startup packet", params: %{audience: "chat"}},
         %{
           tool: "get_present_status",
           description: "Register your agent identity",
           params: %{agent_id: ""}
         },
         %{
-          tool: "generate_guidance_packet",
-          description: "Org guidance for a business scope (chat mode)",
-          params: %{scope_path: "org/domain/topic", mode: "knowledge"}
-        },
-        %{
-          tool: "query_memories",
-          description: "Search eternal truths by domain",
-          params: %{query: "...", scope_path: "org/domain"}
-        },
-        %{
-          tool: "query_specs",
-          description: "Search code specs and non-code documents",
-          params: %{query: "..."}
+          tool: "ask",
+          description: "Search memories, documents, and agent status",
+          params: %{content_query: "..."}
         },
         %{
           tool: "skill_get",
-          description: "Find repeatable procedures",
-          params: %{search: "..."}
+          description: "Find or load a procedure (how-to). Try name: ingest-document",
+          params: %{search: "ingest"}
         },
         %{
           tool: "save_memory",
@@ -337,14 +328,56 @@ defmodule Acs.MCP.Tools.CoreHandlers do
           }
         },
         %{
-          tool: "specs_propose",
-          description: "Save a non-code document (policy, brief, marketing) or a code spec",
-          params: %{document_type: "policy", title: "...", content: "..."}
+          tool: "documents_propose",
+          description: "Save a long document (policy, brief, marketing)",
+          params: %{
+            app: "<org>",
+            path: "documents/policy/<slug>",
+            document_type: "policy",
+            title: "...",
+            content: "..."
+          }
+        },
+        %{
+          tool: "skill_save",
+          description: "Save a reusable step-by-step procedure",
+          params: %{
+            name: "...",
+            description: "...",
+            content: "...",
+            tags: ["..."],
+            scope_paths: ["org/domain"]
+          }
         },
         %{
           tool: "create_work",
-          description: "Optional: track multi-step work",
+          description: "Create + claim tracked multi-step work",
           params: %{agent_id: "your_name", title: "...", claim: true}
+        },
+        %{
+          tool: "list_tasks",
+          description: "List todo / in_progress tasks",
+          params: %{status_filter: "todo"}
+        },
+        %{
+          tool: "claim_work",
+          description: "Claim an existing task (returns guidance)",
+          params: %{agent_id: "your_name", task_id: "<slug>"}
+        },
+        %{
+          tool: "release_work",
+          description: "Release a claimed task before feedback",
+          params: %{agent_id: "your_name", task_id: "<slug>"}
+        },
+        %{
+          tool: "submit_task_feedback",
+          description:
+            "Last step after release_work — formally close a claimed task. Pass learned_for_agents.",
+          params: %{
+            agent_id: "your_name",
+            task_id: "<slug>",
+            learned_for_agents: "What future sessions should know"
+          }
         }
       ]
     }
