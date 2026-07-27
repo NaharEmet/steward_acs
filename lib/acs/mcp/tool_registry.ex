@@ -11,12 +11,13 @@ defmodule Acs.MCP.ToolRegistry do
   def list_tools(category \\ nil, org \\ Acs.Org.current()),
     do: GenServer.call(__MODULE__, {:list_tools, category, org})
 
-  def list_tools_mcp(agent_role, org \\ Acs.Org.current(), permissions \\ nil)
+  def list_tools_mcp(agent_role, org \\ Acs.Org.current(), permissions \\ nil, audience \\ nil)
 
-  def list_tools_mcp(agent_role, org, permissions) when is_binary(agent_role) and is_binary(org),
-    do: GenServer.call(__MODULE__, {:list_tools_mcp, agent_role, org, permissions})
+  def list_tools_mcp(agent_role, org, permissions, audience)
+      when is_binary(agent_role) and is_binary(org),
+      do: GenServer.call(__MODULE__, {:list_tools_mcp, agent_role, org, permissions, audience})
 
-  def list_tools_mcp(_, _, _), do: []
+  def list_tools_mcp(_, _, _, _), do: []
 
   def list_categories(org \\ Acs.Org.current()),
     do: GenServer.call(__MODULE__, {:list_categories, org})
@@ -37,11 +38,14 @@ defmodule Acs.MCP.ToolRegistry do
   def stats(org \\ Acs.Org.current()), do: GenServer.call(__MODULE__, {:stats, org})
   def list_plugins(org \\ Acs.Org.current()), do: GenServer.call(__MODULE__, {:list_plugins, org})
 
-  def authorize_tool(name, agent_role, agent_permissions \\ nil),
-    do: authorize_tool(name, agent_role, agent_permissions, Acs.Org.current())
+  def authorize_tool(name, agent_role, agent_permissions \\ nil, org \\ Acs.Org.current(), audience \\ nil)
 
-  def authorize_tool(name, agent_role, agent_permissions, org),
-    do: GenServer.call(__MODULE__, {:authorize_tool, name, agent_role, agent_permissions, org})
+  def authorize_tool(name, agent_role, agent_permissions, org, audience),
+    do:
+      GenServer.call(
+        __MODULE__,
+        {:authorize_tool, name, agent_role, agent_permissions, org, audience}
+      )
 
   def register_tool(tool_def),
     do: GenServer.call(__MODULE__, {:register_tool, tool_def, Acs.Org.current()})
@@ -89,19 +93,20 @@ defmodule Acs.MCP.ToolRegistry do
     {:reply, yaml_tools ++ core_tools, state}
   end
 
-  def handle_call({:list_tools_mcp, role, org, permissions}, _from, state) do
+  def handle_call({:list_tools_mcp, role, org, permissions, audience}, _from, state) do
     yaml_tools =
       state.snapshot
       |> effective_scope(org)
       |> Map.fetch!(:tools)
       |> Map.values()
       |> Enum.filter(&authorized?(&1, &1["name"], role, permissions))
+      |> Enum.filter(&chat_yaml_allowed?(&1["name"], audience))
       |> Enum.map(&Map.take(&1, ["name", "description", "inputSchema"]))
       |> Enum.sort_by(& &1["name"])
 
     core_tools =
       Acs.MCP.Tools.list_tools()
-      |> Enum.filter(&Acs.MCP.CoreToolRoles.authorized?(&1["name"], role))
+      |> Enum.filter(&Acs.MCP.CoreToolRoles.authorized?(&1["name"], role, audience))
 
     {:reply, yaml_tools ++ core_tools, state}
   end
@@ -117,8 +122,8 @@ defmodule Acs.MCP.ToolRegistry do
   def handle_call({:get_tool, name, org}, _from, state),
     do: {:reply, Map.get(effective_scope(state.snapshot, org).tools, name), state}
 
-  def handle_call({:authorize_tool, name, role, permissions, org}, _from, state) do
-    {:reply, authorize(state.snapshot, name, role, permissions, org), state}
+  def handle_call({:authorize_tool, name, role, permissions, org, audience}, _from, state) do
+    {:reply, authorize(state.snapshot, name, role, permissions, org, audience), state}
   end
 
   def handle_call(:refresh, _from, state) do
@@ -251,7 +256,7 @@ defmodule Acs.MCP.ToolRegistry do
     permissions = args["_auth_permissions"] || []
 
     with true <- valid_org?(credential_org) and valid_org?(resource_org) and is_binary(role),
-         :ok <- authorize(state.snapshot, name, role, permissions, credential_org) do
+         :ok <- authorize(state.snapshot, name, role, permissions, credential_org, nil) do
       if name == "write_tool" do
         commit_dynamic_tool(state, args, credential_org)
       else
@@ -265,7 +270,15 @@ defmodule Acs.MCP.ToolRegistry do
 
   def handle_call({:invoke, name, user_args, auth_context}, _from, state) do
     with {:ok, auth} <- normalize_auth_context(auth_context),
-         :ok <- authorize(state.snapshot, name, auth.role, auth.permissions, auth.credential_org) do
+         :ok <-
+           authorize(
+             state.snapshot,
+             name,
+             auth.role,
+             auth.permissions,
+             auth.credential_org,
+             auth[:audience]
+           ) do
       args = inject_auth_context(user_args, auth)
 
       if name == "write_tool" do
@@ -451,22 +464,33 @@ defmodule Acs.MCP.ToolRegistry do
   defp register_runtime_tool(_snapshot, _tool_def, _org),
     do: {:error, "Missing organization context"}
 
-  defp authorize(snapshot, name, role, permissions, credential_org) do
+  defp authorize(snapshot, name, role, permissions, credential_org, audience) do
     case resolve(snapshot, credential_org, name) do
       {:core, _} ->
-        if Acs.MCP.CoreToolRoles.authorized?(name, role),
+        if Acs.MCP.CoreToolRoles.authorized?(name, role, audience),
           do: :ok,
           else: {:error, "Role '#{role}' is not authorized to use tool '#{name}'"}
 
       {:tool, tool} ->
-        if authorized?(tool, name, role, permissions),
-          do: :ok,
-          else: authorization_error(tool, name, role, permissions)
+        cond do
+          chat_audience?(audience) ->
+            {:error, "Role '#{role}' is not authorized to use tool '#{name}'"}
+
+          authorized?(tool, name, role, permissions) ->
+            :ok
+
+          true ->
+            authorization_error(tool, name, role, permissions)
+        end
 
       :missing ->
         {:error, "Unknown tool: #{name}"}
     end
   end
+
+  defp chat_yaml_allowed?(_name, audience), do: not chat_audience?(audience)
+
+  defp chat_audience?(audience), do: audience in [:chat, "chat", :knowledge, "knowledge"]
 
   defp resolve(snapshot, credential_org, name) do
     cond do
@@ -584,13 +608,15 @@ defmodule Acs.MCP.ToolRegistry do
     level = args["level"]
     role = args["_auth_role"]
     permissions = args["_auth_permissions"]
+    audience = args["_auth_audience"]
 
     tools =
       ((scope.tools
         |> Map.values()
-        |> Enum.filter(&authorized?(&1, &1["name"], role, permissions))) ++
+        |> Enum.filter(&authorized?(&1, &1["name"], role, permissions))
+        |> Enum.filter(&chat_yaml_allowed?(&1["name"], audience))) ++
          (Acs.MCP.Tools.list_tools()
-          |> Enum.filter(&Acs.MCP.CoreToolRoles.authorized?(&1["name"], role))
+          |> Enum.filter(&Acs.MCP.CoreToolRoles.authorized?(&1["name"], role, audience))
           |> Enum.map(fn tool ->
             tool
             |> Map.put("app", "steward")

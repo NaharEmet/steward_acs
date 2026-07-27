@@ -38,6 +38,7 @@ defmodule Acs.MCP.Tools do
     "specs_get" => "specs",
     "query_specs" => "specs",
     "specs_propose" => "specs",
+    "documents_propose" => "specs",
     "specs_approve" => "specs",
     "specs_reject" => "specs",
     # Diagnostic tools
@@ -404,7 +405,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "ask",
-        "Query the org knowledge base with structured filters. Returns memories, documents, and agent status matching your criteria. The client is responsible for translating the human's natural language question into these parameters.\n\nUSE WHEN: a team member asks about current work context, project status, or recent activity. This is the primary query tool for collaborators.\n\nExample params for 'what is everyone working on': {\"kind\": \"context\"}\nExample params for 'show me recent activity': {\"kind\": \"activity\", \"limit\": 10}",
+        "Primary retrieval for chat assistants and collaborators. Query the org knowledge base — memories, documents, and agent status — in one call. USE WHEN: answering questions about org knowledge, status, or prior decisions. (Chat connectors do not expose separate query_memories / query_specs.)",
         %{
           "kind" => %{
             "type" => "string",
@@ -480,73 +481,13 @@ defmodule Acs.MCP.Tools do
       tool_def(
         "specs_propose",
         specs_propose_description(),
-        %{
-          "app" => %{
-            "type" => "string",
-            "description" => "App or project name (e.g. steward_acs, acme-corp)"
-          },
-          "path" => %{
-            "type" => "string",
-            "description" =>
-              "Entry path — module path (acs/memory/guidance) or document path (documents/marketing/campaign)"
-          },
-          "title" => %{"type" => "string", "description" => "Human-readable title"},
-          "document_type" => %{
-            "type" => "string",
-            "description" =>
-              "Kind of entry: \"spec\" for code module docs; knowledge|project|marketing|deliverable|policy|process|guideline|reference for non-code documents. Omit when using structured module-spec fields (purpose/invariants/…).",
-            "enum" => [
-              "spec",
-              "knowledge",
-              "project",
-              "marketing",
-              "deliverable",
-              "policy",
-              "process",
-              "guideline",
-              "reference"
-            ]
-          },
-          "purpose" => %{
-            "type" => "string",
-            "description" => "For module specs: why this module exists"
-          },
-          "invariants" => %{
-            "type" => "array",
-            "items" => %{"type" => "string"},
-            "description" => "Truths that must always hold"
-          },
-          "workflows" => %{
-            "type" => "array",
-            "items" => %{"type" => "string"},
-            "description" => "Expected call sequences / protocols"
-          },
-          "failure_modes" => %{
-            "type" => "array",
-            "items" => %{"type" => "string"},
-            "description" => "Known failure scenarios and handling"
-          },
-          "constraints" => %{
-            "type" => "array",
-            "items" => %{"type" => "string"},
-            "description" => "Non-goals, tradeoffs, limits"
-          },
-          "tags" => %{
-            "type" => "array",
-            "items" => %{"type" => "string"},
-            "description" => "Search tags"
-          },
-          "content" => %{
-            "type" => "string",
-            "description" =>
-              "Full markdown body — required for documents (marketing copy, project docs, long knowledge). Embed images as ![alt](url)."
-          },
-          "source" => %{
-            "type" => "string",
-            "description" => "Origin: file path, URL, or asset folder for attachments"
-          },
-          "project" => %{"type" => "string", "description" => "Project scope for ABAC filtering"}
-        },
+        propose_entry_properties(),
+        ["app", "path"]
+      ),
+      tool_def(
+        "documents_propose",
+        documents_propose_description(),
+        propose_entry_properties(),
         ["app", "path"]
       ),
       tool_def(
@@ -615,7 +556,7 @@ defmodule Acs.MCP.Tools do
       # Task Completion Feedback
       tool_def(
         "submit_task_feedback",
-        "Submit task feedback to formally close a completed task. Call this LAST — after release_work and after saving skills (skill_save), memories (save_memory), and specs/documents (specs_propose). Auto-generates knowledge memories from your learnings.",
+        "Submit task feedback to formally close a completed task. Call this LAST — after release_work and after saving skills (skill_save), memories (save_memory), and documents/specs (documents_propose or specs_propose). Auto-generates knowledge memories from your learnings. Chat: only after create_work/claim_work — not for simple Q&A.",
         %{
           "task_id" => %{"type" => "string", "description" => "The completed task slug (e.g. fix-login-bug)"},
           "agent_id" => %{
@@ -625,7 +566,8 @@ defmodule Acs.MCP.Tools do
           },
           "learned_for_agents" => %{
             "type" => "string",
-            "description" => "What did you learn that will help agents in the future?"
+            "description" =>
+              "What did you learn that will help agents in the future? Strongly recommended whenever you close a task."
           },
           "had_issues" => %{
             "type" => "string",
@@ -958,6 +900,7 @@ defmodule Acs.MCP.Tools do
       "specs_get" => &Acs.Specs.Tools.call_tool("specs_get", &1),
       "query_specs" => &Acs.Specs.Tools.call_tool("query_specs", &1),
       "specs_propose" => &Acs.Specs.Tools.call_tool("specs_propose", &1),
+      "documents_propose" => &Acs.Specs.Tools.call_tool("documents_propose", &1),
       "specs_approve" => &Acs.Specs.Tools.call_tool("specs_approve", &1),
       "specs_reject" => &Acs.Specs.Tools.call_tool("specs_reject", &1)
     }
@@ -1180,6 +1123,9 @@ defmodule Acs.MCP.Tools do
   defp tool_action_summary("specs_propose", %{"app" => app, "path" => path}),
     do: "specs_propose: #{app}/#{path}"
 
+  defp tool_action_summary("documents_propose", %{"app" => app, "path" => path}),
+    do: "documents_propose: #{app}/#{path}"
+
   defp tool_action_summary("specs_approve", %{"app" => app, "path" => path}),
     do: "specs_approve: #{app}/#{path}"
 
@@ -1200,7 +1146,8 @@ defmodule Acs.MCP.Tools do
     agent_id = Map.get(args, "agent_id", "")
     task_id = Map.get(result, :task_id) || Map.get(args, "task_id", "")
 
-    case tool_name do
+    steps =
+      case tool_name do
       "get_started" ->
         [
           %{
@@ -1605,11 +1552,11 @@ defmodule Acs.MCP.Tools do
           }
         ]
 
-      "specs_propose" ->
+      name when name in ["specs_propose", "documents_propose"] ->
         [
           %{
             tool: "specs_approve",
-            prompt: "Proposed spec ready? Approve to make it official",
+            prompt: "Proposed entry ready? Approve to make it official",
             params: %{
               app: Map.get(args, "app", ""),
               path: Map.get(args, "path", ""),
@@ -1767,7 +1714,27 @@ defmodule Acs.MCP.Tools do
       _ ->
         []
     end
+
+    maybe_chat_next_steps(steps, args)
   end
+
+  # Chat surface uses documents_propose; rewrite / filter _next so chat never sees specs_*.
+  defp maybe_chat_next_steps(steps, args) do
+    case Acs.MCP.Audience.normalize(Map.get(args, "_auth_audience")) do
+      :chat ->
+        steps
+        |> Enum.map(&rewrite_chat_next_tool/1)
+        |> Enum.filter(fn step -> Acs.MCP.CoreToolRoles.chat_tool?(step.tool) end)
+
+      _ ->
+        steps
+    end
+  end
+
+  defp rewrite_chat_next_tool(%{tool: "specs_propose"} = step),
+    do: %{step | tool: "documents_propose"}
+
+  defp rewrite_chat_next_tool(step), do: step
 
   defp relevant_skill_steps(guidance, fallback_title) do
     skills = Map.get(guidance, :relevant_skills) || []
@@ -1827,6 +1794,76 @@ defmodule Acs.MCP.Tools do
     read_steps ++ propose_steps
   end
 
+  defp propose_entry_properties do
+    %{
+      "app" => %{
+        "type" => "string",
+        "description" => "App or project name (e.g. steward_acs, acme-corp)"
+      },
+      "path" => %{
+        "type" => "string",
+        "description" =>
+          "Entry path — module path (acs/memory/guidance) or document path (documents/marketing/campaign)"
+      },
+      "title" => %{"type" => "string", "description" => "Human-readable title"},
+      "document_type" => %{
+        "type" => "string",
+        "description" =>
+          "Kind of entry: \"spec\" for code module docs; knowledge|project|marketing|deliverable|policy|process|guideline|reference for non-code documents. Omit when using structured module-spec fields (purpose/invariants/…).",
+        "enum" => [
+          "spec",
+          "knowledge",
+          "project",
+          "marketing",
+          "deliverable",
+          "policy",
+          "process",
+          "guideline",
+          "reference"
+        ]
+      },
+      "purpose" => %{
+        "type" => "string",
+        "description" => "For module specs: why this module exists"
+      },
+      "invariants" => %{
+        "type" => "array",
+        "items" => %{"type" => "string"},
+        "description" => "Truths that must always hold"
+      },
+      "workflows" => %{
+        "type" => "array",
+        "items" => %{"type" => "string"},
+        "description" => "Expected call sequences / protocols"
+      },
+      "failure_modes" => %{
+        "type" => "array",
+        "items" => %{"type" => "string"},
+        "description" => "Known failure scenarios and handling"
+      },
+      "constraints" => %{
+        "type" => "array",
+        "items" => %{"type" => "string"},
+        "description" => "Non-goals, tradeoffs, limits"
+      },
+      "tags" => %{
+        "type" => "array",
+        "items" => %{"type" => "string"},
+        "description" => "Search tags"
+      },
+      "content" => %{
+        "type" => "string",
+        "description" =>
+          "Full markdown body — required for documents (marketing copy, project docs, long knowledge). Embed images as ![alt](url)."
+      },
+      "source" => %{
+        "type" => "string",
+        "description" => "Origin: file path, URL, or asset folder for attachments"
+      },
+      "project" => %{"type" => "string", "description" => "Project scope for ABAC filtering"}
+    }
+  end
+
   defp specs_propose_description do
     base =
       "Create or update a **spec** (code) or **document** (non-code); status → proposed. " <>
@@ -1837,6 +1874,14 @@ defmodule Acs.MCP.Tools do
 
     instructions = Acs.Prompts.instructions("specs")
     if instructions != "", do: instructions <> "\n\n" <> base, else: base
+  end
+
+  defp documents_propose_description do
+    "Save or update a long **document** in Steward (policy, brief, marketing, knowledge, process). " <>
+      "Pass document_type + title + content. Prefer path under documents/<type>/<slug>. " <>
+      "Chat-facing name for the document store (same backend as coding specs_propose). " <>
+      "USE WHEN: user pastes/uploads a doc to keep, or after producing long shareable text. " <>
+      "NOT for short eternal truths (save_memory) or step-by-step how-tos (skill_save)."
   end
 
   defp skill_save_description do

@@ -82,13 +82,13 @@ Check relevant_skills — skill_get(name:) before procedural work. skill_save fo
   # ── Chat packet copy ────────────────────────────────────────────────
 
   @chat_workflow """
-Retrieve before answering: query_memories → query_specs → skill_get → generate_guidance_packet.
-Answer from ACS; if nothing matches, say so. Optionally create_work for multi-step tracked work.
-Save durable results: save_memory / skill_save / specs_propose as a document (document_type + content).
+Retrieve with ask (memories + documents + status). Load procedures with skill_get. Optionally create_work(claim: true) for multi-step tracked work.
+Answer from ACS; if nothing matches, say so. Save: save_memory (truths), documents_propose (long documents), skill_save (how-to procedures).
+Tracked work only: save → release_work → submit_task_feedback(learned_for_agents:) last. Simple Q&A needs no feedback.
 """
 
   @chat_store """
-memories = short truths · documents = long non-code (specs_propose + document_type) · skills = procedures.
+ask = search · save_memory = short truths · documents_propose = long documents · skill_get/skill_save = procedures.
 Prefer business scopes: org/domain/topic (e.g. acme/support/refunds).
 """
 
@@ -103,10 +103,11 @@ get_present_status(agent_id: "") returns your agent name. Use it on tool calls t
   @chat_conventions """
 ## Knowledge structure (chat)
 Business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy.
-- memories — short eternal truths
-- documents — policies, briefs, marketing (specs_propose + document_type)
-- skills — step-by-step playbooks
-Tools are still named specs_*; for chat you almost always want documents, not code specs.
+- memories — short eternal truths (save_memory)
+- documents — policies, briefs, marketing (documents_propose + document_type)
+- skills — step-by-step playbooks (skill_get / skill_save)
+Chat tools: get_started, ask, save_memory, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback.
+Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded document.
 """
 
   @doc """

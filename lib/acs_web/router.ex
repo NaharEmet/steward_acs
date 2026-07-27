@@ -93,6 +93,7 @@ defmodule AcsWeb.Router do
       live "/skills", AcsLive.SkillsLive, :index
       live "/error-traces", AcsLive.ErrorTracesLive, :index
     end
+  end
 
   scope "/", AcsWeb do
     pipe_through [:browser, :require_auth, :tenant_user]
