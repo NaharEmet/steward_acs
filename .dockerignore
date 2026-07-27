@@ -5,7 +5,10 @@
 .github
 metaanalysis
 priv/acs_memory
-priv/static
+# Built assets are produced by mix assets.deploy; keep committed favicons.
+priv/static/**
+!priv/static/favicon.ico
+!priv/static/favicon.png
 test
 tmp
 node_modules

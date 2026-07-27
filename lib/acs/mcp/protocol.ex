@@ -392,7 +392,47 @@ defmodule Acs.MCP.Protocol do
   end
 
   defp server_info do
-    %{"name" => "Acs MCP Server", "version" => "0.1.0"}
+    %{
+      "name" => "Acs MCP Server",
+      "version" => "0.1.0",
+      "websiteUrl" => "https://stewardacs.xyz",
+      "icons" => server_icons()
+    }
+  end
+
+  # SEP-973 — clients that honor icons (Inspector, some hosts). Claude.ai
+  # currently uses the apex-domain favicon instead; keep this for when it does.
+  defp server_icons do
+    for src <- icon_srcs() do
+      %{"src" => src, "mimeType" => "image/png"}
+    end
+  end
+
+  defp icon_srcs do
+    [public_favicon_url(), favicon_data_uri()]
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp public_favicon_url do
+    case Application.get_env(:steward_acs, :mcp_public_url) do
+      url when is_binary(url) and url != "" ->
+        String.trim_trailing(url, "/") <> "/favicon.png"
+
+      _ ->
+        case System.get_env("PHX_HOST") do
+          host when is_binary(host) and host != "" -> "https://" <> host <> "/favicon.png"
+          _ -> nil
+        end
+    end
+  end
+
+  defp favicon_data_uri do
+    path = Path.join(:code.priv_dir(:steward_acs), "static/favicon.png")
+
+    case File.read(path) do
+      {:ok, bin} -> "data:image/png;base64," <> Base.encode64(bin)
+      _ -> nil
+    end
   end
 
   defp audience_instructions(:chat) do

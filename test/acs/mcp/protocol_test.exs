@@ -98,7 +98,12 @@ defmodule Acs.MCP.ProtocolTest do
         "params" => %{}
       }
 
-      assert {:ok, %{"result" => %{"protocolVersion" => _}}} = Protocol.handle_message(msg, nil)
+      assert {:ok, %{"result" => %{"protocolVersion" => _, "serverInfo" => info}}} =
+               Protocol.handle_message(msg, nil)
+
+      assert info["name"] == "Acs MCP Server"
+      assert [%{"src" => src, "mimeType" => "image/png"} | _] = info["icons"]
+      assert String.starts_with?(src, "http") or String.starts_with?(src, "data:image/png;base64,")
     end
 
     test "notifications/initialized has no JSON-RPC response body" do
