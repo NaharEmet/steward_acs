@@ -39,7 +39,8 @@ defmodule Acs.Application do
 
     observability_children =
       if axiom_enabled?() do
-        [Acs.Observability.AxiomLogExporter, Acs.Observability.VmMetrics]
+        [Acs.Observability.AxiomLogExporter, Acs.Observability.VmMetrics] ++
+          agent_ops_exporter_children()
       else
         []
       end
@@ -197,6 +198,34 @@ defmodule Acs.Application do
 
   defp axiom_enabled? do
     Application.get_env(:steward_acs, :axiom, [])[:enabled] == true
+  end
+
+  # Dedicated Axiom dataset for agent.tool / agent.feedback (default steward_meta_analytics).
+  # Set AXIOM_AGENT_OPS_DATASET="" to disable the second exporter (events fall back to steward_logs).
+  defp agent_ops_exporter_children do
+    axiom = Application.get_env(:steward_acs, :axiom, [])
+
+    dataset =
+      case System.get_env("AXIOM_AGENT_OPS_DATASET") do
+        nil -> "steward_meta_analytics"
+        "" -> nil
+        ds -> String.trim(ds)
+      end
+
+    if is_binary(dataset) and dataset != "" and axiom[:token] do
+      [
+        {Acs.Observability.AxiomLogExporter,
+         [
+           name: Acs.Observability.AgentOpsExporter,
+           token: axiom[:token],
+           dataset: dataset,
+           domain: axiom[:domain] || "https://api.axiom.co",
+           attach_backend: false
+         ]}
+      ]
+    else
+      []
+    end
   end
 
   defp vault_configured? do

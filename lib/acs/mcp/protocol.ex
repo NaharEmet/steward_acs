@@ -317,7 +317,8 @@ defmodule Acs.MCP.Protocol do
       allowed_teams: agent_allowed_teams,
       allowed_projects: agent_allowed_projects,
       agent_id: agent_identity,
-      audience: Acs.MCP.ClientSession.resolve_audience(agent_identity)
+      audience: Acs.MCP.ClientSession.resolve_audience(agent_identity),
+      mcp_endpoint: Acs.MCP.ClientSession.resolve_mcp_endpoint(agent_identity)
     }
 
     cond do
@@ -396,14 +397,14 @@ defmodule Acs.MCP.Protocol do
 
   defp audience_instructions(:chat) do
     """
-    ACS audience: chat. Curated tools only: get_started, ask, save_memory, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback. Retrieve with ask; save truths with save_memory; save long docs with documents_propose; save procedures with skill_save. Prefer business scopes (org/domain/topic). Claimed tasks: save → release_work → submit_task_feedback(learned_for_agents:) last; simple Q&A needs no feedback.
+    ACS audience: chat. Curated tools only: get_started, ask, save_memory, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback. Retrieve with ask; save truths with save_memory; save long docs with documents_propose; save procedures with skill_save. Prefer business scopes (org/domain/topic). Claimed tasks: save → release_work → submit_task_feedback(learned_for_agents:) last; simple Q&A needs no feedback. Connect via /mcp/chat/sse.
     """
     |> String.trim()
   end
 
   defp audience_instructions(_coding) do
     """
-    ACS audience: coding agent. Create/claim tasks, lock files before edits, save learnings. Scopes may be code paths or business domains (org/domain/topic). Call get_started or generate_guidance_packet(scope_path:) when entering a new area.
+    ACS audience: coding agent. Create/claim tasks, lock files before edits, save learnings. Scopes may be code paths or business domains (org/domain/topic). Call get_started or generate_guidance_packet(scope_path:) when entering a new area. Connect via /mcp/sse.
     """
     |> String.trim()
   end

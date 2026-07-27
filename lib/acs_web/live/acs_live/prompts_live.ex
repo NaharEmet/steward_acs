@@ -1,0 +1,258 @@
+defmodule AcsWeb.AcsLive.PromptsLive do
+  use AcsWeb, :live_view
+
+  on_mount {AcsWeb.UserAuth, :ensure_org_admin}
+
+  alias Acs.Org
+
+  @known_prompts [
+    %{category: "memory", name: "evaluate", label: "Memory evaluation (coding)", desc: "Prompt for coding memory quality auditor"},
+    %{category: "memory", name: "evaluate_chat", label: "Memory evaluation (chat)", desc: "Prompt for chat memory quality auditor"},
+    %{category: "skills", name: "evaluate", label: "Skill evaluation (coding)", desc: "Prompt for coding skill quality auditor"},
+    %{category: "skills", name: "evaluate_chat", label: "Skill evaluation (chat)", desc: "Prompt for chat skill quality auditor"},
+    %{category: "skills", name: "instructions", label: "Skills instructions (coding)", desc: "Agent-facing instructions for how to use skills"},
+    %{category: "skills", name: "instructions_chat", label: "Skills instructions (chat)", desc: "Chat-facing instructions for how to use skills"},
+    %{category: "specs", name: "instructions", label: "Specs instructions (coding)", desc: "Agent-facing instructions for how to use specs/documents"},
+    %{category: "specs", name: "instructions_chat", label: "Specs instructions (chat)", desc: "Chat-facing instructions for how to use specs/documents"}
+  ]
+
+  def on_mount(_params, _session, socket) do
+    {:cont, assign(socket, current_path: socket.assigns[:current_path] || "/")}
+  end
+
+  @impl true
+  def mount(_params, _session, socket) do
+    socket = assign(socket, selected_id: nil, selected: nil, editor_content: "", original_content: "", saving: false)
+    {:ok, load_data(socket)}
+  end
+
+  @impl true
+  def handle_params(_params, url, socket) do
+    path = url |> URI.parse() |> Map.get(:path, "/")
+    {:noreply, assign(socket, current_path: path)}
+  end
+
+  @impl true
+  def handle_event("select", %{"prompt_id" => id}, socket) do
+    prompt = Enum.find(@known_prompts, &prompt_id(&1) == id)
+    if prompt do
+      builtin = load_builtin(prompt.category, prompt.name)
+      file_path = override_path(prompt.category, prompt.name)
+      override_exists = file_path && File.regular?(file_path)
+
+      {content, source} =
+        if override_exists do
+          {:ok, bin} = File.read(file_path)
+          {String.trim(bin), :custom}
+        else
+          {builtin, :builtin}
+        end
+
+      socket =
+        assign(socket,
+          selected_id: id,
+          selected: prompt,
+          editor_content: content,
+          original_content: content,
+          source: source,
+          override_exists: override_exists,
+          saving: false
+        )
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("editor-input", %{"value" => value}, socket) do
+    {:noreply, assign(socket, editor_content: value)}
+  end
+
+  @impl true
+  def handle_event("save", _params, socket) do
+    prompt = socket.assigns.selected
+    content = socket.assigns.editor_content
+    dir = override_dir(prompt.category)
+
+    case dir do
+      nil ->
+        {:noreply, put_flash(socket, :error, "No vault prompts directory configured for this org")}
+
+      dir ->
+        File.mkdir_p!(dir)
+        file_path = Path.join(dir, "#{prompt.name}.md")
+        File.write!(file_path, content)
+
+        {:noreply,
+         assign(socket, original_content: content, override_exists: true, source: :custom, saving: false)
+         |> put_flash(:info, "Saved #{prompt.category}/#{prompt.name}.md to vault prompts")}
+    end
+  end
+
+  @impl true
+  def handle_event("revert", _params, socket) do
+    prompt = socket.assigns.selected
+    file_path = override_path(prompt.category, prompt.name)
+
+    if file_path && File.regular?(file_path) do
+      File.rm!(file_path)
+
+      builtin = load_builtin(prompt.category, prompt.name)
+
+      {:noreply,
+       assign(socket, editor_content: builtin, original_content: builtin, override_exists: false, source: :builtin)
+       |> put_flash(:info, "Reverted to builtin prompt")}
+    else
+      {:noreply, put_flash(socket, :error, "No custom override to revert")}
+    end
+  end
+
+  @impl true
+  def handle_event("refresh", _params, socket) do
+    {:noreply, load_data(socket)}
+  end
+
+  @impl true
+  def handle_event(_event, _params, socket), do: {:noreply, socket}
+
+  defp load_data(socket) do
+    prompts =
+      Enum.map(@known_prompts, fn p ->
+        file_path = override_path(p.category, p.name)
+        override_exists = file_path != nil && File.regular?(file_path)
+        Map.put(p, :override_exists, override_exists)
+      end)
+
+    assign(socket, prompts: prompts)
+  end
+
+  defp load_builtin(category, name) do
+    path = Path.join([Application.app_dir(:steward_acs), "priv/prompts", category, "#{name}.md"])
+    case File.read(path) do
+      {:ok, content} -> String.trim(content)
+      _ -> ""
+    end
+  end
+
+  defp override_path(category, name) do
+    case override_dir(category) do
+      nil -> nil
+      dir -> Path.join(dir, "#{name}.md")
+    end
+  end
+
+  defp override_dir(category) do
+    case Org.prompts_dir() do
+      nil -> nil
+      dir -> Path.join(dir, category)
+    end
+  end
+
+  defp prompt_id(prompt), do: "#{prompt.category}/#{prompt.name}"
+
+  defp source_badge(:custom), do: "Custom override"
+  defp source_badge(:builtin), do: "Builtin"
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <section id="prompts-live" class="account-shell">
+      <div class="account-intro animate-in">
+        <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Workspace</span> / Prompts</p>
+        <h1 style="font-size: 1.3rem; margin-bottom: 6px;">Prompt editor</h1>
+        <p style="font-size: 0.82rem;">
+          Edit prompts for the memory and skill auditors. Custom overrides are written to your vault prompts directory and take effect on the next auditor cycle.
+        </p>
+      </div>
+
+      <div class="card animate-in delay-1" style="padding: 24px;">
+        <div class="prompts-picker">
+          <label for="prompt-select" class="form-label">Select prompt</label>
+          <div class="prompts-picker-row">
+            <form phx-change="select">
+              <select id="prompt-select" name="prompt_id" class="form-control form-select" style="max-width: 420px;">
+                <option value="">Choose a prompt to edit…</option>
+                <%= for p <- @prompts do %>
+                  <option value={prompt_id(p)} selected={@selected_id == prompt_id(p)}>
+                    <%= "#{p.label}" %>
+                    <%= if p.override_exists do %>
+                      <%= "(custom)" %>
+                    <% end %>
+                  </option>
+                <% end %>
+              </select>
+            </form>
+            <button type="button" phx-click="refresh" class="btn btn-ghost btn-sm" title="Refresh prompt list">
+              ↻
+            </button>
+          </div>
+        </div>
+
+        <%= if @selected do %>
+          <div class="prompts-editor-section">
+            <div class="prompts-editor-header">
+              <div>
+                <div class="prompts-path">
+                  <code><%= @selected.category %>/<%= @selected.name %>.md</code>
+                  <span class={"source-tag #{@source}"}><%= source_badge(@source) %></span>
+                </div>
+                <p class="text-dim" style="font-size: 0.78rem; margin-top: 4px;"><%= @selected.desc %></p>
+              </div>
+              <div class="prompts-actions">
+                <button
+                  type="button"
+                  phx-click="revert"
+                  class="btn btn-ghost btn-sm"
+                  disabled={not @override_exists}
+                  data-confirm="Revert to the builtin prompt? Your custom override will be deleted."
+                >
+                  Revert
+                </button>
+                <button
+                  type="button"
+                  phx-click="save"
+                  class="btn btn-primary btn-sm"
+                  disabled={@saving or @editor_content == @original_content}
+                >
+                  <%= if @saving, do: "Saving…", else: "Save override" %>
+                </button>
+              </div>
+            </div>
+
+            <div class="prompts-editor-body">
+              <textarea
+                id="prompt-editor"
+                class="form-control prompt-textarea"
+                phx-input="editor-input"
+                spellcheck="false"
+              ><%= @editor_content %></textarea>
+            </div>
+
+            <details class="prompts-refs">
+              <summary class="prompts-refs-summary">Template variables</summary>
+              <div class="prompts-refs-body">
+                <%= if @selected.name == "evaluate" do %>
+                  <code><%= "{{memory_json}}" %></code> — memory entry as JSON<br>
+                  <code><%= "{{existing_memories_json}}" %></code> — context memories as JSON<br>
+                  <code><%= "{{skill_json}}" %></code> — skill entry as JSON<br>
+                  <code><%= "{{existing_skills_json}}" %></code> — context skills as JSON
+                <% else %>
+                  No template variables — this prompt is used as-is.
+                <% end %>
+              </div>
+            </details>
+          </div>
+        <% else %>
+          <div class="empty-state" style="margin-top: 12px;">
+            <div class="empty-state-icon" aria-hidden="true">◇</div>
+            <p class="empty-state-title">Select a prompt</p>
+            <p class="empty-state-desc">Choose a prompt from the dropdown to inspect or edit it.</p>
+          </div>
+        <% end %>
+      </div>
+    </section>
+    """
+  end
+end

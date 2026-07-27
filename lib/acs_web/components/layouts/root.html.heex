@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Steward</title>
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -242,7 +244,7 @@
       .main {
         max-width: 1400px;
         margin: 0 auto;
-        padding: 32px 24px 80px;
+        padding: 40px 24px 80px;
       }
 
       /* ═══════════════════════════════════════════════════════════════
@@ -452,7 +454,8 @@
         border: 1px solid rgba(201, 168, 106, 0.2);
       }
 
-      .badge-status {
+      .badge-chat { background: var(--accent-subtle); color: var(--accent); border: 1px solid var(--border-accent); }
+      .badge-coding { background: var(--teal-glow); color: var(--teal); border: 1px solid rgba(90,138,138,0.15); }
         padding: 3px 10px;
         border-radius: var(--radius-sm);
         font-family: var(--font-mono);
@@ -716,20 +719,42 @@
       /* ═══════════════════════════════════════════════════════════════
          GRID LAYOUTS
          ═══════════════════════════════════════════════════════════════ */
+      .acs-dashboard,
+      .settings-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+
+      .acs-dashboard > .account-intro,
+      .settings-shell > .account-intro {
+        margin-bottom: 0;
+      }
+
+      .acs-dashboard > .mcp-connectors {
+        margin-bottom: 0;
+      }
+
+      .acs-dashboard > #getting-started {
+        margin-bottom: 0;
+      }
+
       .agents-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 16px;
+        gap: 20px;
       }
 
       .two-col-grid {
         display: grid;
         grid-template-columns: 1.2fr 0.8fr;
-        gap: 20px;
+        gap: 24px;
       }
 
       @media (max-width: 900px) {
         .two-col-grid { grid-template-columns: 1fr; }
+        .acs-dashboard,
+        .settings-shell { gap: 24px; }
       }
 
       /* ═══════════════════════════════════════════════════════════════
@@ -1442,9 +1467,16 @@
         width: min(100%, 1180px);
         margin: 0 auto;
         position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
       }
 
       .account-shell-narrow { width: min(100%, 880px); }
+
+      .account-shell > .account-intro {
+        margin-bottom: 0;
+      }
 
       .account-intro {
         max-width: 780px;
@@ -1776,7 +1808,7 @@
         align-items: flex-end;
         justify-content: space-between;
         gap: 30px;
-        margin-bottom: 26px;
+        margin-bottom: 0;
       }
 
       .members-heading .account-intro { margin-bottom: 0; }
@@ -1798,8 +1830,8 @@
       .management-grid {
         display: grid;
         grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.75fr);
-        gap: 18px;
-        margin-bottom: 18px;
+        gap: 24px;
+        margin-bottom: 0;
         align-items: start;
       }
 
@@ -1839,7 +1871,93 @@
       .btn-copy { min-width: 96px; padding-inline: 14px; border-color: var(--green); background: var(--green); color: #10120f; }
       .btn-copy[data-copy-state="copied"] { border-color: var(--green); background: transparent; color: var(--green); }
 
-      .management-card { margin-top: 18px; overflow: hidden; }
+      .mcp-connectors {
+        margin: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-card);
+      }
+
+      .mcp-connectors-summary {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 16px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .mcp-connectors-summary::-webkit-details-marker { display: none; }
+
+      .mcp-connectors-summary-main {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .mcp-connectors-summary-main .account-kicker { margin: 0; }
+
+      .mcp-connectors-title {
+        color: var(--text);
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+
+      .mcp-connectors-summary-meta {
+        flex: 0 0 auto;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+      }
+
+      .mcp-connectors-summary-meta::after {
+        content: " ▾";
+        color: var(--muted);
+      }
+
+      .mcp-connectors[open] .mcp-connectors-summary-meta::after { content: " ▴"; }
+
+      .mcp-connectors-summary:hover { background: rgba(255, 255, 255, 0.02); }
+
+      .mcp-connectors-body {
+        padding: 0 16px 14px;
+        border-top: 1px solid var(--border);
+      }
+
+      .mcp-connectors-note {
+        margin: 12px 0 10px;
+        font-size: 0.76rem;
+        line-height: 1.45;
+      }
+
+      .mcp-connectors-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .mcp-connector-row {
+        display: grid;
+        grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
+        gap: 10px 14px;
+        align-items: center;
+      }
+
+      .mcp-connector-heading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 2px;
+      }
+
+      .mcp-connector-heading strong { font-size: 0.84rem; }
+
+      .mcp-connector-meta .text-dim { font-size: 0.72rem; margin: 0; }
+
+      .management-card { margin-top: 0; overflow: hidden; }
       .management-card-header { align-items: center; padding: 22px 24px 18px; border-bottom: 1px solid var(--border); }
       .management-card > * { position: relative; z-index: 1; }
       .table-scroll { width: 100%; overflow-x: auto; }
@@ -1927,6 +2045,50 @@
         .access-summary > div:last-child { border-bottom: 0; }
         .copy-field { grid-template-columns: 1fr; }
         .btn-copy { width: 100%; }
+        .mcp-connector-row { grid-template-columns: 1fr; }
+        .mcp-connectors-summary { align-items: flex-start; flex-direction: column; gap: 4px; }
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+         PROMPTS EDITOR
+         ═══════════════════════════════════════════════════════════════ */
+      .prompts-picker { margin-bottom: 20px; }
+      .prompts-picker-row { display: flex; align-items: center; gap: 10px; }
+      .prompts-editor-section { border-top: 1px solid var(--border); padding-top: 20px; }
+      .prompts-editor-header {
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+        margin-bottom: 16px;
+      }
+      .prompts-path { display: flex; align-items: center; gap: 10px; }
+      .prompts-path code {
+        font-size: 0.85rem; color: var(--text); padding: 3px 8px;
+        background: var(--bg-elevated); border-radius: var(--radius-sm);
+      }
+      .source-tag {
+        font-family: var(--font-mono); font-size: 0.6rem; font-weight: 600;
+        padding: 2px 8px; border-radius: var(--radius-sm); letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .source-tag.custom { background: var(--amber-glow); color: var(--amber); }
+      .source-tag.builtin { background: var(--bg-elevated); color: var(--muted); }
+      .prompts-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+      .prompts-editor-body { margin-bottom: 12px; }
+      .prompt-textarea {
+        min-height: 380px; font-family: var(--font-mono); font-size: 0.82rem;
+        line-height: 1.6; resize: vertical; tab-size: 2;
+      }
+      .prompts-refs { border: 1px solid var(--border); border-radius: var(--radius); }
+      .prompts-refs-summary {
+        cursor: pointer; font-size: 0.78rem; color: var(--muted);
+        padding: 10px 14px; font-family: var(--font-mono);
+      }
+      .prompts-refs-summary:hover { color: var(--text-dim); }
+      .prompts-refs-body {
+        padding: 0 14px 12px; font-size: 0.75rem; color: var(--text-dim); line-height: 1.7;
+      }
+      .prompts-refs-body code {
+        font-size: 0.7rem; padding: 1px 5px; background: var(--bg-elevated);
+        border-radius: var(--radius-sm); color: var(--accent);
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -1943,47 +2105,6 @@
   <body>
     <%= @inner_content %>
     <script defer src="/assets/app.js"></script>
-    <script>
-      (() => {
-        document.addEventListener("click", async (event) => {
-          const trigger = event.target instanceof Element
-            ? event.target.closest("[data-copy-target]")
-            : null
-          if (!trigger) return
 
-          const input = document.getElementById(trigger.dataset.copyTarget)
-          const status = document.getElementById(trigger.dataset.copyStatus)
-          if (!input) return
-
-          const copyManually = () => {
-            input.focus()
-            input.select()
-            return document.execCommand("copy")
-          }
-
-          try {
-            if (navigator.clipboard && window.isSecureContext) {
-              await navigator.clipboard.writeText(input.value)
-            } else if (!copyManually()) {
-              throw new Error("Clipboard unavailable")
-            }
-
-            trigger.dataset.copyState = "copied"
-            trigger.textContent = "Copied"
-            if (status) status.textContent = "Invitation URL copied to the clipboard."
-
-            window.setTimeout(() => {
-              if (!document.body.contains(trigger)) return
-              trigger.dataset.copyState = ""
-              trigger.textContent = trigger.dataset.copyLabel || "Copy URL"
-            }, 2200)
-          } catch (_error) {
-            input.focus()
-            input.select()
-            if (status) status.textContent = "Select the invitation URL and copy it manually."
-          }
-        })
-      })()
-    </script>
   </body>
 </html>

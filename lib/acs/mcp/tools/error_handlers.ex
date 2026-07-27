@@ -39,9 +39,10 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
           task_id: task_id,
           agent_id: agent_id,
           org: org,
-          learned_for_agents: args["learned_for_agents"],
-          had_issues: args["had_issues"],
-          improvements: args["improvements"],
+          # API names → schema columns (cast drops unknown keys)
+          most_surprising: args["learned_for_agents"] || args["most_surprising"],
+          most_time_consuming: args["had_issues"] || args["most_time_consuming"],
+          improvements_needed: args["improvements"] || args["improvements_needed"],
           tools_wish_list: args["tools_wish_list"],
           info_needed: args["info_needed"],
           guidance_useful: args["guidance_useful"],
@@ -53,6 +54,18 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
       case Acs.Repo.insert(changeset) do
         {:ok, feedback} ->
           generate_memories_from_feedback(feedback, args)
+
+          Acs.Observability.AgentOps.log_feedback(
+            agent_id: agent_id,
+            org: org,
+            audience: args["_auth_audience"],
+            task_id: task_id,
+            guidance_useful: args["guidance_useful"],
+            learned_for_agents: args["learned_for_agents"],
+            had_issues: args["had_issues"],
+            improvements: args["improvements"],
+            info_needed: args["info_needed"]
+          )
 
           {:ok,
            %{
@@ -212,7 +225,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         "learning",
         "Key learning from task #{String.slice(args["task_id"] || "", 0, 8)}",
         learned,
-        scope_path
+        scope_path,
+        args
       )
     end
 
@@ -221,7 +235,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         "warning",
         "Issue encountered in task #{String.slice(args["task_id"] || "", 0, 8)}",
         had_issues,
-        scope_path
+        scope_path,
+        args
       )
     end
 
@@ -230,7 +245,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         "learning",
         "Improvement suggestion from task feedback",
         improvements,
-        scope_path
+        scope_path,
+        args
       )
     end
 
@@ -239,7 +255,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         "pattern",
         "Tool request from agent feedback",
         tools_wish_list,
-        scope_path
+        scope_path,
+        args
       )
     end
 
@@ -248,7 +265,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         "observation",
         "Information gap identified in task",
         info_needed,
-        scope_path
+        scope_path,
+        args
       )
     end
 
@@ -257,7 +275,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         "observation",
         "Guidance rated as #{if guidance_useful == true, do: "useful", else: "not useful"}",
         "Agent rated guidance #{if guidance_useful == true, do: "as helpful", else: "as not helpful"} for this task",
-        scope_path
+        scope_path,
+        args
       )
     end
 
@@ -267,7 +286,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         "learning",
         "Guidance items that helped",
         "Helpful items: #{Enum.join(helpful_items, ", ")}",
-        scope_path
+        scope_path,
+        args
       )
     end
 
@@ -277,7 +297,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         "warning",
         "Guidance items that were confusing or unhelpful",
         "Confusing items: #{Enum.join(confusing_items, ", ")}",
-        scope_path
+        scope_path,
+        args
       )
     end
 
@@ -286,33 +307,36 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
         "observation",
         "Guidance gap identified",
         guidance_missing,
-        scope_path
+        scope_path,
+        args
       )
     end
   end
 
-  defp save_feedback_memory(kind, title, content, scope_path) do
+  defp save_feedback_memory(kind, title, content, scope_path, args) do
     org = Acs.Org.current()
 
-    memory_map = %{
-      "id" => Acs.Memory.generate_id(%{"kind" => kind, "title" => title}),
-      "kind" => kind,
-      "status" => "proposed",
-      "title" => title,
-      "summary" => String.slice(content, 0, 200),
-      "content" => content,
-      "scope_path" => scope_path,
-      "importance" => 3,
-      "tags" => ["feedback", kind],
-      "triggers" => [],
-      "failure_modes" => [],
-      "created_by" => %{
-        "type" => "developer",
-        "id" => Acs.Org.developer_name(),
+    memory_map =
+      %{
+        "id" => Acs.Memory.generate_id(%{"kind" => kind, "title" => title}),
+        "kind" => kind,
+        "status" => "proposed",
+        "title" => title,
+        "summary" => String.slice(content, 0, 200),
+        "content" => content,
+        "scope_path" => scope_path,
+        "importance" => 3,
+        "tags" => ["feedback", kind],
+        "triggers" => [],
+        "failure_modes" => [],
+        "created_by" => %{
+          "type" => "developer",
+          "id" => Acs.Org.developer_name(),
+          "org" => org
+        },
         "org" => org
-      },
-      "org" => org
-    }
+      }
+      |> Acs.MCP.MemoryProvenance.enrich_memory_map(args)
 
     case Acs.Memory.validate(memory_map) do
       :ok ->

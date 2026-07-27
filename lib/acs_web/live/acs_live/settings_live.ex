@@ -60,7 +60,7 @@ defmodule AcsWeb.AcsLive.SettingsLive do
       </section>
 
       <%= if @is_admin do %>
-        <div class="card" style="padding: 24px; margin-top: 20px;">
+        <div class="card" style="padding: 24px;">
           <div class="section-header" style="align-items: flex-start;">
             <div>
               <h2 class="section-title">Workspace data</h2>

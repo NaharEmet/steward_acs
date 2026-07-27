@@ -31,6 +31,7 @@ defmodule Acs.Memory.Schema do
     field :parse_error, :string
     field :file_path, :string
     field :auditor_flags, :string
+    field :audience, :string
     field :team, :string
     field :project, :string
     field :visibility, :string, default: "org"
@@ -60,6 +61,7 @@ defmodule Acs.Memory.Schema do
       :parse_error,
       :file_path,
       :auditor_flags,
+      :audience,
       :team,
       :project,
       :visibility,

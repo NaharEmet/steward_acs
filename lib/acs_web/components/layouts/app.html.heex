@@ -97,6 +97,7 @@
             <%= if admin? do %>
               <.link navigate={~p"/settings"} class="gear-item">Settings</.link>
               <.link navigate={~p"/settings/members"} class="gear-item">Members</.link>
+              <.link navigate={~p"/settings/prompts"} class="gear-item">Prompts</.link>
             <% end %>
             <div class="user-dropdown-divider"></div>
             <.link href={~p"/users/log_out"} method="delete" class="gear-item">Log out</.link>

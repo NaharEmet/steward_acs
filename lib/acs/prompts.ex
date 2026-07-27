@@ -26,6 +26,9 @@ defmodule Acs.Prompts do
   @doc "Load agent-facing instructions for a category (`skills`, `specs`)."
   def instructions(category), do: load(category, "instructions")
 
+  @doc "Load chat-facing instructions for a category (`skills`, `specs`)."
+  def instructions_chat(category), do: load(category, "instructions_chat")
+
   defp candidate_paths(category, name) do
     if safe_segment?(category) and safe_segment?(name) do
       file = "#{name}.md"

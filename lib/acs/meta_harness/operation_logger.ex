@@ -73,7 +73,7 @@ defmodule Acs.MetaHarness.OperationLogger do
       tool_discovered: Keyword.get(opts, :tool_discovered, false),
       error_burst: Keyword.get(opts, :error_burst, false),
       params_hash: Keyword.get(opts, :params_hash),
-      inserted_at: DateTime.utc_now() |> Calendar.strftime("%Y-%m-%d %H:%M:%S")
+      inserted_at: DateTime.utc_now() |> DateTime.truncate(:second)
     }
 
     if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
@@ -137,7 +137,7 @@ defmodule Acs.MetaHarness.OperationLogger do
             Acs.Repo,
             """
               INSERT INTO acs_tool_operations (tool_name, status, latency_ms, error_type, error_message, agent_id, execution_id, execution_chain_id, sequence_order, attempt, tool_discovered, error_burst, params_hash, created_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
               attrs["tool_name"],
@@ -152,7 +152,8 @@ defmodule Acs.MetaHarness.OperationLogger do
               attrs["attempt"],
               attrs["tool_discovered"],
               attrs["error_burst"],
-              attrs["params_hash"]
+              attrs["params_hash"],
+              DateTime.utc_now() |> DateTime.truncate(:second)
             ]
           )
         end)

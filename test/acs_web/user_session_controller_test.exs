@@ -10,18 +10,21 @@ defmodule AcsWeb.UserSessionControllerTest do
 
       params = Keyword.get(config, :authorization_params, [])
       connection = Keyword.get(params, :connection)
-      true = connection in [nil, "email"] or is_binary(connection)
+      true = is_nil(connection) or (is_binary(connection) and connection != "")
 
-      {:ok,
-       %{
-         url:
-           "https://auth.example.test/authorize?state=provider-state&connection=#{connection || ""}",
-         session_params: %{
-           state: "provider-state",
-           nonce: "provider-nonce",
-           connection: connection
-         }
-       }}
+      url =
+        case connection do
+          nil -> "https://auth.example.test/authorize?state=provider-state"
+          conn -> "https://auth.example.test/authorize?state=provider-state&connection=#{conn}"
+        end
+
+      session_params =
+        %{state: "provider-state", nonce: "provider-nonce"}
+        |> then(fn params ->
+          if connection, do: Map.put(params, :connection, connection), else: params
+        end)
+
+      {:ok, %{url: url, session_params: session_params}}
     end
 
     def callback(_config, %{"code" => "verified"}) do
@@ -134,6 +137,7 @@ defmodule AcsWeb.UserSessionControllerTest do
       Application.put_env(:steward_acs, :oidc_client_secret, "client-secret")
       Application.put_env(:steward_acs, :oidc_redirect_uri, "http://localhost/auth/callback")
       Application.put_env(:steward_acs, :oidc_strategy, OIDCStrategy)
+      Application.delete_env(:steward_acs, :auth0_connection)
       :ok
     end
 
@@ -141,17 +145,32 @@ defmodule AcsWeb.UserSessionControllerTest do
       Map.put(conn, :host, "localhost")
     end
 
-    test "starts OIDC authorization with email connection and stores provider session parameters",
+    test "starts OIDC authorization without pinning connection and stores provider session parameters",
          %{conn: conn} do
-      Application.put_env(:steward_acs, :auth0_connection, "email")
+      Application.delete_env(:steward_acs, :auth0_connection)
+
+      conn = get(account_conn(conn), "/auth/log_in", %{"return_to" => "/onboarding"})
+
+      assert redirected_to(conn) == "https://auth.example.test/authorize?state=provider-state"
+
+      assert %{
+               session_params: %{state: "provider-state"},
+               return_to: "/onboarding"
+             } = get_session(conn, :oidc_session)
+
+      refute Map.has_key?(get_session(conn, :oidc_session).session_params, :connection)
+    end
+
+    test "starts OIDC authorization with optional AUTH0_CONNECTION pin", %{conn: conn} do
+      Application.put_env(:steward_acs, :auth0_connection, "google-oauth2")
 
       conn = get(account_conn(conn), "/auth/log_in", %{"return_to" => "/onboarding"})
 
       assert redirected_to(conn) ==
-               "https://auth.example.test/authorize?state=provider-state&connection=email"
+               "https://auth.example.test/authorize?state=provider-state&connection=google-oauth2"
 
       assert %{
-               session_params: %{state: "provider-state", connection: "email"},
+               session_params: %{state: "provider-state", connection: "google-oauth2"},
                return_to: "/onboarding"
              } = get_session(conn, :oidc_session)
     end

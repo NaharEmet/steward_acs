@@ -40,27 +40,30 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
     org = Acs.Org.current()
 
-    memory_map = %{
-      "id" => Acs.Memory.generate_id(%{"kind" => kind, "title" => title}),
-      "kind" => kind,
-      "title" => title,
-      "summary" => summary,
-      "content" => content,
-      "scope_path" => scope_path,
-      "importance" => importance,
-      "tags" => tags,
-      "triggers" => triggers,
-      "failure_modes" => failure_modes,
-      "created_by" => %{
-        "type" => "developer",
-        "id" => Acs.Org.developer_name(),
-        "org" => org
-      },
-      "org" => org,
-      "team" => team,
-      "project" => project,
-      "visibility" => visibility
-    }
+    memory_map =
+      %{
+        "id" => Acs.Memory.generate_id(%{"kind" => kind, "title" => title}),
+        "kind" => kind,
+        "title" => title,
+        "summary" => summary,
+        "content" => content,
+        "scope_path" => scope_path,
+        "importance" => importance,
+        "audience" => args["_auth_audience"],
+        "tags" => tags,
+        "triggers" => triggers,
+        "failure_modes" => failure_modes,
+        "created_by" => %{
+          "type" => "developer",
+          "id" => Acs.Org.developer_name(),
+          "org" => org
+        },
+        "org" => org,
+        "team" => team,
+        "project" => project,
+        "visibility" => visibility
+      }
+      |> Acs.MCP.MemoryProvenance.enrich_memory_map(args)
 
     memory_map =
       case Acs.Abac.memory_status_for_write(ctx, memory_map) do
@@ -94,7 +97,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       org: Acs.Org.current(),
       allowed_teams: args["_auth_allowed_teams"],
       allowed_projects: args["_auth_allowed_projects"],
-      agent_role: args["_auth_role"]
+      agent_role: args["_auth_role"],
+      audience: args["_auth_audience"]
     ]
 
     if query && query != "" do

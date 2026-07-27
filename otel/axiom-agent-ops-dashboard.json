@@ -1,0 +1,153 @@
+{
+  "name": "Steward ACS — agent usage",
+  "description": "Claude/chat vs coding + Meta-Harness rollups. Filter message agent.* / meta.* and signal. Dataset: steward_meta_analytics.",
+  "owner": "X-AXIOM-EVERYONE",
+  "refreshTime": 60,
+  "schemaVersion": 2,
+  "timeWindowStart": "qr-now-24h",
+  "timeWindowEnd": "qr-now",
+  "charts": [
+    {
+      "id": "ops_total",
+      "type": "Statistic",
+      "name": "Tool calls (24h)",
+      "colorScheme": "Blue",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.tool\"\n| count"
+      }
+    },
+    {
+      "id": "signal_works",
+      "type": "Statistic",
+      "name": "Works (hits + writes)",
+      "colorScheme": "Green",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.tool\" and ['signal'] == \"works\"\n| count"
+      }
+    },
+    {
+      "id": "signal_gaps",
+      "type": "Statistic",
+      "name": "Gaps (empty / info_needed)",
+      "colorScheme": "Orange",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where (['message'] == \"agent.tool\" and ['signal'] == \"gap_empty\") or (['message'] == \"agent.feedback\" and ['signal'] == \"gap_info\")\n| count"
+      }
+    },
+    {
+      "id": "signal_misuse",
+      "type": "Statistic",
+      "name": "Misuse (discovery / write-first)",
+      "colorScheme": "Red",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.tool\" and ['signal'] in (\"misuse_discovery\", \"misuse_write\")\n| count"
+      }
+    },
+    {
+      "id": "signal_wins",
+      "type": "Statistic",
+      "name": "Wins / surprise persist",
+      "colorScheme": "Purple",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where (['message'] == \"agent.feedback\" and ['signal'] == \"win\") or (['message'] == \"agent.tool\" and ['signal'] == \"surprise_persist\")\n| count"
+      }
+    },
+    {
+      "id": "by_signal",
+      "type": "TimeSeries",
+      "name": "Learning signals over time",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where isnotnull(['signal'])\n| summarize c=count() by bin(_time, 30m), signal"
+      }
+    },
+    {
+      "id": "by_audience",
+      "type": "TimeSeries",
+      "name": "Calls by audience",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.tool\"\n| summarize c=count() by bin(_time, 15m), audience"
+      }
+    },
+    {
+      "id": "empty_by_scope",
+      "type": "Table",
+      "name": "Empty retrieves by scope (gaps)",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.tool\" and ['signal'] == \"gap_empty\"\n| summarize n=count() by scope_path, tool_name, audience, org\n| order by n desc\n| limit 25"
+      }
+    },
+    {
+      "id": "misuse_table",
+      "type": "Table",
+      "name": "Misuse: discovery + write-without-retrieve",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.tool\" and ['signal'] in (\"misuse_discovery\", \"misuse_write\")\n| summarize n=count() by signal, tool_name, audience, org\n| order by n desc\n| limit 25"
+      }
+    },
+    {
+      "id": "surprise_persist",
+      "type": "Table",
+      "name": "Surprise persist (write after empty retrieve)",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.tool\" and ['signal'] == \"surprise_persist\"\n| project _time, tool_name, scope_path, kind, audience, org, agent_id, execution_chain_id\n| order by _time desc\n| limit 30"
+      }
+    },
+    {
+      "id": "feedback_signals",
+      "type": "Table",
+      "name": "Feedback: wins / pain / gaps",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.feedback\"\n| project _time, signal, audience, org, agent_id, guidance_useful, learned_for_agents, had_issues, improvements, info_needed\n| order by _time desc\n| limit 40"
+      }
+    },
+    {
+      "id": "top_tools",
+      "type": "Table",
+      "name": "Top tools",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.tool\"\n| summarize calls=count(), empty=countif(empty_result == true), failures=countif(status == \"failure\"), misuse=countif(signal startswith \"misuse\") by tool_name, tool_family, audience\n| order by calls desc\n| limit 25"
+      }
+    },
+    {
+      "id": "meta_success",
+      "type": "TimeSeries",
+      "name": "Meta-Harness success rate",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"meta.summary\"\n| summarize sr=avg(success_rate), ops=sum(total_ops) by bin(_time, 1h)"
+      }
+    },
+    {
+      "id": "meta_tools",
+      "type": "Table",
+      "name": "Meta rollup: tool reliability",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"meta.tool\"\n| summarize calls=sum(total_calls), fails=sum(failure_count), avg_sr=avg(success_rate), p95=avg(p95_latency_ms) by tool_name\n| order by fails desc\n| limit 25"
+      }
+    },
+    {
+      "id": "meta_errors",
+      "type": "Table",
+      "name": "Meta rollup: error clusters",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"meta.error_cluster\"\n| project _time, tool_name, error_type, occurrence_count, sample_message\n| order by occurrence_count desc\n| limit 30"
+      }
+    }
+  ],
+  "layout": [
+    {"i": "ops_total", "x": 0, "y": 0, "w": 2, "h": 2},
+    {"i": "signal_works", "x": 2, "y": 0, "w": 2, "h": 2},
+    {"i": "signal_gaps", "x": 4, "y": 0, "w": 3, "h": 2},
+    {"i": "signal_misuse", "x": 7, "y": 0, "w": 3, "h": 2},
+    {"i": "signal_wins", "x": 10, "y": 0, "w": 2, "h": 2},
+    {"i": "by_signal", "x": 0, "y": 2, "w": 6, "h": 3},
+    {"i": "by_audience", "x": 6, "y": 2, "w": 6, "h": 3},
+    {"i": "empty_by_scope", "x": 0, "y": 5, "w": 6, "h": 4},
+    {"i": "misuse_table", "x": 6, "y": 5, "w": 6, "h": 4},
+    {"i": "surprise_persist", "x": 0, "y": 9, "w": 6, "h": 4},
+    {"i": "feedback_signals", "x": 6, "y": 9, "w": 6, "h": 4},
+    {"i": "top_tools", "x": 0, "y": 13, "w": 12, "h": 4},
+    {"i": "meta_success", "x": 0, "y": 17, "w": 12, "h": 3},
+    {"i": "meta_tools", "x": 0, "y": 20, "w": 6, "h": 4},
+    {"i": "meta_errors", "x": 6, "y": 20, "w": 6, "h": 4}
+  ]
+}

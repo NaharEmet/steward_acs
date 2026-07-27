@@ -28,29 +28,19 @@ defmodule Acs.MCP.HTTPServer do
   plug(Plug.Parsers, parsers: [:json], json_decoder: Jason, length: @max_body_size)
   plug(:dispatch)
 
-  # MCP SSE endpoint — establishes a Server-Sent Events stream per MCP Streamable HTTP
+  # MCP SSE — coding (default) and chat surfaces.
+  # Chat: /mcp/chat/sse or /mcp/sse?audience=chat — curated tools matching chat_system_prompt.
+  # Coding: /mcp/sse (default), /mcp/coding/sse, or ?audience=coding
   get "/mcp/sse" do
-    conn = fetch_query_params(conn)
-    session_id = generate_sse_session_id()
+    open_sse(conn)
+  end
 
-    conn =
-      conn
-      |> put_resp_header("content-type", "text/event-stream")
-      |> put_resp_header("cache-control", "no-cache")
-      |> put_resp_header("x-accel-buffering", "no")
-      |> send_chunked(200)
+  get "/mcp/chat/sse" do
+    open_sse(conn)
+  end
 
-    case chunk(
-           conn,
-           "event: endpoint\ndata: /mcp/messages?session_id=#{session_id}\n\n"
-         ) do
-      {:ok, conn} ->
-        :ok = Acs.MCP.SSESessionManager.register(session_id, self())
-        sse_loop(conn, session_id)
-
-      {:error, _reason} ->
-        handle_sse_close(session_id, conn)
-    end
+  get "/mcp/coding/sse" do
+    open_sse(conn)
   end
 
   # MCP Streamable HTTP messages endpoint — receives JSON-RPC and responds via SSE
@@ -548,6 +538,42 @@ defmodule Acs.MCP.HTTPServer do
 
       _ ->
         conn |> send_resp(400, ~s({"error": "Invalid JSON"}))
+    end
+  end
+
+  defp open_sse(conn) do
+    conn = fetch_query_params(conn)
+    session_id = generate_sse_session_id()
+    endpoint = Acs.MCP.MemoryProvenance.normalize_endpoint(conn.request_path)
+
+    case Acs.MCP.Audience.from_request(conn.request_path, conn.query_params) do
+      audience when audience in [:chat, :coding] ->
+        Acs.MCP.ClientSession.seed_mcp_connect(session_id, endpoint || conn.request_path, audience)
+
+      _ ->
+        # Still record the connect path for provenance when URL does not force audience.
+        if endpoint do
+          Acs.MCP.ClientSession.seed_mcp_connect(session_id, endpoint, :coding)
+        end
+    end
+
+    conn =
+      conn
+      |> put_resp_header("content-type", "text/event-stream")
+      |> put_resp_header("cache-control", "no-cache")
+      |> put_resp_header("x-accel-buffering", "no")
+      |> send_chunked(200)
+
+    case chunk(
+           conn,
+           "event: endpoint\ndata: /mcp/messages?session_id=#{session_id}\n\n"
+         ) do
+      {:ok, conn} ->
+        :ok = Acs.MCP.SSESessionManager.register(session_id, self())
+        sse_loop(conn, session_id)
+
+      {:error, _reason} ->
+        handle_sse_close(session_id, conn)
     end
   end
 

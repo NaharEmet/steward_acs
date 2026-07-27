@@ -134,6 +134,7 @@ defmodule Acs.Memory.Indexer do
       revalidation_json: Jason.encode!(memory.revalidation),
       created_by_json: Jason.encode!(memory.created_by),
       created_by_agent: get_in(memory.created_by, ["id"]),
+      audience: memory.audience,
       file_path: Acs.Memory.Loader.memory_to_path(memory),
       created_at: parse_datetime(memory.created_at),
       updated_at: parse_datetime(memory.updated_at),
@@ -300,7 +301,10 @@ defmodule Acs.Memory.Indexer do
 
     order_by = opts[:order_by] || [desc: :updated_at]
     org = opts[:org] || Acs.Org.current()
-    query = from m in Schema, where: m.org == ^org, order_by: ^order_by
+    query = from m in Schema, where: m.org == ^org
+
+    query = apply_audience_order(query, opts[:audience])
+    query = from m in query, order_by: ^order_by
 
     query = if opts[:kind], do: from(m in query, where: m.kind == ^opts[:kind]), else: query
 
@@ -399,10 +403,13 @@ defmodule Acs.Memory.Indexer do
         where:
           like(m.title, ^search_term) or
             like(m.content, ^search_term) or
-            like(m.summary, ^search_term),
-        order_by: [desc: m.importance, desc: m.updated_at]
+            like(m.summary, ^search_term)
 
     search_query = apply_scope_path_filter(search_query, opts[:scope_path])
+    search_query = apply_audience_order(search_query, opts[:audience])
+
+    search_query =
+      from m in search_query, order_by: [desc: m.importance, desc: m.updated_at]
 
     search_query =
       if opts[:kind] do
@@ -448,6 +455,7 @@ defmodule Acs.Memory.Indexer do
       "content" => schema.content,
       "scope_path" => schema.scope_path,
       "importance" => schema.importance,
+      "audience" => schema.audience,
       "tags" => decode_json_field(schema.tags_json),
       "triggers" => decode_json_field(schema.triggers_json),
       "failure_modes" => decode_json_field(schema.failure_modes_json),
@@ -512,6 +520,15 @@ defmodule Acs.Memory.Indexer do
       from m in query, where: like(m.scope_path, ^"#{scope_path}%")
     end
   end
+
+  defp apply_audience_order(query, nil), do: query
+
+  defp apply_audience_order(query, audience) when is_binary(audience) and audience != "" do
+    import Ecto.Query
+    from m in query, order_by: [desc: fragment("CASE WHEN ? = ? THEN 1 ELSE 0 END", m.audience, ^audience)]
+  end
+
+  defp apply_audience_order(query, _), do: query
 
   defp build_abac_filter(query, opts) do
     import Ecto.Query

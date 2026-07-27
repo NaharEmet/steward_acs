@@ -22,9 +22,10 @@
     }
 
     # Per-host audience must match ACS oauth-protected-resource metadata (multi-tenant).
+    # Do not force connection= — Auth0 UL offers email OTP and/or Google for enabled clients.
     @authz path /authorize*
     handle @authz {
-        redir https://{$AUTH0_DOMAIN}{path}?audience=https%3A%2F%2F{host}%2Fmcp%2Fsse&connection=email&{query}
+        redir https://{$AUTH0_DOMAIN}{path}?audience=https%3A%2F%2F{host}%2Fmcp%2Fsse&{query}
     }
 
     # DCR: fall through to ACS (fixed client via OAUTH_FIXED_DCR_CLIENT_ID).

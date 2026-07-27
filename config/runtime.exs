@@ -236,7 +236,9 @@ if auth0_issuer = System.get_env("AUTH0_ISSUER") do
 end
 
 if connection = System.get_env("AUTH0_CONNECTION") do
-  config :steward_acs, :auth0_connection, connection
+  if connection != "" do
+    config :steward_acs, :auth0_connection, connection
+  end
 end
 
 if mcp_public_url = System.get_env("MCP_PUBLIC_URL") do

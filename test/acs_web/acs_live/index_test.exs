@@ -5,6 +5,34 @@ defmodule AcsWeb.AcsLive.IndexTest do
 
   alias AcsWeb.AcsLive.Index
 
+  setup do
+    original = Application.get_env(:steward_acs, :mcp_public_url)
+    Application.put_env(:steward_acs, :mcp_public_url, "https://prod.stewardacs.xyz")
+
+    on_exit(fn ->
+      Application.put_env(:steward_acs, :mcp_public_url, original)
+    end)
+
+    :ok
+  end
+
+  test "shows symmetric MCP connector URLs once in a compact disclosure" do
+    html = render_dashboard()
+
+    assert html =~ ~s(id="mcp-connectors")
+    assert html =~ "Agent URLs"
+    assert html =~ "/mcp/coding/sse"
+    assert html =~ "/mcp/chat/sse"
+    assert html =~ "https://prod.stewardacs.xyz/mcp/coding/sse"
+    assert html =~ "https://prod.stewardacs.xyz/mcp/chat/sse"
+    assert html =~ "Cursor, Claude Code, OpenCode"
+    assert html =~ "Claude.ai, ChatGPT"
+    # One disclosure only — no duplicated connector blocks
+    assert length(Regex.scan(~r/id="mcp-connectors"/, html)) == 1
+    assert length(Regex.scan(~r/id="mcp-coding-url"/, html)) == 1
+    assert length(Regex.scan(~r/id="mcp-chat-url"/, html)) == 1
+  end
+
   test "guides an empty workspace through first-time setup" do
     html = render_dashboard()
 
@@ -20,6 +48,16 @@ defmodule AcsWeb.AcsLive.IndexTest do
 
     refute html =~ "Connect your first agent"
     refute html =~ "dismiss-getting-started"
+    assert html =~ ~s(id="mcp-connectors")
+    assert html =~ "Agent URLs"
+    refute html =~ ~r/<details[^>]*id="mcp-connectors"[^>]*\bopen\b/
+  end
+
+  test "opens connector URLs during first-time setup" do
+    html = render_dashboard(getting_started_dismissed: false)
+
+    assert html =~ "Connect your first agent"
+    assert html =~ ~r/<details[^>]*id="mcp-connectors"[^>]*\bopen\b/
   end
 
   test "explains a filtered empty task list and offers to clear it" do
@@ -39,7 +77,8 @@ defmodule AcsWeb.AcsLive.IndexTest do
           locked_files: [],
           selected_status: "all",
           can_reset_data: false,
-          getting_started_dismissed: false
+          getting_started_dismissed: false,
+          mcp_endpoints: AcsWeb.McpUrls.endpoints()
         },
         Map.new(overrides)
       )

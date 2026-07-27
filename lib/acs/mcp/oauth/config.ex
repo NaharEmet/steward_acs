@@ -3,6 +3,9 @@ defmodule Acs.MCP.OAuth.Config do
   Auth0 / OIDC settings for MCP OAuth (Claude Connectors).
 
   Mirrors ASP.NET `AddJwtBearer` with `Authority` + `Audience`.
+
+  One Auth0 API identifier (`https://<host>/mcp/sse`) works for both SSE paths.
+  ACS tool surface is selected by connect URL (`/mcp/sse` vs `/mcp/chat/sse`).
   """
 
   @doc "OAuth Bearer auth is enabled when Auth0 domain and audience are configured."
@@ -52,7 +55,7 @@ defmodule Acs.MCP.OAuth.Config do
     end
   end
 
-  @doc "Public MCP resource URL (must match Auth0 API identifier and Claude connector URL)."
+  @doc "Canonical OAuth resource URL (Auth0 API identifier)."
   @spec resource_url() :: String.t() | nil
   def resource_url, do: resource_url(nil)
 
@@ -69,8 +72,8 @@ defmodule Acs.MCP.OAuth.Config do
 
   @doc "Auth0 API audience for JWT validation on this request."
   @spec audience_for_conn(Plug.Conn.t()) :: String.t() | nil
-  def audience_for_conn(%Plug.Conn{host: host}) do
-    if host_aware_oauth?(%Plug.Conn{host: host}) do
+  def audience_for_conn(%Plug.Conn{host: host} = conn) do
+    if host_aware_oauth?(conn) do
       resource_url_for_host(host)
     else
       audience()
@@ -80,6 +83,35 @@ defmodule Acs.MCP.OAuth.Config do
   @spec resource_url_for_host(String.t()) :: String.t()
   def resource_url_for_host(host) when is_binary(host) do
     "https://#{host}/mcp/sse"
+  end
+
+  @doc """
+  JWT `aud` values accepted on this host.
+
+  Tokens are issued for `/mcp/sse`; chat connectors use `/mcp/chat/sse` for SSE only.
+  """
+  @spec accepted_resource_urls(String.t() | nil) :: [String.t()]
+  def accepted_resource_urls(nil), do: []
+
+  def accepted_resource_urls(url) when is_binary(url) do
+    uri = URI.parse(url)
+
+    case uri.host do
+      host when is_binary(host) and host != "" ->
+        base = "#{uri.scheme || "https"}://#{host}"
+
+        [
+          url,
+          "#{base}/mcp/sse",
+          "#{base}/mcp/chat/sse",
+          audience()
+        ]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq()
+
+      _ ->
+        [url, audience()] |> Enum.reject(&is_nil/1) |> Enum.uniq()
+    end
   end
 
   defp legacy_resource_url do
@@ -101,6 +133,15 @@ defmodule Acs.MCP.OAuth.Config do
   @spec protected_resource_metadata_path() :: String.t()
   def protected_resource_metadata_path do
     "/.well-known/oauth-protected-resource/mcp/sse"
+  end
+
+  @doc "Well-known paths (both return the same canonical OAuth resource)."
+  @spec protected_resource_metadata_paths() :: [String.t()]
+  def protected_resource_metadata_paths do
+    [
+      "/.well-known/oauth-protected-resource/mcp/sse",
+      "/.well-known/oauth-protected-resource/mcp/chat/sse"
+    ]
   end
 
   @spec protected_resource_metadata_url() :: String.t() | nil

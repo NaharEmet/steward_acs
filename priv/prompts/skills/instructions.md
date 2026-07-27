@@ -1,49 +1,39 @@
-Skills are reusable workflow guides — step-by-step know-how for repeatable tasks. USE WHEN: a task follows a known procedure (deploy, manage secrets, install, run tests) or you discover a repeatable pattern worth documenting for other agents.
+Skills are reusable step-by-step workflows for repeatable tasks (deployment, secrets, testing, support). Load them before multi-step work and save them when you discover a repeatable pattern.
 
-## When to use skills vs memories vs specs/documents
+## Before multi-step work
 
-- **skill_save** — procedural workflows with ordered steps (how to deploy, how to rotate secrets)
-- **save_memory** — eternal truths and principles (invariants, pitfalls, decisions)
-- **specs_propose** — **specs** for code modules, or **documents** for non-code artifacts (policy, marketing, briefs)
+```
+skill_get(name: "deployment")        # exact name
+skill_get(scope_path: "ops/backup")  # list skills for a domain
+skill_get(search: "secrets")         # keyword across names/descriptions/tags
+skill_get(tag: "deployment")         # filter by tag
+skill_get()                          # full catalog with when_to_use
+```
+
+## When to save
+
+| Store | When | Example |
+|-------|------|---------|
+| **skill_save** | Repeatable procedure | How to deploy, rotate keys, run a refund |
+| **save_memory** | Eternal truth, principle | "LiveViews need catch-all handle_info" |
+| **specs_propose** | Module docs or long docs | Why a module exists, project brief |
 
 ## Writing a good skill
 
-1. **name** — short kebab-case identifier (e.g. `deployment`, `secrets-management`, `refund-playbook`)
-2. **description** — one sentence: what this skill covers and when to use it (must differ from name)
-3. **tags** — at least one tag for discovery (e.g. `["deployment", "ops"]`)
-4. **scope_paths** — business domains and/or code paths this skill applies to (e.g. `["acme/support/refunds"]` or `["guides/deployment"]`)
-5. **content** — markdown body with:
-   - When to use this skill
-   - Prerequisites
-   - Numbered steps (commands, file paths, verification)
-   - Common failures and how to recover
+- **name** — kebab-case: `deployment`, `secrets-management`, `refund-playbook`
+- **description** — one sentence distinct from name and content
+- **tags** — at least one: `["deployment", "ops"]`
+- **scope_paths** — business domains or code paths: `["acme/support/refunds"]`
+- **content** — when to use, prerequisites, numbered steps, verification, failure recovery
 
-## Scope convention
+## Bad skills to avoid
 
-Scopes are hierarchical labels for **org structure**, not only files:
-- Business: `org/domain/topic` (e.g. `acme/sales/pricing`, `acme/support/refunds`)
-- Code: module/path areas (e.g. `lib/acs/memory`)
-
-Set `scope_paths` on each skill so agents entering that scope receive it in `relevant_skills` from `claim_work` or `generate_guidance_packet`.
-
-## Examples of GOOD skills
-
-- `deployment` — compares local vs org-memory deployment with compose files and verification steps
-- `secrets-management` — how to use `pass`, what never to commit, rotation workflow
-- `refund-playbook` — support refund steps scoped to `acme/support/refunds`
-
-## Examples of BAD skills
-
-- A single line like "see README" (not actionable)
-- Duplicating a memory axiom without steps (use save_memory instead)
-- Copy-pasting task-specific notes from one bug fix (not reusable)
+- "See README" (not actionable)
+- Copy-pasted memory axioms (use `save_memory` instead)
+- Single-bug patch notes (not reusable)
 
 ## Tools
 
-- `skill_get(name:)` — load one skill by name
-- `skill_get(scope_path:)` — **list skills for a scope** (same paths as memories/specs)
-- `skill_get(search:)` — search names, descriptions, tags, content
-- `skill_get(tag:)` — filter by tag
-- `skill_get()` — full catalog with `when_to_use` for every skill
-- `skill_save(name, content, tags, description, scope_paths, when_to_use)` — create or update
+- `skill_get(name:)` / `skill_get(scope_path:)` / `skill_get(search:)` / `skill_get(tag:)` / `skill_get()`
+- `skill_save(name, content, tags, description, scope_paths, when_to_use)`
 - `skill_audit_status()` — run LLM quality audit on all skills

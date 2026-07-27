@@ -358,35 +358,26 @@ defmodule Acs.LLM do
     is_binary(api_key) and api_key != ""
   end
 
-  # ── Evaluation prompt ────────────────────────────────────────────────
-  # Default prompt used when MEMORY_EVALUATION_PROMPT_PATH is not set or unreadable.
-  # Supports {{memory_json}} and {{existing_memories_json}} template variables.
+  # ── Evaluation prompts ──────────────────────────────────────────────
+  # Prompts are loaded from priv/prompts/<category>/<name>.md (or vault overrides).
+  # No hardcoded fallback — creates a prompt file if one is missing.
+  # Two variants per type: "evaluate" (coding audience) and "evaluate_chat" (chat audience).
 
-  @default_evaluation_prompt """
-  You are a memory quality auditor. Evaluate memory entries for content quality, title descriptiveness, noise, and contradictions with existing knowledge.
+  defp prompt_name_for_audience(audience) do
+    if audience == "chat", do: "evaluate_chat", else: "evaluate"
+  end
 
-  {"memory_entry": {{memory_json}}}
-
-  {"existing_memories": {{existing_memories_json}}}
-
-  Respond ONLY with valid JSON. Use single-line values only — no multi-line strings. Fields: quality_score(1-5), title_quality(1-5), is_noise(bool), recommendation(one of: "approve","reject","human_review"), reasoning, improvements, suggested_title, is_duplicate_of
-
-  For recommendation, you MUST use exactly one of: "approve", "reject", or "human_review".
-  """
-
-  @default_skill_evaluation_prompt """
-  You are a skill quality auditor. Evaluate skills for actionability and completeness.
-
-  {"skill": {{skill_json}}}
-
-  {"existing_skills": {{existing_skills_json}}}
-
-  Respond ONLY with valid JSON. Fields: quality_score(1-5), description_quality(1-5), is_actionable(bool), recommendation("ok"|"needs_improvement"|"failing"), reasoning, improvements, suggested_description
-  """
+  defp load_prompt!(category, name) do
+    case Acs.Prompts.load(category, name) do
+      nil -> raise "Missing #{category}/#{name} evaluation prompt. Create priv/prompts/#{category}/#{name}.md"
+      template -> template
+    end
+  end
 
   defp build_skill_evaluation_prompt(skill, context_skills) do
     skill_json =
       Jason.encode!(%{
+        audience: skill.audience || "coding",
         name: skill.name || "",
         description: skill.description || "",
         content: skill.content || "",
@@ -394,9 +385,8 @@ defmodule Acs.LLM do
       })
 
     existing_skills_json = Jason.encode!(context_skills)
-
-    template =
-      Acs.Prompts.load("skills", "evaluate", default: @default_skill_evaluation_prompt)
+    prompt_name = prompt_name_for_audience(skill.audience)
+    template = load_prompt!("skills", prompt_name)
 
     template
     |> String.replace("{{skill_json}}", skill_json)
@@ -406,6 +396,7 @@ defmodule Acs.LLM do
   defp build_evaluation_prompt(memory, context_memories) do
     memory_json =
       Jason.encode!(%{
+        audience: memory.audience || "coding",
         title: memory.title || "",
         content: memory.content || "",
         kind: memory.kind || "",
@@ -415,15 +406,15 @@ defmodule Acs.LLM do
 
     existing_memories_json = Jason.encode!(context_memories)
 
-    prompt_template = load_prompt_template()
-    do_interpolate(prompt_template, memory_json, existing_memories_json)
-  end
+    prompt_name = prompt_name_for_audience(memory.audience)
 
-  defp load_prompt_template do
-    case memory_prompt_override() do
-      {:ok, content} -> content
-      :default -> Acs.Prompts.load("memory", "evaluate", default: @default_evaluation_prompt)
-    end
+    template =
+      case memory_prompt_override() do
+        {:ok, content} -> content
+        :default -> load_prompt!("memory", prompt_name)
+      end
+
+    do_interpolate(template, memory_json, existing_memories_json)
   end
 
   defp memory_prompt_override do
@@ -436,7 +427,7 @@ defmodule Acs.LLM do
     else
       {:error, reason} ->
         Logger.warning(
-          "[Acs.LLM] Failed to read MEMORY_EVALUATION_PROMPT_PATH: #{inspect(reason)}. Using default."
+          "[Acs.LLM] Failed to read MEMORY_EVALUATION_PROMPT_PATH: #{inspect(reason)}."
         )
 
         :default

@@ -61,19 +61,88 @@ defmodule Acs.MCP.ClientSession do
     end
   end
 
+  @doc """
+  Seed audience from the SSE URL before `initialize` (path or `?audience=`).
+
+  URL-forced audience wins over later `clientInfo` heuristics so Claude.ai /
+  ChatGPT connectors get the curated chat tool surface when pointed at
+  `/mcp/chat/sse` or `/mcp/sse?audience=chat`.
+  """
+  def seed_url_audience(session_id, audience) when audience in [:chat, :coding] do
+    seed_mcp_connect(session_id, nil, audience)
+  end
+
+  def seed_url_audience(_session_id, _), do: :ok
+
+  @doc """
+  Record MCP connect path + audience on the session (before `initialize`).
+
+  `endpoint_path` is e.g. `/mcp/coding/sse`, `/mcp/chat/sse`, `/mcp/v1/messages`.
+  """
+  def seed_mcp_connect(session_id, endpoint_path, audience)
+      when audience in [:chat, :coding] do
+    attrs = %{audience: audience, audience_source: :url}
+
+    attrs =
+      case Acs.MCP.MemoryProvenance.normalize_endpoint(endpoint_path) do
+        nil -> attrs
+        endpoint -> Map.put(attrs, :mcp_endpoint, endpoint)
+      end
+
+    put(session_id, attrs)
+  end
+
+  def seed_mcp_connect(_session_id, _endpoint_path, _), do: :ok
+
+  @doc "MCP endpoint path for the current session (e.g. `/mcp/chat/sse`)."
+  def resolve_mcp_endpoint(agent_identity \\ nil) do
+    with {:error, _} <- fetch_mcp_endpoint(current_id()),
+         {:error, _} <- fetch_mcp_endpoint(agent_key(agent_identity)) do
+      nil
+    else
+      {:ok, endpoint} -> endpoint
+    end
+  end
+
   def remember_initialize(params, agent_identity) when is_map(params) do
-    audience = Acs.MCP.Audience.from_initialize_params(params)
     client_info = params["clientInfo"] || params[:clientInfo] || %{}
+    client_name = client_info["name"] || client_info[:name]
+    client_version = client_info["version"] || client_info[:version]
+
+    {audience, source} =
+      case url_forced_audience(current_id()) do
+        {:ok, forced} -> {forced, :url}
+        :error -> {Acs.MCP.Audience.from_initialize_params(params), :client_info}
+      end
 
     attrs = %{
       audience: audience,
-      client_name: client_info["name"] || client_info[:name],
-      client_version: client_info["version"] || client_info[:version]
+      audience_source: source,
+      client_name: client_name,
+      client_version: client_version
     }
+
+    attrs =
+      case fetch_mcp_endpoint(current_id()) do
+        {:ok, endpoint} -> Map.put(attrs, :mcp_endpoint, endpoint)
+        _ -> attrs
+      end
 
     put(current_id(), attrs)
     put(agent_key(agent_identity), attrs)
     audience
+  end
+
+  defp url_forced_audience(nil), do: :error
+
+  defp url_forced_audience(key) do
+    case fetch(key) do
+      {:ok, %{audience_source: :url, audience: audience}} when audience in [:chat, :coding] ->
+        {:ok, audience}
+
+      _ ->
+        :error
+    end
   end
 
   defp fetch_audience(nil), do: {:error, :not_found}
@@ -82,6 +151,18 @@ defmodule Acs.MCP.ClientSession do
     case fetch(key) do
       {:ok, %{audience: audience}} when audience in [:coding, :chat] -> {:ok, audience}
       _ -> {:error, :not_found}
+    end
+  end
+
+  defp fetch_mcp_endpoint(nil), do: {:error, :not_found}
+
+  defp fetch_mcp_endpoint(key) do
+    case fetch(key) do
+      {:ok, %{mcp_endpoint: endpoint}} when is_binary(endpoint) and endpoint != "" ->
+        {:ok, endpoint}
+
+      _ ->
+        {:error, :not_found}
     end
   end
 

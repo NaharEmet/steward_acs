@@ -107,6 +107,7 @@ defmodule AcsWeb.Router do
       ] do
       live "/settings", AcsLive.SettingsLive, :index
       live "/settings/members", AcsLive.MembersLive, :index
+      live "/settings/prompts", AcsLive.PromptsLive, :index
     end
   end
 end

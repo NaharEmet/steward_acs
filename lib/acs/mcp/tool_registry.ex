@@ -518,21 +518,12 @@ defmodule Acs.MCP.ToolRegistry do
   end
 
   defp execute_and_log(snapshot, name, args, credential_org, resource_org) do
-    if resolve(snapshot, credential_org, name) == :missing do
-      track_tool_discovery(name, args["agent_id"], args["execution_id"])
-    end
-
+    missing? = resolve(snapshot, credential_org, name) == :missing
     started_at = System.monotonic_time(:millisecond)
     result = execute(snapshot, name, args, credential_org, resource_org)
     latency_ms = System.monotonic_time(:millisecond) - started_at
 
-    maybe_log_operation(
-      name,
-      result,
-      latency_ms,
-      args["agent_id"] || args["_auth_agent_id"],
-      args["execution_id"]
-    )
+    maybe_log_operation(name, result, latency_ms, args, discovery: missing?)
 
     result
   end
@@ -694,7 +685,8 @@ defmodule Acs.MCP.ToolRegistry do
          allowed_teams: context[:allowed_teams] || context["allowed_teams"],
          allowed_projects: context[:allowed_projects] || context["allowed_projects"],
          agent_id: context[:agent_id] || context["agent_id"],
-         audience: context[:audience] || context["audience"]
+         audience: context[:audience] || context["audience"],
+         mcp_endpoint: context[:mcp_endpoint] || context["mcp_endpoint"]
        }}
     else
       {:error, "Missing authentication context"}
@@ -715,7 +707,8 @@ defmodule Acs.MCP.ToolRegistry do
       "_auth_allowed_teams" => auth.allowed_teams,
       "_auth_allowed_projects" => auth.allowed_projects,
       "_auth_agent_id" => auth.agent_id,
-      "_auth_audience" => auth[:audience] && to_string(auth[:audience])
+      "_auth_audience" => auth[:audience] && to_string(auth[:audience]),
+      "_auth_mcp_endpoint" => auth[:mcp_endpoint]
     })
     |> Map.reject(fn {_k, v} -> is_nil(v) end)
   end
@@ -734,38 +727,65 @@ defmodule Acs.MCP.ToolRegistry do
           total + map_size(scope.tools)
         end)
 
-  defp maybe_log_operation(name, result, latency_ms, agent_id, execution_id) do
-    if System.get_env("META_HARNESS_ENABLED", "false") == "true" do
-      _ =
-        Acs.MetaHarness.OperationLogger.log_tool_result_async(
-          name,
-          result,
-          latency_ms,
-          agent_id,
-          execution_id,
-          []
-        )
-    end
+  defp maybe_log_operation(name, result, latency_ms, args, opts) do
+    Acs.Observability.AgentOps.log_tool(
+      tool_name: name,
+      result: result,
+      latency_ms: latency_ms,
+      agent_id: args["agent_id"] || args["_auth_agent_id"],
+      org: args["_auth_org_id"],
+      audience: args["_auth_audience"],
+      role: args["_auth_role"],
+      execution_id: args["execution_id"],
+      task_id: args["task_id"],
+      scope_path: scope_from_args(args),
+      kind: args["kind"] || args["document_type"],
+      discovery: Keyword.get(opts, :discovery, false)
+    )
 
     :ok
   end
 
-  @doc "Tracks attempts to invoke unknown tools for meta-harness discovery."
-  def track_tool_discovery(tool_name, agent_id, execution_id) do
-    if System.get_env("META_HARNESS_ENABLED", "false") == "true" do
-      Acs.MetaHarness.OperationLogger.log_async(
-        tool_name,
-        :discovery,
-        nil,
-        nil,
-        nil,
-        agent_id,
-        execution_id,
-        tool_discovered: true
-      )
-    end
+  @doc "Tracks attempts to invoke unknown tools for agent-ops discovery."
+  def track_tool_discovery(tool_name, args) when is_map(args) do
+    Acs.Observability.AgentOps.log_tool(
+      tool_name: tool_name,
+      result: {:error, "Unknown tool: #{tool_name}"},
+      latency_ms: nil,
+      agent_id: args["agent_id"] || args["_auth_agent_id"],
+      org: args["_auth_org_id"],
+      audience: args["_auth_audience"],
+      role: args["_auth_role"],
+      execution_id: args["execution_id"],
+      task_id: args["task_id"],
+      scope_path: scope_from_args(args),
+      kind: args["kind"] || args["document_type"],
+      discovery: true
+    )
 
     :ok
+  end
+
+  def track_tool_discovery(tool_name, agent_id, execution_id) do
+    track_tool_discovery(tool_name, %{
+      "agent_id" => agent_id,
+      "execution_id" => execution_id
+    })
+  end
+
+  defp scope_from_args(args) do
+    cond do
+      is_binary(args["scope_path"]) and args["scope_path"] != "" -> args["scope_path"]
+      is_binary(args["scope"]) and args["scope"] != "" -> args["scope"]
+      is_list(args["scope_paths"]) ->
+        Enum.find_value(args["scope_paths"], fn
+          s when is_binary(s) and s != "" -> s
+          _ -> nil
+        end)
+
+      true ->
+        nil
+    end
   end
 
   defp safe_execute(fun) do

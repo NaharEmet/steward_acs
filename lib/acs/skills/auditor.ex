@@ -131,6 +131,7 @@ defmodule Acs.Skills.Auditor do
 
   defp skill_attrs(skill) do
     %{
+      audience: skill.metadata["audience"] || "coding",
       name: skill.name,
       description: skill.description || "",
       content: skill.content || "",

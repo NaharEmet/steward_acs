@@ -26,7 +26,8 @@ defmodule AcsWeb.AcsLive.Index do
         agent_status: %{},
         selected_status: "all",
         pending_requests_count: Acs.MCP.ToolRequests.pending_count(),
-        getting_started_dismissed: getting_started_dismissed?(socket)
+        getting_started_dismissed: getting_started_dismissed?(socket),
+        mcp_endpoints: AcsWeb.McpUrls.endpoints()
       )
 
     socket =
@@ -44,8 +45,13 @@ defmodule AcsWeb.AcsLive.Index do
 
   @impl true
   def handle_params(_params, url, socket) do
-    path = url |> URI.parse() |> Map.get(:path, "/")
-    {:noreply, assign(socket, current_path: path)}
+    uri = URI.parse(url)
+    path = uri.path || "/"
+
+    {:noreply,
+     socket
+     |> assign(:current_path, path)
+     |> assign(:mcp_endpoints, AcsWeb.McpUrls.endpoints(uri))}
   end
 
   @impl true
@@ -175,8 +181,55 @@ defmodule AcsWeb.AcsLive.Index do
         <p style="font-size: 0.82rem;">Monitor connected agents, active work, and file coordination in one place.</p>
       </section>
 
+      <details
+        id="mcp-connectors"
+        class="mcp-connectors animate-in delay-1"
+        open={show_getting_started?(@agent_status, @tasks, @locked_files, @getting_started_dismissed)}
+      >
+        <summary class="mcp-connectors-summary">
+          <span class="mcp-connectors-summary-main">
+            <span class="account-kicker">Connect</span>
+            <span class="mcp-connectors-title">Agent URLs</span>
+          </span>
+          <span class="mcp-connectors-summary-meta text-dim">Coding · Chat · Copy</span>
+        </summary>
+
+        <div class="mcp-connectors-body">
+          <p class="mcp-connectors-note text-dim">
+            Paste into your MCP client. OAuth API identifier stays <code>/mcp/sse</code>.
+          </p>
+
+          <div class="mcp-connectors-list">
+            <%= for endpoint <- @mcp_endpoints do %>
+              <div class="mcp-connector-row">
+                <div class="mcp-connector-meta">
+                  <div class="mcp-connector-heading">
+                    <strong id={"#{endpoint.id}-title"}><%= endpoint.title %></strong>
+                    <span class={"badge-status badge-#{endpoint.audience}"}><%= endpoint.audience %></span>
+                  </div>
+                  <p class="text-dim"><%= endpoint.clients %></p>
+                </div>
+                <div class="copy-field">
+                  <span id={endpoint.id} class="mono" style="font-size: 0.82rem; color: var(--text-dim); word-break: break-all;"><%= endpoint.url %></span>
+                  <button
+                    type="button"
+                    class="btn btn-copy"
+                    data-copy-value={endpoint.url}
+                    data-copy-label="Copy"
+                    data-copy-success="Copied."
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p id={endpoint.copy_status_id} class="form-hint sr-only" aria-live="polite"></p>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </details>
+
       <%= if show_getting_started?(@agent_status, @tasks, @locked_files, @getting_started_dismissed) do %>
-        <section id="getting-started" class="card animate-in delay-1" style="padding: 28px; margin-bottom: 28px;" aria-labelledby="getting-started-title">
+        <section id="getting-started" class="card animate-in delay-1" style="padding: 28px;" aria-labelledby="getting-started-title">
           <div class="account-card-heading">
             <div>
               <p class="account-kicker">Getting started</p>
@@ -198,7 +251,9 @@ defmodule AcsWeb.AcsLive.Index do
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
             <div class="card-elevated" style="padding: 16px;">
               <strong>1. Configure MCP</strong>
-              <p class="text-dim" style="font-size: 0.8rem; margin-top: 6px;">Point your MCP-compatible client at this workspace’s <code>/mcp/sse</code> endpoint.</p>
+              <p class="text-dim" style="font-size: 0.8rem; margin-top: 6px;">
+                Open <a href="#mcp-connectors" class="text-accent">Agent URLs</a> above and copy the coding or chat connector.
+              </p>
             </div>
             <div class="card-elevated" style="padding: 16px;">
               <strong>2. Verify tools</strong>

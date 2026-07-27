@@ -1,55 +1,39 @@
-# Specs & Documents
-
 One store, two kinds:
 
 | Kind | When | How to save |
 |------|------|-------------|
-| **Spec** (code) | Documenting **why a code module exists** | Structured fields: `purpose`, `invariants`, `workflows`, `failure_modes`, `constraints` — or `document_type: "spec"` + markdown `content` |
-| **Document** (non-code) | Anything outside code to keep/share | `document_type` + `title` + `content` (full markdown) |
-
-Tools are still named `specs_*` (compatibility). Treat them as **specs for code** and **documents for everything else**.
+| **Spec** (code) | Why a code module exists | `purpose`, `invariants`, `workflows`, `failure_modes`, `constraints` — or `document_type: "spec"` |
+| **Document** (non-code) | Anything to keep/share | `document_type` + `title` + `content` (markdown) |
 
 ## What belongs where
 
-| System | What to store | Examples |
-|--------|---------------|----------|
-| **specs** (code) | Module documentation | purpose, invariants, failure modes for `Acs.Memory.Guidance` |
-| **documents** (non-code) | Long shareable artifacts | project briefs, marketing copy, policies, reports, research |
-| **skills** | Short repeatable **procedures** | How to deploy, how to run a refund |
-| **memories** | Short **eternal truths** | Invariants, pitfalls, decisions that stay true forever |
+| Store | What | Example |
+|-------|------|---------|
+| **specs** (code) | Module documentation | Purpose/invariants for `Acs.Memory.Guidance` |
+| **documents** (non-code) | Long shareable artifacts | Project briefs, marketing copy, policies, research |
+| **skills** | Step-by-step procedures | How to deploy, run a refund |
+| **memories** | Eternal truths | Invariants, decisions, patterns |
 
 ## Document types (non-code)
 
-- **knowledge** — long knowledge files about systems, architecture, research
-- **project** — project plans, briefs, status docs, client deliverables
-- **marketing** — copy, campaigns, landing page text (embed images as `![alt](url)` in markdown)
-- **deliverable** — any other output the user wants preserved
-- **policy / process / guideline / reference** — org knowledge documents
+`knowledge`, `project`, `marketing`, `deliverable`, `policy`, `process`, `guideline`, `reference`
 
-Required for documents: `document_type`, `title`, `content`. Optional: `source`, `project`, `tags`.
+Required: `document_type`, `title`, `content`. Optional: `source`, `project`, `tags`.
 
-## Scope convention (org knowledge structure)
-
-Hierarchical labels for **how the org is structured**:
-
-- Code specs: `app: steward_acs`, `path: acs/memory/guidance`
-- Business documents: `app: acme-corp`, `path: documents/policy/refunds`
-- Business scopes on memories/skills: `acme/sales/pricing`, `acme/support/refunds`
-
-## When code and a module spec disagree
+## When code and a spec disagree
 
 1. Pause  2. Identify the diff  3. Ask the user which to update  4. Never assume one is wrong
 
-## When to call `specs_propose`
+## When to call specs_propose
 
-- After implementing or changing a **module** → save a **spec**
-- After producing **any non-code document** the user wants saved → save a **document** (`document_type` + `content`)
+- After implementing or changing a module → save a **spec**
+- After producing a document the user wants to keep → save a **document**
 - At task finish (`release_work` flow), before `submit_task_feedback`
 
 ## Tools
 
-- `specs_get(app, path)` — read one **spec** or **document**
+- `specs_get(app, path)` — read one spec or document
 - `query_specs(query:)` — search both specs and documents
-- `query_specs(undocumented: true)` — code modules missing **specs** only
+- `query_specs(undocumented: true)` — find modules missing specs
 - `specs_propose(app, path, ...)` — create or update (status → proposed)
 - `specs_approve(app, path, reviewer)` / `specs_reject(app, path)`

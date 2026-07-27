@@ -79,6 +79,14 @@ specs_propose saves specs (code) and documents (non-code). Spec: purpose, invari
 Check relevant_skills — skill_get(name:) before procedural work. skill_save for workflows; save_memory for eternal truths.
 """
 
+  @specs_instructions_chat """
+Chat agents save documents, not code specs. Use documents_propose(document_type:, title:, content:) for long knowledge; save_memory for short truths. Document types: knowledge, project, marketing, deliverable, policy, process, guideline, reference.
+"""
+
+  @skills_instructions_chat """
+Use skill_get to load procedures before answering. Use skill_save to document repeatable workflows. Skills need: prerequisites, numbered steps, verification, failure recovery.
+"""
+
   # ── Chat packet copy ────────────────────────────────────────────────
 
   @chat_workflow """
@@ -296,6 +304,8 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
       honesty: @chat_honesty,
       agent_identity: @chat_identity,
       org_knowledge_conventions: @chat_conventions,
+      specs_instructions: specs_instructions_chat_for_tier(:claim),
+      skills_instructions: skills_instructions_chat_for_tier(:claim),
       relevant_skills: [],
       relevant_specs: [],
       # thin aliases so existing tests reading workflow_basics still work
@@ -319,6 +329,8 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
       honesty: @chat_honesty,
       agent_identity: @chat_identity,
       org_knowledge_conventions: @chat_conventions,
+      specs_instructions: specs_instructions_chat_for_tier(:full),
+      skills_instructions: skills_instructions_chat_for_tier(:full),
       relevant_skills: [],
       relevant_specs: [],
       workflow_basics: @chat_workflow
@@ -667,5 +679,33 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
   def skills_instructions_for_tier(_tier) do
     full = Acs.Prompts.instructions("skills")
     if full != "", do: full, else: @skills_instructions_short
+  end
+
+  def specs_instructions_chat_for_tier(:claim) do
+    short = Acs.Prompts.instructions_chat("specs")
+    if short != "" do
+      String.slice(short, 0, 500)
+    else
+      @specs_instructions_chat
+    end
+  end
+
+  def specs_instructions_chat_for_tier(_tier) do
+    full = Acs.Prompts.instructions_chat("specs")
+    if full != "", do: full, else: @specs_instructions_chat
+  end
+
+  def skills_instructions_chat_for_tier(:claim) do
+    short = Acs.Prompts.instructions_chat("skills")
+    if short != "" do
+      String.slice(short, 0, 500)
+    else
+      @skills_instructions_chat
+    end
+  end
+
+  def skills_instructions_chat_for_tier(_tier) do
+    full = Acs.Prompts.instructions_chat("skills")
+    if full != "", do: full, else: @skills_instructions_chat
   end
 end

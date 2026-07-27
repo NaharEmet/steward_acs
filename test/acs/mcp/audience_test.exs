@@ -3,6 +3,23 @@ defmodule Acs.MCP.AudienceTest do
 
   alias Acs.MCP.Audience
 
+  describe "from_path/1" do
+    test "maps chat and coding SSE paths" do
+      assert Audience.from_path("/mcp/chat/sse") == :chat
+      assert Audience.from_path("/mcp/coding/sse") == :coding
+      assert Audience.from_path("/mcp/sse") == nil
+    end
+  end
+
+  describe "from_request/2" do
+    test "path wins; query forces when path is neutral" do
+      assert Audience.from_request("/mcp/chat/sse", %{}) == :chat
+      assert Audience.from_request("/mcp/sse", %{"audience" => "chat"}) == :chat
+      assert Audience.from_request("/mcp/sse", %{"audience" => "coding"}) == :coding
+      assert Audience.from_request("/mcp/sse", %{}) == nil
+    end
+  end
+
   describe "from_client_name/1" do
     test "detects coding agents" do
       assert Audience.from_client_name("cursor-vscode") == :coding

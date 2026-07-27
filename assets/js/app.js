@@ -56,6 +56,65 @@ document.addEventListener("click", (event) => {
   if (closeButton) dismissToast(closeButton.closest("[data-toast]"))
 })
 
+document.addEventListener("click", async (event) => {
+  const trigger = event.target instanceof Element
+    ? event.target.closest("[data-copy-target], [data-copy-value]")
+    : null
+  if (!trigger) return
+
+  const input = trigger.dataset.copyTarget ? document.getElementById(trigger.dataset.copyTarget) : null
+  const status = document.getElementById(trigger.dataset.copyStatus)
+  const copyValue = trigger.dataset.copyValue || (input ? input.value : null)
+  if (!copyValue) return
+
+  const copyManually = (text) => {
+    if (input) {
+      input.focus()
+      input.select()
+      return document.execCommand("copy")
+    }
+    const temp = document.createElement("input")
+    temp.value = text
+    temp.style.position = "fixed"
+    temp.style.opacity = "0"
+    temp.readOnly = true
+    document.body.appendChild(temp)
+    temp.select()
+    temp.setSelectionRange(0, 99999)
+    const result = document.execCommand("copy")
+    document.body.removeChild(temp)
+    return result
+  }
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(copyValue)
+    } else if (!copyManually(copyValue)) {
+      throw new Error("Clipboard unavailable")
+    }
+
+    trigger.dataset.copyState = "copied"
+    trigger.textContent = "Copied"
+    if (status) {
+      status.textContent = trigger.dataset.copySuccess || "Copied to the clipboard."
+    }
+
+    window.setTimeout(() => {
+      if (!document.body.contains(trigger)) return
+      trigger.dataset.copyState = ""
+      trigger.textContent = trigger.dataset.copyLabel || "Copy URL"
+    }, 2200)
+  } catch (_error) {
+    if (input) {
+      input.focus()
+      input.select()
+    }
+    if (status) {
+      status.textContent = trigger.dataset.copyFallback || "Select the URL and copy it manually."
+    }
+  }
+})
+
 new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
     if (mutation.type === "attributes") {

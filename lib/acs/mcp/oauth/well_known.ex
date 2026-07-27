@@ -10,10 +10,10 @@ defmodule Acs.MCP.OAuth.WellKnown do
   def init(opts), do: opts
 
   def call(%Plug.Conn{request_path: path} = conn, _opts) do
-    if path == Config.protected_resource_metadata_path() and Config.enabled?() do
+    if path in Config.protected_resource_metadata_paths() and Config.enabled?() do
       conn
       |> put_resp_content_type("application/json")
-      |> send_resp(200, Jason.encode!(metadata(conn)))
+      |> send_resp(200, Jason.encode!(metadata(conn, path)))
       |> halt()
     else
       conn
@@ -23,7 +23,7 @@ defmodule Acs.MCP.OAuth.WellKnown do
     end
   end
 
-  defp metadata(conn) do
+  defp metadata(conn, _path) do
     %{
       "resource" => Config.resource_url(conn),
       "authorization_servers" => [Config.authorization_server(conn)],

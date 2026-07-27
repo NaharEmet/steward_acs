@@ -133,8 +133,8 @@ defmodule Acs.MCP.Plugs.MCPAuth do
 
   defp authorize_oidc_user(result, _request_org), do: {:ok, result}
 
-  # Claude MCP forces Auth0 connection=email; web login often uses Google. Same person,
-  # different `sub`. Fall back to verified email within the request org.
+  # Web/Claude may use email OTP or Google (different Auth0 `sub`). Fall back to
+  # verified email within the request org.
   defp resolve_oidc_user(issuer, subject, result, request_org) do
     case Acs.Accounts.get_user_by_oidc_identity(issuer, subject) do
       %{id: _} = user ->

@@ -11,18 +11,20 @@ defmodule Acs.MetaHarness.Generator do
     Logger.info("[Generator] Starting analysis...")
 
     try do
-      data = gather_all_data()
+      analysis = Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours)
+      # Prod: ship rollups to steward_meta_analytics (same dataset as agent.tool).
+      Acs.Observability.MetaAnalytics.ship(analysis)
+
+      data = gather_all_data(analysis)
       baseline = read_baseline()
       report = build_report(data, baseline)
       plan = build_plan(data)
 
-      File.mkdir_p!("metaanalysis")
-      report_path = write_report(report)
-      plan_path = write_plan(plan)
+      {report_path, plan_path} = maybe_write_files(report, plan)
 
       Logger.info("[Generator] Generated report: #{report_path}, plan: #{plan_path}")
 
-      %{report: report_path, plan: plan_path}
+      %{report: report_path, plan: plan_path, shipped: true}
     rescue
       e ->
         stacktrace = __STACKTRACE__
@@ -48,8 +50,8 @@ defmodule Acs.MetaHarness.Generator do
 
   # ── Data Gathering ───────────────────────────────────────────────────────────
 
-  defp gather_all_data do
-    analysis = Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours)
+  defp gather_all_data(analysis \\ nil) do
+    analysis = analysis || Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours)
 
     # Transform Analyzer tool_reliability into tools list format
     tools =
@@ -442,6 +444,23 @@ defmodule Acs.MetaHarness.Generator do
   end
 
   # ── File Writing ──────────────────────────────────────────────────────────────
+
+  # Local/dev: write markdown under metaanalysis/. Prod containers may be read-only —
+  # Axiom ship is the source of truth; file write is best-effort.
+  defp maybe_write_files(report, plan) do
+    case File.mkdir_p("metaanalysis") do
+      :ok ->
+        {write_report(report), write_plan(plan)}
+
+      {:error, reason} ->
+        Logger.warning("[Generator] Skipping local metaanalysis files: #{inspect(reason)}")
+        {"axiom-only", "axiom-only"}
+    end
+  rescue
+    e ->
+      Logger.warning("[Generator] Skipping local metaanalysis files: #{inspect(e)}")
+      {"axiom-only", "axiom-only"}
+  end
 
   defp write_report(content) do
     path = "metaanalysis/report_#{timestamp()}.md"

@@ -90,10 +90,10 @@ defmodule Acs.MCP.OAuth.JWKS do
   defp validate_audience(_, _), do: {:error, "JWT missing audience"}
 
   defp accepted_audiences(expected) when is_binary(expected) and expected != "" do
-    [expected, Config.audience()] |> Enum.uniq()
+    Config.accepted_resource_urls(expected)
   end
 
-  defp accepted_audiences(_), do: [Config.audience()] |> Enum.reject(&is_nil/1)
+  defp accepted_audiences(_), do: Config.accepted_resource_urls(Config.audience())
 
   defp validate_expiry(%{"exp" => exp}, now) when is_integer(exp) do
     if exp > now, do: :ok, else: {:error, "JWT expired"}

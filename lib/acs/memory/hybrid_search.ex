@@ -7,8 +7,9 @@ defmodule Acs.Memory.HybridSearch do
   - Semantic: vector similarity from Ollama embeddings
   - Scope: exact=1.0, parent=0.7, sibling=0.4
   - Metadata: importance (0-5) normalized + status (approved=1.0, others lower)
+  - Audience: exact match=1.0, legacy (nil)=0.5, different=0.2
 
-  Final score = 0.4*semantic + 0.3*lexical + 0.2*scope + 0.1*metadata
+  Final score = 0.30*semantic + 0.20*lexical + 0.15*scope + 0.10*metadata + 0.25*audience
   """
 
   alias Acs.Memory.{Indexer, VectorIndex, Embedding}
@@ -21,15 +22,18 @@ defmodule Acs.Memory.HybridSearch do
   Options:
   - `:query` - search query string
   - `:scope` - filter by scope prefix
+  - `:audience` - requesting audience ("coding" | "chat") for audience-weighted scoring
   - `:limit` - max results (default 20)
-  - `:semantic_weight` - weight for semantic score (default 0.4)
-  - `:lexical_weight` - weight for lexical score (default 0.3)
-  - `:scope_weight` - weight for scope score (default 0.2)
-  - `:metadata_weight` - weight for metadata score (default 0.1)
+  - `:semantic_weight` - weight for semantic score (default 0.30)
+  - `:lexical_weight` - weight for lexical score (default 0.20)
+  - `:scope_weight` - weight for scope score (default 0.15)
+  - `:metadata_weight` - weight for metadata score (default 0.10)
+  - `:audience_weight` - weight for audience score (default 0.25)
   """
   def search(query, opts \\ []) when is_binary(query) do
     limit = Keyword.get(opts, :limit, @default_limit)
     scope = Keyword.get(opts, :scope, nil)
+    audience = Keyword.get(opts, :audience)
     team_filter = Keyword.get(opts, :team_filter)
     project_filter = Keyword.get(opts, :project_filter)
 
@@ -56,11 +60,14 @@ defmodule Acs.Memory.HybridSearch do
         meta =
           compute_metadata_score(memory, team_filter: team_filter, project_filter: project_filter)
 
+        aud = compute_audience_score(memory.audience, audience)
+
         total =
-          0.4 * semantic +
-            0.3 * lexical +
-            0.2 * scope_score +
-            0.1 * meta
+          0.30 * semantic +
+            0.20 * lexical +
+            0.15 * scope_score +
+            0.10 * meta +
+            0.25 * aud
 
         %{
           memory_id: memory.id,
@@ -73,7 +80,8 @@ defmodule Acs.Memory.HybridSearch do
             semantic: semantic,
             lexical: lexical,
             scope: scope_score,
-            metadata: meta
+            metadata: meta,
+            audience: aud
           },
           total_score: Float.round(total, 4)
         }
@@ -168,6 +176,19 @@ defmodule Acs.Memory.HybridSearch do
     team_bonus = compute_team_project_bonus(memory, opts)
 
     0.6 * importance_score + 0.4 * status_score + team_bonus
+  end
+
+  defp compute_audience_score(_mem_audience, nil), do: 0.5
+
+  defp compute_audience_score(mem_audience, req_audience) do
+    mem = mem_audience && String.trim(mem_audience)
+    req = req_audience && String.trim(req_audience)
+
+    cond do
+      mem == req -> 1.0
+      is_nil(mem) or mem == "" -> 0.5
+      true -> 0.2
+    end
   end
 
   defp compute_team_project_bonus(memory, opts) do

@@ -70,8 +70,8 @@ defmodule Acs.MetaHarness.Analyzer do
     discovery_query = """
       SELECT tool_name, COUNT(*) as discovery_count
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime(?1)
-        AND datetime(created_at) <= datetime(?2)
+      WHERE created_at >= ?1
+        AND created_at <= ?2
         AND status = 'discovery'
       GROUP BY tool_name
     """
@@ -86,8 +86,8 @@ defmodule Acs.MetaHarness.Analyzer do
         AVG(latency_ms) as avg_latency,
         MAX(latency_ms) as max_latency
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime(?1)
-        AND datetime(created_at) <= datetime(?2)
+      WHERE created_at >= ?1
+        AND created_at <= ?2
         AND status != 'discovery'
       GROUP BY tool_name
       HAVING COUNT(*) >= ?3
@@ -142,8 +142,8 @@ defmodule Acs.MetaHarness.Analyzer do
         MIN(latency_ms) as min_latency,
         MAX(latency_ms) as max_latency
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime(?1)
-        AND datetime(created_at) <= datetime(?2)
+      WHERE created_at >= ?1
+        AND created_at <= ?2
         AND latency_ms IS NOT NULL
       GROUP BY tool_name
       HAVING COUNT(*) >= ?3
@@ -156,8 +156,8 @@ defmodule Acs.MetaHarness.Analyzer do
     percentile_query = """
       SELECT tool_name, latency_ms
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime(?1)
-        AND datetime(created_at) <= datetime(?2)
+      WHERE created_at >= ?1
+        AND created_at <= ?2
         AND latency_ms IS NOT NULL
       ORDER BY tool_name, latency_ms
     """
@@ -193,16 +193,18 @@ defmodule Acs.MetaHarness.Analyzer do
   # ── Error Cluster Analysis ────────────────────────────────────────────────────
 
   defp find_error_clusters(start_time, end_time, min_occurrences) do
+    agents_agg = if postgres?(), do: "string_agg(DISTINCT agent_id, ',')", else: "GROUP_CONCAT(DISTINCT agent_id)"
+
     query = """
       SELECT
         tool_name,
         error_type,
-        error_message,
+        MAX(error_message) as error_message,
         COUNT(*) as occurrence_count,
-        GROUP_CONCAT(DISTINCT agent_id) as agents
+        #{agents_agg} as agents
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime(?1)
-        AND datetime(created_at) <= datetime(?2)
+      WHERE created_at >= ?1
+        AND created_at <= ?2
         AND status IN ('failure', 'error')
         AND error_type IS NOT NULL
       GROUP BY tool_name, error_type
@@ -244,8 +246,8 @@ defmodule Acs.MetaHarness.Analyzer do
         MIN(created_at) as first_seen,
         MAX(created_at) as last_seen
       FROM acs_tool_operations
-      WHERE datetime(created_at) >= datetime(?1)
-        AND datetime(created_at) <= datetime(?2)
+      WHERE created_at >= ?1
+        AND created_at <= ?2
         AND agent_id IS NOT NULL
       GROUP BY agent_id
       ORDER BY total_operations DESC
@@ -318,18 +320,23 @@ defmodule Acs.MetaHarness.Analyzer do
     {start, now}
   end
 
-  defp format_datetime(dt) do
-    Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S")
+  defp format_datetime(%DateTime{} = dt), do: DateTime.truncate(dt, :second)
+  defp format_datetime(%NaiveDateTime{} = dt), do: NaiveDateTime.truncate(dt, :second)
+  defp format_datetime(dt), do: dt
+
+  defp postgres? do
+    Application.get_env(:steward_acs, :repo_adapter) == Ecto.Adapters.Postgres or
+      match?("postgres" <> _, System.get_env("DATABASE_URL") || "")
   end
 
   defp run_query(query, params) do
     if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
       try do
         case Ecto.Adapters.SQL.query(Acs.Repo, query, params) do
-          {:ok, %Exqlite.Result{} = result} ->
+          {:ok, %{columns: columns, rows: rows}} ->
             {:ok,
-             Enum.map(result.rows, fn row ->
-               Enum.zip(result.columns, row) |> Enum.into(%{})
+             Enum.map(rows, fn row ->
+               Enum.zip(columns, row) |> Enum.into(%{})
              end)}
 
           {:error, reason} ->

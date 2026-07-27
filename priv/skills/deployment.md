@@ -97,7 +97,7 @@ Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/
 - Dashboard Auth0 OIDC: `AUTH0_WEB_*` in Infisical; `ACCOUNT_HOST` / callback URI in thin `.env`
 - Self-service org creation: keep `SELF_SERVICE_ORGS_ENABLED=false` through migration/bootstrap, then enable deliberately.
 - Auth0 M2M for ops scripts only (`./scripts/setup-auth0.sh`, etc.): `AUTH0_M2M_*` / `certs/Oauth.md` — not loaded by the ACS app.
-- Axiom (optional): secret `AXIOM_LOGS` in Infisical only; thin `.env` has `AXIOM_DATASET` / `AXIOM_METRICS_DATASET` / `COMPOSE_PROFILES=axiom`. Hostmetrics: `otel_collector`. Dashboard: `./scripts/axiom-upsert-server-dashboard.sh`. Export is prod-only.
+- Axiom (optional): secret `AXIOM_LOGS` in Infisical only; thin `.env` has `AXIOM_DATASET` / `AXIOM_AGENT_OPS_DATASET` / `AXIOM_METRICS_DATASET` / `COMPOSE_PROFILES=axiom`. Hostmetrics: `otel_collector`. Dashboards: `./scripts/axiom-upsert-server-dashboard.sh` (server) and `./scripts/axiom-upsert-agent-ops-dashboard.sh` (Claude/agent usage). Export is prod-only.
 
 ## Migrations
 
@@ -119,7 +119,7 @@ Actions/`deploy.sh` already check container health + public `/mcp/health` (and f
 3. Invite a member (email when Resend is configured, otherwise copy-link), accept with the exact verified email, and verify `/settings/members`
 4. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
 5. No `inotify-tools` / EncodeError / pool starvation in `docker logs steward_acs` (log metadata must use JsonMap on Postgres)
-6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request. With `COMPOSE_PROFILES=axiom`, `steward_otel` scrapes host metrics into `AXIOM_METRICS_DATASET`. Run `./scripts/axiom-upsert-server-dashboard.sh` once for the **Steward ACS — server** dashboard. `message == "vm.metrics"` Events appear every ~30s (BEAM memory + scheduler utilization; plus `host_memory_*` / `cgroup_*` fields on Linux).
+6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request. Agent tool usage + Meta-Harness rollups go to `AXIOM_AGENT_OPS_DATASET` (default `steward_meta_analytics`) as `message == "agent.tool"` / `"agent.feedback"` / `"meta.summary"` / `"meta.tool"` / `"meta.error_cluster"` / `"meta.agent"`. Set `META_HARNESS_ENABLED=true` (compose default on multitenant). With `COMPOSE_PROFILES=axiom`, `steward_otel` scrapes host metrics into `AXIOM_METRICS_DATASET`. Run `./scripts/axiom-upsert-server-dashboard.sh` and `./scripts/axiom-upsert-agent-ops-dashboard.sh` once for the server + agent-usage dashboards. `message == "vm.metrics"` Events appear every ~30s (BEAM memory + scheduler utilization; plus `host_memory_*` / `cgroup_*` fields on Linux).
 
 ## Agent deploy rules
 

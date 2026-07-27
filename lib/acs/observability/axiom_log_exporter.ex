@@ -22,8 +22,10 @@ defmodule Acs.Observability.AxiomLogExporter do
   @warning_interval_ms 60_000
 
   def child_spec(opts) do
+    name = Keyword.get(opts, :name, __MODULE__)
+
     %{
-      id: __MODULE__,
+      id: name,
       start: {__MODULE__, :start_link, [opts]},
       type: :worker,
       restart: :permanent,

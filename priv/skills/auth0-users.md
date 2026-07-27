@@ -16,7 +16,7 @@ Claude **Custom Connectors** sign in via **Auth0 OAuth** — not `acs_dev_...` A
 
 | Auth path | Who uses it |
 |-----------|-------------|
-| **Auth0 passwordless email OTP** | Claude web Connectors (`https://prod.stewardacs.xyz/mcp/sse`) |
+| **Auth0** email OTP and/or Google | Claude web Connectors — chat: `https://prod.stewardacs.xyz/mcp/chat/sse`; coding: `https://prod.stewardacs.xyz/mcp/sse` |
 | **`acs_dev_...` key** | Claude Code, Steward Bridge plugin, scripts |
 
 Prod tenant: `dev-jw5wgp2b.us.auth0.com`  
@@ -26,12 +26,14 @@ Required permission: `mcp:tools` (via **MCP User** role)
 ## Login model
 
 - **New Universal Login** + **Identifier First**
-- **One Auth0 identity per person** — passwordless **email OTP only** (no Google for Steward web or Claude)
-- Web OIDC and Caddy `/authorize` both pass `connection=email`
-- Users enter email → receive a one-time code (not a username/password or Google button)
+- **Email OTP and/or Google** — both connections enabled on Steward web + Claude MCP clients (`./scripts/setup-auth0.sh`)
+- Do **not** pin `connection=` in Caddy `/authorize` or web OIDC (leave `AUTH0_CONNECTION` unset) so UL shows the choice
+- Optional pin: set `AUTH0_CONNECTION=email` or `google-oauth2` only if you want to force one method
+- ACS reconnects by **verified email** when Auth0 `sub` differs across connections (`upsert_oidc_user` + MCP email fallback)
+- Users should use the **same email** for Google and passwordless; Auth0 still creates two identities — assign **MCP User** on whichever Auth0 user Claude uses
 - Auth0 **magic links** require Classic Login; we use email OTP on New UL instead
 
-Tenant bootstrap: `./scripts/setup-auth0.sh` (M2M creds in `certs/Oauth.md` or env). That script also disables `google-oauth2` on the Steward web + Claude MCP clients.
+Tenant bootstrap: `./scripts/setup-auth0.sh` (M2M creds in `certs/Oauth.md` or env). That script enables `email` + `google-oauth2` on the Steward web + Claude MCP clients.
 
 ---
 
@@ -49,7 +51,9 @@ The script will:
 2. Assign the **MCP User** role (`mcp:tools`)
 3. Mark email verified
 
-Tell the user: **Settings → Connectors →** `https://prod.stewardacs.xyz/mcp/sse` → enter email → use the code from Resend/email.
+Tell the user: **Settings → Connectors →** `https://prod.stewardacs.xyz/mcp/chat/sse` (chat) or `https://prod.stewardacs.xyz/mcp/sse` (coding) → sign in with email OTP or Google (same verified email as the website).
+
+Auth0 API identifier: `https://prod.stewardacs.xyz/mcp/sse` for both. ACS picks chat vs coding from the SSE path.
 
 ---
 
@@ -107,7 +111,7 @@ Revoke active sessions: disconnect the connector in Claude; tokens expire per Au
 | Symptom | Fix |
 |---------|-----|
 | `invalid_request: ID First not enabled for the client` | Enable Identifier First: Auth0 → Authentication → Authentication Profile, or `PATCH /api/v2/prompts` with `identifier_first: true`. Re-run `./scripts/setup-auth0.sh`. |
-| Auth0 “Oops” + password form | Password DB must **not** be domain-level; email passwordless **must** be. Caddy must inject `connection=email` on `/authorize`. |
+| Auth0 “Oops” + password form | Password DB must **not** be domain-level; email passwordless **must** be. Do not enable Username-Password for Claude/web clients. |
 | `the connection is not enabled` | Enable **email** connection for first-party Claude apps (`Claude.ai MCP`, `steward_acs_mcp`) — setup script does this. |
 | “Couldn't register with sign-in service” / Auth0 `too_many_entities` on `/oidc/register` | Free Auth0 tenants fill up with Claude DCR apps. Prune with `python3 scripts/cleanup-auth0-dcr-clients.py --delete` (third-party only). |
 | Auth0 `cls` success then `fn` fail: Resend `domain is not verified` | Passwordless **From** and Branding → Email Provider **From** must use a Resend-verified domain (e.g. `noreply@stewardacs.xyz`), **not** an unverified org domain like `@safetyconnect.io`. Recipient can still be `@safetyconnect.io`. Fix: `AUTH0_EMAIL_FROM='Steward ACS <noreply@stewardacs.xyz>' python3 scripts/fix-auth0-email-from.py --fix` |

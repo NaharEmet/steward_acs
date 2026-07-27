@@ -219,16 +219,24 @@ defmodule AcsWeb.UserSessionController do
 
       if Application.get_env(:steward_acs, :oidc_browser_enabled, false) and
            Enum.all?([issuer, client_id, client_secret, redirect_uri], &present?/1) do
-        # Same Auth0 connection as Claude MCP (Caddy injects connection=email).
-        # Keeps one Auth0 user per email — no Google vs email OTP split.
-        connection = Application.get_env(:steward_acs, :auth0_connection, "email")
+        # Optional AUTH0_CONNECTION pin (e.g. email or google-oauth2). When unset,
+        # Universal Login offers every connection enabled on the web client.
+        # ACS relinks Google vs email OTP by verified email (upsert_oidc_user).
+        auth_params =
+          case Application.get_env(:steward_acs, :auth0_connection) do
+            connection when is_binary(connection) and connection != "" ->
+              [scope: "profile email", connection: connection]
+
+            _ ->
+              [scope: "profile email"]
+          end
 
         [
           client_id: client_id,
           client_secret: client_secret,
           base_url: issuer,
           redirect_uri: redirect_uri,
-          authorization_params: [scope: "profile email", connection: connection],
+          authorization_params: auth_params,
           code_verifier: true
         ]
       end

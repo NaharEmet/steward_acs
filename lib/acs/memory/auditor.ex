@@ -480,6 +480,7 @@ defmodule Acs.Memory.Auditor do
   # Build atom-keyed map for LLM evaluation
   defp build_memory_attrs(memory) do
     %{
+      audience: memory.audience || "coding",
       title: memory.title || "",
       content: memory.content || "",
       kind: memory.kind || "",
