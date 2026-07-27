@@ -77,7 +77,10 @@ config :logger, :console,
     :live_view,
     :page,
     :service,
-    :count
+    :count,
+    :llm_event,
+    :tokens_in,
+    :tokens_out
   ]
 
 config :tailwind, :version, "3.4.3"
