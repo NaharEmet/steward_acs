@@ -16,18 +16,34 @@ defmodule Acs.MCP.ToolLoader do
     tenant_sources =
       known_orgs()
       |> Enum.map(fn org -> {:tenant, org, Acs.Org.tools_dir(org)} end)
-      |> Enum.filter(fn {:tenant, _org, path} ->
-        File.dir?(path) and Acs.Org.safe_path?(path, path)
-      end)
+      |> Enum.filter(fn {:tenant, _org, path} -> trusted_dir?(path) end)
 
     shared_sources =
       shared_paths()
-      |> Enum.filter(&(File.dir?(&1) and Acs.Org.safe_path?(&1, &1)))
+      |> Enum.filter(&trusted_dir?/1)
       |> Enum.map(&{:shared, &1})
 
     (tenant_sources ++ shared_sources)
     |> Enum.uniq()
     |> Enum.sort_by(&source_sort_key/1)
+  end
+
+  # Reject dirs that sit under the vault lexically but symlink-escape it.
+  # Shared tool roots outside the vault remain allowed.
+  defp trusted_dir?(path) do
+    File.dir?(path) and not vault_symlink_escape?(path)
+  end
+
+  defp vault_symlink_escape?(path) do
+    case Acs.Org.vault_base() do
+      nil ->
+        false
+
+      base ->
+        expanded = Path.expand(path)
+        under_vault? = expanded == base or String.starts_with?(expanded, base <> "/")
+        under_vault? and not Acs.Org.safe_path?(base, path)
+    end
   end
 
   @doc "Loads every configured source without flattening its scope."

@@ -122,9 +122,11 @@ defmodule Acs.VaultOverlayTest do
     assert Acs.Prompts.load("skills", "shared") == "new prompt"
   end
 
-  test "vault readers and tool discovery reject symlink escapes", %{vault: vault} do
-    outside = Path.join(vault, "outside")
+  test "vault readers and tool discovery reject symlink escapes", %{vault: _vault} do
+    outside = Path.join(System.tmp_dir!(), "vault_outside_#{System.unique_integer([:positive])}")
     File.mkdir_p!(outside)
+    on_exit(fn -> File.rm_rf!(outside) end)
+
     write_skill(Path.join(outside, "leak.md"), "Leaked")
 
     skills = Acs.Org.skills_dir("prod")
