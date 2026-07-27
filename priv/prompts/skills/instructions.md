@@ -24,13 +24,32 @@ skill_get()                          # full catalog with when_to_use
 - **description** — one sentence distinct from name and content
 - **tags** — at least one: `["deployment", "ops"]`
 - **scope_paths** — business domains or code paths: `["acme/support/refunds"]`
-- **content** — when to use, prerequisites, numbered steps, verification, failure recovery
+- **content** — must include:
+  - When to use this skill
+  - Prerequisites (exact tools, access, files)
+  - Numbered steps with concrete commands, file paths, tool calls
+  - Verification (how to confirm it worked)
+  - Failure recovery (what to do when a step fails)
+
+## Guidelines for good content
+
+- Use exact file paths and command examples — don't make the agent guess
+- Include the EXACT tool name and parameters where relevant (e.g. `skill_get(name: "deployment")`)
+- Number each step sequentially
+- Preface each section with a header (`## Steps`, `## Verification`, etc.)
+- For failure modes, be specific: "If X fails, check Y, then try Z"
 
 ## Bad skills to avoid
 
 - "See README" (not actionable)
 - Copy-pasted memory axioms (use `save_memory` instead)
 - Single-bug patch notes (not reusable)
+- No numbered steps (just paragraphs of prose)
+- Missing prerequisites section
+- Vague content: "replace with your values" without saying what goes where
+- Description that is identical to the name or the first line of content
+- Scope too broad (covers multiple unrelated procedures in one skill)
+- No verification step — agent can't confirm success
 
 ## Tools
 

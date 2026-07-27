@@ -26,6 +26,15 @@ Scopes are hierarchical labels for **org structure**, not only files:
 
 Set `scope_paths` on each skill so agents entering that scope receive it in `relevant_skills` from `claim_work` or `generate_guidance_packet`.
 
+## Content guidelines
+
+- Use exact file paths and command examples — don't make the agent guess
+- Include the EXACT tool name and parameters where relevant
+- Number each step sequentially
+- Use headers for each section (`## Steps`, `## Verification`, etc.)
+- For failure modes, be specific: "If X fails, check Y, then try Z"
+- Verification must confirm the outcome, not just "verify it works"
+
 ## Examples of GOOD skills
 
 - `deployment` — compares local vs org-memory deployment with compose files and verification steps
@@ -37,6 +46,10 @@ Set `scope_paths` on each skill so agents entering that scope receive it in `rel
 - A single line like "see README" (not actionable)
 - Duplicating a memory axiom without steps (use save_memory instead)
 - Copy-pasting task-specific notes from one bug fix (not reusable)
+- No numbered steps (just paragraphs of prose)
+- Vague content: "replace with your values" without saying what goes where
+- No verification step — agent can't confirm success
+- Description identical to name or first line of content
 
 ## Tools
 

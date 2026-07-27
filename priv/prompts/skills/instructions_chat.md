@@ -23,8 +23,24 @@ skill_save(
 
 ## What to store where
 
-- **skill_save** — step-by-step procedures
+- **skill_save** — step-by-step procedures (must have numbered steps)
 - **save_memory** — short eternal truths (principles, decisions, invariants)
 - **documents_propose** — long documents (policies, briefs, research, reports)
 
-Skills are short, actionable, and reusable. If it has numbered steps, it belongs in a skill.
+## What makes a good skill
+
+- Numbered steps — the agent needs an order to follow
+- Exact question/response templates for conversational flows
+- Prerequisites listed upfront
+- Failure recovery: "If X happens, do Y instead"
+- Verification: how to confirm the task completed
+- Concrete examples, not placeholders
+
+## What to avoid
+
+- One-liners or "ask the user" — not actionable
+- Single-conversation notes (not reusable)
+- Vague content without specific examples
+- No numbered steps
+- Missing failure recovery
+- Description that repeats the name or first content line
