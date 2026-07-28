@@ -12,16 +12,17 @@ defmodule AcsWeb.CoreComponents do
     ~H"""
     <div id="flash-group" class="toast-container" aria-live="assertive" aria-atomic="true">
       <%= for {kind, msg} <- @flash do %>
+        <% tone = toast_tone(kind) %>
         <div
           id={"flash-#{kind}"}
-          class={"toast toast-#{kind}"}
+          class={"toast toast-#{tone}"}
           role="alert"
           data-toast
           data-toast-message={msg}
         >
-          <span class="toast-icon" aria-hidden="true"><%= toast_icon(kind) %></span>
+          <span class="toast-icon" aria-hidden="true"><%= toast_icon(tone) %></span>
           <div class="toast-content">
-            <span class="toast-title"><%= toast_title(kind) %></span>
+            <span class="toast-title"><%= toast_title(tone) %></span>
             <span class="toast-message"><%= msg %></span>
           </div>
           <button
@@ -40,13 +41,18 @@ defmodule AcsWeb.CoreComponents do
     """
   end
 
-  defp toast_icon(:error), do: "!"
-  defp toast_icon("error"), do: "!"
-  defp toast_icon(_kind), do: "✓"
+  # :info flashes are success toasts in this app; keep :warning/:error distinct.
+  defp toast_tone(kind) when kind in [:error, "error"], do: "error"
+  defp toast_tone(kind) when kind in [:warning, "warning"], do: "warning"
+  defp toast_tone(_kind), do: "success"
 
-  defp toast_title(:error), do: "Something went wrong"
+  defp toast_icon("error"), do: "!"
+  defp toast_icon("warning"), do: "!"
+  defp toast_icon(_tone), do: "✓"
+
   defp toast_title("error"), do: "Something went wrong"
-  defp toast_title(_kind), do: "Success"
+  defp toast_title("warning"), do: "Heads up"
+  defp toast_title(_tone), do: "Success"
 
   attr :name, :string, required: true, doc: "icon name"
   attr :class, :string, default: "w-5 h-5"

@@ -626,13 +626,20 @@
         border: 1px solid var(--border-light);
         border-radius: var(--radius-lg);
         background: rgba(30, 30, 40, 0.96);
-        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.42), 0 0 22px var(--accent-glow);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.42);
         backdrop-filter: blur(18px) saturate(1.2);
         pointer-events: auto;
         animation: toastIn 400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
 
-      .toast-info { border-color: var(--border-accent); }
+      .toast-success {
+        border-color: rgba(142, 166, 122, 0.42);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.42), 0 0 22px var(--green-glow);
+      }
+      .toast-warning {
+        border-color: rgba(201, 168, 106, 0.42);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.42), 0 0 22px var(--amber-glow);
+      }
       .toast-error {
         border-color: rgba(201, 106, 106, 0.42);
         box-shadow: 0 16px 48px rgba(0, 0, 0, 0.42), 0 0 22px var(--red-glow);
@@ -644,13 +651,15 @@
         display: grid;
         place-items: center;
         border-radius: 50%;
-        background: var(--accent-glow);
-        color: var(--accent);
+        background: var(--green-glow);
+        color: var(--green);
         font-family: var(--font-mono);
         font-size: 0.9rem;
         font-weight: 700;
       }
 
+      .toast-success .toast-icon { background: var(--green-glow); color: var(--green); }
+      .toast-warning .toast-icon { background: var(--amber-glow); color: var(--amber); }
       .toast-error .toast-icon { background: var(--red-glow); color: var(--red); }
       .toast-content { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
       .toast-title { color: var(--text); font-family: var(--font-display); font-size: 0.82rem; font-weight: 700; }
@@ -682,11 +691,13 @@
         bottom: 0;
         left: 0;
         height: 3px;
-        background: var(--accent);
+        background: var(--green);
         transform-origin: left;
         animation: toastTimer 5s linear forwards;
       }
 
+      .toast-success .toast-timer { background: var(--green); }
+      .toast-warning .toast-timer { background: var(--amber); }
       .toast-error .toast-timer { background: var(--red); }
       .toast.is-dismissing { animation: toastOut 180ms ease-in forwards; }
 
