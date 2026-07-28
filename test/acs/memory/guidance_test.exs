@@ -140,6 +140,18 @@ defmodule Acs.Memory.GuidanceTest do
       assert String.contains?(packet.maintenance_instructions, "specs_propose")
     end
 
+    test "memory_protocol includes sensitive/confidential consent rules" do
+      coding = Guidance.generate("lib/acs/memory", mode: :coding)
+      chat = Guidance.generate("acme/sales", mode: :chat)
+
+      assert coding.memory_protocol =~ "about_type"
+      assert coding.memory_protocol =~ "needs_scope_choice"
+      assert coding.memory_protocol =~ "suggested_sensitive"
+
+      assert chat.memory_protocol =~ "about_type"
+      assert Guidance.memory_protocol(:chat) =~ "Intake"
+    end
+
     test "includes org_knowledge_conventions for business and code scopes" do
       packet = Guidance.generate("acme/support/refunds")
 

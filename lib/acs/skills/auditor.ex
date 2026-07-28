@@ -24,6 +24,17 @@ defmodule Acs.Skills.Auditor do
     GenServer.cast(__MODULE__, :trigger)
   end
 
+  @doc "Queue a single-skill audit after skill_save (best-effort; no-op if auditor down)."
+  def audit_soon(name) when is_binary(name) do
+    if Process.whereis(__MODULE__) do
+      GenServer.cast(__MODULE__, {:audit_one, name})
+    end
+
+    :ok
+  end
+
+  def audit_soon(_), do: :ok
+
   def audit_interval do
     Application.get_env(:steward_acs, :skill_auditor_interval, @interval)
   end
@@ -47,6 +58,19 @@ defmodule Acs.Skills.Auditor do
   end
 
   @impl true
+  def handle_info({:audit_one, name}, state) do
+    case Store.get_skill(name) do
+      nil ->
+        Logger.debug("[Acs.Skills.Auditor] skill '#{name}' not found for post-save audit")
+
+      skill ->
+        _ = audit_one(skill)
+    end
+
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_cast(:trigger, %{running: true} = state) do
     Logger.debug("[Acs.Skills.Auditor] Audit already running, skipping trigger")
     {:noreply, state}
@@ -55,6 +79,12 @@ defmodule Acs.Skills.Auditor do
   @impl true
   def handle_cast(:trigger, state) do
     send(self(), :audit)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_cast({:audit_one, name}, state) do
+    send(self(), {:audit_one, name})
     {:noreply, state}
   end
 

@@ -456,6 +456,26 @@ defmodule Acs.MetaHarness.DocumentGenerator do
         recs
       end
 
+    # Intake friction → prompt tuning
+    intake = Map.get(analysis, :intake_friction) || []
+
+    recs =
+      if intake != [] do
+        top = Enum.take(intake, 3)
+
+        hints =
+          Enum.map_join(top, "; ", fn row ->
+            "#{row.tool_name}/#{row.error_type}×#{row.occurrence_count}"
+          end)
+
+        recs ++
+          [
+            "- Intake friction high (#{hints}) — edit Settings → Prompts memory/intake or skills/intake to raise the allow bar"
+          ]
+      else
+        recs
+      end
+
     # Tool discovery - agents requesting unknown tools
     recs =
       if telemetry.discovered_tools != [] do

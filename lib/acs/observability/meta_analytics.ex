@@ -7,6 +7,7 @@ defmodule Acs.Observability.MetaAnalytics do
   - `meta.summary` — one row per analysis cycle
   - `meta.tool` — per-tool reliability/latency
   - `meta.error_cluster` — grouped failures
+  - `meta.intake` — save_memory/skill_save intake gates (prompt-tuning signal)
   - `meta.agent` — per-agent behavior rollup
   """
 
@@ -21,6 +22,7 @@ defmodule Acs.Observability.MetaAnalytics do
     ship_summary(analysis, cycle_id, timeframe)
     ship_tools(analysis, cycle_id, timeframe)
     ship_errors(analysis, cycle_id, timeframe)
+    ship_intake(analysis, cycle_id, timeframe)
     ship_agents(analysis, cycle_id, timeframe)
     :ok
   rescue
@@ -32,6 +34,7 @@ defmodule Acs.Observability.MetaAnalytics do
   defp ship_summary(analysis, cycle_id, timeframe) do
     tools = Map.get(analysis, :tool_reliability) || %{}
     clusters = Map.get(analysis, :error_clusters) || []
+    intake = Map.get(analysis, :intake_friction) || []
     agents = Map.get(analysis, :agent_behavior) || %{}
 
     {total, success, failure, discovery} =
@@ -42,6 +45,7 @@ defmodule Acs.Observability.MetaAnalytics do
 
     exec = success + failure
     success_rate = if exec > 0, do: success / exec, else: nil
+    intake_gates = Enum.reduce(intake, 0, fn row, acc -> acc + (row.occurrence_count || 0) end)
 
     enqueue(%{
       "message" => "meta.summary",
@@ -55,6 +59,7 @@ defmodule Acs.Observability.MetaAnalytics do
       "success_rate" => success_rate,
       "tool_count" => map_size(tools),
       "error_cluster_count" => length(clusters),
+      "intake_gate_count" => intake_gates,
       "active_agents" => map_size(agents)
     })
   end
@@ -96,6 +101,22 @@ defmodule Acs.Observability.MetaAnalytics do
         "occurrence_count" => c.occurrence_count,
         "sample_message" => c.sample_message,
         "agents" => truncate(c.agents, 200)
+      })
+    end
+  end
+
+  defp ship_intake(analysis, cycle_id, timeframe) do
+    for row <- Map.get(analysis, :intake_friction) || [] do
+      enqueue(%{
+        "message" => "meta.intake",
+        "event" => "meta.intake",
+        "cycle_id" => cycle_id,
+        "timeframe" => timeframe,
+        "tool_name" => row.tool_name,
+        "error_type" => row.error_type,
+        "occurrence_count" => row.occurrence_count,
+        "sample_message" => row.sample_message,
+        "prompt_hint" => row.prompt_hint
       })
     end
   end

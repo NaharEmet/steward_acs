@@ -17,6 +17,7 @@ Dataset **`steward_meta_analytics`** (`AXIOM_AGENT_OPS_DATASET`). Mirrored to `s
 | `meta.summary` | Hourly rollup (totals, success_rate) |
 | `meta.tool` | Per-tool reliability + latency |
 | `meta.error_cluster` | Grouped failures |
+| `meta.intake` | save_memory/skill_save intake gates (prompt-tuning) |
 | `meta.agent` | Per-agent behavior |
 
 Dashboard: `./scripts/axiom-upsert-agent-ops-dashboard.sh` → **Steward ACS — agent usage**.
@@ -33,6 +34,8 @@ Prod: `META_HARNESS_ENABLED=true` buffers `acs_tool_operations` and ships hourly
 | `gap_empty` | Planned missing | Retrieve returned 0 | Seed knowledge / fix scopes |
 | `gap_info` | Planned missing | Feedback `info_needed` | Same — backlog for content |
 | `pain` | Broken | Feedback issues/improvements | Fix tools/prompts |
+| `intake_gate` | Friction | save blocked for clarification | Raise allow bar in Settings → Prompts (`memory/intake`, `skills/intake`) |
+| `intake_bypass` | Friction? | `intake_confirmed` after a gate | False positives → loosen prompt |
 | `misuse_discovery` | Shouldn't | Unknown tool name | Prompt/tool-list clarity |
 | `misuse_write` | Shouldn't | Write with no prior retrieve in chain | Nudge retrieve-first UX |
 
@@ -47,12 +50,31 @@ Prod: `META_HARNESS_ENABLED=true` buffers `acs_tool_operations` and ships hourly
 | order by n desc
 ```
 
+### Intake gates (Claude slowdown)
+
+```apl
+['steward_meta_analytics']
+| where message == "agent.tool" and signal in ("intake_gate", "intake_bypass")
+| summarize n=count() by tool_name, signal, intake_outcome, intake_source, audience, org
+| order by n desc
+```
+
+### Meta intake rollup (hourly)
+
+```apl
+['steward_meta_analytics']
+| where message == "meta.intake"
+| project _time, tool_name, error_type, occurrence_count, prompt_hint
+| order by occurrence_count desc
+| limit 40
+```
+
 ### Meta-Harness hourly health
 
 ```apl
 ['steward_meta_analytics']
 | where message == "meta.summary"
-| project _time, total_ops, success_rate, failure_count, discovery_count, active_agents
+| project _time, total_ops, success_rate, failure_count, discovery_count, intake_gate_count, active_agents
 | order by _time desc
 | limit 24
 ```

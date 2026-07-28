@@ -6,6 +6,18 @@ defmodule AcsWeb.AcsLive.PromptsLive do
   alias Acs.Org
 
   @known_prompts [
+    %{
+      category: "memory",
+      name: "intake",
+      label: "Memory intake triage",
+      desc: "Per-org LLM triage on save_memory (scope choice, quality questions, sensitive note). Heuristics apply when LLM is down."
+    },
+    %{
+      category: "skills",
+      name: "intake",
+      label: "Skill intake triage",
+      desc: "Per-org LLM triage on skill_save. Default allow; high bar for questions (secrets / unusable / no steps). Heuristics when LLM is down."
+    },
     %{category: "memory", name: "evaluate", label: "Memory evaluation (coding)", desc: "Prompt for coding memory quality auditor"},
     %{category: "memory", name: "evaluate_chat", label: "Memory evaluation (chat)", desc: "Prompt for chat memory quality auditor"},
     %{category: "skills", name: "evaluate", label: "Skill evaluation (coding)", desc: "Prompt for coding skill quality auditor"},
@@ -155,6 +167,26 @@ defmodule AcsWeb.AcsLive.PromptsLive do
   defp source_badge(:custom), do: "Custom override"
   defp source_badge(:builtin), do: "Builtin"
 
+  defp template_vars(%{category: "memory", name: "intake"}),
+    do: [{"candidate_json", "proposed memory fields as JSON (kind, title, content, about_*, visibility, …)"}]
+
+  defp template_vars(%{category: "skills", name: "intake"}),
+    do: [{"candidate_json", "proposed skill fields as JSON (name, description, when_to_use, content, tags, scope_paths)"}]
+
+  defp template_vars(%{category: "memory", name: name}) when name in ["evaluate", "evaluate_chat"],
+    do: [
+      {"memory_json", "memory entry as JSON"},
+      {"existing_memories_json", "context memories as JSON"}
+    ]
+
+  defp template_vars(%{category: "skills", name: name}) when name in ["evaluate", "evaluate_chat"],
+    do: [
+      {"skill_json", "skill entry as JSON"},
+      {"existing_skills_json", "context skills as JSON"}
+    ]
+
+  defp template_vars(_), do: []
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -163,7 +195,8 @@ defmodule AcsWeb.AcsLive.PromptsLive do
         <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Workspace</span> / Prompts</p>
         <h1 style="font-size: 1.3rem; margin-bottom: 6px;">Prompt editor</h1>
         <p style="font-size: 0.82rem;">
-          Edit prompts for the memory and skill auditors. Custom overrides are written to your vault prompts directory and take effect on the next auditor cycle.
+          Edit org prompts (memory intake, auditors, instructions). Overrides go to your vault
+          <code>prompts/</code> and take effect on the next load; builtin defaults remain until you save.
         </p>
       </div>
 
@@ -233,12 +266,10 @@ defmodule AcsWeb.AcsLive.PromptsLive do
             <details class="prompts-refs">
               <summary class="prompts-refs-summary">Template variables</summary>
               <div class="prompts-refs-body">
-                <%= if @selected.name == "evaluate" do %>
-                  <code><%= "{{memory_json}}" %></code> — memory entry as JSON<br>
-                  <code><%= "{{existing_memories_json}}" %></code> — context memories as JSON<br>
-                  <code><%= "{{skill_json}}" %></code> — skill entry as JSON<br>
-                  <code><%= "{{existing_skills_json}}" %></code> — context skills as JSON
-                <% else %>
+                <%= for {var, hint} <- template_vars(@selected) do %>
+                  <code><%= "{{#{var}}}" %></code> — <%= hint %><br>
+                <% end %>
+                <%= if template_vars(@selected) == [] do %>
                   No template variables — this prompt is used as-is.
                 <% end %>
               </div>

@@ -37,6 +37,7 @@ defmodule Acs.MetaHarness.Analyzer do
       tool_reliability: analyze_tool_reliability(start_time, end_time, min_sample),
       latency_analysis: analyze_latency(start_time, end_time, min_sample),
       error_clusters: find_error_clusters(start_time, end_time, min_cluster),
+      intake_friction: analyze_intake_friction(start_time, end_time, min_cluster),
       agent_behavior: analyze_agent_behavior(start_time, end_time),
       metadata: %{
         analyzed_at: DateTime.utc_now(),
@@ -60,9 +61,16 @@ defmodule Acs.MetaHarness.Analyzer do
       slowest_tool: find_slowest_tool(analysis.latency_analysis),
       most_failed_tool: find_most_failed_tool(analysis.tool_reliability),
       error_cluster_count: length(analysis.error_clusters),
+      intake_gate_count: intake_gate_total(analysis.intake_friction),
       active_agents: map_size(analysis.agent_behavior)
     }
   end
+
+  defp intake_gate_total(friction) when is_list(friction) do
+    Enum.reduce(friction, 0, fn row, acc -> acc + (row.occurrence_count || 0) end)
+  end
+
+  defp intake_gate_total(_), do: 0
 
   # ── Tool Reliability Analysis ────────────────────────────────────────────────
 
@@ -229,6 +237,60 @@ defmodule Acs.MetaHarness.Analyzer do
         []
     end
   end
+
+  # ── Intake friction (save_memory / skill_save gates) ─────────────────────────
+  # Logged as success with error_type intake_* so they don't tank success_rate,
+  # but still surface for prompt-tuning (high gate rate = prompt too aggressive).
+
+  defp analyze_intake_friction(start_time, end_time, min_occurrences) do
+    like = if postgres?(), do: "error_type LIKE 'intake_%'", else: "error_type LIKE 'intake_%'"
+
+    query = """
+      SELECT
+        tool_name,
+        error_type,
+        MAX(error_message) as error_message,
+        COUNT(*) as occurrence_count
+      FROM acs_tool_operations
+      WHERE created_at >= ?1
+        AND created_at <= ?2
+        AND #{like}
+      GROUP BY tool_name, error_type
+      HAVING COUNT(*) >= ?3
+      ORDER BY occurrence_count DESC
+      LIMIT 30
+    """
+
+    case run_query(query, [format_datetime(start_time), format_datetime(end_time), min_occurrences]) do
+      {:ok, results} ->
+        Enum.map(results, fn row ->
+          %{
+            tool_name: row["tool_name"],
+            error_type: row["error_type"],
+            sample_message: row["error_message"] && String.slice(row["error_message"], 0, 100),
+            occurrence_count: row["occurrence_count"] || 0,
+            prompt_hint: intake_prompt_hint(row["tool_name"], row["error_type"])
+          }
+        end)
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  defp intake_prompt_hint("skill_save", "intake_needs_input"),
+    do: "Tighten skills/intake.md high-bar rules or soft-allow more skills (Settings → Prompts)"
+
+  defp intake_prompt_hint("save_memory", "intake_needs_input"),
+    do: "Tighten memory/intake.md — prefer allow + soft suggestions (Settings → Prompts)"
+
+  defp intake_prompt_hint("save_memory", "intake_needs_scope_choice"),
+    do: "Agents often omit visibility for about-entity memories — clarify tool schema / guidance"
+
+  defp intake_prompt_hint(_, "intake_bypass"),
+    do: "Frequent intake_confirmed bypass — review whether gates are false positives"
+
+  defp intake_prompt_hint(_, _), do: "Review org intake prompt overrides"
 
   # ── Agent Behavior Analysis ──────────────────────────────────────────────────
   # Derived from tool_operations table - no separate agent_behavior table needed

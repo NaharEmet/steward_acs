@@ -26,6 +26,8 @@ defmodule Acs.MCP.CoreToolRolesTest do
     assert CoreToolRoles.authorized?("documents_propose", "collaborator", :chat)
     assert CoreToolRoles.authorized?("skill_save", "collaborator", :chat)
     assert CoreToolRoles.authorized?("create_work", "collaborator", :chat)
+    assert CoreToolRoles.authorized?("get_person_status", "collaborator", :chat)
+    assert CoreToolRoles.authorized?("set_person_status", "collaborator", :chat)
     refute CoreToolRoles.authorized?("specs_propose", "collaborator", :chat)
     refute CoreToolRoles.authorized?("lock_file", "collaborator", :chat)
     refute CoreToolRoles.authorized?("query_memories", "collaborator", :chat)
@@ -49,6 +51,8 @@ defmodule Acs.MCP.CoreToolRolesTest do
     assert "create_work" in surface
     assert "ask" in surface
     assert "documents_propose" in surface
+    assert "get_person_status" in surface
+    assert "set_person_status" in surface
     refute "specs_propose" in surface
   end
 end

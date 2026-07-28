@@ -7,8 +7,8 @@ defmodule Acs.Skills.Store do
   tools may organize skills into directories. Vault files take precedence over
   bundled files with the same relative path.
 
-  Skill content is authored outside Steward. This store only updates governance
-  and audit fields in existing YAML frontmatter.
+  Skill content may be saved via MCP `skill_save` (lands as `status: proposed`)
+  or authored externally. Governance/audit fields can be patched on frontmatter.
   """
 
   @builtin_dir "priv/skills"
@@ -79,6 +79,59 @@ defmodule Acs.Skills.Store do
     case find_skill(id_or_name) do
       nil -> {:error, :not_found}
       skill -> update_file_frontmatter(skill.file, fields)
+    end
+  end
+
+  @doc """
+  Create or overwrite a skill markdown file in the org skills dir.
+
+  Opts keys (string or atom): `description`, `when_to_use`, `tags`, `scope_paths`, `status`.
+  Defaults to `status: \"proposed\"`.
+  """
+  def save_skill(name, content, opts \\ []) when is_binary(name) and is_binary(content) do
+    opts = normalize_opts(opts)
+    dir = skill_dir()
+    safe = safe_name(name)
+    path = Path.join(dir, "#{safe}.md")
+
+    with true <- Acs.Org.safe_path?(dir, path),
+         :ok <- File.mkdir_p(dir) do
+      meta = %{
+        "name" => name,
+        "description" => opts["description"],
+        "when_to_use" => opts["when_to_use"],
+        "tags" => opts["tags"] || [],
+        "scope_paths" => opts["scope_paths"] || [],
+        "status" => opts["status"] || "proposed"
+      }
+
+      frontmatter =
+        meta
+        |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+        |> Enum.map(fn {k, v} -> "#{k}: #{encode_yaml_value(v)}" end)
+        |> Enum.join("\n")
+
+      body = String.trim_trailing(content) <> "\n"
+      File.write!(path, "---\n#{frontmatter}\n---\n\n#{body}")
+      {:ok, %{name: name, id: safe, path: path, status: meta["status"]}}
+    else
+      false -> {:error, :unsafe_path}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp normalize_opts(opts) when is_list(opts), do: Map.new(opts, fn {k, v} -> {to_string(k), v} end)
+  defp normalize_opts(opts) when is_map(opts), do: Map.new(opts, fn {k, v} -> {to_string(k), v} end)
+
+  defp safe_name(name) do
+    name
+    |> String.trim()
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9_-]+/, "-")
+    |> String.trim("-")
+    |> case do
+      "" -> "skill"
+      other -> other
     end
   end
 

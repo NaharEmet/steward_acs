@@ -51,6 +51,8 @@ defmodule Acs.MCP.CoreToolRoles do
     help
     save_memory
     query_memories
+    get_person_status
+    set_person_status
     generate_guidance_packet
     ask
     specs_get
@@ -70,6 +72,8 @@ defmodule Acs.MCP.CoreToolRoles do
     get_started
     ask
     save_memory
+    get_person_status
+    set_person_status
     documents_propose
     skill_get
     skill_save

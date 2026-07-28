@@ -11,13 +11,48 @@ defmodule Acs.Observability.AgentOpsTest do
   end
 
   test "tool_signal maps learning quadrants" do
-    assert AgentOps.tool_signal(true, "other", false, nil, false, false) == "misuse_discovery"
-    assert AgentOps.tool_signal(false, "retrieve", true, 0, false, false) == "gap_empty"
-    assert AgentOps.tool_signal(false, "retrieve", false, 3, false, false) == "works"
-    assert AgentOps.tool_signal(false, "retrieve", false, nil, false, false) == nil
-    assert AgentOps.tool_signal(false, "write", false, nil, true, false) == "misuse_write"
-    assert AgentOps.tool_signal(false, "write", false, nil, false, true) == "surprise_persist"
-    assert AgentOps.tool_signal(false, "write", false, nil, false, false) == "works"
+    assert AgentOps.tool_signal(true, "other", false, nil, false, false, nil) == "misuse_discovery"
+    assert AgentOps.tool_signal(false, "retrieve", true, 0, false, false, nil) == "gap_empty"
+    assert AgentOps.tool_signal(false, "retrieve", false, 3, false, false, nil) == "works"
+    assert AgentOps.tool_signal(false, "retrieve", false, nil, false, false, nil) == nil
+    assert AgentOps.tool_signal(false, "write", false, nil, true, false, nil) == "misuse_write"
+    assert AgentOps.tool_signal(false, "write", false, nil, false, true, nil) == "surprise_persist"
+    assert AgentOps.tool_signal(false, "write", false, nil, false, false, nil) == "works"
+
+    assert AgentOps.tool_signal(false, "write", false, nil, false, false, "needs_input") ==
+             "intake_gate"
+
+    assert AgentOps.tool_signal(false, "write", false, nil, false, false, "bypass") ==
+             "intake_bypass"
+  end
+
+  test "intake_meta detects needs_input and bypass" do
+    assert %{outcome: "needs_input", question_id: "sensitive"} =
+             AgentOps.intake_meta(
+               "skill_save",
+               {:ok,
+                %{
+                  status: "needs_input",
+                  saved: false,
+                  questions: [%{"id" => "sensitive"}],
+                  intake: %{source: :heuristic}
+                }},
+               %{}
+             )
+
+    assert %{outcome: "bypass"} =
+             AgentOps.intake_meta(
+               "skill_save",
+               {:ok, %{status: "saved", saved: true, intake: %{source: "heuristic"}}},
+               %{"intake_confirmed" => true}
+             )
+
+    assert %{outcome: "allowed"} =
+             AgentOps.intake_meta(
+               "save_memory",
+               {:ok, %{status: "proposed", saved: true, intake: %{source: "llm"}}},
+               %{}
+             )
   end
 
   test "feedback_signal prefers win then gap then pain" do

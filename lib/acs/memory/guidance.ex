@@ -32,6 +32,28 @@ lock_file before edit; unlock_file when done (by path or task_id). 10-min auto-r
 
   @coding_memory """
 save_memory(kind, title, content, scope_path) — eternal truths only. Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom.
+
+Entity vs scope:
+- about_type person|company + about_name/about_email = who the fact is ABOUT (authority), not who may read it
+- visibility org|team|project|personal = who may read it (confidential: true ⇒ personal)
+
+Intake (LLM + heuristics) runs on every save:
+- about entity without visibility → needs_scope_choice (ask user, retry with visibility)
+- quality issues → needs_input (ask user, retry with intake_confirmed: true)
+- looks sensitive → still saves, returns suggested_sensitive note (ask if personal)
+
+Person directory: get_person_status / set_person_status for rank (high|elevated|standard) on first encounter.
+"""
+
+  @chat_memory """
+save_memory — short eternal truths only.
+
+Entity vs scope:
+- about_type person|company + about_name/about_email = who the fact is ABOUT
+- visibility = who may read it (confidential: true ⇒ personal)
+
+Intake asks before save when scope is missing or quality is unclear. Sensitive content saves with a note asking whether to make it personal.
+Person status: get_person_status → ask once → set_person_status.
 """
 
   @coding_error """
@@ -114,9 +136,22 @@ Business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy.
 - memories — short eternal truths (save_memory)
 - documents — policies, briefs, marketing (documents_propose + document_type)
 - skills — step-by-step playbooks (skill_get / skill_save)
-Chat tools: get_started, ask, save_memory, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback.
+Chat tools: get_started, ask, save_memory, get_person_status, set_person_status, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback.
 Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded document.
 """
+
+  @doc """
+  Memory save protocol for guidance packets / `_next` hints.
+
+  Includes person-status and sensitive/confidential consent rules so agents
+  see them before `save_memory` without needing them in the system prompt.
+  """
+  def memory_protocol(audience \\ :coding)
+
+  def memory_protocol(audience) when audience in [:chat, :knowledge, "chat", "knowledge"],
+    do: @chat_memory
+
+  def memory_protocol(_), do: @coding_memory
 
   @doc """
   Generates a guidance packet for a given scope_path.
@@ -131,6 +166,7 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
     allowed_teams = Keyword.get(opts, :allowed_teams)
     allowed_projects = Keyword.get(opts, :allowed_projects)
     agent_role = Keyword.get(opts, :agent_role)
+    agent_id = Keyword.get(opts, :agent_id)
 
     search_opts = [{:scope_path, scope_path}, {:status, "approved"}, {:org, Acs.Org.current()}]
 
@@ -143,6 +179,7 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
         else: search_opts
 
     search_opts = if agent_role, do: search_opts ++ [agent_role: agent_role], else: search_opts
+    search_opts = if agent_id, do: search_opts ++ [agent_id: agent_id], else: search_opts
 
     sorted =
       search_opts
@@ -172,6 +209,7 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
     allowed_teams = Keyword.get(opts, :allowed_teams)
     allowed_projects = Keyword.get(opts, :allowed_projects)
     agent_role = Keyword.get(opts, :agent_role)
+    agent_id = Keyword.get(opts, :agent_id)
 
     case Acs.Acs.get_task(task_id) do
       nil ->
@@ -192,6 +230,7 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
             if allowed_projects, do: o ++ [allowed_projects: allowed_projects], else: o
           end)
           |> then(fn o -> if agent_role, do: o ++ [agent_role: agent_role], else: o end)
+          |> then(fn o -> if agent_id, do: o ++ [agent_id: agent_id], else: o end)
 
         guidance = generate(scope_path, Keyword.merge([tier: tier, mode: mode], abac_opts))
         claim_context = Acs.ClaimContext.for_task(task_map)
@@ -302,6 +341,8 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
       workflow: @chat_workflow,
       store: @chat_store,
       honesty: @chat_honesty,
+      memory: @chat_memory,
+      memory_protocol: @chat_memory,
       agent_identity: @chat_identity,
       org_knowledge_conventions: @chat_conventions,
       specs_instructions: specs_instructions_chat_for_tier(:claim),
@@ -327,6 +368,8 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
       workflow: @chat_workflow,
       store: @chat_store,
       honesty: @chat_honesty,
+      memory: @chat_memory,
+      memory_protocol: @chat_memory,
       agent_identity: @chat_identity,
       org_knowledge_conventions: @chat_conventions,
       specs_instructions: specs_instructions_chat_for_tier(:full),

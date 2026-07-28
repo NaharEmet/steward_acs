@@ -106,6 +106,7 @@ defmodule Acs.MetaHarness.Generator do
       operations: operations,
       feedback: query_feedback(),
       errors: errors,
+      intake: analysis.intake_friction || [],
       agent_stats: agent_stats
     }
   end
@@ -191,10 +192,30 @@ defmodule Acs.MetaHarness.Generator do
 
     ## Error Clusters
     #{format_errors(data.errors)}
+
+    ## Intake Friction (prompt-tuning)
+    #{format_intake(data.intake)}
     #{baseline_section}
     ## Agent Feedback Highlights
     #{format_feedback(data.feedback)}
     """
+  end
+
+  defp format_intake([]), do: "  _No intake gates — default-allow is holding_"
+
+  defp format_intake(rows) do
+    header =
+      "_High gate rates mean Claude is slowed; edit org prompts at Settings → Prompts " <>
+        "(memory/intake, skills/intake). Frequent intake_bypass = false positives._\n\n"
+
+    body =
+      Enum.map(rows, fn row ->
+        hint = row[:prompt_hint] || row["prompt_hint"] || ""
+        "| #{row[:tool_name] || row["tool_name"]} | #{row[:error_type] || row["error_type"]} | #{row[:occurrence_count] || row["occurrence_count"]} | #{hint} |"
+      end)
+      |> Enum.join("\n")
+
+    header <> "| tool | gate | count | hint |\n|---|---|---|---|\n" <> body
   end
 
   defp format_rate(rate) when is_float(rate), do: "#{(rate * 100) |> Float.round(1)}%"
@@ -398,6 +419,10 @@ defmodule Acs.MetaHarness.Generator do
     ### Error Patterns
     #{format_errors(data.errors)}
 
+    ### Intake Friction (save_memory / skill_save)
+    #{format_intake(data.intake)}
+    - Action: if gate count is high, raise the bar in `memory/intake` / `skills/intake` prompts (prefer allow). If `intake_bypass` dominates, gates are false positives.
+
     ### Agent Feedback
     - Learned: #{Enum.take(data.feedback, 3) |> Enum.map(& &1["most_surprising"]) |> Enum.join(", ")}
     - Issues: #{Enum.take(data.feedback, 3) |> Enum.map(& &1["most_time_consuming"]) |> Enum.join(", ")}
@@ -413,7 +438,7 @@ defmodule Acs.MetaHarness.Generator do
     Provide your analysis in markdown with these sections:
     - **Critical Issues** (top 3)
     - **Root Cause Analysis**
-    - **Improvement Recommendations** (numbered, specific)
+    - **Improvement Recommendations** (numbered, specific — include prompt edits when intake friction is high)
     - **Priority Matrix** (HIGH/MED/LOW with rationale)
     - **Next Steps** (what to do first)
     """

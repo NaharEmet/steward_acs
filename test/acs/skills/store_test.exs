@@ -119,4 +119,25 @@ defmodule Acs.Skills.StoreTest do
   test "rejects invalid governance statuses" do
     assert {:error, :invalid_status} = Store.update_status("deployment", "deleted")
   end
+
+  test "save_skill writes proposed markdown into org skills dir", %{skills_dir: skills_dir} do
+    assert {:ok, %{name: "Rotate Token", id: "rotate-token", status: "proposed"}} =
+             Store.save_skill(
+               "Rotate Token",
+               """
+               1. Create token
+               2. Swap env
+               3. Revoke old
+               """,
+               description: "Rotate Infisical token",
+               when_to_use: "When token expires",
+               tags: ["secrets"],
+               scope_paths: ["guides/secrets"]
+             )
+
+    path = Path.join(skills_dir, "rotate-token.md")
+    assert File.exists?(path)
+    assert %{name: "Rotate Token", status: "proposed", tags: ["secrets"]} = Store.get_skill("rotate-token")
+    assert File.read!(path) =~ "when_to_use:"
+  end
 end
