@@ -52,4 +52,27 @@ defmodule Acs.LLMTest do
       assert LLM.extract_json_content(content) == :error
     end
   end
+
+  describe "usage_tokens/1" do
+    test "reads llm_utils normalized usage keys" do
+      assert {10, 4, 14} =
+               LLM.usage_tokens(%{usage: %{tokens_in: 10, tokens_out: 4, total_tokens: 14}})
+    end
+
+    test "falls back to prompt/completion aliases" do
+      assert {3, 2, 5} =
+               LLM.usage_tokens(%{"usage" => %{"prompt_tokens" => 3, "completion_tokens" => 2}})
+    end
+  end
+
+  describe "normalize_error_type/1" do
+    test "maps common provider failures to stable classes" do
+      assert LLM.normalize_error_type(:timeout) == "timeout"
+      assert LLM.normalize_error_type({:rate_limited, "x", nil}) == "rate_limited"
+
+      assert LLM.normalize_error_type(
+               {:server_error, 503, "ResourceExhausted: Worker local total request limit reached"}
+             ) == "capacity"
+    end
+  end
 end

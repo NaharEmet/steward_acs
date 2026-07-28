@@ -80,7 +80,14 @@ config :logger, :console,
     :count,
     :llm_event,
     :tokens_in,
-    :tokens_out
+    :tokens_out,
+    :tokens_total,
+    :call_type,
+    :subject_id,
+    :audience,
+    :prompt_chars,
+    :recommendation,
+    :quality_score
   ]
 
 config :tailwind, :version, "3.4.3"

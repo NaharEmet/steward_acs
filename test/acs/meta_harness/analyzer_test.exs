@@ -15,6 +15,7 @@ defmodule Acs.MetaHarness.AnalyzerTest do
       assert Map.has_key?(result, :tool_reliability)
       assert Map.has_key?(result, :latency_analysis)
       assert Map.has_key?(result, :error_clusters)
+      assert Map.has_key?(result, :intake_friction)
       assert Map.has_key?(result, :agent_behavior)
       assert Map.has_key?(result, :metadata)
     end
@@ -55,6 +56,7 @@ defmodule Acs.MetaHarness.AnalyzerTest do
       assert result.tool_reliability == %{}
       assert result.latency_analysis == %{}
       assert result.error_clusters == []
+      assert result.intake_friction == []
       assert result.agent_behavior == %{}
     end
 

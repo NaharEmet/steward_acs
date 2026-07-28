@@ -536,6 +536,7 @@ defmodule Acs.Memory.Indexer do
     allowed_teams = opts[:allowed_teams] || []
     allowed_projects = opts[:allowed_projects] || []
     role = opts[:agent_role]
+    agent_id = opts[:agent_id]
 
     has_teams = is_list(allowed_teams) and allowed_teams != []
     has_projects = is_list(allowed_projects) and allowed_projects != []
@@ -543,47 +544,82 @@ defmodule Acs.Memory.Indexer do
 
     cond do
       has_teams and has_projects ->
-        from m in query,
-          where:
-            fragment(
-              "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?)) OR (? = 'project' AND ? IN (?))",
-              m.visibility,
-              m.visibility,
-              m.team,
-              ^allowed_teams,
-              m.visibility,
-              m.project,
-              ^allowed_projects
-            )
+        query
+        |> where_org_team_project_or_own_personal(allowed_teams, allowed_projects, agent_id)
 
       has_teams ->
         from m in query,
           where:
             fragment(
-              "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?))",
+              "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?)) OR (? = 'personal' AND ? = ?)",
               m.visibility,
               m.visibility,
               m.team,
-              ^allowed_teams
+              ^allowed_teams,
+              m.visibility,
+              m.created_by_agent,
+              ^agent_id_or_sentinel(agent_id)
             )
 
       has_projects ->
         from m in query,
           where:
             fragment(
-              "COALESCE(?, 'org') = 'org' OR (? = 'project' AND ? IN (?))",
+              "COALESCE(?, 'org') = 'org' OR (? = 'project' AND ? IN (?)) OR (? = 'personal' AND ? = ?)",
               m.visibility,
               m.visibility,
               m.project,
-              ^allowed_projects
+              ^allowed_projects,
+              m.visibility,
+              m.created_by_agent,
+              ^agent_id_or_sentinel(agent_id)
             )
 
       restricted_role? ->
         from m in query,
-          where: fragment("COALESCE(?, 'org') = 'org'", m.visibility)
+          where:
+            fragment(
+              "COALESCE(?, 'org') = 'org' OR (? = 'personal' AND ? = ?)",
+              m.visibility,
+              m.visibility,
+              m.created_by_agent,
+              ^agent_id_or_sentinel(agent_id)
+            )
 
       true ->
-        query
+        # Unrestricted roles see org/team/project plus only their own personal memories.
+        from m in query,
+          where:
+            fragment(
+              "COALESCE(?, 'org') != 'personal' OR ? = ?",
+              m.visibility,
+              m.created_by_agent,
+              ^agent_id_or_sentinel(agent_id)
+            )
     end
   end
+
+  defp where_org_team_project_or_own_personal(query, allowed_teams, allowed_projects, agent_id) do
+    import Ecto.Query
+
+    from m in query,
+      where:
+        fragment(
+          "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?)) OR (? = 'project' AND ? IN (?)) OR (? = 'personal' AND ? = ?)",
+          m.visibility,
+          m.visibility,
+          m.team,
+          ^allowed_teams,
+          m.visibility,
+          m.project,
+          ^allowed_projects,
+          m.visibility,
+          m.created_by_agent,
+          ^agent_id_or_sentinel(agent_id)
+        )
+  end
+
+  # ponytail: sentinel never matches a real agent id when caller has no identity
+  defp agent_id_or_sentinel(id) when is_binary(id) and id != "", do: id
+  defp agent_id_or_sentinel(_), do: "__no_agent__"
 end

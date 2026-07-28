@@ -241,6 +241,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         "1) `get_present_status(agent_id: \"your_name\")` — register  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check docs  5) `lock_file` files  6) do work  7) `save_memory` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback`",
       org_knowledge_conventions:
         "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=truths, specs=code module docs, documents=non-code artifacts (same specs_* tools + document_type), skills=procedures.",
+      memory_protocol: Acs.Memory.Guidance.memory_protocol(:coding),
       tools: [
         %{
           tool: "get_present_status",
@@ -297,9 +298,10 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       general:
         "ACS chat surface: retrieve with ask; save truths (save_memory), documents (documents_propose), and procedures (skill_save). Prefer business scopes (org/domain/topic). Create tracked work with create_work(claim: true).",
       get_started:
-        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed  6) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback(learned_for_agents:) last. Simple Q&A needs no feedback.",
+        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  6) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback(learned_for_agents:) last. Simple Q&A needs no feedback.",
       org_knowledge_conventions:
         "Business scopes: acme/sales/pricing, acme/support/refunds. memories=truths, documents=long artifacts via documents_propose, skills=procedures via skill_save. Never invent org policy when ask returns nothing. Feedback only after claimed tasks — save knowledge first, then release_work, then submit_task_feedback.",
+      memory_protocol: Acs.Memory.Guidance.memory_protocol(:chat),
       tools: [
         %{tool: "get_started", description: "This startup packet", params: %{audience: "chat"}},
         %{
@@ -313,13 +315,23 @@ defmodule Acs.MCP.Tools.CoreHandlers do
           params: %{content_query: "..."}
         },
         %{
+          tool: "get_person_status",
+          description: "Look up person job status + rank",
+          params: %{email: "...", name: "..."}
+        },
+        %{
+          tool: "set_person_status",
+          description: "Save person status on first encounter",
+          params: %{email: "...", name: "...", status: "CEO", rank: "high"}
+        },
+        %{
           tool: "skill_get",
           description: "Find or load a procedure (how-to). Try name: ingest-document",
           params: %{search: "ingest"}
         },
         %{
           tool: "save_memory",
-          description: "Store a durable org truth",
+          description: "Store a durable org truth (see memory_protocol before calling)",
           params: %{
             kind: "decision",
             title: "...",

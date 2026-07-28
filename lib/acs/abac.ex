@@ -4,7 +4,7 @@ defmodule Acs.Abac do
 
   ## Use cases
 
-  1. **Coding agents** — specs (\`Acs.Specs.Entry\`) scoped by team/project
+  1. **Coding agents** — specs (`Acs.Specs.Entry`) scoped by team/project
      so agents only read and write specs for code they work on.
 
   2. **Org KB memories** — atomic knowledge scoped by team/project/visibility for
@@ -15,19 +15,23 @@ defmodule Acs.Abac do
   - `org` — visible to all authenticated agents (default)
   - `team` — visible when `team` is in the caller's allowed teams
   - `project` — visible when `project` is in the caller's allowed projects
+  - `personal` — visible only to the creator (`created_by.id` / `created_by_agent`).
+    No admin bypass — confidential to the person who saved it.
 
-  Collaborators/readers without team or project allowlists only see `org` content.
+  Collaborators/readers without team or project allowlists see `org` content
+  plus their own `personal` memories.
   """
 
   @restricted_roles ~w(collaborator reader)
-  @valid_visibilities ~w(org team project)
+  @valid_visibilities ~w(org team project personal)
 
-  defstruct agent_role: nil, allowed_teams: [], allowed_projects: []
+  defstruct agent_role: nil, allowed_teams: [], allowed_projects: [], agent_id: nil
 
   @type t :: %__MODULE__{
           agent_role: String.t() | nil,
           allowed_teams: [String.t()],
-          allowed_projects: [String.t()]
+          allowed_projects: [String.t()],
+          agent_id: String.t() | nil
         }
 
   @doc "Build ABAC context from MCP tool args (injected by Protocol)."
@@ -35,7 +39,8 @@ defmodule Acs.Abac do
     %__MODULE__{
       agent_role: Map.get(args, "_auth_role"),
       allowed_teams: normalize_list(Map.get(args, "_auth_allowed_teams")),
-      allowed_projects: normalize_list(Map.get(args, "_auth_allowed_projects"))
+      allowed_projects: normalize_list(Map.get(args, "_auth_allowed_projects")),
+      agent_id: Map.get(args, "_auth_agent_id")
     }
   end
 
@@ -44,7 +49,8 @@ defmodule Acs.Abac do
     %__MODULE__{
       agent_role: Keyword.get(opts, :agent_role),
       allowed_teams: normalize_list(Keyword.get(opts, :allowed_teams)),
-      allowed_projects: normalize_list(Keyword.get(opts, :allowed_projects))
+      allowed_projects: normalize_list(Keyword.get(opts, :allowed_projects)),
+      agent_id: Keyword.get(opts, :agent_id)
     }
   end
 
@@ -76,14 +82,20 @@ defmodule Acs.Abac do
   @doc """
   For restricted roles writing org-visible content, force `proposed` status so
   org-wide knowledge is reviewed before becoming searchable as approved.
+  Personal memories skip review — they are only visible to the creator.
   """
   def memory_status_for_write(%__MODULE__{} = ctx, attrs) when is_map(attrs) do
     visibility = field(attrs, "visibility", "org")
 
-    if restricted_role?(ctx) and visibility == "org" do
-      "proposed"
-    else
-      nil
+    cond do
+      visibility == "personal" ->
+        nil
+
+      restricted_role?(ctx) and visibility == "org" ->
+        "proposed"
+
+      true ->
+        nil
     end
   end
 
@@ -101,6 +113,9 @@ defmodule Acs.Abac do
     project = field(item, "project")
 
     cond do
+      visibility == "personal" ->
+        personal_owner?(ctx, item)
+
       admin_role?(ctx) ->
         true
 
@@ -123,7 +138,29 @@ defmodule Acs.Abac do
     end
   end
 
+  defp personal_owner?(%__MODULE__{agent_id: agent_id}, item)
+       when is_binary(agent_id) and agent_id != "" do
+    creator_id(item) == agent_id
+  end
+
+  defp personal_owner?(_, _), do: false
+
+  defp creator_id(item) do
+    case field(item, "created_by_agent") do
+      id when is_binary(id) and id != "" ->
+        id
+
+      _ ->
+        case field(item, "created_by") do
+          %{"id" => id} when is_binary(id) -> id
+          %{id: id} when is_binary(id) -> id
+          _ -> nil
+        end
+    end
+  end
+
   defp validate_write_scope(_ctx, "org", _team, _project), do: :ok
+  defp validate_write_scope(_ctx, "personal", _team, _project), do: :ok
 
   defp validate_write_scope(ctx, "team", team, _project) do
     cond do
@@ -154,7 +191,7 @@ defmodule Acs.Abac do
   defp validate_visibility_value(visibility) when visibility in @valid_visibilities, do: :ok
 
   defp validate_visibility_value(visibility),
-    do: {:error, "Invalid visibility '#{visibility}'. Must be one of: org, team, project"}
+    do: {:error, "Invalid visibility '#{visibility}'. Must be one of: org, team, project, personal"}
 
   defp validate_scope_fields("team", team, _project) when is_binary(team) and team != "",
     do: :ok

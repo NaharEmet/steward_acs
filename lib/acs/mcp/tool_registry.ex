@@ -740,7 +740,8 @@ defmodule Acs.MCP.ToolRegistry do
       task_id: args["task_id"],
       scope_path: scope_from_args(args),
       kind: args["kind"] || args["document_type"],
-      discovery: Keyword.get(opts, :discovery, false)
+      discovery: Keyword.get(opts, :discovery, false),
+      args: args
     )
 
     :ok

@@ -6,7 +6,7 @@ defmodule Acs.AbacTest do
 
   describe "visible?/2 for org KB memories and coding-agent documents" do
     test "admin sees all visibility levels" do
-      ctx = %Abac{agent_role: "admin"}
+      ctx = %Abac{agent_role: "admin", agent_id: "admin@acme.com"}
 
       assert Abac.visible?(ctx, %{"visibility" => "org"})
       assert Abac.visible?(ctx, %{"visibility" => "team", "team" => "platform"})

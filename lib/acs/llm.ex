@@ -1,10 +1,10 @@
 defmodule Acs.LLM do
   @moduledoc """
-  LLM wrapper for Memory Auditor evaluations.
+  LLM wrapper for memory auditor + intake classification.
 
   Uses shared `LLMUtils.Client` for HTTP calls, provider configs, rate limiting,
   circuit breaking, and response normalization.
-  Keeps evaluation-specific logic: prompt building, provider iteration, contradiction detection.
+  Prompts load via `Acs.Prompts` (org vault override → builtin `priv/prompts/`).
   """
 
   require Logger
@@ -71,6 +71,48 @@ defmodule Acs.LLM do
   def evaluate_skill(skill_name, invalid) do
     {:error,
      {:invalid_input, "skill_name #{skill_name}: skill must be a map, got: #{inspect(invalid)}"}}
+  end
+
+  @doc """
+  Classify a candidate memory before save (entity, sensitivity, questions).
+
+  Returns raw decoded JSON map from the intake prompt.
+  """
+  @spec intake_classify(map()) :: {:ok, map()} | {:error, term()}
+  def intake_classify(candidate) when is_map(candidate) do
+    prompt = build_intake_prompt(candidate)
+    providers = get_enabled_providers()
+
+    if providers == [] do
+      {:error, :no_providers_enabled}
+    else
+      try_providers("intake", providers, prompt)
+    end
+  end
+
+  def intake_classify(invalid) do
+    {:error, {:invalid_input, "candidate must be a map, got: #{inspect(invalid)}"}}
+  end
+
+  @doc """
+  Classify a candidate skill before save (allow / sensitive / quality).
+
+  Single-pass; returns raw decoded JSON from `skills/intake` prompt.
+  """
+  @spec skill_intake_classify(map()) :: {:ok, map()} | {:error, term()}
+  def skill_intake_classify(candidate) when is_map(candidate) do
+    prompt = build_skill_intake_prompt(candidate)
+    providers = get_enabled_providers()
+
+    if providers == [] do
+      {:error, :no_providers_enabled}
+    else
+      try_providers("skill_intake", providers, prompt)
+    end
+  end
+
+  def skill_intake_classify(invalid) do
+    {:error, {:invalid_input, "candidate must be a map, got: #{inspect(invalid)}"}}
   end
 
   # ── Validation ────────────────────────────────────────────────────────
@@ -441,5 +483,46 @@ defmodule Acs.LLM do
     template
     |> String.replace("{{memory_json}}", memory_json)
     |> String.replace("{{existing_memories_json}}", existing_memories_json)
+  end
+
+  defp build_intake_prompt(candidate) do
+    template = load_prompt!("memory", "intake")
+
+    candidate_json =
+      Jason.encode!(%{
+        title: Map.get(candidate, "title") || Map.get(candidate, :title),
+        content: Map.get(candidate, "content") || Map.get(candidate, :content),
+        kind: Map.get(candidate, "kind") || Map.get(candidate, :kind),
+        scope_path: Map.get(candidate, "scope_path") || Map.get(candidate, :scope_path),
+        visibility: Map.get(candidate, "visibility") || Map.get(candidate, :visibility),
+        confidential: Map.get(candidate, "confidential") || Map.get(candidate, :confidential),
+        about_type: Map.get(candidate, "about_type") || Map.get(candidate, :about_type),
+        about_name: Map.get(candidate, "about_name") || Map.get(candidate, :about_name),
+        about_email: Map.get(candidate, "about_email") || Map.get(candidate, :about_email),
+        audience:
+          Map.get(candidate, "_auth_audience") || Map.get(candidate, "audience") ||
+            Map.get(candidate, :audience)
+      })
+
+    String.replace(template, "{{candidate_json}}", candidate_json)
+  end
+
+  defp build_skill_intake_prompt(candidate) do
+    template = load_prompt!("skills", "intake")
+
+    candidate_json =
+      Jason.encode!(%{
+        name: Map.get(candidate, "name") || Map.get(candidate, :name),
+        description: Map.get(candidate, "description") || Map.get(candidate, :description),
+        when_to_use: Map.get(candidate, "when_to_use") || Map.get(candidate, :when_to_use),
+        content: Map.get(candidate, "content") || Map.get(candidate, :content),
+        tags: Map.get(candidate, "tags") || Map.get(candidate, :tags) || [],
+        scope_paths: Map.get(candidate, "scope_paths") || Map.get(candidate, :scope_paths) || [],
+        audience:
+          Map.get(candidate, "_auth_audience") || Map.get(candidate, "audience") ||
+            Map.get(candidate, :audience)
+      })
+
+    String.replace(template, "{{candidate_json}}", candidate_json)
   end
 end

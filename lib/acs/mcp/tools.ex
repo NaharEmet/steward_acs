@@ -8,6 +8,7 @@ defmodule Acs.MCP.Tools do
   alias Acs.MCP.Tools.SkillHandlers
   alias Acs.MCP.Tools.AdminHandlers
   alias Acs.MCP.Tools.QueryAgent
+  alias Acs.MCP.Tools.PersonHandlers
   require Logger
 
   @tool_categories %{
@@ -31,6 +32,8 @@ defmodule Acs.MCP.Tools do
     # Knowledge (memory) tools
     "save_memory" => "knowledge",
     "query_memories" => "knowledge",
+    "get_person_status" => "knowledge",
+    "set_person_status" => "knowledge",
     "set_memory_status" => "knowledge",
     "generate_guidance_packet" => "knowledge",
     "ask" => "knowledge",
@@ -323,9 +326,72 @@ defmodule Acs.MCP.Tools do
             "type" => "array",
             "items" => %{"type" => "string"},
             "description" => "Potential failure modes"
+          },
+          "visibility" => %{
+            "type" => "string",
+            "description" =>
+              "org (default) | team | project | personal. personal = only the creator can read it."
+          },
+          "team" => %{"type" => "string", "description" => "Required when visibility=team"},
+          "project" => %{"type" => "string", "description" => "Required when visibility=project"},
+          "confidential" => %{
+            "type" => "boolean",
+            "description" => "Shortcut for visibility=personal (creator-only)."
+          },
+          "about_type" => %{
+            "type" => "string",
+            "description" =>
+              "Entity this fact is about: person | company (not who may read it — that is visibility)."
+          },
+          "about_name" => %{
+            "type" => "string",
+            "description" => "Display name of the about entity"
+          },
+          "about_email" => %{
+            "type" => "string",
+            "description" => "Email when about_type is person"
+          },
+          "intake_confirmed" => %{
+            "type" => "boolean",
+            "description" =>
+              "Set true after answering intake needs_input questions to proceed with save."
+          },
+          "about_person_email" => %{
+            "type" => "string",
+            "description" => "Legacy alias of about_email"
+          },
+          "about_person_name" => %{
+            "type" => "string",
+            "description" => "Legacy alias of about_name (implies about_type=person)"
           }
         },
         ["kind", "title", "content", "scope_path"]
+      ),
+      tool_def(
+        "get_person_status",
+        "Look up a person's job status/title and rank (high|elevated|standard). USE WHEN: first encounter with a person for authority attribution. If not found, ask once and call set_person_status.",
+        %{
+          "email" => %{"type" => "string", "description" => "Person email (preferred)"},
+          "name" => %{"type" => "string", "description" => "Person display name"}
+        },
+        []
+      ),
+      tool_def(
+        "set_person_status",
+        "Save or update a person's job status/title and rank. Ask on first encounter when get_person_status returns found=false.",
+        %{
+          "email" => %{"type" => "string", "description" => "Person email (preferred)"},
+          "name" => %{"type" => "string", "description" => "Person display name"},
+          "status" => %{
+            "type" => "string",
+            "description" => "Job title / role label, e.g. CEO, VP Sales, Engineer"
+          },
+          "rank" => %{
+            "type" => "string",
+            "description" => "Rank: high | elevated | standard (default standard)"
+          }
+        },
+        ["status"]
       ),
       tool_def(
         "query_memories",
@@ -785,6 +851,11 @@ defmodule Acs.MCP.Tools do
             "items" => %{"type" => "string"},
             "description" =>
               "Scope paths where this skill applies (e.g. guides/deployment, lib/acs/skills)"
+          },
+          "intake_confirmed" => %{
+            "type" => "boolean",
+            "description" =>
+              "Bypass intake questions after user confirmed (or after fixing). Prefer fixing then retry without this when possible."
           }
         },
         ["name", "content"]
@@ -866,6 +937,8 @@ defmodule Acs.MCP.Tools do
     "time" => &CoreHandlers.acs_time/1,
     "save_memory" => &MemoryHandlers.save_memory/1,
     "query_memories" => &MemoryHandlers.query_memories/1,
+    "get_person_status" => &PersonHandlers.get_person_status/1,
+    "set_person_status" => &PersonHandlers.set_person_status/1,
     "set_memory_status" => &MemoryHandlers.set_memory_status/1,
     "generate_guidance_packet" => &MemoryHandlers.generate_guidance_packet/1,
     "ask" => &QueryAgent.ask/1,
@@ -1246,8 +1319,10 @@ defmodule Acs.MCP.Tools do
           },
           %{
             tool: "save_memory",
-            prompt: "Save eternal truths (principles/invariants) discovered during this task",
-            params: %{kind: "learning", title: "...", content: "...", scope_path: "<scope_path>"}
+            prompt:
+              "Save eternal truths (principles/invariants) discovered during this task — read memory_protocol first",
+            params: %{kind: "learning", title: "...", content: "...", scope_path: "<scope_path>"},
+            guidance: %{memory_protocol: Acs.Memory.Guidance.memory_protocol(args["_auth_audience"])}
           },
           %{
             tool: "specs_propose",
@@ -1344,33 +1419,112 @@ defmodule Acs.MCP.Tools do
         []
 
       "save_memory" ->
-        [
-          %{
-            tool: "query_memories",
-            prompt: "Verify the saved memory is findable by search",
-            params: %{
-              query: Map.get(args, "title", ""),
-              scope_path: Map.get(args, "scope_path", "")
-            }
-          },
-          %{
-            tool: "set_memory_status",
-            prompt: "No conflicts? Approve to make visible to all agents",
-            params: %{memory_id: Map.get(result, :id, ""), status: "approved"}
-          }
-        ]
+        cond do
+          Map.get(result, :status) == "needs_scope_choice" ->
+            [
+              %{
+                tool: "save_memory",
+                prompt:
+                  "Ask the user which visibility to use, then retry with the same fields plus visibility",
+                params:
+                  Map.take(args, [
+                    "kind",
+                    "title",
+                    "content",
+                    "scope_path",
+                    "about_type",
+                    "about_name",
+                    "about_email",
+                    "about_person_email",
+                    "about_person_name",
+                    "tags",
+                    "summary"
+                  ])
+                  |> Map.put("visibility", "<org|team|project|personal>")
+              }
+            ]
+
+          Map.get(result, :status) == "needs_input" ->
+            [
+              %{
+                tool: "save_memory",
+                prompt:
+                  "Ask the user the intake questions, then retry with fixes and intake_confirmed: true",
+                params:
+                  Map.take(args, [
+                    "kind",
+                    "title",
+                    "content",
+                    "scope_path",
+                    "about_type",
+                    "about_name",
+                    "about_email",
+                    "visibility",
+                    "tags",
+                    "summary"
+                  ])
+                  |> Map.put("intake_confirmed", true)
+              }
+            ]
+
+          Map.get(result, :suggested_sensitive) == true ->
+            [
+              %{
+                tool: "save_memory",
+                prompt:
+                  "Ask if this should be personal; if yes, re-save with visibility: personal (or confidential: true)",
+                params: %{
+                  kind: Map.get(args, "kind"),
+                  title: Map.get(args, "title"),
+                  content: Map.get(args, "content"),
+                  scope_path: Map.get(args, "scope_path"),
+                  visibility: "personal",
+                  intake_confirmed: true
+                }
+              },
+              %{
+                tool: "query_memories",
+                prompt: "Verify the saved memory is findable by search",
+                params: %{
+                  query: Map.get(args, "title", ""),
+                  scope_path: Map.get(args, "scope_path", "")
+                }
+              }
+            ]
+
+          true ->
+            [
+              %{
+                tool: "query_memories",
+                prompt: "Verify the saved memory is findable by search",
+                params: %{
+                  query: Map.get(args, "title", ""),
+                  scope_path: Map.get(args, "scope_path", "")
+                }
+              },
+              %{
+                tool: "set_memory_status",
+                prompt: "No conflicts? Approve to make visible to all agents",
+                params: %{memory_id: Map.get(result, :id, ""), status: "approved"}
+              }
+            ]
+        end
 
       "query_memories" ->
         if Map.get(result, :count, 0) == 0 do
           [
             %{
               tool: "save_memory",
-              prompt: "No results — document your knowledge so others find it",
+              prompt:
+                "No results — document your knowledge so others find it (read memory_protocol first)",
               params: %{
                 kind: "learning",
                 title: "...",
                 content: "...",
                 scope_path: "<scope_path>"
+              },
+              guidance: %{
+                memory_protocol: Acs.Memory.Guidance.memory_protocol(args["_auth_audience"])
               }
             }
           ]
@@ -1718,8 +1872,11 @@ defmodule Acs.MCP.Tools do
     maybe_chat_next_steps(steps, args)
   end
 
-  # Chat surface uses documents_propose; rewrite / filter _next so chat never sees specs_*.
+  # Chat surface uses documents_propose; rewrite / filter `_next` so chat never sees specs_*.
+  # Attach memory_protocol to any save_memory suggestion so agents see consent rules before saving.
   defp maybe_chat_next_steps(steps, args) do
+    steps = Enum.map(steps, &maybe_attach_memory_guidance(&1, args))
+
     case Acs.MCP.Audience.normalize(Map.get(args, "_auth_audience")) do
       :chat ->
         steps
@@ -1730,6 +1887,20 @@ defmodule Acs.MCP.Tools do
         steps
     end
   end
+
+  defp maybe_attach_memory_guidance(%{tool: "save_memory"} = step, args) do
+    case step do
+      %{guidance: %{memory_protocol: _}} ->
+        step
+
+      _ ->
+        Map.put(step, :guidance, %{
+          memory_protocol: Acs.Memory.Guidance.memory_protocol(args["_auth_audience"])
+        })
+    end
+  end
+
+  defp maybe_attach_memory_guidance(step, _args), do: step
 
   defp rewrite_chat_next_tool(%{tool: "specs_propose"} = step),
     do: %{step | tool: "documents_propose"}
@@ -1891,7 +2062,8 @@ defmodule Acs.MCP.Tools do
         "NOT for one-line truths (use save_memory). " <>
         "REQUIRES: name, description (one sentence, distinct from name), tags, scope_paths, " <>
         "and markdown content with numbered steps, prerequisites, verification, and failure recovery. " <>
-        "Avoid: one-liners, copy-pasted memory axioms, single-bug notes, vague placeholders."
+        "Intake is single-pass and defaults to allow; only returns needs_input for secrets, unusable content, or no followable steps. " <>
+        "Retry once with fixes (or intake_confirmed: true). Lands as status: proposed for governance."
 
     instructions = Acs.Prompts.instructions("skills")
     if instructions != "", do: instructions <> "\n\n" <> base, else: base

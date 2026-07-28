@@ -223,6 +223,7 @@ defmodule Acs.MCP.Tools.QueryAgent do
     |> maybe_put(:allowed_teams, args["_auth_allowed_teams"])
     |> maybe_put(:allowed_projects, args["_auth_allowed_projects"])
     |> maybe_put(:agent_role, args["_auth_role"])
+    |> maybe_put(:agent_id, args["_auth_agent_id"])
     |> maybe_put(:audience, args["_auth_audience"])
   end
 

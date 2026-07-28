@@ -13,12 +13,16 @@ defmodule Acs.Observability.AgentOps do
   - `misuse_discovery` — unknown tool name
   - `misuse_write` — write with no prior retrieve in the same chain
   - `surprise_persist` — write after an empty retrieve (unplanned fill / invent)
+  - `intake_gate` — save_memory/skill_save blocked for clarification (slows Claude)
+  - `intake_bypass` — write used intake_confirmed after a gate
   - `win` — feedback with learned_for_agents (what worked, often unplanned)
   - `pain` — feedback with had_issues / improvements
 
   Dual-write:
   - Axiom `steward_meta_analytics` (or primary logs dataset) when Axiom is enabled
   - `acs_tool_operations` via MetaHarness when `META_HARNESS_ENABLED=true`
+    (intake gates set `error_type` like `intake_needs_input` for Analyzer clusters
+    without counting as tool failures)
   """
 
   alias Acs.Observability.AxiomLogExporter
@@ -28,6 +32,7 @@ defmodule Acs.Observability.AgentOps do
 
   @retrieve_tools ~w(ask query_memories query_specs skill_get specs_get generate_guidance_packet get_started)
   @write_tools ~w(save_memory documents_propose specs_propose skill_save set_memory_status specs_approve specs_reject)
+  @intake_tools ~w(save_memory skill_save)
   @task_tools ~w(create_work claim_work release_work submit_task_feedback list_tasks lock_file unlock_file get_present_status)
 
   @doc """
@@ -40,14 +45,30 @@ defmodule Acs.Observability.AgentOps do
   - `:execution_id`, `:task_id`
   - `:scope_path`, `:kind` — knowledge context when present on the call
   - `:discovery` — true when the tool name was unknown
+  - `:args` — original tool args (used to detect intake_confirmed bypass)
   """
   def log_tool(opts) when is_list(opts) do
     tool_name = Keyword.fetch!(opts, :tool_name)
     result = Keyword.get(opts, :result)
     discovery? = Keyword.get(opts, :discovery, false)
+    args = Keyword.get(opts, :args) || %{}
 
     {status, error_type, error_message} =
       if discovery?, do: {"discovery", nil, nil}, else: result_status(result)
+
+    intake = if discovery?, do: %{}, else: intake_meta(tool_name, result, args)
+
+    {error_type, error_message} =
+      case intake do
+        %{outcome: outcome} when outcome in ["needs_input", "needs_scope_choice"] ->
+          {"intake_#{outcome}", intake[:notes] || outcome}
+
+        %{outcome: "bypass"} ->
+          {"intake_bypass", "intake_confirmed"}
+
+        _ ->
+          {error_type, error_message}
+      end
 
     result_count = result_count(tool_name, result)
     empty_result = is_integer(result_count) and result_count == 0 and status == "success"
@@ -67,7 +88,8 @@ defmodule Acs.Observability.AgentOps do
         empty_result,
         result_count,
         write_without_retrieve,
-        after_empty_retrieve
+        after_empty_retrieve,
+        Map.get(intake, :outcome)
       )
 
     event = %{
@@ -99,7 +121,11 @@ defmodule Acs.Observability.AgentOps do
       "after_empty_retrieve" => after_empty_retrieve,
       "tool_discovered" => discovery?,
       "error_type" => error_type,
-      "error_message" => error_message && String.slice(to_string(error_message), 0, 500)
+      "error_message" => error_message && String.slice(to_string(error_message), 0, 500),
+      "intake_outcome" => Map.get(intake, :outcome),
+      "intake_source" => Map.get(intake, :source),
+      "intake_question_id" => Map.get(intake, :question_id),
+      "intake_sensitive" => Map.get(intake, :suggested_sensitive)
     }
 
     enqueue_axiom(event)
@@ -169,20 +195,84 @@ defmodule Acs.Observability.AgentOps do
   def tool_family(_), do: "other"
 
   @doc false
-  def tool_signal(true, _, _, _, _, _), do: "misuse_discovery"
+  def tool_signal(true, _, _, _, _, _, _), do: "misuse_discovery"
 
-  def tool_signal(_, "retrieve", true, _, _, _), do: "gap_empty"
+  def tool_signal(_, _, _, _, _, _, outcome)
+      when outcome in ["needs_input", "needs_scope_choice"],
+      do: "intake_gate"
 
-  def tool_signal(_, "retrieve", _, count, _, _) when is_integer(count) and count > 0,
+  def tool_signal(_, _, _, _, _, _, "bypass"), do: "intake_bypass"
+
+  def tool_signal(_, "retrieve", true, _, _, _, _), do: "gap_empty"
+
+  def tool_signal(_, "retrieve", _, count, _, _, _) when is_integer(count) and count > 0,
     do: "works"
 
-  def tool_signal(_, "write", _, _, true, _), do: "misuse_write"
+  def tool_signal(_, "write", _, _, true, _, _), do: "misuse_write"
 
-  def tool_signal(_, "write", _, _, false, true), do: "surprise_persist"
+  def tool_signal(_, "write", _, _, false, true, _), do: "surprise_persist"
 
-  def tool_signal(_, "write", _, _, _, _), do: "works"
+  def tool_signal(_, "write", _, _, _, _, _), do: "works"
 
-  def tool_signal(_, _, _, _, _, _), do: nil
+  def tool_signal(_, _, _, _, _, _, _), do: nil
+
+  @doc false
+  def intake_meta(tool_name, result, args \\ %{})
+
+  def intake_meta(tool_name, {:ok, payload}, args)
+      when tool_name in @intake_tools and is_map(payload) do
+    status = Map.get(payload, :status) || Map.get(payload, "status")
+    saved? = Map.get(payload, :saved) || Map.get(payload, "saved")
+    intake = Map.get(payload, :intake) || Map.get(payload, "intake") || %{}
+    questions = Map.get(payload, :questions) || Map.get(payload, "questions") || []
+
+    question_id =
+      case questions do
+        [%{"id" => id} | _] -> id
+        [%{id: id} | _] -> id
+        _ -> nil
+      end
+
+    source =
+      Map.get(intake, :source) || Map.get(intake, "source")
+
+    sensitive =
+      Map.get(payload, :suggested_sensitive) || Map.get(payload, "suggested_sensitive") ||
+        Map.get(intake, :suggested_sensitive) || Map.get(intake, "suggested_sensitive")
+
+    notes = Map.get(payload, :question) || Map.get(payload, "question") ||
+      Map.get(intake, :notes) || Map.get(intake, "notes")
+
+    confirmed? = truthy?(Map.get(args, "intake_confirmed") || Map.get(args, :intake_confirmed))
+
+    outcome =
+      cond do
+        status in ["needs_input", "needs_scope_choice"] -> status
+        confirmed? and (saved? == true or is_binary(status)) -> "bypass"
+        saved? == true or status in ["saved", "proposed"] -> "allowed"
+        true -> nil
+      end
+
+    if outcome do
+      %{
+        outcome: outcome,
+        source: source && to_string(source),
+        question_id: question_id,
+        suggested_sensitive: truthy?(sensitive),
+        notes: notes && to_string(notes) |> String.slice(0, 200)
+      }
+    else
+      %{}
+    end
+  end
+
+  def intake_meta(_, _, _), do: %{}
+
+  defp truthy?(true), do: true
+  defp truthy?("true"), do: true
+  defp truthy?("yes"), do: true
+  defp truthy?(1), do: true
+  defp truthy?(_), do: false
 
   @doc false
   def feedback_signal(true, learned, issues, improvements, info_needed) do
