@@ -204,8 +204,9 @@ defmodule Acs.Memory.Auditor do
   # LLM verdict stays on proposed until a human acts; don't burn providers re-auditing.
   defp already_llm_audited?(memory) do
     flags = decode_auditor_flags(memory.auditor_flags)
+    error_count = Map.get(flags, "audit_error_count", 0)
 
-    Map.has_key?(flags, "audited_at") or Map.has_key?(flags, "audit_verdict") or
+    error_count > 0 or Map.has_key?(flags, "audited_at") or Map.has_key?(flags, "audit_verdict") or
       Map.get(flags, "needs_human_review") == true
   end
 
