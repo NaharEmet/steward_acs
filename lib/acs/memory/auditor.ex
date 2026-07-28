@@ -5,15 +5,15 @@ defmodule Acs.Memory.Auditor do
 
   Polls every configured interval (default 30 seconds) for proposed memories
   that have passed their cooling-off period across **all orgs** (GenServer has
-  no request org). Skips rows that already have an LLM audit verdict (they stay
-  `proposed` until a human acts). Each memory goes through:
+  no request org). Skips rows already parked for human review or hard audit
+  errors. Each memory goes through:
   1. Cooling-off check (skip if created_at < 30s ago)
   2. Parse error skip (skip if status is parse_error)
   3. Pre-filter rules (auto-generated task feedback templates, test data patterns, 
       content length, empty scope, title==content, duplicates)
   4. LLM evaluation with context from same-scope approved memories
   5. Decision: approve / reject / human_review
-  6. DB update via Indexer
+  6. DB + vault update (approve/reject write YAML so VaultSweeper does not revert)
 
   Concurrent LLM evaluations controlled by `AUDITOR_MAX_CONCURRENCY` (default 20).
   Provider rate limiters naturally cap actual throughput — the NIM limit of 40 req/min
@@ -201,13 +201,26 @@ defmodule Acs.Memory.Auditor do
     end)
   end
 
-  # LLM verdict stays on proposed until a human acts; don't burn providers re-auditing.
+  # Skip only when parked for human review / hard failures — not when a prior
+  # bug left audit_verdict=approve|reject on a still-proposed row.
   defp already_llm_audited?(memory) do
     flags = decode_auditor_flags(memory.auditor_flags)
+    verdict = Map.get(flags, "audit_verdict")
     error_count = Map.get(flags, "audit_error_count", 0)
 
-    error_count > 0 or Map.has_key?(flags, "audited_at") or Map.has_key?(flags, "audit_verdict") or
-      Map.get(flags, "needs_human_review") == true
+    cond do
+      verdict == "human_review" ->
+        true
+
+      Map.get(flags, "needs_human_review") == true and verdict not in ["approve", "reject"] ->
+        true
+
+      error_count > 0 and verdict not in ["approve", "reject"] ->
+        true
+
+      true ->
+        false
+    end
   end
 
   defp coerce_datetime(%DateTime{} = dt), do: dt
@@ -551,12 +564,21 @@ defmodule Acs.Memory.Auditor do
     result =
       case recommendation do
         "approve" ->
-          # LLM output is advisory and may be influenced by untrusted memory content.
-          # A human must approve before content or server-owned status is changed.
-          mark_needs_human_review_with_flags(memory_id, auditor_flags)
+          case Repo.get(Schema, memory_id) do
+            nil ->
+              {:error, "Memory not found: #{memory_id}"}
+
+            memory ->
+              flags =
+                memory
+                |> apply_suggested_title(evaluation, auditor_flags)
+                |> then(&apply_improvements(memory, evaluation, &1))
+
+              update_memory_status(memory_id, "approved", flags)
+          end
 
         "reject" ->
-          mark_needs_human_review_with_flags(memory_id, auditor_flags)
+          update_memory_status(memory_id, "rejected", auditor_flags)
 
         _ ->
           # human_review or any other value
@@ -577,7 +599,68 @@ defmodule Acs.Memory.Auditor do
     result
   end
 
-  # Update memory status in DB (storage id is org-qualified in multi-tenant)
+  defp apply_suggested_title(memory, evaluation, flags) do
+    suggested = Map.get(evaluation, "suggested_title") || Map.get(evaluation, :suggested_title)
+    public_id = Indexer.public_id(memory.id, memory.org)
+
+    if suggested && is_binary(suggested) && String.trim(suggested) != "" &&
+         String.trim(suggested) != memory.title do
+      case Indexer.update_field(public_id, :title, String.trim(suggested), memory.org) do
+        {:ok, _} ->
+          Logger.info(
+            "[Acs.Memory.Auditor] Auto-improved title for #{memory.id}: '#{memory.title}' → '#{String.trim(suggested)}'"
+          )
+
+          Map.merge(flags, %{
+            title_improved: true,
+            previous_title: memory.title,
+            new_title: String.trim(suggested)
+          })
+
+        {:error, reason} ->
+          Logger.error(
+            "[Acs.Memory.Auditor] Failed to apply suggested_title for #{memory.id}: #{inspect(reason)}"
+          )
+
+          flags
+      end
+    else
+      flags
+    end
+  end
+
+  defp apply_improvements(memory, evaluation, flags) do
+    improvements = Map.get(evaluation, "improvements") || Map.get(evaluation, :improvements)
+    public_id = Indexer.public_id(memory.id, memory.org)
+
+    if improvements && is_binary(improvements) && String.trim(improvements) != "" do
+      # Re-read content in case title path already mutated the row.
+      content =
+        case Indexer.get_memory(public_id, memory.org) do
+          %{content: c} when is_binary(c) -> c
+          _ -> memory.content
+        end
+
+      new_content = content <> "\n\n---\nImprovements: " <> String.trim(improvements)
+
+      case Indexer.update_field(public_id, :content, new_content, memory.org) do
+        {:ok, _} ->
+          Logger.info("[Acs.Memory.Auditor] Auto-improved content for #{memory.id}")
+          Map.put(flags, :content_improved, true)
+
+        {:error, reason} ->
+          Logger.error(
+            "[Acs.Memory.Auditor] Failed to apply improvements for #{memory.id}: #{inspect(reason)}"
+          )
+
+          flags
+      end
+    else
+      flags
+    end
+  end
+
+  # Update memory status in DB + vault YAML (storage id is org-qualified in multi-tenant)
   defp update_memory_status(memory_id, new_status, auditor_flags) do
     flags_json = Jason.encode!(auditor_flags)
 
@@ -588,7 +671,8 @@ defmodule Acs.Memory.Auditor do
       memory ->
         public_id = Indexer.public_id(memory.id, memory.org)
 
-        with {:ok, _} <- Indexer.update_status(public_id, new_status, memory.org) do
+        with {:ok, schema} <- Indexer.update_status(public_id, new_status, memory.org),
+             :ok <- persist_status_to_vault(schema, new_status) do
           import Ecto.Query
 
           Repo.update_all(
@@ -608,6 +692,47 @@ defmodule Acs.Memory.Auditor do
       Logger.error("[Acs.Memory.Auditor] Failed to update memory #{memory_id}: #{inspect(e)}")
       {:error, e}
   end
+
+  # YAML is canonical; without this VaultSweeper re-upserts status=proposed from the file.
+  defp persist_status_to_vault(schema, new_status) when new_status in ~w(approved rejected) do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    verification =
+      case new_status do
+        "approved" ->
+          %{
+            "status" => "approved",
+            "approved_by" => "memory_auditor",
+            "approved_at" => now
+          }
+
+        "rejected" ->
+          %{
+            "status" => "rejected",
+            "rejected_by" => "memory_auditor",
+            "rejected_at" => now
+          }
+      end
+
+    attrs =
+      schema
+      |> Indexer.schema_to_memory_attrs()
+      |> Map.merge(%{"status" => new_status, "verification" => verification})
+
+    case attrs |> Acs.Memory.new() |> Acs.Memory.Loader.save() do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error(
+          "[Acs.Memory.Auditor] Failed to persist #{new_status} to vault for #{schema.id}: #{inspect(reason)}"
+        )
+
+        {:error, reason}
+    end
+  end
+
+  defp persist_status_to_vault(_schema, _status), do: :ok
 
   # Mark memory as rejected with reason
   defp mark_as_rejected(memory_id, reason) do
