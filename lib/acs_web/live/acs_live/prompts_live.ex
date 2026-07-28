@@ -78,14 +78,16 @@ defmodule AcsWeb.AcsLive.PromptsLive do
   end
 
   @impl true
-  def handle_event("editor-input", %{"value" => value}, socket) do
+  def handle_event("editor-input", %{"content" => value}, socket) do
     {:noreply, assign(socket, editor_content: value)}
   end
 
+  def handle_event("editor-input", _params, socket), do: {:noreply, socket}
+
   @impl true
-  def handle_event("save", _params, socket) do
+  def handle_event("save", params, socket) do
     prompt = socket.assigns.selected
-    content = socket.assigns.editor_content
+    content = Map.get(params, "content", socket.assigns.editor_content)
     dir = override_dir(prompt.category)
 
     case dir do
@@ -93,13 +95,26 @@ defmodule AcsWeb.AcsLive.PromptsLive do
         {:noreply, put_flash(socket, :error, "No vault prompts directory configured for this org")}
 
       dir ->
-        File.mkdir_p!(dir)
         file_path = Path.join(dir, "#{prompt.name}.md")
-        File.write!(file_path, content)
 
-        {:noreply,
-         assign(socket, original_content: content, override_exists: true, source: :custom, saving: false)
-         |> put_flash(:info, "Saved #{prompt.category}/#{prompt.name}.md to vault prompts")}
+        with :ok <- File.mkdir_p(dir),
+             :ok <- File.write(file_path, content) do
+          {:noreply,
+           socket
+           |> assign(
+             editor_content: content,
+             original_content: content,
+             override_exists: true,
+             source: :custom,
+             saving: false
+           )
+           |> load_data()
+           |> put_flash(:info, "Prompt saved successfully (#{prompt.category}/#{prompt.name}.md)")}
+        else
+          {:error, reason} ->
+            {:noreply,
+             put_flash(socket, :error, "Failed to save prompt: #{format_file_error(reason)}")}
+        end
     end
   end
 
@@ -108,16 +123,30 @@ defmodule AcsWeb.AcsLive.PromptsLive do
     prompt = socket.assigns.selected
     file_path = override_path(prompt.category, prompt.name)
 
-    if file_path && File.regular?(file_path) do
-      File.rm!(file_path)
+    cond do
+      is_nil(file_path) or not File.regular?(file_path) ->
+        {:noreply, put_flash(socket, :error, "No custom override to revert")}
 
-      builtin = load_builtin(prompt.category, prompt.name)
+      true ->
+        case File.rm(file_path) do
+          :ok ->
+            builtin = load_builtin(prompt.category, prompt.name)
 
-      {:noreply,
-       assign(socket, editor_content: builtin, original_content: builtin, override_exists: false, source: :builtin)
-       |> put_flash(:info, "Reverted to builtin prompt")}
-    else
-      {:noreply, put_flash(socket, :error, "No custom override to revert")}
+            {:noreply,
+             socket
+             |> assign(
+               editor_content: builtin,
+               original_content: builtin,
+               override_exists: false,
+               source: :builtin
+             )
+             |> load_data()
+             |> put_flash(:info, "Reverted to builtin prompt")}
+
+          {:error, reason} ->
+            {:noreply,
+             put_flash(socket, :error, "Failed to revert prompt: #{format_file_error(reason)}")}
+        end
     end
   end
 
@@ -163,6 +192,12 @@ defmodule AcsWeb.AcsLive.PromptsLive do
   end
 
   defp prompt_id(prompt), do: "#{prompt.category}/#{prompt.name}"
+
+  defp format_file_error(:eacces), do: "permission denied writing to the vault"
+  defp format_file_error(:enoent), do: "vault path does not exist"
+  defp format_file_error(:enospc), do: "no space left on device"
+  defp format_file_error(:erofs), do: "vault filesystem is read-only"
+  defp format_file_error(reason), do: inspect(reason)
 
   defp source_badge(:custom), do: "Custom override"
   defp source_badge(:builtin), do: "Builtin"
@@ -225,55 +260,57 @@ defmodule AcsWeb.AcsLive.PromptsLive do
 
         <%= if @selected do %>
           <div class="prompts-editor-section">
-            <div class="prompts-editor-header">
-              <div>
-                <div class="prompts-path">
-                  <code><%= @selected.category %>/<%= @selected.name %>.md</code>
-                  <span class={"source-tag #{@source}"}><%= source_badge(@source) %></span>
+            <form id="prompt-editor-form" phx-change="editor-input" phx-submit="save">
+              <div class="prompts-editor-header">
+                <div>
+                  <div class="prompts-path">
+                    <code><%= @selected.category %>/<%= @selected.name %>.md</code>
+                    <span class={"source-tag #{@source}"}><%= source_badge(@source) %></span>
+                  </div>
+                  <p class="text-dim" style="font-size: 0.78rem; margin-top: 4px;"><%= @selected.desc %></p>
                 </div>
-                <p class="text-dim" style="font-size: 0.78rem; margin-top: 4px;"><%= @selected.desc %></p>
+                <div class="prompts-actions">
+                  <button
+                    type="button"
+                    phx-click="revert"
+                    class="btn btn-ghost btn-sm"
+                    disabled={not @override_exists}
+                    data-confirm="Revert to the builtin prompt? Your custom override will be deleted."
+                  >
+                    Revert
+                  </button>
+                  <button
+                    type="submit"
+                    class="btn btn-primary btn-sm"
+                    disabled={@saving or @editor_content == @original_content}
+                  >
+                    <%= if @saving, do: "Saving…", else: "Save override" %>
+                  </button>
+                </div>
               </div>
-              <div class="prompts-actions">
-                <button
-                  type="button"
-                  phx-click="revert"
-                  class="btn btn-ghost btn-sm"
-                  disabled={not @override_exists}
-                  data-confirm="Revert to the builtin prompt? Your custom override will be deleted."
-                >
-                  Revert
-                </button>
-                <button
-                  type="button"
-                  phx-click="save"
-                  class="btn btn-primary btn-sm"
-                  disabled={@saving or @editor_content == @original_content}
-                >
-                  <%= if @saving, do: "Saving…", else: "Save override" %>
-                </button>
-              </div>
-            </div>
 
-            <div class="prompts-editor-body">
-              <textarea
-                id="prompt-editor"
-                class="form-control prompt-textarea"
-                phx-input="editor-input"
-                spellcheck="false"
-              ><%= @editor_content %></textarea>
-            </div>
-
-            <details class="prompts-refs">
-              <summary class="prompts-refs-summary">Template variables</summary>
-              <div class="prompts-refs-body">
-                <%= for {var, hint} <- template_vars(@selected) do %>
-                  <code><%= "{{#{var}}}" %></code> — <%= hint %><br>
-                <% end %>
-                <%= if template_vars(@selected) == [] do %>
-                  No template variables — this prompt is used as-is.
-                <% end %>
+              <div class="prompts-editor-body">
+                <textarea
+                  id={"prompt-editor-#{@selected_id}"}
+                  name="content"
+                  class="form-control prompt-textarea"
+                  phx-debounce="300"
+                  spellcheck="false"
+                ><%= @editor_content %></textarea>
               </div>
-            </details>
+
+              <details class="prompts-refs">
+                <summary class="prompts-refs-summary">Template variables</summary>
+                <div class="prompts-refs-body">
+                  <%= for {var, hint} <- template_vars(@selected) do %>
+                    <code><%= "{{#{var}}}" %></code> — <%= hint %><br>
+                  <% end %>
+                  <%= if template_vars(@selected) == [] do %>
+                    No template variables — this prompt is used as-is.
+                  <% end %>
+                </div>
+              </details>
+            </form>
           </div>
         <% else %>
           <div class="empty-state" style="margin-top: 12px;">
