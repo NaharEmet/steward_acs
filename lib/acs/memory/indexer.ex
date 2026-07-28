@@ -300,8 +300,13 @@ defmodule Acs.Memory.Indexer do
     import Ecto.Query
 
     order_by = opts[:order_by] || [desc: :updated_at]
-    org = opts[:org] || Acs.Org.current()
-    query = from m in Schema, where: m.org == ^org
+    org = Keyword.get(opts, :org, Acs.Org.current())
+
+    query =
+      case org do
+        :all -> from(m in Schema)
+        org when is_binary(org) -> from(m in Schema, where: m.org == ^org)
+      end
 
     query = apply_audience_order(query, opts[:audience])
     query = from m in query, order_by: ^order_by
