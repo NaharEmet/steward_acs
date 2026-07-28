@@ -50,7 +50,7 @@ defmodule Acs.MetaHarness.Generator do
 
   # ── Data Gathering ───────────────────────────────────────────────────────────
 
-  defp gather_all_data(analysis \\ nil) do
+  defp gather_all_data(analysis) do
     analysis = analysis || Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours)
 
     # Transform Analyzer tool_reliability into tools list format

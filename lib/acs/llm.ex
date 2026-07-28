@@ -209,7 +209,7 @@ defmodule Acs.LLM do
           llm_event: "chat",
           status: "error",
           action: "llm_call",
-          error_type: String.slice(inspect(reason), 0, 200)
+          error_type: normalize_error_type(reason)
         )
 
         try_providers(memory_id, rest, prompt, [{provider_id, reason} | errors])
@@ -296,7 +296,7 @@ defmodule Acs.LLM do
             llm_event: "chat",
             status: "error",
             action: "llm_call",
-            error_type: String.slice(inspect(reason), 0, 200)
+            error_type: normalize_error_type(reason)
           )
 
           {:error, reason}
@@ -304,16 +304,61 @@ defmodule Acs.LLM do
     end
   end
 
-  defp llm_usage(response, which) when is_map(response) do
+  @doc false
+  def usage_tokens(response) when is_map(response) do
     usage = Map.get(response, :usage) || Map.get(response, "usage") || %{}
 
-    case which do
-      :input -> Map.get(usage, :input_tokens) || Map.get(usage, "input_tokens") || Map.get(usage, :prompt_tokens)
-      :output -> Map.get(usage, :output_tokens) || Map.get(usage, "output_tokens") || Map.get(usage, :completion_tokens)
+    tokens_in =
+      Map.get(usage, :tokens_in) || Map.get(usage, "tokens_in") ||
+        Map.get(usage, :input_tokens) || Map.get(usage, "input_tokens") ||
+        Map.get(usage, :prompt_tokens) || Map.get(usage, "prompt_tokens")
+
+    tokens_out =
+      Map.get(usage, :tokens_out) || Map.get(usage, "tokens_out") ||
+        Map.get(usage, :output_tokens) || Map.get(usage, "output_tokens") ||
+        Map.get(usage, :completion_tokens) || Map.get(usage, "completion_tokens")
+
+    total =
+      Map.get(usage, :total_tokens) || Map.get(usage, "total_tokens") ||
+        case {tokens_in, tokens_out} do
+          {a, b} when is_integer(a) and is_integer(b) -> a + b
+          _ -> nil
+        end
+
+    {tokens_in, tokens_out, total}
+  end
+
+  def usage_tokens(_), do: {nil, nil, nil}
+
+  @doc false
+  def normalize_error_type(:timeout), do: "timeout"
+  def normalize_error_type({:timeout, _}), do: "timeout"
+  def normalize_error_type({:rate_limited, _, _}), do: "rate_limited"
+  def normalize_error_type({:rate_limited, _}), do: "rate_limited"
+
+  def normalize_error_type({:server_error, status, body}) when is_binary(body) do
+    cond do
+      status in [429] -> "rate_limited"
+      String.contains?(body, "ResourceExhausted") -> "capacity"
+      status in 500..599 -> "server_error"
+      true -> "server_error"
     end
   end
 
-  defp llm_usage(_, _), do: nil
+  def normalize_error_type({:server_error, status, _}) when status in 500..599, do: "server_error"
+  def normalize_error_type(reason) when is_atom(reason), do: Atom.to_string(reason)
+
+  def normalize_error_type(reason),
+    do: reason |> inspect() |> String.slice(0, 200)
+
+  defp llm_usage(response, which) do
+    {tokens_in, tokens_out, _} = usage_tokens(response)
+
+    case which do
+      :input -> tokens_in
+      :output -> tokens_out
+    end
+  end
 
   # Allow OpenAI-compatible providers to override base_url and model via env vars.
   # OPENAI_BASE_URL — override the API endpoint (e.g., http://localhost:8000/v1)
