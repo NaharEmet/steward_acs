@@ -4,7 +4,9 @@ defmodule Acs.Memory.Auditor do
   noise, contradictions, and title quality using LLM evaluation.
 
   Polls every configured interval (default 30 seconds) for proposed memories
-  that have passed their cooling-off period. Each memory goes through:
+  that have passed their cooling-off period across **all orgs** (GenServer has
+  no request org). Skips rows that already have an LLM audit verdict (they stay
+  `proposed` until a human acts). Each memory goes through:
   1. Cooling-off check (skip if created_at < 30s ago)
   2. Parse error skip (skip if status is parse_error)
   3. Pre-filter rules (auto-generated task feedback templates, test data patterns, 
@@ -190,12 +192,27 @@ defmodule Acs.Memory.Auditor do
     )
     |> Enum.reject(fn m -> !(m.kind in auditable_kinds()) end)
     |> Enum.reject(fn m -> m.parse_error && m.parse_error != "" end)
+    |> Enum.reject(&already_llm_audited?/1)
     |> Enum.filter(fn m ->
       case m.created_at do
         nil -> false
-        dt -> DateTime.compare(dt, cooling_off_threshold) == :lt
+        dt -> DateTime.compare(coerce_datetime(dt), cooling_off_threshold) == :lt
       end
     end)
+  end
+
+  # LLM verdict stays on proposed until a human acts; don't burn providers re-auditing.
+  defp already_llm_audited?(memory) do
+    flags = decode_auditor_flags(memory.auditor_flags)
+
+    Map.has_key?(flags, "audited_at") or Map.has_key?(flags, "audit_verdict") or
+      Map.get(flags, "needs_human_review") == true
+  end
+
+  defp coerce_datetime(%DateTime{} = dt), do: dt
+
+  defp coerce_datetime(%NaiveDateTime{} = ndt) do
+    DateTime.from_naive!(ndt, "Etc/UTC")
   end
 
   # Audits a single memory with retry logic

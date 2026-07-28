@@ -112,11 +112,21 @@ defmodule Acs.Memory.Indexer do
     end
   end
 
+  # VaultSweeper re-upserts every ~30s. :replace_all wiped DB-only auditor_flags
+  # and reset created_at (cooling-off), so audits never stuck in multi-tenant.
+  @upsert_preserve_fields [:id, :auditor_flags, :created_at, :parse_error]
+
   @doc """
-  Upserts a single Acs.Memory into the SQLite index.
-  Uses Repo.insert with on_conflict: :replace_all.
+  Upserts a single Acs.Memory into the index.
+
+  On conflict, replaces file-backed fields only — preserves `auditor_flags`,
+  `created_at`, and `parse_error`.
   """
   def upsert_memory(%Acs.Memory{} = memory, opts \\ []) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    created_at = parse_datetime(memory.created_at) || now
+    updated_at = parse_datetime(memory.updated_at) || now
+
     attrs = %{
       id: storage_id(memory.org, memory.id),
       kind: memory.kind,
@@ -136,8 +146,6 @@ defmodule Acs.Memory.Indexer do
       created_by_agent: get_in(memory.created_by, ["id"]),
       audience: memory.audience,
       file_path: Acs.Memory.Loader.memory_to_path(memory),
-      created_at: parse_datetime(memory.created_at),
-      updated_at: parse_datetime(memory.updated_at),
       team: memory.team,
       project: memory.project,
       visibility: memory.visibility,
@@ -148,7 +156,12 @@ defmodule Acs.Memory.Indexer do
       Retry.with_busy_retry(fn ->
         %Schema{}
         |> Schema.changeset(attrs)
-        |> Repo.insert(on_conflict: :replace_all, conflict_target: :id)
+        |> Ecto.Changeset.put_change(:created_at, created_at)
+        |> Ecto.Changeset.put_change(:updated_at, updated_at)
+        |> Repo.insert(
+          on_conflict: {:replace_all_except, @upsert_preserve_fields},
+          conflict_target: :id
+        )
       end)
 
     case result do
@@ -504,13 +517,13 @@ defmodule Acs.Memory.Indexer do
   defp format_datetime(%DateTime{} = dt), do: dt |> DateTime.to_iso8601()
   defp format_datetime(%NaiveDateTime{} = ndt), do: ndt |> NaiveDateTime.to_iso8601()
 
-  defp parse_datetime(nil), do: DateTime.utc_now()
-  defp parse_datetime(dt) when is_struct(dt, DateTime), do: dt
+  defp parse_datetime(nil), do: DateTime.utc_now() |> DateTime.truncate(:second)
+  defp parse_datetime(dt) when is_struct(dt, DateTime), do: DateTime.truncate(dt, :second)
 
   defp parse_datetime(str) when is_binary(str) do
     case DateTime.from_iso8601(str) do
-      {:ok, dt, _} -> dt
-      _ -> DateTime.utc_now()
+      {:ok, dt, _} -> DateTime.truncate(dt, :second)
+      _ -> DateTime.utc_now() |> DateTime.truncate(:second)
     end
   end
 
