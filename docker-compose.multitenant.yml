@@ -78,6 +78,15 @@ services:
       OLLAMA_URL: http://ollama:11434
       OBSIDIAN_VAULT_PATH: /vaults
       MEMORY_STORE: obsidian
+      # LLM providers (Infisical). Compose --env-file alone does not inject into
+      # the container — each key must be listed here for memory/skill auditing.
+      ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-}"
+      NIM_API_KEY: "${NIM_API_KEY:-}"
+      MIMO_API_KEY: "${MIMO_API_KEY:-}"
+      MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-}"
       # Production observability (disabled when AXIOM_LOGS is empty).
       AXIOM_LOGS: "${AXIOM_LOGS:-}"
       AXIOM_DATASET: "${AXIOM_DATASET:-steward_logs}"

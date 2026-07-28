@@ -108,6 +108,13 @@ else
   echo "compose_wires_oauth_fixed_dcr=no"
 fi
 
+# Infisical --env-file alone does not inject into the container; keys must be listed under environment:.
+if [[ -f "$COMPOSE_FILE" ]] && grep -q 'NIM_API_KEY' "$COMPOSE_FILE" 2>/dev/null; then
+  echo "compose_wires_nim_api_key=yes"
+else
+  echo "compose_wires_nim_api_key=no"
+fi
+
 docker inspect -f 'image_id={{.Image}} image_ref={{.Config.Image}} health={{.State.Health.Status}} started={{.State.StartedAt}}' steward_acs 2>/dev/null || echo steward_acs=missing
 rev=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' steward_acs 2>/dev/null || true)
 dirty=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.dirty"}}' steward_acs 2>/dev/null || true)
