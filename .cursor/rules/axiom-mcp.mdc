@@ -1,0 +1,14 @@
+---
+description: Use Axiom MCP (not curl/scripts with AXIOM_LOGS) for dashboards and queries
+alwaysApply: true
+---
+
+# Axiom via MCP
+
+When creating, updating, listing, or querying Axiom dashboards/datasets:
+
+1. **Use the `user-axiom` MCP tools** (`createDashboard`, `updateDashboard`, `listDashboards`, `queryDataset`, `getDashboard`, etc.).
+2. **Do not** rely on `AXIOM_LOGS` / ingest tokens with `curl` or `scripts/axiom-upsert-*-dashboard.sh` for dashboard create/update — ingest tokens lack `dashboards:create`.
+3. Keep dashboard **templates** in-repo (`otel/axiom-*-dashboard.json`) for version control; when shipping a new dashboard, upsert it through MCP with `uid` set (e.g. `steward-acs-llm`) and `owner: X-AXIOM-EVERYONE`.
+4. Substitute dataset placeholders (e.g. `__LOGS_DATASET__` → `steward_logs`) in the JSON before calling MCP.
+5. Scripts under `scripts/axiom-upsert-*.sh` are optional fallbacks for humans with a management `AXIOM_TOKEN` — agents should prefer MCP.

@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Create/update the Steward ACS LLM usage dashboard (tokens, latency, errors).
 #
+# Agents: prefer the user-axiom MCP `createDashboard` / `updateDashboard` tools
+# (see .cursor/rules/axiom-mcp.mdc). This script is a human fallback when you have
+# a management AXIOM_TOKEN with dashboards:create (ingest AXIOM_LOGS alone is not enough).
+#
 # Usage:
 #   AXIOM_TOKEN=xaat-… ./scripts/axiom-upsert-llm-dashboard.sh
-#   AXIOM_LOGS=xaat-… ./scripts/axiom-upsert-llm-dashboard.sh
+#   AXIOM_LOGS=xaat-… ./scripts/axiom-upsert-llm-dashboard.sh   # only if token can create dashboards
 #
 # Env:
 #   AXIOM_TOKEN / AXIOM_LOGS     API token (required)
