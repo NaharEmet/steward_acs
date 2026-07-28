@@ -1,0 +1,270 @@
+{
+  "name": "Steward ACS — LLM usage",
+  "description": "Token usage, latency, errors, and audit outcomes for Acs.LLM (memory/skill auditor). Filter action==llm_call. Dataset: steward_logs.",
+  "owner": "X-AXIOM-EVERYONE",
+  "refreshTime": 60,
+  "schemaVersion": 2,
+  "timeWindowStart": "qr-now-24h",
+  "timeWindowEnd": "qr-now",
+  "sections": [
+    {
+      "id": "7f2a1c90-a1b2-4a01-8b01-111111111111",
+      "title": "Overview",
+      "defaultCollapsed": false
+    },
+    {
+      "id": "7f2a1c90-a1b2-4a01-8b01-222222222222",
+      "title": "Tokens",
+      "defaultCollapsed": false
+    },
+    {
+      "id": "7f2a1c90-a1b2-4a01-8b01-333333333333",
+      "title": "Latency",
+      "defaultCollapsed": false
+    },
+    {
+      "id": "7f2a1c90-a1b2-4a01-8b01-444444444444",
+      "title": "Outcomes & mix",
+      "defaultCollapsed": false
+    },
+    {
+      "id": "7f2a1c90-a1b2-4a01-8b01-555555555555",
+      "title": "Errors",
+      "defaultCollapsed": false
+    }
+  ],
+  "charts": [
+    {
+      "id": "llm_calls",
+      "type": "Statistic",
+      "name": "LLM calls",
+      "colorScheme": "Blue",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-111111111111",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\"\n| count"
+      }
+    },
+    {
+      "id": "llm_ok",
+      "type": "Statistic",
+      "name": "OK",
+      "colorScheme": "Green",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-111111111111",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"ok\"\n| count"
+      }
+    },
+    {
+      "id": "llm_errors",
+      "type": "Statistic",
+      "name": "Errors",
+      "colorScheme": "Red",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-111111111111",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"error\"\n| count"
+      }
+    },
+    {
+      "id": "llm_success_rate",
+      "type": "Statistic",
+      "name": "Success rate",
+      "colorScheme": "Purple",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-111111111111",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] in (\"ok\", \"error\")\n| summarize ok=countif(['status'] == \"ok\"), n=count()\n| extend rate = iff(n == 0, 0.0, 100.0 * ok / n)\n| project rate"
+      }
+    },
+    {
+      "id": "llm_calls_over_time",
+      "type": "TimeSeries",
+      "name": "Calls by status",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-111111111111",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\"\n| summarize c=count() by bin(_time, 15m), status"
+      }
+    },
+    {
+      "id": "llm_tokens_in",
+      "type": "Statistic",
+      "name": "Tokens in",
+      "colorScheme": "Blue",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-222222222222",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['tokens_in'])\n| summarize t=sum(todouble(['tokens_in']))\n| project t"
+      }
+    },
+    {
+      "id": "llm_tokens_out",
+      "type": "Statistic",
+      "name": "Tokens out",
+      "colorScheme": "Orange",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-222222222222",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['tokens_out'])\n| summarize t=sum(todouble(['tokens_out']))\n| project t"
+      }
+    },
+    {
+      "id": "llm_tokens_avg_in",
+      "type": "Statistic",
+      "name": "Avg tokens in / call",
+      "colorScheme": "Blue",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-222222222222",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"ok\" and isnotnull(['tokens_in'])\n| summarize t=avg(todouble(['tokens_in']))\n| project t"
+      }
+    },
+    {
+      "id": "llm_tokens_avg_out",
+      "type": "Statistic",
+      "name": "Avg tokens out / call",
+      "colorScheme": "Orange",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-222222222222",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"ok\" and isnotnull(['tokens_out'])\n| summarize t=avg(todouble(['tokens_out']))\n| project t"
+      }
+    },
+    {
+      "id": "llm_tokens_over_time",
+      "type": "TimeSeries",
+      "name": "Tokens over time",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-222222222222",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"ok\"\n| summarize tokens_in=sum(todouble(['tokens_in'])), tokens_out=sum(todouble(['tokens_out'])) by bin(_time, 15m)"
+      }
+    },
+    {
+      "id": "llm_tokens_by_call_type",
+      "type": "Table",
+      "name": "Tokens by call type",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-222222222222",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"ok\"\n| summarize calls=count(), tokens_in=sum(todouble(['tokens_in'])), tokens_out=sum(todouble(['tokens_out'])), avg_in=avg(todouble(['tokens_in'])), avg_out=avg(todouble(['tokens_out'])), avg_prompt_chars=avg(todouble(['prompt_chars'])) by call_type, audience\n| order by tokens_in desc\n| limit 20"
+      }
+    },
+    {
+      "id": "llm_prompt_vs_tokens",
+      "type": "Table",
+      "name": "Prompt size vs tokens (ok calls)",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-222222222222",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"ok\" and isnotnull(['tokens_in'])\n| summarize n=count(), avg_prompt_chars=avg(todouble(['prompt_chars'])), avg_tokens_in=avg(todouble(['tokens_in'])), avg_tokens_out=avg(todouble(['tokens_out'])) by call_type, model\n| order by avg_tokens_in desc\n| limit 20"
+      }
+    },
+    {
+      "id": "llm_avg_latency",
+      "type": "Statistic",
+      "name": "Avg latency (ms)",
+      "colorScheme": "Purple",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-333333333333",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['latency_ms'])\n| summarize t=avg(todouble(['latency_ms']))\n| project t"
+      }
+    },
+    {
+      "id": "llm_p95_latency",
+      "type": "Statistic",
+      "name": "p95 latency (ms)",
+      "colorScheme": "Orange",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-333333333333",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['latency_ms'])\n| summarize t=percentile(todouble(['latency_ms']), 95)\n| project t"
+      }
+    },
+    {
+      "id": "llm_latency_over_time",
+      "type": "TimeSeries",
+      "name": "Latency p50 / p95 (ms)",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-333333333333",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['latency_ms'])\n| summarize p50=percentile(todouble(['latency_ms']), 50), p95=percentile(todouble(['latency_ms']), 95) by bin(_time, 15m)"
+      }
+    },
+    {
+      "id": "llm_latency_by_provider",
+      "type": "Table",
+      "name": "Latency by provider / model",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-333333333333",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['latency_ms'])\n| summarize calls=count(), ok=countif(['status'] == \"ok\"), avg_ms=avg(todouble(['latency_ms'])), p95_ms=percentile(todouble(['latency_ms']), 95) by provider, model\n| order by calls desc\n| limit 20"
+      }
+    },
+    {
+      "id": "llm_by_call_type",
+      "type": "TimeSeries",
+      "name": "Calls by call_type",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-444444444444",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\"\n| summarize c=count() by bin(_time, 15m), call_type"
+      }
+    },
+    {
+      "id": "llm_recommendations",
+      "type": "Table",
+      "name": "Audit recommendations (ok)",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-444444444444",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"ok\" and isnotnull(['recommendation'])\n| summarize n=count(), avg_quality=avg(todouble(['quality_score'])) by call_type, recommendation, audience\n| order by n desc\n| limit 25"
+      }
+    },
+    {
+      "id": "llm_provider_mix",
+      "type": "Table",
+      "name": "Provider / model mix",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-444444444444",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\"\n| summarize calls=count(), ok=countif(['status'] == \"ok\"), err=countif(['status'] == \"error\"), tokens_in=sum(todouble(['tokens_in'])), tokens_out=sum(todouble(['tokens_out'])) by provider, model, call_type\n| order by calls desc\n| limit 25"
+      }
+    },
+    {
+      "id": "llm_errors_by_type",
+      "type": "TimeSeries",
+      "name": "Errors by type",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-555555555555",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"error\" and isnotnull(['error_type'])\n| summarize c=count() by bin(_time, 15m), error_type"
+      }
+    },
+    {
+      "id": "llm_error_table",
+      "type": "Table",
+      "name": "Error breakdown",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-555555555555",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"error\"\n| summarize n=count(), avg_latency_ms=avg(todouble(['latency_ms'])) by error_type, provider, call_type\n| order by n desc\n| limit 30"
+      }
+    },
+    {
+      "id": "llm_recent_errors",
+      "type": "Table",
+      "name": "Recent errors",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-555555555555",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"error\"\n| project _time, error_type, provider, model, call_type, subject_id, audience, latency_ms, prompt_chars, message\n| order by _time desc\n| limit 40"
+      }
+    }
+  ],
+  "layout": [
+    {"i": "llm_calls", "x": 0, "y": 0, "w": 2, "h": 2},
+    {"i": "llm_ok", "x": 2, "y": 0, "w": 2, "h": 2},
+    {"i": "llm_errors", "x": 4, "y": 0, "w": 2, "h": 2},
+    {"i": "llm_success_rate", "x": 6, "y": 0, "w": 2, "h": 2},
+    {"i": "llm_calls_over_time", "x": 8, "y": 0, "w": 4, "h": 3},
+    {"i": "llm_tokens_in", "x": 0, "y": 3, "w": 3, "h": 2},
+    {"i": "llm_tokens_out", "x": 3, "y": 3, "w": 3, "h": 2},
+    {"i": "llm_tokens_avg_in", "x": 6, "y": 3, "w": 3, "h": 2},
+    {"i": "llm_tokens_avg_out", "x": 9, "y": 3, "w": 3, "h": 2},
+    {"i": "llm_tokens_over_time", "x": 0, "y": 5, "w": 12, "h": 3},
+    {"i": "llm_tokens_by_call_type", "x": 0, "y": 8, "w": 6, "h": 4},
+    {"i": "llm_prompt_vs_tokens", "x": 6, "y": 8, "w": 6, "h": 4},
+    {"i": "llm_avg_latency", "x": 0, "y": 12, "w": 3, "h": 2},
+    {"i": "llm_p95_latency", "x": 3, "y": 12, "w": 3, "h": 2},
+    {"i": "llm_latency_over_time", "x": 6, "y": 12, "w": 6, "h": 3},
+    {"i": "llm_latency_by_provider", "x": 0, "y": 15, "w": 12, "h": 3},
+    {"i": "llm_by_call_type", "x": 0, "y": 18, "w": 6, "h": 3},
+    {"i": "llm_recommendations", "x": 6, "y": 18, "w": 6, "h": 4},
+    {"i": "llm_provider_mix", "x": 0, "y": 21, "w": 12, "h": 4},
+    {"i": "llm_errors_by_type", "x": 0, "y": 25, "w": 12, "h": 3},
+    {"i": "llm_error_table", "x": 0, "y": 28, "w": 6, "h": 4},
+    {"i": "llm_recent_errors", "x": 6, "y": 28, "w": 6, "h": 4}
+  ]
+}
