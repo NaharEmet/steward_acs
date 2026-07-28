@@ -144,8 +144,13 @@ defmodule Acs.Memory.Auditor do
 
     proposed_memories = fetch_auditable_memories()
 
+    by_org =
+      proposed_memories
+      |> Enum.frequencies_by(& &1.org)
+      |> Enum.map_join(", ", fn {org, n} -> "#{org}=#{n}" end)
+
     Logger.info(
-      "[Acs.Memory.Auditor] Found #{length(proposed_memories)} memories to audit (concurrency: #{audit_max_concurrency()})"
+      "[Acs.Memory.Auditor] Found #{length(proposed_memories)} memories to audit (concurrency: #{audit_max_concurrency()}) orgs=[#{by_org}]"
     )
 
     if proposed_memories == [] do
@@ -170,13 +175,19 @@ defmodule Acs.Memory.Auditor do
     Logger.info("[Acs.Memory.Auditor] Audit cycle completed in #{duration}ms")
   end
 
-  # Fetches proposed memories that have passed cooling-off and are not parse_error
+  # Fetches proposed memories that have passed cooling-off and are not parse_error.
+  # Multi-tenant: GenServer has no request org, so scan all orgs (VaultSweeper pattern).
   defp auditable_kinds, do: Acs.Memory.auditable_kinds()
 
   defp fetch_auditable_memories do
     cooling_off_threshold = DateTime.utc_now() |> DateTime.add(-@cooling_off_seconds, :second)
 
-    Indexer.list_memories(status: "proposed", order_by: [asc: :created_at], limit: 200)
+    Indexer.list_memories(
+      status: "proposed",
+      order_by: [asc: :created_at],
+      limit: 200,
+      org: :all
+    )
     |> Enum.reject(fn m -> !(m.kind in auditable_kinds()) end)
     |> Enum.reject(fn m -> m.parse_error && m.parse_error != "" end)
     |> Enum.filter(fn m ->
@@ -454,13 +465,14 @@ defmodule Acs.Memory.Auditor do
   defp content_length(nil), do: 0
   defp content_length(content) when is_binary(content), do: String.length(content)
 
-  # Find potential fuzzy duplicate by title similarity
+  # Find potential fuzzy duplicate by title similarity (same org only)
   defp find_fuzzy_duplicate(memory) do
     candidates =
       Indexer.list_memories(
         scope_path: memory.scope_path,
         status: "approved",
-        limit: 20
+        limit: 20,
+        org: memory.org || Acs.Org.current()
       )
 
     memory_title = String.downcase(memory.title || "")
@@ -547,26 +559,31 @@ defmodule Acs.Memory.Auditor do
     result
   end
 
-  # Update memory status in DB
+  # Update memory status in DB (storage id is org-qualified in multi-tenant)
   defp update_memory_status(memory_id, new_status, auditor_flags) do
     flags_json = Jason.encode!(auditor_flags)
 
-    with {:ok, _} <- Indexer.update_status(memory_id, new_status) do
-      # Also update auditor_flags field
-      import Ecto.Query
-      alias Acs.Memory.Schema
-      alias Acs.Repo
+    case Repo.get(Schema, memory_id) do
+      nil ->
+        {:error, "Memory not found: #{memory_id}"}
 
-      Repo.update_all(
-        from(m in Schema, where: m.id == ^memory_id),
-        set: [
-          auditor_flags: flags_json,
-          updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
-        ]
-      )
+      memory ->
+        public_id = Indexer.public_id(memory.id, memory.org)
 
-      Logger.info("[Acs.Memory.Auditor] Memory #{memory_id} → #{new_status}")
-      :ok
+        with {:ok, _} <- Indexer.update_status(public_id, new_status, memory.org) do
+          import Ecto.Query
+
+          Repo.update_all(
+            from(m in Schema, where: m.id == ^memory_id),
+            set: [
+              auditor_flags: flags_json,
+              updated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+            ]
+          )
+
+          Logger.info("[Acs.Memory.Auditor] Memory #{memory_id} → #{new_status}")
+          :ok
+        end
     end
   rescue
     e ->
