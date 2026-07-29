@@ -250,36 +250,41 @@ defmodule Acs.Memory.Auditor do
         :ok
 
       {:error, reason} ->
-        # If LLM providers are not configured or permanently failed, skip retries immediately
-        # and mark the memory for human review instead of wasting retries.
-        if providers_unavailable?(reason) do
-          Logger.warning(
-            "[Acs.Memory.Auditor] LLM providers unavailable for #{memory_id}, marking for human review"
-          )
+        case classify_provider_failure(reason) do
+          :permanent ->
+            Logger.warning(
+              "[Acs.Memory.Auditor] LLM providers unavailable for #{memory_id}, marking for human review"
+            )
 
-          mark_for_human_review_after_max_retries(memory_id, inspect(reason))
-          :ok
-        else
-          Logger.warning(
-            "[Acs.Memory.Auditor] Audit failed for #{memory_id}: #{inspect(reason)}. Retrying in #{delay}ms"
-          )
+            mark_for_human_review_after_max_retries(memory_id, inspect(reason))
+            :ok
 
-          Process.sleep(delay)
-          with_retries(memory_id, memory, retries_left - 1, rest_delays)
+          :transient_exhausted ->
+            # All providers already failed this attempt — don't sleep×N. Leave proposed
+            # for the next audit cycle once mimo/nim recovers.
+            Logger.warning(
+              "[Acs.Memory.Auditor] All providers failed for #{memory_id}; deferring to next cycle"
+            )
+
+            :ok
+
+          :retryable ->
+            Logger.warning(
+              "[Acs.Memory.Auditor] Audit failed for #{memory_id}: #{inspect(reason)}. Retrying in #{delay}ms"
+            )
+
+            Process.sleep(delay)
+            with_retries(memory_id, memory, retries_left - 1, rest_delays)
         end
     end
   end
 
   # Detect if the error is caused by missing LLM API keys (provider unavailability).
-  # Only matches actual configuration issues — runtime failures (bad JSON, rate limits, HTTP errors)
-  # pass through so retry logic handles them.
-  defp providers_unavailable?(:no_providers_enabled), do: true
-
-  # All providers failed at runtime — providers ARE available and tried,
-  # they just all happened to fail. Let retry logic handle these.
-  defp providers_unavailable?({:all_providers_failed, _errors}), do: false
-
-  defp providers_unavailable?(_), do: false
+  # all_providers_failed = every provider already tried this round — stop retries,
+  # but leave the memory proposed for the next cycle (not human_review).
+  defp classify_provider_failure(:no_providers_enabled), do: :permanent
+  defp classify_provider_failure({:all_providers_failed, _errors}), do: :transient_exhausted
+  defp classify_provider_failure(_), do: :retryable
 
   # Mark memory for human review after max retries when providers are truly unavailable
   defp mark_for_human_review_after_max_retries(memory_id, reason) do

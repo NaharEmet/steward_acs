@@ -324,6 +324,7 @@ defmodule Acs.LLM do
             status: "ok",
             action: "llm_call",
             call_type: call_type,
+            audience: "system",
             prompt_chars: prompt_chars,
             tokens_in: llm_usage(response, :input),
             tokens_out: llm_usage(response, :output)
@@ -343,6 +344,7 @@ defmodule Acs.LLM do
             status: "error",
             action: "llm_call",
             call_type: call_type,
+            audience: "system",
             error_type: "unexpected_response_format"
           )
 
@@ -359,6 +361,7 @@ defmodule Acs.LLM do
             status: "error",
             action: "llm_call",
             call_type: call_type,
+            audience: "system",
             error_type: normalize_error_type(reason)
           )
 

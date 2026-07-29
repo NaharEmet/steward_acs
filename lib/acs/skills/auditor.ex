@@ -181,6 +181,11 @@ defmodule Acs.Skills.Auditor do
       {:error, :no_providers_enabled} ->
         {:error, :no_providers_enabled}
 
+      # Every enabled provider already failed this round — don't sleep/retry×N
+      # (was burning auditors during NIM 503/timeout storms before mimo recovered).
+      {:error, {:all_providers_failed, _} = reason} ->
+        {:error, reason}
+
       {:error, reason} ->
         Logger.warning(
           "[Acs.Skills.Auditor] Audit failed for #{skill.name}: #{inspect(reason)}. Retrying..."

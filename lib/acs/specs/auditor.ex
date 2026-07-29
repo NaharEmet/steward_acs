@@ -221,6 +221,9 @@ defmodule Acs.Specs.Auditor do
       {:error, :no_providers_enabled} ->
         {:error, :no_providers_enabled}
 
+      {:error, {:all_providers_failed, _} = reason} ->
+        {:error, reason}
+
       {:error, reason} ->
         Logger.warning(
           "[Acs.Specs.Auditor] Audit failed for #{entry.app}/#{entry.id}: #{inspect(reason)}. Retrying..."

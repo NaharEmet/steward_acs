@@ -84,13 +84,23 @@ defmodule AcsWeb.Plugs.ResolveOrg do
     |> assign(:current_org, slug)
   end
 
+  # Scanner noise (www/m/portal/…) is expected — 404 is enough. Keep WARN for
+  # hosts that look like a real org slug so misconfigured tenants stay visible.
+  @noise_hosts ~w(www m portal erp members internal mail smtp ftp api cdn staging test)
+
   defp unknown_host(conn) do
-    Logger.warning("unknown org host",
+    meta = [
       action: "org_resolve",
       status: "404",
       error_type: "unknown_host",
       org: conn.host
-    )
+    ]
+
+    if noise_host?(conn.host) do
+      Logger.debug("unknown org host", meta)
+    else
+      Logger.warning("unknown org host", meta)
+    end
 
     conn
     |> assign(:host_type, :unknown)
@@ -98,6 +108,15 @@ defmodule AcsWeb.Plugs.ResolveOrg do
     |> send_resp(404, "unknown org")
     |> halt()
   end
+
+  defp noise_host?(host) when is_binary(host) do
+    case Acs.Org.extract_subdomain(host) do
+      sub when is_binary(sub) -> String.downcase(sub) in @noise_hosts
+      _ -> true
+    end
+  end
+
+  defp noise_host?(_), do: true
 
   defp account_host?(host) when is_binary(host) do
     case Application.get_env(:steward_acs, :account_host, "localhost") do

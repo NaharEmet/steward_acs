@@ -32,6 +32,7 @@ defmodule Acs.Application do
 
     meta_harness_children =
       if meta_harness_enabled?() do
+        _ = Acs.MetaHarness.RecentOps.setup()
         [Acs.MetaHarness.OperationLogger, Acs.MetaHarness.Scheduler]
       else
         []
@@ -237,6 +238,6 @@ defmodule Acs.Application do
   end
 
   defp meta_harness_enabled? do
-    System.get_env("META_HARNESS_ENABLED", "false") == "true"
+    System.get_env("META_HARNESS_ENABLED", "true") == "true"
   end
 end

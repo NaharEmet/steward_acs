@@ -22,18 +22,19 @@ defmodule Acs.MetaHarness.Analyzer do
 
   ## Options
     - `:timeframe` - Analysis window: `:last_24_hours`, `:last_7_days`, `:last_30_days` (default: `:last_24_hours`)
-    - `:min_sample_size` - Minimum samples needed for reliable stats (default: 5)
+    - `:min_sample_size` - Minimum samples needed for reliable stats (default: 1)
     - `:min_cluster_size` - Minimum occurrences for error cluster detection (default: 2)
   """
   @spec analyze(keyword()) :: map()
   def analyze(opts \\ []) do
     timeframe = Keyword.get(opts, :timeframe, :last_24_hours)
-    min_sample = Keyword.get(opts, :min_sample_size, 5)
+    # Sparse prod traffic — 1 sample is enough to ship meta.tool (was 5).
+    min_sample = Keyword.get(opts, :min_sample_size, 1)
     min_cluster = Keyword.get(opts, :min_cluster_size, 2)
 
     {start_time, end_time} = calculate_time_range(timeframe)
 
-    %{
+    analysis = %{
       tool_reliability: analyze_tool_reliability(start_time, end_time, min_sample),
       latency_analysis: analyze_latency(start_time, end_time, min_sample),
       error_clusters: find_error_clusters(start_time, end_time, min_cluster),
@@ -43,9 +44,41 @@ defmodule Acs.MetaHarness.Analyzer do
         analyzed_at: DateTime.utc_now(),
         timeframe: timeframe,
         start_time: start_time,
-        end_time: end_time
+        end_time: end_time,
+        source: "postgres"
       }
     }
+
+    maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster)
+  end
+
+  # When Postgres dual-write is empty/broken, roll up from in-memory RecentOps
+  # (same events AgentOps already recorded). Ingest-only AXIOM_LOGS cannot query.
+  defp maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster) do
+    if map_size(analysis.tool_reliability) > 0 do
+      analysis
+    else
+      start_ms = DateTime.to_unix(start_time, :millisecond)
+      end_ms = DateTime.to_unix(end_time, :millisecond)
+
+      ets =
+        Acs.MetaHarness.RecentOps.analyze(start_ms, end_ms,
+          min_sample_size: min_sample,
+          min_cluster_size: min_cluster
+        )
+
+      if map_size(ets.tool_reliability) == 0 do
+        analysis
+      else
+        Logger.info(
+          "[Analyzer] Postgres empty — using RecentOps ETS fallback (#{map_size(ets.tool_reliability)} tools)"
+        )
+
+        analysis
+        |> Map.merge(Map.take(ets, [:tool_reliability, :latency_analysis, :error_clusters, :intake_friction, :agent_behavior]))
+        |> put_in([:metadata, :source], "ets_fallback")
+      end
+    end
   end
 
   @doc """

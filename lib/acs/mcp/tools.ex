@@ -985,6 +985,9 @@ defmodule Acs.MCP.Tools do
   end
 
   def call_tool(name, args) do
+    # Chat OAuth: agents often pass agent_id "" (coding get_started habit). Blank means
+    # "use authenticated identity" — don't require a separate agent name.
+    args = coerce_blank_agent_id(args)
     Logger.info("MCP tool: #{name} - #{tool_action_summary(name, args)}")
 
     with :ok <- validate_agent_identity(args) do
@@ -1022,13 +1025,33 @@ defmodule Acs.MCP.Tools do
     end
   end
 
+  defp coerce_blank_agent_id(args) when is_map(args) do
+    requested = Map.get(args, "agent_id")
+    auth_identity = Map.get(args, "_auth_agent_id")
+
+    cond do
+      blank_agent_id?(requested) and is_binary(auth_identity) and auth_identity != "" ->
+        Map.put(args, "agent_id", auth_identity)
+
+      blank_agent_id?(requested) ->
+        Map.delete(args, "agent_id")
+
+      true ->
+        args
+    end
+  end
+
+  defp blank_agent_id?(nil), do: true
+  defp blank_agent_id?(id) when is_binary(id), do: String.trim(id) == ""
+  defp blank_agent_id?(_), do: false
+
   defp validate_agent_identity(args) do
     requested = Map.get(args, "agent_id")
     auth_identity = Map.get(args, "_auth_agent_id")
     auth_role = Map.get(args, "_auth_role")
 
     cond do
-      is_nil(requested) ->
+      is_nil(requested) or blank_agent_id?(requested) ->
         :ok
 
       auth_role == "admin" ->

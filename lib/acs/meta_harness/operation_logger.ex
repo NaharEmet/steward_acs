@@ -76,6 +76,9 @@ defmodule Acs.MetaHarness.OperationLogger do
       inserted_at: DateTime.utc_now() |> DateTime.truncate(:second)
     }
 
+    # Always keep an in-memory copy for Analyzer fallback (Axiom ingest can't query).
+    Acs.MetaHarness.RecentOps.record(entry)
+
     if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
       if Process.whereis(__MODULE__) do
         send(__MODULE__, {:buffer, entry})
@@ -132,33 +135,31 @@ defmodule Acs.MetaHarness.OperationLogger do
 
     if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
       try do
-        Acs.Repo.transaction(fn ->
-          Ecto.Adapters.SQL.query(
-            Acs.Repo,
-            """
-              INSERT INTO acs_tool_operations (tool_name, status, latency_ms, error_type, error_message, agent_id, execution_id, execution_chain_id, sequence_order, attempt, tool_discovered, error_burst, params_hash, created_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-              attrs["tool_name"],
-              attrs["status"],
-              attrs["latency_ms"],
-              attrs["error_type"],
-              attrs["error_message"],
-              attrs["agent_id"],
-              attrs["execution_id"],
-              attrs["execution_chain_id"],
-              attrs["sequence_order"],
-              attrs["attempt"],
-              attrs["tool_discovered"],
-              attrs["error_burst"],
-              attrs["params_hash"],
-              DateTime.utc_now() |> DateTime.truncate(:second)
-            ]
-          )
-        end)
+        entry = %{
+          tool_name: attrs["tool_name"],
+          status: attrs["status"],
+          latency_ms: attrs["latency_ms"],
+          error_type: attrs["error_type"],
+          error_message: attrs["error_message"],
+          agent_id: attrs["agent_id"],
+          execution_id: attrs["execution_id"],
+          execution_chain_id: attrs["execution_chain_id"],
+          sequence_order: attrs["sequence_order"],
+          attempt: attrs["attempt"],
+          tool_discovered: attrs["tool_discovered"],
+          error_burst: attrs["error_burst"],
+          params_hash: attrs["params_hash"],
+          inserted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        }
 
-        :ok
+        case insert_operation(entry) do
+          {:ok, _} ->
+            :ok
+
+          {:error, reason} ->
+            Logger.warning("[OperationLogger] Failed to log operation: #{inspect(reason)}")
+            :ok
+        end
       rescue
         e ->
           Logger.warning("[OperationLogger] Failed to log operation: #{inspect(e)}")
@@ -314,35 +315,24 @@ defmodule Acs.MetaHarness.OperationLogger do
   defp flush_buffer(buffer) when is_list(buffer) do
     if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
       try do
-        Acs.Repo.transaction(fn ->
-          Enum.each(buffer, fn entry ->
-            Ecto.Adapters.SQL.query(
-              Acs.Repo,
-              """
-                INSERT INTO acs_tool_operations (tool_name, status, latency_ms, error_type, error_message, agent_id, execution_id, execution_chain_id, sequence_order, attempt, tool_discovered, error_burst, params_hash, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              """,
-              [
-                entry.tool_name,
-                entry.status,
-                entry.latency_ms,
-                entry.error_type,
-                entry.error_message,
-                entry.agent_id,
-                entry.execution_id,
-                entry.execution_chain_id,
-                entry.sequence_order,
-                entry.attempt,
-                entry.tool_discovered,
-                entry.error_burst,
-                entry.params_hash,
-                entry.inserted_at
-              ]
-            )
-          end)
-        end)
+        case Acs.Repo.transaction(fn ->
+               Enum.each(buffer, fn entry ->
+                 case insert_operation(entry) do
+                   {:ok, _} ->
+                     :ok
 
-        :ok
+                   {:error, reason} ->
+                     # Fail the transaction — previously {:error,_} was ignored and flushes
+                     # looked successful while Neon stayed empty (missing id serial).
+                     Acs.Repo.rollback(reason)
+                 end
+               end)
+
+               :ok
+             end) do
+          {:ok, :ok} -> :ok
+          {:error, reason} -> {:error, reason}
+        end
       rescue
         e ->
           Logger.warning("[OperationLogger] Flush failed: #{inspect(e)}")
@@ -351,6 +341,32 @@ defmodule Acs.MetaHarness.OperationLogger do
     else
       {:error, :repo_not_available}
     end
+  end
+
+  defp insert_operation(entry) do
+    Ecto.Adapters.SQL.query(
+      Acs.Repo,
+      """
+        INSERT INTO acs_tool_operations (tool_name, status, latency_ms, error_type, error_message, agent_id, execution_id, execution_chain_id, sequence_order, attempt, tool_discovered, error_burst, params_hash, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      """,
+      [
+        entry.tool_name,
+        entry.status,
+        entry.latency_ms,
+        entry.error_type,
+        entry.error_message,
+        entry.agent_id,
+        entry.execution_id,
+        entry.execution_chain_id,
+        entry.sequence_order,
+        entry.attempt,
+        entry.tool_discovered,
+        entry.error_burst,
+        entry.params_hash,
+        entry.inserted_at
+      ]
+    )
   end
 
   defp extract_result_info({:ok, _}) do
