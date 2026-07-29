@@ -1,0 +1,14 @@
+---
+description: Work on shared dev; promote to main only on deploy
+alwaysApply: true
+---
+
+# Git: `dev` daily, `main` on deploy
+
+- **`dev`** = all day-to-day commits and pushes. Stay here.
+- **`main`** = production. Touch only when the user says deploy / promote / ship.
+
+Never create or switch branches (no `fix/*`, no cloud/`auto-*`) unless the user names the branch in this message. Never revert/reset commits unless asked.
+
+Daily: commit when asked → `git push -u origin HEAD` on `dev`.
+Deploy (user-asked only): push `dev`, then promote `dev` → `main` (fast-forward push or PR). No feature branches.
