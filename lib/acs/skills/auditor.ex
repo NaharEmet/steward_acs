@@ -95,6 +95,7 @@ defmodule Acs.Skills.Auditor do
   def audit_all(skills \\ nil) do
     skills =
       (skills || Store.list_skills())
+      |> Enum.reject(&already_audited?/1)
       |> Enum.map(fn meta -> Store.get_skill(meta["name"]) end)
       |> Enum.reject(&is_nil/1)
 
@@ -121,6 +122,12 @@ defmodule Acs.Skills.Auditor do
     )
 
     results
+  end
+
+  defp already_audited?(meta) do
+    has_status = meta["audit_status"] && meta["audit_status"] != ""
+    has_audited_at = meta["audited_at"] && meta["audited_at"] != ""
+    has_status and has_audited_at
   end
 
   defp audit_one(skill) do
