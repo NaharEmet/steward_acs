@@ -15,6 +15,7 @@ defmodule Acs.Memory.HybridSearch do
   alias Acs.Memory.{Indexer, VectorIndex, Embedding}
 
   @default_limit 20
+  @default_min_score 0.41
 
   @doc """
   Performs hybrid search across memory corpus.
@@ -32,6 +33,7 @@ defmodule Acs.Memory.HybridSearch do
   """
   def search(query, opts \\ []) when is_binary(query) do
     limit = Keyword.get(opts, :limit, @default_limit)
+    min_score = Keyword.get(opts, :min_score, @default_min_score)
     scope = Keyword.get(opts, :scope, nil)
     audience = Keyword.get(opts, :audience)
     team_filter = Keyword.get(opts, :team_filter)
@@ -86,6 +88,7 @@ defmodule Acs.Memory.HybridSearch do
           total_score: Float.round(total, 4)
         }
       end)
+      |> Enum.filter(&(&1.total_score >= min_score))
       |> Enum.sort_by(& &1.total_score, :desc)
       |> Enum.take(limit)
 

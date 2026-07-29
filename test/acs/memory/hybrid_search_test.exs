@@ -41,6 +41,16 @@ defmodule Acs.Memory.HybridSearchTest do
       assert is_map(result)
       assert result.results == []
     end
+
+    test "drops weak content-only matches by default" do
+      setup_test_memories("test_hybrid_weak")
+      result = HybridSearch.search("deleting cache entries", limit: 10)
+
+      assert is_map(result)
+      assert result.results == []
+    after
+      cleanup_test_memories("test_hybrid_weak")
+    end
   end
 
   describe "scoring functions" do

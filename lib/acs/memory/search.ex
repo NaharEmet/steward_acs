@@ -21,6 +21,15 @@ defmodule Acs.Memory.Search do
   - `:mode` - "auto" (default), "keyword", or "semantic"
   - Other options passed through to the underlying search (scope_path, kind, limit, etc.)
   """
+  @doc """
+  Normalize MCP status filter: omit/`nil`/`""` → `"approved"`; `"all"` → no filter (`nil`).
+  """
+  def resolve_status_filter(nil), do: "approved"
+  def resolve_status_filter(""), do: "approved"
+  def resolve_status_filter("all"), do: nil
+  def resolve_status_filter(status) when is_binary(status), do: status
+  def resolve_status_filter(_), do: "approved"
+
   def search(query, opts \\ []) do
     mode = Keyword.get(opts, :mode, "auto")
 
@@ -75,6 +84,7 @@ defmodule Acs.Memory.Search do
         memory_ids
         |> Enum.map(fn id -> Map.get(memories_map, id) end)
         |> Enum.reject(&is_nil/1)
+        |> apply_status_filter(opts)
       end
     else
       Logger.warning("[Search] Hybrid search unavailable, falling back to keyword search")
@@ -97,8 +107,9 @@ defmodule Acs.Memory.Search do
           memory_ids
           |> Enum.map(fn id -> Map.get(memories_map, id) end)
           |> Enum.reject(&is_nil/1)
+          |> apply_status_filter(opts)
 
-        {memories, scores_map}
+        {memories, Map.take(scores_map, Enum.map(memories, & &1.id))}
       end
     else
       Logger.warning("[Search] Hybrid search unavailable, falling back to keyword search")
@@ -122,6 +133,7 @@ defmodule Acs.Memory.Search do
             memory_ids
             |> Enum.map(fn id -> Map.get(memories_map, id) end)
             |> Enum.reject(&is_nil/1)
+            |> apply_status_filter(opts)
           end
 
         {:error, _reason} ->
@@ -152,8 +164,9 @@ defmodule Acs.Memory.Search do
               memory_ids
               |> Enum.map(fn id -> Map.get(memories_map, id) end)
               |> Enum.reject(&is_nil/1)
+              |> apply_status_filter(opts)
 
-            {memories, scores_map}
+            {memories, Map.take(scores_map, Enum.map(memories, & &1.id))}
           end
 
         {:error, _reason} ->
@@ -162,6 +175,22 @@ defmodule Acs.Memory.Search do
     else
       Logger.warning("[Search] Embeddings unavailable for semantic search")
       {[], %{}}
+    end
+  end
+
+  defp apply_status_filter(memories, opts) do
+    case Keyword.get(opts, :status) do
+      nil ->
+        memories
+
+      statuses when is_list(statuses) ->
+        Enum.filter(memories, &(&1.status in statuses))
+
+      status when is_binary(status) ->
+        Enum.filter(memories, &(&1.status == status))
+
+      _ ->
+        memories
     end
   end
 

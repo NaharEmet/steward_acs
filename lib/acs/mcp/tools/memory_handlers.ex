@@ -124,7 +124,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     base_opts = [
       scope_path: args["scope_path"] || args["scope"],
       kind: args["kind"],
-      status: args["status"],
+      status: Acs.Memory.Search.resolve_status_filter(args["status"]),
       limit: args["limit"] || 50,
       org: Acs.Org.current(),
       allowed_teams: args["_auth_allowed_teams"],
@@ -195,10 +195,15 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     status = args["status"]
 
     valid_statuses = ~w(approved rejected stale deprecated)
+    chat? = Acs.MCP.Audience.normalize(args["_auth_audience"]) == :chat
 
     cond do
       status not in valid_statuses ->
         {:error, "Invalid status '#{status}'. Must be one of: #{Enum.join(valid_statuses, ", ")}"}
+
+      chat? and status not in ~w(stale deprecated) ->
+        {:error,
+         "Chat can only mark memories stale or deprecated. Use status: \"stale\" (outdated) or \"deprecated\" (retired)."}
 
       true ->
         case Acs.Memory.Indexer.update_status(memory_id, status, Acs.Org.current()) do

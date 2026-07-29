@@ -44,7 +44,7 @@ defmodule Acs.MCP.Tools.QueryAgent do
   defp search_memories(args, abac_opts, limit) do
     query = args["content_query"]
     kind = args["kind"]
-    status = args["status"]
+    status = Acs.Memory.Search.resolve_status_filter(args["status"])
     team = args["team"]
     project = args["project"]
 

@@ -22,7 +22,6 @@ defmodule Acs.MCP.CoreToolRoles do
     app_configure
     app_remove
     write_tool
-    set_memory_status
     ack_error_trace
     resolve_error_trace
     create_task_from_error_trace
@@ -51,6 +50,7 @@ defmodule Acs.MCP.CoreToolRoles do
     help
     save_memory
     query_memories
+    set_memory_status
     get_person_status
     set_person_status
     generate_guidance_packet
@@ -68,10 +68,12 @@ defmodule Acs.MCP.CoreToolRoles do
 
   # Curated tools for chat connectors — must match chat system prompt / guidance.
   # Chat says "documents", not "specs" — use documents_propose (alias of specs_propose).
+  # set_memory_status on chat is limited to stale/deprecated in MemoryHandlers.
   @chat_surface ~w(
     get_started
     ask
     save_memory
+    set_memory_status
     get_person_status
     set_person_status
     documents_propose

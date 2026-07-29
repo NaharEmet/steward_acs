@@ -16,6 +16,7 @@ defmodule Acs.Specs.Search do
   alias Acs.Specs.Loader
 
   @max_results 20
+  @default_min_score 0.45
 
   @doc """
   Search across all loaded spec entries. Returns `{:ok, [%Entry{}]}` or `{:ok, [%{chunk_map}]}`.
@@ -80,10 +81,15 @@ defmodule Acs.Specs.Search do
   defp search_semantic(query, opts) do
     limit = opts[:limit] || @max_results
     app = opts[:app]
+    min_score = Keyword.get(opts, :min_score, @default_min_score)
 
     case Acs.Specs.VectorSearch.search(query, limit: limit, app: app) do
       {:ok, results} ->
-        enriched = Enum.map(results, &enrich_rag_result/1)
+        enriched =
+          results
+          |> Enum.filter(&(&1.similarity >= min_score))
+          |> Enum.map(&enrich_rag_result/1)
+
         {:ok, enriched}
 
       {:error, reason} ->
@@ -95,6 +101,7 @@ defmodule Acs.Specs.Search do
   defp search_hybrid(query, opts) do
     limit = opts[:limit] || @max_results
     app = opts[:app]
+    min_score = Keyword.get(opts, :min_score, @default_min_score)
 
     keyword_opts = Keyword.put(opts, :mode, "keyword")
     {:ok, keyword_results} = search_keyword(query, keyword_opts)
@@ -126,6 +133,7 @@ defmodule Acs.Specs.Search do
 
         merged =
           (keyword_scored ++ semantic_scored)
+          |> Enum.filter(&(&1.score >= min_score))
           |> Enum.sort_by(& &1.score, :desc)
           |> Enum.take(limit)
 
