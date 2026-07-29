@@ -4,7 +4,7 @@ defmodule AcsWeb.AcsLive.SpecsLive do
 
   Provides:
   - List all specs/documents with status filters (proposed, approved, deprecated, etc.)
-  - Detail view with full content
+  - Full-document popup viewer
   - Approve/reject/delete actions
   - Stats summary
   """
@@ -59,12 +59,19 @@ defmodule AcsWeb.AcsLive.SpecsLive do
 
   @impl true
   def handle_event("select-spec-detail", %{"app" => app, "id" => id}, socket) do
-    case Loader.load(app, id) do
-      {:ok, entry} ->
-        {:noreply, assign(socket, selected_spec: entry)}
+    selected = socket.assigns.selected_spec
 
-      _ ->
-        {:noreply, socket}
+    if selected && selected.app == app && selected.id == id do
+      {:noreply, assign(socket, selected_spec: nil)}
+    else
+      entry =
+        Enum.find(socket.assigns.specs, &(&1.app == app && &1.id == id)) ||
+          case Loader.load(app, id) do
+            {:ok, e} -> e
+            _ -> nil
+          end
+
+      {:noreply, assign(socket, selected_spec: entry)}
     end
   end
 
@@ -279,6 +286,24 @@ defmodule AcsWeb.AcsLive.SpecsLive do
     end)
   end
 
+  # List-row snippet: purpose for module specs, content for documents.
+  defp document_preview(%{purpose: purpose}) when is_binary(purpose) and purpose != "" do
+    truncate_preview(purpose)
+  end
+
+  defp document_preview(%{content: content}) when is_binary(content) and content != "" do
+    content
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+    |> truncate_preview()
+  end
+
+  defp document_preview(_), do: nil
+
+  defp truncate_preview(text) do
+    if String.length(text) > 150, do: String.slice(text, 0, 150) <> "...", else: text
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -377,73 +402,101 @@ defmodule AcsWeb.AcsLive.SpecsLive do
         <% end %>
       </div>
 
-      <!-- Specs List + Detail Panel -->
-      <div style="display: flex; gap: 24px; align-items: flex-start;">
-        <!-- List -->
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-          <%= if Enum.empty?(@specs) do %>
-            <div class="card" style="padding: 48px;">
-              <div class="empty-state">
-                <div class="empty-state-icon">◈</div>
-                <p class="empty-state-title">
-                  <%= if @search_query != "" do %>
-                    No documents match your search
-                  <% else %>
-                    No documents found
-                  <% end %>
-                </p>
-                <p class="empty-state-desc">
-                  Use the document tools via agents or create documents manually.
-                </p>
-              </div>
+      <!-- Document list -->
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <%= if Enum.empty?(@specs) do %>
+          <div class="card" style="padding: 48px;">
+            <div class="empty-state">
+              <div class="empty-state-icon">◈</div>
+              <p class="empty-state-title">
+                <%= if @search_query != "" do %>
+                  No documents match your search
+                <% else %>
+                  No documents found
+                <% end %>
+              </p>
+              <p class="empty-state-desc">
+                Use the document tools via agents or create documents manually.
+              </p>
             </div>
-          <% else %>
-            <%= for entry <- @specs do %>
-              <div
-                phx-click="select-spec-detail"
-                phx-value-app={entry.app}
-                phx-value-id={entry.id}
-                class={"tool-row #{if !@selected_spec || @selected_spec.app != entry.app || @selected_spec.id != entry.id, do: "", else: "selected"}"}
-                style="cursor: pointer;"
-              >
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <span class={"status-dot status-#{entry.status || "unknown"}"}></span>
-                  <span class="category-badge"><%= entry.app %></span>
-                  <span style="flex: 1; font-weight: 500; font-size: 0.88rem; color: var(--text);">
-                    <%= entry.title || entry.id %>
+          </div>
+        <% else %>
+          <%= for entry <- @specs do %>
+            <div
+              phx-click="select-spec-detail"
+              phx-value-app={entry.app}
+              phx-value-id={entry.id}
+              class={"tool-row #{if @selected_spec && @selected_spec.app == entry.app && @selected_spec.id == entry.id, do: "selected"}"}
+              style="cursor: pointer;"
+            >
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span class={"status-dot status-#{entry.status || "unknown"}"}></span>
+                <span class="category-badge"><%= entry.app %></span>
+                <%= if entry.document_type do %>
+                  <span class="category-badge"><%= entry.document_type %></span>
+                <% end %>
+                <span style="flex: 1; font-weight: 500; font-size: 0.88rem; color: var(--text);">
+                  <%= entry.title || entry.id %>
+                </span>
+                <span style="font-size: 0.7rem; color: var(--muted); font-family: var(--font-mono);">
+                  v<%= entry.version || "?" %>
+                </span>
+                <span style="font-size: 0.7rem; color: var(--muted);">
+                  <%= entry.id %>
+                </span>
+                <%= if entry.verification_status do %>
+                  <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: var(--bg-elevated); color: var(--muted);">
+                    <%= entry.verification_status %>
                   </span>
-                  <span style="font-size: 0.7rem; color: var(--muted); font-family: var(--font-mono);">
-                    v<%= entry.version || "?" %>
-                  </span>
-                  <span style="font-size: 0.7rem; color: var(--muted);">
-                    <%= entry.id %>
-                  </span>
-                  <%= if entry.verification_status do %>
-                    <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: var(--bg-elevated); color: var(--muted);">
-                      <%= entry.verification_status %>
-                    </span>
-                  <% end %>
-                </div>
-                <%= if is_binary(entry.purpose) do %>
-                  <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 4px; margin-left: 22px;">
-                    <%= String.slice(entry.purpose, 0, 150) %><%= if String.length(entry.purpose) > 150, do: "..." %>
-                  </div>
                 <% end %>
               </div>
-            <% end %>
+              <%= if preview = document_preview(entry) do %>
+                <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 4px; margin-left: 22px;">
+                  <%= preview %>
+                </div>
+              <% end %>
+            </div>
           <% end %>
-        </div>
+        <% end %>
+      </div>
 
-        <!-- Detail Panel -->
-        <%= if @selected_spec do %>
-          <div class="card" style="flex: 0 0 480px; padding: 24px; position: sticky; top: 16px; max-height: calc(100vh - 140px); overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span class={"status-dot status-#{@selected_spec.status || "unknown"}"}></span>
-                <span class="category-badge"><%= @selected_spec.app %></span>
-                <span style="font-size: 0.7rem; color: var(--muted); font-family: var(--font-mono);">v<%= @selected_spec.version || "?" %></span>
+      <!-- Document popup -->
+      <%= if @selected_spec do %>
+        <div
+          id="document-viewer"
+          phx-window-keydown="deselect-spec"
+          phx-key="Escape"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="document-modal-title"
+          style="position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 24px;"
+        >
+          <div
+            phx-click="deselect-spec"
+            aria-hidden="true"
+            style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.72); backdrop-filter: blur(6px);"
+          >
+          </div>
+          <div
+            class="card"
+            style="position: relative; z-index: 1; width: min(920px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; padding: 0; overflow: hidden; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);"
+          >
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); flex-shrink: 0;">
+              <div style="min-width: 0;">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
+                  <span class={"status-dot status-#{@selected_spec.status || "unknown"}"}></span>
+                  <span class="category-badge"><%= @selected_spec.app %></span>
+                  <%= if @selected_spec.document_type do %>
+                    <span class="category-badge"><%= @selected_spec.document_type %></span>
+                  <% end %>
+                  <span style="font-size: 0.7rem; color: var(--muted); font-family: var(--font-mono);">v<%= @selected_spec.version || "?" %></span>
+                </div>
+                <h3 id="document-modal-title" style="font-size: 1.15rem; margin: 0 0 6px 0; color: var(--text); line-height: 1.3;">
+                  <%= @selected_spec.title || @selected_spec.id %>
+                </h3>
+                <code style="font-size: 0.72rem; color: var(--muted);"><%= @selected_spec.app %>/<%= @selected_spec.id %></code>
               </div>
-              <div style="display: flex; gap: 6px;">
+              <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
                 <%= if @selected_spec.status in ~w(proposed under_review) do %>
                   <button
                     phx-click="approve-spec"
@@ -475,195 +528,196 @@ defmodule AcsWeb.AcsLive.SpecsLive do
                     ⟳ Deprecate
                   </button>
                 <% end %>
+                <button
+                  phx-click="deselect-spec"
+                  class="btn btn-ghost"
+                  style="padding: 6px 10px; font-size: 0.72rem;"
+                  title="Close (Esc)"
+                  aria-label="Close document"
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
-            <h3 style="font-size: 1rem; margin: 0 0 8px 0; color: var(--text);">
-              <%= @selected_spec.title || @selected_spec.id %>
-            </h3>
+            <div style="overflow-y: auto; padding: 24px; flex: 1; min-height: 0;">
+              <%= if is_binary(@selected_spec.content) and @selected_spec.content != "" do %>
+                <div style="margin-bottom: 20px;">
+                  <pre style="white-space: pre-wrap; word-break: break-word; margin: 0; padding: 18px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-dim); font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.6;"><%= @selected_spec.content %></pre>
+                </div>
+              <% end %>
 
-            <div style="margin-bottom: 12px;">
-              <code style="font-size: 0.72rem; color: var(--muted);"><%= @selected_spec.app %>/<%= @selected_spec.id %></code>
-            </div>
+              <%= if @selected_spec.purpose do %>
+                <div style="margin-bottom: 16px;">
+                  <div class="agent-task-label">Purpose</div>
+                  <div style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; margin-top: 4px;"><%= @selected_spec.purpose %></div>
+                </div>
+              <% end %>
 
-            <!-- Purpose -->
-            <%= if @selected_spec.purpose do %>
-              <div style="margin-bottom: 16px;">
-                <div class="agent-task-label">Purpose</div>
-                <div style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; margin-top: 4px;"><%= @selected_spec.purpose %></div>
-              </div>
-            <% end %>
-
-            <!-- Invariants -->
-            <%= if @selected_spec.invariants && @selected_spec.invariants != [] do %>
-              <div style="margin-bottom: 16px;">
-                <div class="agent-task-label">Invariants</div>
-                <ul style="margin-top: 6px; padding-left: 20px;">
-                  <%= if is_list(@selected_spec.invariants) do %>
-                    <%= for inv <- @selected_spec.invariants do %>
-                      <%= if is_binary(inv) do %>
-                        <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= inv %></li>
+              <%= if @selected_spec.invariants && @selected_spec.invariants != [] do %>
+                <div style="margin-bottom: 16px;">
+                  <div class="agent-task-label">Invariants</div>
+                  <ul style="margin-top: 6px; padding-left: 20px;">
+                    <%= if is_list(@selected_spec.invariants) do %>
+                      <%= for inv <- @selected_spec.invariants do %>
+                        <%= if is_binary(inv) do %>
+                          <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= inv %></li>
+                        <% end %>
                       <% end %>
-                    <% end %>
-                  <% else %>
-                    <%= if is_map(@selected_spec.invariants) do %>
-                      <%= for {_k, v} <- @selected_spec.invariants do %>
-                        <%= if is_binary(v) do %>
-                          <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= v %></li>
+                    <% else %>
+                      <%= if is_map(@selected_spec.invariants) do %>
+                        <%= for {_k, v} <- @selected_spec.invariants do %>
+                          <%= if is_binary(v) do %>
+                            <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= v %></li>
+                          <% end %>
                         <% end %>
                       <% end %>
                     <% end %>
+                  </ul>
+                </div>
+              <% end %>
+
+              <%= if @selected_spec.workflows && @selected_spec.workflows != [] do %>
+                <div style="margin-bottom: 16px;">
+                  <div class="agent-task-label">Workflows</div>
+                  <ul style="margin-top: 6px; padding-left: 20px;">
+                    <%= if is_list(@selected_spec.workflows) do %>
+                      <%= for wf <- @selected_spec.workflows do %>
+                        <%= if is_binary(wf) do %>
+                          <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= wf %></li>
+                        <% end %>
+                      <% end %>
+                    <% else %>
+                      <%= if is_map(@selected_spec.workflows) do %>
+                        <%= for {k, v} <- @selected_spec.workflows do %>
+                          <%= if is_binary(v) do %>
+                            <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= k %>: <%= v %></li>
+                          <% else %>
+                            <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= inspect(k) %></li>
+                          <% end %>
+                        <% end %>
+                      <% end %>
+                    <% end %>
+                  </ul>
+                </div>
+              <% end %>
+
+              <%= if @selected_spec.failure_modes && @selected_spec.failure_modes != [] do %>
+                <div style="margin-bottom: 16px;">
+                  <div class="agent-task-label">Failure Modes</div>
+                  <ul style="margin-top: 6px; padding-left: 20px;">
+                    <%= if is_list(@selected_spec.failure_modes) do %>
+                      <%= for fm <- @selected_spec.failure_modes do %>
+                        <%= if is_binary(fm) do %>
+                          <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= fm %></li>
+                        <% end %>
+                      <% end %>
+                    <% else %>
+                      <%= if is_map(@selected_spec.failure_modes) do %>
+                        <%= for {_k, v} <- @selected_spec.failure_modes do %>
+                          <%= if is_binary(v) do %>
+                            <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= v %></li>
+                          <% end %>
+                        <% end %>
+                      <% end %>
+                    <% end %>
+                  </ul>
+                </div>
+              <% end %>
+
+              <%= if @selected_spec.constraints && @selected_spec.constraints != [] do %>
+                <div style="margin-bottom: 16px;">
+                  <div class="agent-task-label">Constraints</div>
+                  <ul style="margin-top: 6px; padding-left: 20px;">
+                    <%= if is_list(@selected_spec.constraints) do %>
+                      <%= for c <- @selected_spec.constraints do %>
+                        <%= if is_binary(c) do %>
+                          <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= c %></li>
+                        <% end %>
+                      <% end %>
+                    <% else %>
+                      <%= if is_map(@selected_spec.constraints) do %>
+                        <%= for {_k, v} <- @selected_spec.constraints do %>
+                          <%= if is_binary(v) do %>
+                            <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= v %></li>
+                          <% end %>
+                        <% end %>
+                      <% end %>
+                    <% end %>
+                  </ul>
+                </div>
+              <% end %>
+
+              <%= if @selected_spec.tags && @selected_spec.tags != [] do %>
+                <div style="margin-bottom: 16px;">
+                  <div class="agent-task-label">Tags</div>
+                  <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+                    <%= if is_list(@selected_spec.tags) do %>
+                      <%= for tag <- @selected_spec.tags do %>
+                        <%= if is_binary(tag) do %>
+                          <span style="padding: 2px 8px; background: var(--bg-elevated); border-radius: var(--radius-sm); font-size: 0.7rem; color: var(--muted);"><%= tag %></span>
+                        <% end %>
+                      <% end %>
+                    <% else %>
+                      <%= if is_map(@selected_spec.tags) do %>
+                        <%= for {_k, v} <- @selected_spec.tags do %>
+                          <%= if is_binary(v) do %>
+                            <span style="padding: 2px 8px; background: var(--bg-elevated); border-radius: var(--radius-sm); font-size: 0.7rem; color: var(--muted);"><%= v %></span>
+                          <% end %>
+                        <% end %>
+                      <% end %>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+
+              <%= if @selected_spec.references && @selected_spec.references != [] do %>
+                <div style="margin-bottom: 16px;">
+                  <div class="agent-task-label">References</div>
+                  <div style="margin-top: 6px;">
+                    <%= for ref <- @selected_spec.references do %>
+                      <div style="padding: 6px 10px; margin-bottom: 4px; background: var(--bg); border-radius: var(--radius-sm); font-size: 0.75rem;">
+                        <span style="color: var(--text-dim);"><%= ref["type"] || "ref" %>:</span>
+                        <code style="font-size: 0.72rem; color: var(--accent);"><%= ref["target"] %></code>
+                        <%= if ref["description"] do %>
+                          <span style="color: var(--muted);"> — <%= ref["description"] %></span>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+
+              <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted);">
+                  <span>Version: <strong><%= @selected_spec.version || "1" %></strong></span>
+                  <%= if @selected_spec.parent_version && @selected_spec.parent_version > 0 do %>
+                    <span>Parent: v<%= @selected_spec.parent_version %></span>
                   <% end %>
-                </ul>
-              </div>
-            <% end %>
-
-            <!-- Workflows -->
-            <%= if @selected_spec.workflows && @selected_spec.workflows != [] do %>
-              <div style="margin-bottom: 16px;">
-                <div class="agent-task-label">Workflows</div>
-                <ul style="margin-top: 6px; padding-left: 20px;">
-                  <%= if is_list(@selected_spec.workflows) do %>
-                    <%= for wf <- @selected_spec.workflows do %>
-                      <%= if is_binary(wf) do %>
-                        <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= wf %></li>
-                      <% end %>
-                    <% end %>
-                  <% else %>
-                    <%= if is_map(@selected_spec.workflows) do %>
-                      <%= for {k, v} <- @selected_spec.workflows do %>
-                        <%= if is_binary(v) do %>
-                          <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= k %>: <%= v %></li>
-                        <% else %>
-                          <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= inspect(k) %></li>
-                        <% end %>
-                      <% end %>
-                    <% end %>
+                  <%= if @selected_spec.proposed_by do %>
+                    <span>Proposed by: <strong><%= @selected_spec.proposed_by %></strong></span>
                   <% end %>
-                </ul>
-              </div>
-            <% end %>
-
-            <!-- Failure Modes -->
-            <%= if @selected_spec.failure_modes && @selected_spec.failure_modes != [] do %>
-              <div style="margin-bottom: 16px;">
-                <div class="agent-task-label">Failure Modes</div>
-                <ul style="margin-top: 6px; padding-left: 20px;">
-                  <%= if is_list(@selected_spec.failure_modes) do %>
-                    <%= for fm <- @selected_spec.failure_modes do %>
-                      <%= if is_binary(fm) do %>
-                        <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= fm %></li>
-                      <% end %>
-                    <% end %>
-                  <% else %>
-                    <%= if is_map(@selected_spec.failure_modes) do %>
-                      <%= for {_k, v} <- @selected_spec.failure_modes do %>
-                        <%= if is_binary(v) do %>
-                          <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= v %></li>
-                        <% end %>
-                      <% end %>
-                    <% end %>
-                  <% end %>
-                </ul>
-              </div>
-            <% end %>
-
-            <!-- Constraints -->
-            <%= if @selected_spec.constraints && @selected_spec.constraints != [] do %>
-              <div style="margin-bottom: 16px;">
-                <div class="agent-task-label">Constraints</div>
-                <ul style="margin-top: 6px; padding-left: 20px;">
-                  <%= if is_list(@selected_spec.constraints) do %>
-                    <%= for c <- @selected_spec.constraints do %>
-                      <%= if is_binary(c) do %>
-                        <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= c %></li>
-                      <% end %>
-                    <% end %>
-                  <% else %>
-                    <%= if is_map(@selected_spec.constraints) do %>
-                      <%= for {_k, v} <- @selected_spec.constraints do %>
-                        <%= if is_binary(v) do %>
-                          <li style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;"><%= v %></li>
-                        <% end %>
-                      <% end %>
-                    <% end %>
-                  <% end %>
-                </ul>
-              </div>
-            <% end %>
-
-            <!-- Tags -->
-            <%= if @selected_spec.tags && @selected_spec.tags != [] do %>
-              <div style="margin-bottom: 16px;">
-                <div class="agent-task-label">Tags</div>
-                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
-                  <%= if is_list(@selected_spec.tags) do %>
-                    <%= for tag <- @selected_spec.tags do %>
-                      <%= if is_binary(tag) do %>
-                        <span style="padding: 2px 8px; background: var(--bg-elevated); border-radius: var(--radius-sm); font-size: 0.7rem; color: var(--muted);"><%= tag %></span>
-                      <% end %>
-                    <% end %>
-                  <% else %>
-                    <%= if is_map(@selected_spec.tags) do %>
-                      <%= for {_k, v} <- @selected_spec.tags do %>
-                        <%= if is_binary(v) do %>
-                          <span style="padding: 2px 8px; background: var(--bg-elevated); border-radius: var(--radius-sm); font-size: 0.7rem; color: var(--muted);"><%= v %></span>
-                        <% end %>
-                      <% end %>
-                    <% end %>
+                  <%= if @selected_spec.approved_by do %>
+                    <span>Approved by: <strong><%= @selected_spec.approved_by %></strong></span>
                   <% end %>
                 </div>
-              </div>
-            <% end %>
-
-            <!-- References -->
-            <%= if @selected_spec.references && @selected_spec.references != [] do %>
-              <div style="margin-bottom: 16px;">
-                <div class="agent-task-label">References</div>
-                <div style="margin-top: 6px;">
-                  <%= for ref <- @selected_spec.references do %>
-                    <div style="padding: 6px 10px; margin-bottom: 4px; background: var(--bg); border-radius: var(--radius-sm); font-size: 0.75rem;">
-                      <span style="color: var(--text-dim);"><%= ref["type"] || "ref" %>:</span>
-                      <code style="font-size: 0.72rem; color: var(--accent);"><%= ref["target"] %></code>
-                      <%= if ref["description"] do %>
-                        <span style="color: var(--muted);"> — <%= ref["description"] %></span>
-                      <% end %>
-                    </div>
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); margin-top: 6px;">
+                  <span>Verification: <%= @selected_spec.verification_status || "unset" %></span>
+                  <%= if @selected_spec.spec_hash do %>
+                    <span title={@selected_spec.spec_hash}>
+                      Hash: <code style="font-size: 0.65rem;"><%= String.slice(@selected_spec.spec_hash, 0, 12) %>…</code>
+                    </span>
                   <% end %>
                 </div>
-              </div>
-            <% end %>
-
-            <!-- Metadata -->
-            <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
-              <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted);">
-                <span>Version: <strong><%= @selected_spec.version || "1" %></strong></span>
-                <%= if @selected_spec.parent_version && @selected_spec.parent_version > 0 do %>
-                  <span>Parent: v<%= @selected_spec.parent_version %></span>
-                <% end %>
-                <%= if @selected_spec.proposed_by do %>
-                  <span>Proposed by: <strong><%= @selected_spec.proposed_by %></strong></span>
-                <% end %>
-                <%= if @selected_spec.approved_by do %>
-                  <span>Approved by: <strong><%= @selected_spec.approved_by %></strong></span>
-                <% end %>
-              </div>
-              <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); margin-top: 6px;">
-                <span>Verification: <%= @selected_spec.verification_status || "unset" %></span>
-                <%= if @selected_spec.spec_hash do %>
-                  <span title={@selected_spec.spec_hash}>
-                    Hash: <code style="font-size: 0.65rem;"><%= String.slice(@selected_spec.spec_hash, 0, 12) %>…</code>
-                  </span>
-                <% end %>
-              </div>
-              <div style="display: flex; gap: 16px; margin-top: 6px; font-size: 0.72rem; color: var(--muted);">
-                <span>Created: <%= @selected_spec.created_at || "—" %></span>
-                <span>Updated: <%= @selected_spec.updated_at || "—" %></span>
+                <div style="display: flex; gap: 16px; margin-top: 6px; font-size: 0.72rem; color: var(--muted);">
+                  <span>Created: <%= @selected_spec.created_at || "—" %></span>
+                  <span>Updated: <%= @selected_spec.updated_at || "—" %></span>
+                </div>
               </div>
             </div>
           </div>
-        <% end %>
-      </div>
+        </div>
+      <% end %>
     </div>
     """
   end
