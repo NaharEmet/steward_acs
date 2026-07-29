@@ -74,6 +74,21 @@ defmodule Acs.LLM do
   end
 
   @doc """
+  Evaluates a proposed spec or document for quality (approve / reject / human_review).
+  """
+  @spec evaluate_spec(String.t(), map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  def evaluate_spec(spec_id, entry) when is_map(entry) do
+    with :ok <- validate_spec_fields(entry) do
+      do_evaluate_spec(spec_id, entry)
+    end
+  end
+
+  def evaluate_spec(spec_id, invalid) do
+    {:error,
+     {:invalid_input, "spec_id #{spec_id}: entry must be a map, got: #{inspect(invalid)}"}}
+  end
+
+  @doc """
   Classify a candidate memory before save (entity, sensitivity, questions).
 
   Returns raw decoded JSON map from the intake prompt.
@@ -176,6 +191,57 @@ defmodule Acs.LLM do
       {:error, :no_providers_enabled}
     else
       try_providers(skill_name, providers, prompt)
+    end
+  end
+
+  defp validate_spec_fields(entry) do
+    missing =
+      Enum.reduce([:title], [], fn field, acc ->
+        case Map.get(entry, field) do
+          nil -> [field | acc]
+          "" -> [field | acc]
+          _ -> acc
+        end
+      end)
+
+    # Specs need purpose; documents need content.
+    missing =
+      cond do
+        document_entry?(entry) and blank?(Map.get(entry, :content) || Map.get(entry, "content")) ->
+          [:content | missing]
+
+        not document_entry?(entry) and
+            blank?(Map.get(entry, :purpose) || Map.get(entry, "purpose")) ->
+          [:purpose | missing]
+
+        true ->
+          missing
+      end
+
+    case missing do
+      [] -> :ok
+      _ -> {:error, {:missing_required_fields, Enum.reverse(missing)}}
+    end
+  end
+
+  defp document_entry?(entry) do
+    type = Map.get(entry, :document_type) || Map.get(entry, "document_type")
+    is_binary(type) and type not in ["", "spec"]
+  end
+
+  defp blank?(nil), do: true
+  defp blank?(""), do: true
+  defp blank?(_), do: false
+
+  defp do_evaluate_spec(spec_id, entry) do
+    # Do not send other entries as prompt context (same harden as memory audit).
+    prompt = build_spec_evaluation_prompt(entry, [])
+    providers = get_enabled_providers()
+
+    if providers == [] do
+      {:error, :no_providers_enabled}
+    else
+      try_providers(spec_id, providers, prompt)
     end
   end
 
@@ -475,6 +541,31 @@ defmodule Acs.LLM do
     template
     |> String.replace("{{skill_json}}", skill_json)
     |> String.replace("{{existing_skills_json}}", existing_skills_json)
+  end
+
+  defp build_spec_evaluation_prompt(entry, context_entries) do
+    entry_json =
+      Jason.encode!(%{
+        audience: entry.audience || "coding",
+        app: entry.app || "",
+        id: entry.id || "",
+        title: entry.title || "",
+        purpose: entry.purpose || "",
+        content: entry.content || "",
+        document_type: entry.document_type,
+        invariants: entry.invariants || [],
+        workflows: entry.workflows || [],
+        failure_modes: entry.failure_modes || [],
+        tags: entry.tags || []
+      })
+
+    existing_entries_json = Jason.encode!(context_entries)
+    prompt_name = prompt_name_for_audience(entry.audience)
+    template = load_prompt!("specs", prompt_name)
+
+    template
+    |> String.replace("{{entry_json}}", entry_json)
+    |> String.replace("{{existing_entries_json}}", existing_entries_json)
   end
 
   defp build_evaluation_prompt(memory, context_memories) do

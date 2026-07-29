@@ -87,7 +87,15 @@ defmodule Acs.Specs.Entry do
     # string — ISO 8601 when editing started
     :editing_since,
     # string — SHA-256 of content for last-write-wins conflict detection
-    :content_hash
+    :content_hash,
+    # string — LLM audit recommendation: approve | reject | human_review
+    :audit_verdict,
+    # string — ISO 8601 when LLM audit ran
+    :audited_at,
+    # string — brief LLM audit reasoning
+    :audit_reasoning,
+    # integer — LLM quality score 1-5
+    :quality_score
   ]
 
   @type t :: %__MODULE__{
@@ -122,7 +130,11 @@ defmodule Acs.Specs.Entry do
           source: String.t() | nil,
           editing_by: String.t() | nil,
           editing_since: String.t() | nil,
-          content_hash: String.t() | nil
+          content_hash: String.t() | nil,
+          audit_verdict: String.t() | nil,
+          audited_at: String.t() | nil,
+          audit_reasoning: String.t() | nil,
+          quality_score: integer() | nil
         }
 
   @valid_statuses ~w(proposed under_review approved deprecated contradicted runtime_divergent historical rejected)
@@ -170,7 +182,11 @@ defmodule Acs.Specs.Entry do
       source: map["source"],
       editing_by: map["editing_by"],
       editing_since: map["editing_since"],
-      content_hash: map["content_hash"]
+      content_hash: map["content_hash"],
+      audit_verdict: map["audit_verdict"],
+      audited_at: map["audited_at"],
+      audit_reasoning: map["audit_reasoning"],
+      quality_score: map["quality_score"]
     })
   end
 
@@ -211,7 +227,11 @@ defmodule Acs.Specs.Entry do
       "source" => entry.source,
       "editing_by" => entry.editing_by,
       "editing_since" => entry.editing_since,
-      "content_hash" => entry.content_hash
+      "content_hash" => entry.content_hash,
+      "audit_verdict" => entry.audit_verdict,
+      "audited_at" => entry.audited_at,
+      "audit_reasoning" => entry.audit_reasoning,
+      "quality_score" => entry.quality_score
     }
     |> remove_nils()
     |> remove_empty_lists()

@@ -229,7 +229,7 @@ defmodule Acs.Skills.Auditor do
     # Prefer id so nested duplicate trees write the file we just evaluated.
     case Store.write_audit_fields(skill.id || skill.name, result) do
       :ok ->
-        :ok
+        maybe_update_governance_status(skill, audit_status)
 
       other ->
         Logger.error(
@@ -239,6 +239,34 @@ defmodule Acs.Skills.Auditor do
 
     result
   end
+
+  # Mirror memory/document LLM approval: ok → approved, failing → rejected.
+  # needs_improvement stays proposed for human review.
+  defp maybe_update_governance_status(skill, "ok") do
+    case Store.update_status(skill.id || skill.name, "approved", "llm") do
+      :ok ->
+        Logger.info("[Acs.Skills.Auditor] skill '#{skill.name}' auto-approved by LLM")
+
+      other ->
+        Logger.error(
+          "[Acs.Skills.Auditor] Failed to approve skill '#{skill.name}': #{inspect(other)}"
+        )
+    end
+  end
+
+  defp maybe_update_governance_status(skill, "failing") do
+    case Store.update_status(skill.id || skill.name, "rejected", "llm") do
+      :ok ->
+        Logger.info("[Acs.Skills.Auditor] skill '#{skill.name}' auto-rejected by LLM")
+
+      other ->
+        Logger.error(
+          "[Acs.Skills.Auditor] Failed to reject skill '#{skill.name}': #{inspect(other)}"
+        )
+    end
+  end
+
+  defp maybe_update_governance_status(_skill, _), do: :ok
 
   defp recommendation_to_status("ok"), do: "ok"
   defp recommendation_to_status("failing"), do: "failing"

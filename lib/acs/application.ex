@@ -85,6 +85,7 @@ defmodule Acs.Application do
           Acs.Memory.FileWatcher,
           Acs.Memory.VaultSweeper,
           Acs.Specs.FileWatcher,
+          Acs.Specs.Auditor,
           {Acs.Log.RetentionSweeper, []},
           Acs.Skills.Auditor | children
         ] ++ tools_watcher_children

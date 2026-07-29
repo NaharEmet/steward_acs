@@ -245,13 +245,19 @@ defmodule Acs.Specs.Tools do
       |> Map.put("status", "proposed")
       |> Map.put("version", current_version + 1)
       |> Map.put("parent_version", current_version)
+      # Clear prior LLM audit so re-proposals are re-evaluated.
+      |> Map.drop(["audit_verdict", "audited_at", "audit_reasoning", "quality_score", "approved_by"])
 
     entry = Entry.from_map(merged)
     entry = %{entry | spec_hash: Entry.compute_spec_hash(entry)}
 
     case Loader.save(entry) do
-      :ok -> {:ok, Entry.to_map(entry)}
-      {:error, reason} -> {:error, reason}
+      :ok ->
+        Acs.Specs.Auditor.audit_soon(entry.app, entry.id)
+        {:ok, Entry.to_map(entry)}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -259,13 +265,18 @@ defmodule Acs.Specs.Tools do
     new_args =
       %{"app" => app, "id" => path, "status" => "proposed"}
       |> Map.merge(attrs)
+      |> Map.drop(["audit_verdict", "audited_at", "audit_reasoning", "quality_score", "approved_by"])
 
     entry = Entry.from_map(new_args)
     entry = %{entry | spec_hash: Entry.compute_spec_hash(entry)}
 
     case Loader.save(entry) do
-      :ok -> {:ok, Entry.to_map(entry)}
-      {:error, reason} -> {:error, reason}
+      :ok ->
+        Acs.Specs.Auditor.audit_soon(entry.app, entry.id)
+        {:ok, Entry.to_map(entry)}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
