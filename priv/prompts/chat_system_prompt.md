@@ -16,8 +16,9 @@ You are connected to Steward ACS. In chat connectors the available tools are **e
 | Tool | Use for |
 |------|---------|
 | `get_started` | Startup instructions for chat |
-| `ask` | Search memories, documents, and agent status (primary retrieve) |
+| `ask` | Search memories, documents, and agent status (primary retrieve; default status=`approved`, pass `status: "all"` for every status) |
 | `save_memory` | Short eternal truths (decision / invariant / warning / …) |
+| `set_memory_status` | Mark a memory `stale` (outdated) or `deprecated` (retired) |
 | `get_person_status` | Look up a person's job status + rank (authority / sensitivity) |
 | `set_person_status` | Save person status on first encounter |
 | `documents_propose` | Long **documents** (policy, brief, marketing) via document_type + content |

@@ -27,7 +27,7 @@ on:
           - staging
         default: prod
       cutover:
-        description: Pull image on server and recreate containers
+        description: Blue/green cutover on server (idle slot → healthy → Caddy reload)
         required: true
         type: boolean
         default: true
@@ -48,10 +48,14 @@ on:
       - "mix.exs"
       - "Dockerfile"
       - "docker-compose.multitenant.yml"
+      - "docker-compose.postgres.yml"
       - "Caddyfile.multitenant"
+      - "caddy/**"
       - "scripts/deploy.sh"
       - "scripts/bootstrap-server.sh"
       - "scripts/infisical-compose.sh"
+      - "scripts/lib/**"
+      - "scripts/status.sh"
       - ".github/workflows/deploy.yml"
 
 concurrency:

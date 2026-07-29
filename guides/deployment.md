@@ -31,7 +31,7 @@ Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
 
 1. Merge/push to `prod` (paths under `lib/`, `config/`, `priv/`, `assets/`, `Dockerfile`, compose/Caddy, deploy scripts, or the workflow itself), **or** run **Actions → Deploy → Run workflow**.
 2. Job `build-push` builds the Postgres release image and pushes `naharemete/steward_acs:<git-sha>` (+ `:multitenant`).
-3. Job `cutover` SSHs to the Environment host and runs `./scripts/deploy.sh --resume` (pull, Infisical compose up, health + smoke).
+3. Job `cutover` SSHs to the Environment host and runs `./scripts/deploy.sh --resume` (**blue/green**): pull idle slot → wait healthy → rewrite `caddy/acs_upstream.caddyfile` + `caddy reload` (recreate Caddy only if Caddyfile/certs changed) → stop previous slot.
 
 ### GitHub Environment secrets
 
@@ -87,8 +87,9 @@ Prod uses one Postgres database on Neon (`DATABASE_URL` in Infisical `prod`). Pr
 Release entrypoint runs migrations on boot. Manual recovery:
 
 ```bash
-./scripts/infisical-compose.sh -f docker-compose.multitenant.yml exec steward_acs \
+./scripts/infisical-compose.sh -f docker-compose.multitenant.yml exec steward_acs_blue \
   /app/bin/steward_acs eval "Acs.Release.migrate"
+# Use the active slot from `ACS_ACTIVE_SLOT` / `./scripts/status.sh` (blue or green).
 ```
 
 ### Local Postgres container (optional)
@@ -106,6 +107,8 @@ When you want Postgres on the host instead of Neon:
 | Caddy | `Caddyfile.multitenant` |
 | Env template | `.env.multitenant` |
 | Image | `naharemete/steward_acs:${ACS_IMAGE_TAG:-multitenant}` |
+| ACS slots | `steward_acs_blue` / `steward_acs_green` (only one live; `ACS_ACTIVE_SLOT` in thin `.env`) |
+| Caddy upstream | `caddy/acs_upstream.caddyfile` (reload on flip; recreate only when Caddyfile/certs change) |
 | DB | Neon Postgres via `DATABASE_URL` (optional local Postgres override) |
 | Memory | Obsidian vaults under `/vaults` |
 | Auth | API/developer keys for services; Auth0 OIDC for individual dashboard users and human MCP access |
@@ -147,21 +150,24 @@ For the configured legacy organization, also copy `/vaults/private/memories/` in
 `ORGS_FILE=/data/orgs.yaml` (volume). Seed from `priv/orgs.yaml` once if the volume copy is missing:
 
 ```bash
-docker cp priv/orgs.yaml steward_acs:/data/orgs.yaml
+docker cp priv/orgs.yaml steward_acs_blue:/data/orgs.yaml
+# Or steward_acs_green — use ACS_ACTIVE_SLOT / status.sh.
 ```
 
 After deploying the organization migration, import that registry into the database before enabling OAuth-only access:
 
 ```bash
-docker compose -f docker-compose.multitenant.yml exec steward_acs \
+docker compose -f docker-compose.multitenant.yml exec steward_acs_blue \
   /app/bin/steward_acs eval 'Acs.Release.import_organizations()'
+# Active slot: ACS_ACTIVE_SLOT / status.sh.
 ```
 
 Have each existing organization owner sign in once on `ACCOUNT_HOST`, then bootstrap the verified OAuth identity and invalidate the old shared-login workflow:
 
 ```bash
-docker compose -f docker-compose.multitenant.yml exec steward_acs \
+docker compose -f docker-compose.multitenant.yml exec steward_acs_blue \
   /app/bin/steward_acs eval 'Acs.Release.bootstrap_owner("owner@example.com", "org-slug")'
+# Active slot: ACS_ACTIVE_SLOT / status.sh.
 ```
 
 Keep `SELF_SERVICE_ORGS_ENABLED=false` until imports, owner bootstrap, wildcard DNS/TLS, and Auth0 callback settings are verified. New invitations email when Resend is configured (`RESEND_API_KEY` + `RESEND_FROM_EMAIL`); otherwise they expose a single-use link to the administrator. Only the token hash is stored.

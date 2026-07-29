@@ -1,0 +1,5 @@
+# Active ACS upstream for Caddy (blue/green). Deploy rewrites this file and
+# runs `caddy reload` — do not edit by hand on the host during a cutover.
+reverse_proxy steward_acs_blue:4001 {
+	flush_interval -1
+}

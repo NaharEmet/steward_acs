@@ -15,13 +15,6 @@ defmodule Acs.Memory.Search do
   require Logger
 
   @doc """
-  Searches memories using the specified mode.
-
-  Options:
-  - `:mode` - "auto" (default), "keyword", or "semantic"
-  - Other options passed through to the underlying search (scope_path, kind, limit, etc.)
-  """
-  @doc """
   Normalize MCP status filter: omit/`nil`/`""` → `"approved"`; `"all"` → no filter (`nil`).
   """
   def resolve_status_filter(nil), do: "approved"
@@ -30,6 +23,13 @@ defmodule Acs.Memory.Search do
   def resolve_status_filter(status) when is_binary(status), do: status
   def resolve_status_filter(_), do: "approved"
 
+  @doc """
+  Searches memories using the specified mode.
+
+  Options:
+  - `:mode` - "auto" (default), "keyword", or "semantic"
+  - Other options passed through to the underlying search (scope_path, kind, limit, etc.)
+  """
   def search(query, opts \\ []) do
     mode = Keyword.get(opts, :mode, "auto")
 

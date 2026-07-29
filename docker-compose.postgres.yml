@@ -2,20 +2,26 @@
 # Usage: docker compose -f docker-compose.multitenant.yml -f docker-compose.postgres.yml up -d
 # Or: WITH_POSTGRES=true SERVER=... ./scripts/deploy.sh
 
-services:
-  steward_acs:
-    build:
-      args:
-        REPO_ADAPTER: postgres
-    environment:
+x-acs-postgres: &acs_postgres
+  build:
+    args:
       REPO_ADAPTER: postgres
-      DATABASE_PATH: ""
-      DATABASE_URL: "ecto://${DB_USER:-postgres}:${DB_PASSWORD:?Set DB_PASSWORD}@db:5432/${DB_NAME:-acs_prod}"
-      PGSSL: "false"
-      POOL_SIZE: "10"
-    depends_on:
-      db:
-        condition: service_healthy
+  environment:
+    REPO_ADAPTER: postgres
+    DATABASE_PATH: ""
+    DATABASE_URL: "ecto://${DB_USER:-postgres}:${DB_PASSWORD:?Set DB_PASSWORD}@db:5432/${DB_NAME:-acs_prod}"
+    PGSSL: "false"
+    POOL_SIZE: "10"
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  steward_acs_blue:
+    <<: *acs_postgres
+
+  steward_acs_green:
+    <<: *acs_postgres
 
   db:
     image: postgres:16-alpine

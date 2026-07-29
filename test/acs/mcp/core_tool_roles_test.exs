@@ -6,6 +6,7 @@ defmodule Acs.MCP.CoreToolRolesTest do
   test "collaborators may use coordination and skill tools" do
     assert CoreToolRoles.authorized?("claim_work", "collaborator")
     assert CoreToolRoles.authorized?("save_memory", "collaborator")
+    assert CoreToolRoles.authorized?("set_memory_status", "collaborator")
     assert CoreToolRoles.authorized?("create_work", "collaborator")
     assert CoreToolRoles.authorized?("skill_get", "collaborator")
     assert CoreToolRoles.authorized?("skill_save", "collaborator")
@@ -28,6 +29,7 @@ defmodule Acs.MCP.CoreToolRolesTest do
     assert CoreToolRoles.authorized?("create_work", "collaborator", :chat)
     assert CoreToolRoles.authorized?("get_person_status", "collaborator", :chat)
     assert CoreToolRoles.authorized?("set_person_status", "collaborator", :chat)
+    assert CoreToolRoles.authorized?("set_memory_status", "collaborator", :chat)
     refute CoreToolRoles.authorized?("specs_propose", "collaborator", :chat)
     refute CoreToolRoles.authorized?("lock_file", "collaborator", :chat)
     refute CoreToolRoles.authorized?("query_memories", "collaborator", :chat)
@@ -50,6 +52,7 @@ defmodule Acs.MCP.CoreToolRolesTest do
     assert "skill_save" in surface
     assert "create_work" in surface
     assert "ask" in surface
+    assert "set_memory_status" in surface
     assert "documents_propose" in surface
     assert "get_person_status" in surface
     assert "set_person_status" in surface

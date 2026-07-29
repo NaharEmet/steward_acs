@@ -11,6 +11,84 @@ x-syncthing-base: &syncthing_base
     - "8384"
   entrypoint: *syncthing_entrypoint
 
+# Shared ACS app definition for blue/green slots. Only one slot receives traffic
+# (caddy/acs_upstream.caddyfile). Deploy brings up the idle slot, waits healthy,
+# reloads Caddy upstream, then stops the previous slot.
+x-steward-acs: &steward_acs
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: release
+    args:
+      REPO_ADAPTER: postgres
+  image: naharemete/steward_acs:${ACS_IMAGE_TAG:-multitenant}
+  restart: unless-stopped
+  stop_grace_period: 25s
+  expose:
+    - "4001"
+  environment:
+    MIX_ENV: prod
+    PORT: "4001"
+    PHX_HOST: "${PHX_HOST:-prod.stewardacs.xyz}"
+    MULTI_TENANT: "true"
+    ACS_ORG_NAME: "${ACS_ORG_NAME:-default}"
+    BASE_DOMAIN: "${BASE_DOMAIN:-stewardacs.xyz}"
+    REPO_ADAPTER: postgres
+    # Neon/Postgres. Empty DATABASE_PATH so runtime does not force SQLite.
+    DATABASE_PATH: ""
+    DATABASE_URL: "${DATABASE_URL:?Set DATABASE_URL to Neon postgres connection string}"
+    PGSSL: "${PGSSL:-true}"
+    POOL_SIZE: "${POOL_SIZE:-10}"
+    ORGS_FILE: /data/orgs.yaml
+    SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
+    MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
+    MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-false}"
+    OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-false}"
+    AUTH0_DOMAIN: "${AUTH0_DOMAIN:-}"
+    AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-}"
+    AUTH0_ISSUER: "${AUTH0_ISSUER:-}"
+    AUTH0_CONNECTION: "${AUTH0_CONNECTION:-}"
+    OAUTH_FIXED_DCR_CLIENT_ID: "${OAUTH_FIXED_DCR_CLIENT_ID:-}"
+    MCP_PUBLIC_URL: "${MCP_PUBLIC_URL:-https://prod.stewardacs.xyz}"
+    MCP_RESOURCE_URL: "${MCP_RESOURCE_URL:-https://prod.stewardacs.xyz/mcp/sse}"
+    ACCOUNT_HOST: "${ACCOUNT_HOST:-prod.stewardacs.xyz}"
+    OIDC_BROWSER_ENABLED: "${OIDC_BROWSER_ENABLED:-true}"
+    AUTH0_WEB_CLIENT_ID: "${AUTH0_WEB_CLIENT_ID:-}"
+    AUTH0_WEB_CLIENT_SECRET: "${AUTH0_WEB_CLIENT_SECRET:-}"
+    AUTH0_WEB_REDIRECT_URI: "${AUTH0_WEB_REDIRECT_URI:-https://prod.stewardacs.xyz/auth/callback}"
+    SELF_SERVICE_ORGS_ENABLED: "${SELF_SERVICE_ORGS_ENABLED:-true}"
+    OLLAMA_URL: http://ollama:11434
+    OBSIDIAN_VAULT_PATH: /vaults
+    MEMORY_STORE: obsidian
+    # LLM providers (Infisical). Compose --env-file alone does not inject into
+    # the container — each key must be listed here for memory/skill auditing.
+    ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-}"
+    NIM_API_KEY: "${NIM_API_KEY:-}"
+    MIMO_API_KEY: "${MIMO_API_KEY:-}"
+    MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
+    OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+    OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+    OPENAI_MODEL: "${OPENAI_MODEL:-}"
+    # Production observability (disabled when AXIOM_LOGS is empty).
+    AXIOM_LOGS: "${AXIOM_LOGS:-}"
+    AXIOM_DATASET: "${AXIOM_DATASET:-steward_logs}"
+    AXIOM_AGENT_OPS_DATASET: "${AXIOM_AGENT_OPS_DATASET:-steward_meta_analytics}"
+    AXIOM_DOMAIN: "${AXIOM_DOMAIN:-https://api.axiom.co}"
+    # Hourly Meta-Harness: ops table + rollups shipped to AXIOM_AGENT_OPS_DATASET.
+    META_HARNESS_ENABLED: "${META_HARNESS_ENABLED:-true}"
+    # Invitation email (optional — copy-link only when either is empty).
+    RESEND_API_KEY: "${RESEND_API_KEY:-}"
+    RESEND_FROM_EMAIL: "${RESEND_FROM_EMAIL:-}"
+  volumes:
+    - acs_data:/data
+    - vaults:/vaults
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:4001/mcp/health"]
+    interval: 10s
+    timeout: 5s
+    retries: 3
+    start_period: 20s
+
 services:
   caddy:
     image: caddy:2-alpine
@@ -21,91 +99,22 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile.multitenant:/etc/caddy/Caddyfile:ro
+      - ./caddy/acs_upstream.caddyfile:/etc/caddy/acs_upstream.caddyfile:ro
       - ./certs:/etc/caddy/certs:ro
       - caddy_data:/data
     environment:
       BASE_DOMAIN: "${BASE_DOMAIN:-stewardacs.xyz}"
-      ACS_URL: "http://steward_acs:4001"
       AUTH0_DOMAIN: "${AUTH0_DOMAIN:-dev-jw5wgp2b.us.auth0.com}"
       AUTH0_AUDIENCE_URLENC: "${AUTH0_AUDIENCE_URLENC:-https%3A%2F%2Fprod.stewardacs.xyz%2Fmcp%2Fsse}"
-    depends_on:
-      steward_acs:
-        condition: service_healthy
+    # No depends_on ACS: blue/green cutover keeps Caddy up while the idle slot boots.
 
-  steward_acs:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: release
-      args:
-        REPO_ADAPTER: postgres
-    image: naharemete/steward_acs:${ACS_IMAGE_TAG:-multitenant}
-    container_name: steward_acs
-    restart: unless-stopped
-    expose:
-      - "4001"
-    environment:
-      MIX_ENV: prod
-      PORT: "4001"
-      PHX_HOST: "${PHX_HOST:-prod.stewardacs.xyz}"
-      MULTI_TENANT: "true"
-      ACS_ORG_NAME: "${ACS_ORG_NAME:-default}"
-      BASE_DOMAIN: "${BASE_DOMAIN:-stewardacs.xyz}"
-      REPO_ADAPTER: postgres
-      # Neon/Postgres. Empty DATABASE_PATH so runtime does not force SQLite.
-      DATABASE_PATH: ""
-      DATABASE_URL: "${DATABASE_URL:?Set DATABASE_URL to Neon postgres connection string}"
-      PGSSL: "${PGSSL:-true}"
-      POOL_SIZE: "${POOL_SIZE:-10}"
-      ORGS_FILE: /data/orgs.yaml
-      SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
-      MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
-      MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-false}"
-      OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-false}"
-      AUTH0_DOMAIN: "${AUTH0_DOMAIN:-}"
-      AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-}"
-      AUTH0_ISSUER: "${AUTH0_ISSUER:-}"
-      AUTH0_CONNECTION: "${AUTH0_CONNECTION:-}"
-      OAUTH_FIXED_DCR_CLIENT_ID: "${OAUTH_FIXED_DCR_CLIENT_ID:-}"
-      MCP_PUBLIC_URL: "${MCP_PUBLIC_URL:-https://prod.stewardacs.xyz}"
-      MCP_RESOURCE_URL: "${MCP_RESOURCE_URL:-https://prod.stewardacs.xyz/mcp/sse}"
-      ACCOUNT_HOST: "${ACCOUNT_HOST:-prod.stewardacs.xyz}"
-      OIDC_BROWSER_ENABLED: "${OIDC_BROWSER_ENABLED:-true}"
-      AUTH0_WEB_CLIENT_ID: "${AUTH0_WEB_CLIENT_ID:-}"
-      AUTH0_WEB_CLIENT_SECRET: "${AUTH0_WEB_CLIENT_SECRET:-}"
-      AUTH0_WEB_REDIRECT_URI: "${AUTH0_WEB_REDIRECT_URI:-https://prod.stewardacs.xyz/auth/callback}"
-      SELF_SERVICE_ORGS_ENABLED: "${SELF_SERVICE_ORGS_ENABLED:-true}"
-      OLLAMA_URL: http://ollama:11434
-      OBSIDIAN_VAULT_PATH: /vaults
-      MEMORY_STORE: obsidian
-      # LLM providers (Infisical). Compose --env-file alone does not inject into
-      # the container — each key must be listed here for memory/skill auditing.
-      ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-}"
-      NIM_API_KEY: "${NIM_API_KEY:-}"
-      MIMO_API_KEY: "${MIMO_API_KEY:-}"
-      MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
-      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
-      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
-      OPENAI_MODEL: "${OPENAI_MODEL:-}"
-      # Production observability (disabled when AXIOM_LOGS is empty).
-      AXIOM_LOGS: "${AXIOM_LOGS:-}"
-      AXIOM_DATASET: "${AXIOM_DATASET:-steward_logs}"
-      AXIOM_AGENT_OPS_DATASET: "${AXIOM_AGENT_OPS_DATASET:-steward_meta_analytics}"
-      AXIOM_DOMAIN: "${AXIOM_DOMAIN:-https://api.axiom.co}"
-      # Hourly Meta-Harness: ops table + rollups shipped to AXIOM_AGENT_OPS_DATASET.
-      META_HARNESS_ENABLED: "${META_HARNESS_ENABLED:-true}"
-      # Invitation email (optional — copy-link only when either is empty).
-      RESEND_API_KEY: "${RESEND_API_KEY:-}"
-      RESEND_FROM_EMAIL: "${RESEND_FROM_EMAIL:-}"
-    volumes:
-      - acs_data:/data
-      - vaults:/vaults
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4001/mcp/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+  steward_acs_blue:
+    <<: *steward_acs
+    container_name: steward_acs_blue
+
+  steward_acs_green:
+    <<: *steward_acs
+    container_name: steward_acs_green
 
   # Host CPU/memory/disk/network → Axiom Metrics (opt-in via COMPOSE_PROFILES=axiom).
   # Needs AXIOM_LOGS (Infisical) + Metrics dataset AXIOM_METRICS_DATASET.

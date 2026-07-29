@@ -54,6 +54,7 @@ Entity vs scope:
 
 Intake asks before save when scope is missing or quality is unclear. Sensitive content saves with a note asking whether to make it personal.
 Person status: get_person_status → ask once → set_person_status.
+Outdated? set_memory_status(id, "stale", notes) → save_memory corrected version.
 """
 
   @coding_error """
@@ -112,13 +113,13 @@ Use skill_get to load procedures before answering. Use skill_save to document re
   # ── Chat packet copy ────────────────────────────────────────────────
 
   @chat_workflow """
-Retrieve with ask (memories + documents + status). Load procedures with skill_get. Optionally create_work(claim: true) for multi-step tracked work.
-Answer from ACS; if nothing matches, say so. Save: save_memory (truths), documents_propose (long documents), skill_save (how-to procedures).
+Retrieve with ask (memories + documents + status; default approved — pass status:"all" to include stale/proposed/etc.). Load procedures with skill_get. Optionally create_work(claim: true) for multi-step tracked work.
+Answer from ACS; if nothing matches, say so. Save: save_memory (truths), documents_propose (long documents), skill_save (how-to procedures). Mark outdated truths with set_memory_status(status:"stale").
 Tracked work only: save → release_work → submit_task_feedback(learned_for_agents:) last. Simple Q&A needs no feedback.
 """
 
   @chat_store """
-ask = search · save_memory = short truths · documents_propose = long documents · skill_get/skill_save = procedures.
+ask = search · save_memory = short truths · set_memory_status = stale/deprecated · documents_propose = long documents · skill_get/skill_save = procedures.
 Prefer business scopes: org/domain/topic (e.g. acme/support/refunds).
 """
 
@@ -136,7 +137,7 @@ Business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy.
 - memories — short eternal truths (save_memory)
 - documents — policies, briefs, marketing (documents_propose + document_type)
 - skills — step-by-step playbooks (skill_get / skill_save)
-Chat tools: get_started, ask, save_memory, get_person_status, set_person_status, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback.
+Chat tools: get_started, ask, save_memory, set_memory_status, get_person_status, set_person_status, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback.
 Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded document.
 """
 

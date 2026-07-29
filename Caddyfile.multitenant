@@ -39,7 +39,6 @@
 *.{$BASE_DOMAIN} {
     tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
     import oauth_routes
-    reverse_proxy {$ACS_URL} {
-        flush_interval -1
-    }
+    # Blue/green ACS upstream — deploy rewrites caddy/acs_upstream.caddyfile + reload.
+    import /etc/caddy/acs_upstream.caddyfile
 }

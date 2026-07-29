@@ -428,12 +428,13 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "set_memory_status",
-        "Update a memory's status (approved/rejected/stale/deprecated). Approving makes it visible to agents. Rejecting prevents it from being used. Marking stale flags it for review. Marking deprecated retires obsolete entries.",
+        "Update a memory's status (approved/rejected/stale/deprecated). Approving makes it visible to agents. Rejecting prevents it from being used. Marking stale flags it for review. Marking deprecated retires obsolete entries. Chat connectors may only set stale or deprecated.",
         %{
           "memory_id" => %{"type" => "string", "description" => "Memory ID to update"},
           "status" => %{
             "type" => "string",
-            "description" => "New status: approved, rejected, stale, or deprecated"
+            "description" =>
+              "New status: approved, rejected, stale, or deprecated (chat: stale or deprecated only)"
           },
           "notes" => %{
             "type" => "string",

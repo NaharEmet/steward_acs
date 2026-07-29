@@ -437,7 +437,7 @@ defmodule Acs.MCP.Protocol do
 
   defp audience_instructions(:chat) do
     """
-    ACS audience: chat. Curated tools only: get_started, ask, save_memory, get_person_status, set_person_status, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback. Retrieve with ask; save truths with save_memory; save long docs with documents_propose; save procedures with skill_save. Prefer business scopes (org/domain/topic). Before save_memory, follow memory_protocol from get_started / claim guidance. Claimed tasks: save → release_work → submit_task_feedback(learned_for_agents:) last; simple Q&A needs no feedback. Connect via /mcp/chat/sse.
+    ACS audience: chat. Curated tools only: get_started, ask, save_memory, set_memory_status, get_person_status, set_person_status, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback. Retrieve with ask (default approved memories; status:\"all\" for every status); save truths with save_memory; mark outdated with set_memory_status(status:\"stale\"); save long docs with documents_propose; save procedures with skill_save. Prefer business scopes (org/domain/topic). Before save_memory, follow memory_protocol from get_started / claim guidance. Claimed tasks: save → release_work → submit_task_feedback(learned_for_agents:) last; simple Q&A needs no feedback. Connect via /mcp/chat/sse.
     """
     |> String.trim()
   end

@@ -115,9 +115,13 @@ fi
 # --- sync compose/caddy (deploy + resume; rollback keeps remote compose) ---
 if [[ "$MODE" != "rollback" ]]; then
   info "Syncing compose/caddy bundle to ${SERVER}:${REMOTE_DIR}"
-  ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}/priv' '${REMOTE_DIR}/scripts'"
+  ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}/priv' '${REMOTE_DIR}/scripts/lib' '${REMOTE_DIR}/caddy'"
   scp "${COMPOSE_FILE}" "${CADDY_FILE}" "${SERVER}:${REMOTE_DIR}/"
   scp scripts/infisical-compose.sh "${SERVER}:${REMOTE_DIR}/scripts/"
+  scp scripts/lib/acs_bluegreen.sh "${SERVER}:${REMOTE_DIR}/scripts/lib/"
+  # Upstream snippet: only seed if missing so we do not clobber the live blue/green pointer.
+  ssh "${SERVER}" "test -f '${REMOTE_DIR}/caddy/acs_upstream.caddyfile'" || \
+    scp caddy/acs_upstream.caddyfile "${SERVER}:${REMOTE_DIR}/caddy/"
   ssh "${SERVER}" "chmod 755 '${REMOTE_DIR}/scripts/infisical-compose.sh'"
   if [[ -f docker-compose.postgres.yml ]]; then
     scp docker-compose.postgres.yml "${SERVER}:${REMOTE_DIR}/"
@@ -130,7 +134,7 @@ if [[ "$MODE" != "rollback" ]]; then
   fi
 fi
 
-# --- single remote cutover (pull/up/caddy/health) ---
+# --- remote blue/green cutover (pull idle slot → healthy → Caddy reload → stop old) ---
 # Pass flags as separate argv (never a leading "-f …" string — ssh/bash can resplit it).
 # shellcheck disable=SC2029
 CUTOVER=$(ssh "${SERVER}" bash -s -- \
@@ -143,6 +147,9 @@ WITH_POSTGRES="$4"
 ACS_IMAGE_TAG="${5:-}"
 
 cd "$REMOTE_DIR"
+# shellcheck source=scripts/lib/acs_bluegreen.sh
+source ./scripts/lib/acs_bluegreen.sh
+
 COMPOSE_ARGS=(-f "$COMPOSE_FILE")
 if [[ "$WITH_POSTGRES" == "true" ]]; then
   COMPOSE_ARGS+=(-f docker-compose.postgres.yml)
@@ -173,6 +180,16 @@ env_set() {
   fi
 }
 
+wait_healthy() {
+  local name="$1" status=starting
+  for _ in $(seq 1 60); do
+    status=$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || echo starting)
+    [[ "$status" == "healthy" ]] && break
+    sleep 2
+  done
+  echo "$status"
+}
+
 current_tag="$(env_get ACS_IMAGE_TAG || true)"
 prev_tag="$(env_get ACS_IMAGE_TAG_PREV || true)"
 
@@ -201,14 +218,45 @@ if [[ -n "${current_tag:-}" && "$current_tag" != "$ACS_IMAGE_TAG" && "$current_t
 fi
 env_set ACS_IMAGE_TAG "$ACS_IMAGE_TAG"
 
+# Active slot: blue|green. Empty = cold start or legacy single container.
+ACTIVE_SLOT="$(env_get ACS_ACTIVE_SLOT || true)"
+case "${ACTIVE_SLOT}" in
+  blue|green) ;;
+  *)
+    if docker inspect steward_acs >/dev/null 2>&1; then
+      ACTIVE_SLOT=""
+      echo "[remote] legacy container steward_acs present — first blue/green cutover"
+    elif docker inspect steward_acs_blue >/dev/null 2>&1 && \
+         [[ "$(docker inspect -f '{{.State.Running}}' steward_acs_blue 2>/dev/null || echo false)" == true ]]; then
+      ACTIVE_SLOT="blue"
+    elif docker inspect steward_acs_green >/dev/null 2>&1 && \
+         [[ "$(docker inspect -f '{{.State.Running}}' steward_acs_green 2>/dev/null || echo false)" == true ]]; then
+      ACTIVE_SLOT="green"
+    else
+      ACTIVE_SLOT=""
+      echo "[remote] no active slot — cold start on blue"
+    fi
+    ;;
+esac
+
+if [[ -z "$ACTIVE_SLOT" ]]; then
+  NEXT_SLOT="blue"
+else
+  NEXT_SLOT="$(acs_other_slot "$ACTIVE_SLOT")"
+fi
+NEXT_SVC="$(acs_service "$NEXT_SLOT")"
+NEXT_CTR="$(acs_container "$NEXT_SLOT")"
+echo "[remote] blue/green active=${ACTIVE_SLOT:-legacy} next=${NEXT_SLOT}"
+
 echo "[remote] preflight compose config"
 ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose config >/dev/null
 
-echo "[remote] pull steward_acs"
-ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose pull steward_acs
+echo "[remote] pull ${NEXT_SVC}"
+ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose pull "$NEXT_SVC"
 
-echo "[remote] up steward_acs"
-ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --remove-orphans steward_acs
+echo "[remote] up ${NEXT_SVC} (idle slot — traffic still on active)"
+# Do not --remove-orphans yet: legacy steward_acs / previous slot must keep serving.
+ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --no-deps "$NEXT_SVC"
 
 # Host metrics sidecar when COMPOSE_PROFILES includes axiom (see .env.multitenant).
 if ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose config --services 2>/dev/null | grep -qx otel_collector; then
@@ -216,27 +264,56 @@ if ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose config --services 2>/dev/null | grep -
   ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --pull missing otel_collector
 fi
 
-echo "[remote] recreate caddy"
-ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --force-recreate caddy
+echo "[remote] waiting for ${NEXT_CTR} healthy"
+STATUS="$(wait_healthy "$NEXT_CTR")"
+[[ "$STATUS" == "healthy" ]] || { echo "ERROR: ${NEXT_CTR} not healthy (${STATUS})" >&2; exit 1; }
 
-# Seed org registry into the data volume when missing.
-if ! docker exec steward_acs sh -c 'test -s /data/orgs.yaml' 2>/dev/null; then
+# Seed org registry into the data volume when missing (shared volume — either slot).
+if ! docker exec "$NEXT_CTR" sh -c 'test -s /data/orgs.yaml' 2>/dev/null; then
   if [[ -f priv/orgs.yaml ]]; then
-    docker cp priv/orgs.yaml steward_acs:/data/orgs.yaml || true
+    docker cp priv/orgs.yaml "${NEXT_CTR}:/data/orgs.yaml" || true
   fi
 fi
 
-echo "[remote] waiting for healthy"
-STATUS=starting
-for _ in $(seq 1 40); do
-  STATUS=$(docker inspect -f '{{.State.Health.Status}}' steward_acs 2>/dev/null || echo starting)
-  [[ "$STATUS" == "healthy" ]] && break
-  sleep 2
-done
+mkdir -p caddy
+acs_write_upstream caddy/acs_upstream.caddyfile "$NEXT_SLOT"
 
-DIGEST=$(docker inspect -f '{{.Image}}' steward_acs)
-REV=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' steward_acs 2>/dev/null || true)
-DIRTY_L=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.dirty"}}' steward_acs 2>/dev/null || true)
+CADDY_HASH="$(acs_caddy_bundle_hash .)"
+PREV_CADDY_HASH="$(env_get CADDY_BUNDLE_HASH || true)"
+CADDY_RUNNING=0
+docker inspect steward_caddy >/dev/null 2>&1 && CADDY_RUNNING=1
+
+if [[ "$CADDY_RUNNING" -eq 0 || "$CADDY_HASH" != "$PREV_CADDY_HASH" ]]; then
+  echo "[remote] caddy up (missing or Caddyfile/certs changed)"
+  ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --force-recreate caddy
+else
+  echo "[remote] caddy reload upstream → ${NEXT_CTR} (skip recreate)"
+  if ! docker exec steward_caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null; then
+    echo "[remote] caddy reload failed — falling back to recreate"
+    ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --force-recreate caddy
+  fi
+fi
+env_set CADDY_BUNDLE_HASH "$CADDY_HASH"
+env_set ACS_ACTIVE_SLOT "$NEXT_SLOT"
+
+# Stop previous traffic sources after switch.
+if [[ -n "$ACTIVE_SLOT" ]]; then
+  OLD_SVC="$(acs_service "$ACTIVE_SLOT")"
+  echo "[remote] stop previous slot ${OLD_SVC}"
+  ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose stop "$OLD_SVC" || true
+fi
+if docker inspect steward_acs >/dev/null 2>&1; then
+  echo "[remote] remove legacy steward_acs container"
+  docker stop steward_acs >/dev/null 2>&1 || true
+  docker rm steward_acs >/dev/null 2>&1 || true
+fi
+
+# Drop orphans (old single-service name, stopped extras) now that traffic is on next.
+ACS_IMAGE_TAG="$ACS_IMAGE_TAG" compose up -d --no-build --remove-orphans --no-deps "$NEXT_SVC" caddy
+
+DIGEST=$(docker inspect -f '{{.Image}}' "$NEXT_CTR")
+REV=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$NEXT_CTR" 2>/dev/null || true)
+DIRTY_L=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.dirty"}}' "$NEXT_CTR" 2>/dev/null || true)
 PUBLIC_URL=$(env_get MCP_PUBLIC_URL || true)
 FIXED_DCR=$(env_get OAUTH_FIXED_DCR_CLIENT_ID || true)
 
@@ -248,6 +325,8 @@ echo "REMOTE_DIRTY=${DIRTY_L:-n/a}"
 echo "REMOTE_PUBLIC_URL=${PUBLIC_URL:-}"
 echo "REMOTE_FIXED_DCR_SET=$([ -n "${FIXED_DCR:-}" ] && echo yes || echo no)"
 echo "REMOTE_FIXED_DCR_ID=${FIXED_DCR:-}"
+echo "REMOTE_ACTIVE_SLOT=${NEXT_SLOT}"
+echo "REMOTE_ACTIVE_CONTAINER=${NEXT_CTR}"
 
 [[ "$STATUS" == "healthy" ]] || { echo "ERROR: container not healthy (${STATUS})" >&2; exit 1; }
 REMOTE
@@ -262,6 +341,8 @@ REMOTE_PUBLIC_URL=$(echo "$CUTOVER" | awk -F= '/^REMOTE_PUBLIC_URL=/{print $2; e
 REMOTE_FIXED_DCR_SET=$(echo "$CUTOVER" | awk -F= '/^REMOTE_FIXED_DCR_SET=/{print $2; exit}')
 REMOTE_FIXED_DCR_ID=$(echo "$CUTOVER" | awk -F= '/^REMOTE_FIXED_DCR_ID=/{print $2; exit}')
 REMOTE_REV=$(echo "$CUTOVER" | awk -F= '/^REMOTE_REV=/{print $2; exit}')
+REMOTE_ACTIVE_SLOT=$(echo "$CUTOVER" | awk -F= '/^REMOTE_ACTIVE_SLOT=/{print $2; exit}')
+REMOTE_ACTIVE_CONTAINER=$(echo "$CUTOVER" | awk -F= '/^REMOTE_ACTIVE_CONTAINER=/{print $2; exit}')
 
 [[ "$REMOTE_HEALTH" == "healthy" ]] || die "cutover reported unhealthy"
 
@@ -291,6 +372,7 @@ else
   fi
 fi
 
-info "Deployed tag=${REMOTE_TAG} rev=${REMOTE_REV} health=${REMOTE_HEALTH}"
+info "Deployed tag=${REMOTE_TAG} rev=${REMOTE_REV} health=${REMOTE_HEALTH} slot=${REMOTE_ACTIVE_SLOT:-?} ctr=${REMOTE_ACTIVE_CONTAINER:-?}"
+info "Prod path: push/merge to prod → GitHub Actions Deploy (cutover uses this --resume logic)"
 info "Rollback: SERVER=${SERVER} ./scripts/deploy.sh --rollback"
 info "Resume:   SERVER=${SERVER} ACS_IMAGE_TAG=${REMOTE_TAG} ./scripts/deploy.sh --resume"

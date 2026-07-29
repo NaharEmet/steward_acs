@@ -58,9 +58,11 @@ infisical --version >/dev/null
 REMOTE
 
 info "Creating ${REMOTE_DIR} and syncing compose + Infisical wrapper"
-ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}/priv' '${REMOTE_DIR}/certs' '${REMOTE_DIR}/scripts'"
+ssh "${SERVER}" "mkdir -p '${REMOTE_DIR}/priv' '${REMOTE_DIR}/certs' '${REMOTE_DIR}/scripts/lib' '${REMOTE_DIR}/caddy'"
 scp "${COMPOSE_FILE}" "${CADDY_FILE}" "${SERVER}:${REMOTE_DIR}/"
 scp scripts/infisical-compose.sh "${SERVER}:${REMOTE_DIR}/scripts/"
+scp scripts/lib/acs_bluegreen.sh "${SERVER}:${REMOTE_DIR}/scripts/lib/"
+scp caddy/acs_upstream.caddyfile "${SERVER}:${REMOTE_DIR}/caddy/"
 ssh "${SERVER}" "chmod 755 '${REMOTE_DIR}/scripts/infisical-compose.sh'"
 if [[ -f docker-compose.postgres.yml ]]; then
   scp docker-compose.postgres.yml "${SERVER}:${REMOTE_DIR}/"

@@ -17,6 +17,8 @@ REQUIRED_ENV_KEYS=(
 )
 OPTIONAL_ENV_KEYS=(
   ACS_IMAGE_TAG_PREV
+  ACS_ACTIVE_SLOT
+  CADDY_BUNDLE_HASH
   OAUTH_FIXED_DCR_CLIENT_ID
   OAUTH_BEARER_ENABLED
   OIDC_BROWSER_ENABLED
@@ -115,15 +117,47 @@ else
   echo "compose_wires_nim_api_key=no"
 fi
 
-docker inspect -f 'image_id={{.Image}} image_ref={{.Config.Image}} health={{.State.Health.Status}} started={{.State.StartedAt}}' steward_acs 2>/dev/null || echo steward_acs=missing
-rev=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' steward_acs 2>/dev/null || true)
-dirty=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.dirty"}}' steward_acs 2>/dev/null || true)
-echo "image_git_sha=${rev:-n/a}"
-echo "image_dirty=${dirty:-n/a}"
+# Resolve active ACS container (blue/green). Fall back to legacy steward_acs.
+ACTIVE_SLOT=""
+if [[ -f .env ]]; then
+  ACTIVE_SLOT=$(grep -E '^ACS_ACTIVE_SLOT=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true)
+fi
+ACS_CTR=""
+case "$ACTIVE_SLOT" in
+  blue|green) ACS_CTR="steward_acs_${ACTIVE_SLOT}" ;;
+esac
+if [[ -z "$ACS_CTR" ]] || ! docker inspect "$ACS_CTR" >/dev/null 2>&1; then
+  if docker inspect steward_acs_blue >/dev/null 2>&1 && \
+     [[ "$(docker inspect -f '{{.State.Running}}' steward_acs_blue 2>/dev/null || echo false)" == true ]]; then
+    ACS_CTR=steward_acs_blue
+    ACTIVE_SLOT=blue
+  elif docker inspect steward_acs_green >/dev/null 2>&1 && \
+       [[ "$(docker inspect -f '{{.State.Running}}' steward_acs_green 2>/dev/null || echo false)" == true ]]; then
+    ACS_CTR=steward_acs_green
+    ACTIVE_SLOT=green
+  elif docker inspect steward_acs >/dev/null 2>&1; then
+    ACS_CTR=steward_acs
+    ACTIVE_SLOT=legacy
+  fi
+fi
+echo "acs_active_slot=${ACTIVE_SLOT:-unknown}"
+echo "acs_container=${ACS_CTR:-missing}"
 
-docker exec steward_acs sh -c 'if [ -n "$DATABASE_PATH" ]; then echo db_backend=sqlite path_set=yes; elif [ -n "$DATABASE_URL" ]; then echo db_backend=postgres url_set=yes; else echo db_backend=unknown; fi' 2>/dev/null || true
-docker exec steward_acs sh -c 'printf %s "$MULTI_TENANT"' 2>/dev/null | xargs -I{} echo multi_tenant={}
-docker exec steward_acs sh -c 'printf %s "$ACS_ORG_NAME"' 2>/dev/null | xargs -I{} echo acs_org_name={}
+if [[ -n "${ACS_CTR:-}" ]]; then
+  docker inspect -f 'image_id={{.Image}} image_ref={{.Config.Image}} health={{.State.Health.Status}} started={{.State.StartedAt}}' "$ACS_CTR" 2>/dev/null || echo "${ACS_CTR}=missing"
+  rev=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$ACS_CTR" 2>/dev/null || true)
+  dirty=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.dirty"}}' "$ACS_CTR" 2>/dev/null || true)
+  echo "image_git_sha=${rev:-n/a}"
+  echo "image_dirty=${dirty:-n/a}"
+
+  docker exec "$ACS_CTR" sh -c 'if [ -n "$DATABASE_PATH" ]; then echo db_backend=sqlite path_set=yes; elif [ -n "$DATABASE_URL" ]; then echo db_backend=postgres url_set=yes; else echo db_backend=unknown; fi' 2>/dev/null || true
+  docker exec "$ACS_CTR" sh -c 'printf %s "$MULTI_TENANT"' 2>/dev/null | xargs -I{} echo multi_tenant={}
+  docker exec "$ACS_CTR" sh -c 'printf %s "$ACS_ORG_NAME"' 2>/dev/null | xargs -I{} echo acs_org_name={}
+else
+  echo "steward_acs=missing"
+  echo "image_git_sha=n/a"
+  echo "image_dirty=n/a"
+fi
 
 ls -1dt /home/ubuntu/steward_backups/*/ 2>/dev/null | head -1 | xargs -I{} echo latest_backup={}
 if latest=$(ls -1dt /home/ubuntu/steward_backups/*/ 2>/dev/null | head -1); then

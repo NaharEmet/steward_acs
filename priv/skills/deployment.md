@@ -26,11 +26,13 @@ Shipping code to multi-tenant prod, checking deploy health, or bringing up a new
 
 Workflow: [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)
 
-1. **Commit and push/merge to `main`** (or **Actions → Deploy → Run workflow**).
-2. Wait for `build-push` (DockerHub tag = short git SHA) and `cutover` (`deploy.sh --resume` on the Environment host).
+1. Merge/push to `prod` (or **Actions → Deploy → Run workflow**).
+2. Wait for `build-push` (DockerHub tag = short git SHA) and `cutover` (`deploy.sh --resume` **blue/green** on the Environment host).
 3. Confirm Actions green, then smoke (below).
 
-Path filters on `push` to `main`: `lib/`, `config/`, `priv/`, `assets/`, `mix.*`, `Dockerfile`, multitenant compose/Caddy, `scripts/deploy.sh`, `scripts/bootstrap-server.sh`, `scripts/infisical-compose.sh`, the workflow file.
+Cutover keeps the live slot serving until the idle slot is healthy, then reloads Caddy upstream and stops the old slot. Caddy is force-recreated only when `Caddyfile.multitenant` / TLS certs change (hash in `CADDY_BUNDLE_HASH`). Claude SSE sessions on the old process still drop at stop — reconnect should hit the already-healthy new slot.
+
+Path filters on `push` to `prod`: `lib/`, `config/`, `priv/`, `assets/`, `mix.*`, `Dockerfile`, multitenant compose/Caddy, `caddy/`, `scripts/deploy.sh`, `scripts/lib/`, `scripts/bootstrap-server.sh`, `scripts/infisical-compose.sh`, the workflow file.
 
 `workflow_dispatch` inputs: `environment`, `cutover` (default true), optional `image_tag`.
 
@@ -104,8 +106,9 @@ Older `cloudflare` / `remote` / `prod` compose files live under `archive/deploy/
 Entrypoint runs `Acs.Release.migrate` on start. Manual:
 
 ```bash
-./scripts/infisical-compose.sh -f docker-compose.multitenant.yml exec steward_acs \
+./scripts/infisical-compose.sh -f docker-compose.multitenant.yml exec steward_acs_blue \
   /app/bin/steward_acs eval "Acs.Release.migrate"
+# Active slot: see ACS_ACTIVE_SLOT / status.sh (blue or green).
 ```
 
 No `mix ecto.migrate` against the release image.
@@ -114,16 +117,16 @@ No `mix ecto.migrate` against the release image.
 
 Actions/`deploy.sh` already check container health + public `/mcp/health` (and fixed DCR when configured). Still verify:
 
-1. `SERVER=ubuntu@HOST ./scripts/status.sh` — `health=healthy`, `image_git_sha` matches tag, `env_required_missing=` empty, `compose_wires_oauth_fixed_dcr` matches whether fixed DCR is intended
+1. `SERVER=ubuntu@HOST ./scripts/status.sh` — `health=healthy`, `acs_active_slot=blue|green`, `image_git_sha` matches tag, `env_required_missing=` empty, `compose_wires_oauth_fixed_dcr` matches whether fixed DCR is intended
 2. Auth0 login on `ACCOUNT_HOST`, account onboarding, and tenant `/skills`
 3. Invite a member (email when Resend is configured, otherwise copy-link), accept with the exact verified email, and verify `/settings/members`
 4. `/.well-known/oauth-protected-resource/mcp/sse` if OAuth enabled
-5. No `inotify-tools` / EncodeError / pool starvation in `docker logs steward_acs` (log metadata must use JsonMap on Postgres)
+5. No `inotify-tools` / EncodeError / pool starvation in `docker logs steward_acs_blue` / `_green` (log metadata must use JsonMap on Postgres)
 6. If `AXIOM_LOGS` is set, traces and log events appear in the configured Axiom dataset after the health request. Agent tool usage + Meta-Harness rollups go to `AXIOM_AGENT_OPS_DATASET` (default `steward_meta_analytics`) as `message == "agent.tool"` / `"agent.feedback"` / `"meta.summary"` / `"meta.tool"` / `"meta.error_cluster"` / `"meta.agent"`. Set `META_HARNESS_ENABLED=true` (compose default on multitenant). With `COMPOSE_PROFILES=axiom`, `steward_otel` scrapes host metrics into `AXIOM_METRICS_DATASET`. Agents: upsert dashboards via **Axiom MCP** (`createDashboard` / `updateDashboard`) — see `.cursor/rules/axiom-mcp.mdc`. Templates live in `otel/axiom-*-dashboard.json`; human fallback scripts are `./scripts/axiom-upsert-server-dashboard.sh`, `./scripts/axiom-upsert-agent-ops-dashboard.sh`, and `./scripts/axiom-upsert-llm-dashboard.sh` (need a management token, not ingest-only `AXIOM_LOGS`). `message == "vm.metrics"` Events appear every ~30s (BEAM memory + scheduler utilization; plus `host_memory_*` / `cgroup_*` fields on Linux).
 
 ## Agent deploy rules
 
-- **Prefer merge/push to `main` → GitHub Actions.** That is the production path.
+- **Prefer merge/push to `prod` → GitHub Actions.** That is the production path (blue/green cutover via `deploy.sh --resume`).
 - Dirty laptop deploys (`ALLOW_DIRTY=1`) are emergency only; follow with a clean Actions build.
 - Never re-add a DCR prune GenServer; prevention is fixed client + ACS-owned `/oidc/register`.
 - Mid-cutover failure: Actions re-run with same tag, or `deploy.sh --resume` / `--rollback`.
