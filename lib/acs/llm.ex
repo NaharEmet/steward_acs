@@ -192,11 +192,11 @@ defmodule Acs.LLM do
   end
 
   defp try_providers(memory_id, [provider_id | rest], prompt, errors) do
-    Logger.info("[Acs.LLM] Trying provider: #{provider_id}",
+    # Start is debug-only — do not tag action: "llm_call" (dashboard counts those).
+    Logger.debug("[Acs.LLM] Trying provider: #{provider_id}",
       provider: provider_id,
       llm_event: "chat",
-      status: "start",
-      action: "llm_call"
+      status: "start"
     )
 
     case call_provider(provider_id, prompt) do
@@ -204,14 +204,7 @@ defmodule Acs.LLM do
         {:ok, evaluation}
 
       {:error, reason} ->
-        Logger.warning("[Acs.LLM] Provider #{provider_id} failed: #{inspect(reason)}",
-          provider: provider_id,
-          llm_event: "chat",
-          status: "error",
-          action: "llm_call",
-          error_type: normalize_error_type(reason)
-        )
-
+        # call_provider already logged the failure with model/latency — don't double-count.
         try_providers(memory_id, rest, prompt, [{provider_id, reason} | errors])
     end
   end

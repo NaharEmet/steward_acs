@@ -5,7 +5,7 @@ defmodule Acs.MCP.Tools.SkillHandlers do
   alias Acs.Skills.Store
 
   def skill_audit_status(_args) do
-    results = Acs.Skills.Auditor.audit_all()
+    {results, _audited} = Acs.Skills.Auditor.audit_all()
 
     skills =
       Enum.map(results, fn r ->

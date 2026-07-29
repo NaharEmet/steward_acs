@@ -4,6 +4,10 @@ defmodule Acs.Skills.Auditor do
 
   Audit prompts live in `priv/prompts/skills/evaluate.md` (or the Obsidian
   vault `prompts/skills/evaluate.md`) and are editable without recompilation.
+
+  Skips skills that already have audit frontmatter. Also keeps an in-process
+  name cache so a failed disk write cannot re-burn LLM tokens every cycle
+  (ponytail: process-lifetime skip; post-save `audit_soon/1` still re-runs).
   """
 
   use GenServer
@@ -43,7 +47,7 @@ defmodule Acs.Skills.Auditor do
   def init(_opts) do
     Logger.info("[Acs.Skills.Auditor] Starting with interval: #{audit_interval()}ms")
     schedule_audit()
-    {:ok, %{running: false}}
+    {:ok, %{running: false, audited: MapSet.new()}}
   end
 
   @impl true
@@ -52,22 +56,30 @@ defmodule Acs.Skills.Auditor do
   @impl true
   def handle_info(:audit, state) do
     state = %{state | running: true}
-    audit_all()
+    {_results, audited} = audit_all(nil, state.audited)
     schedule_audit()
-    {:noreply, %{state | running: false}}
+    {:noreply, %{state | running: false, audited: audited}}
   end
 
   @impl true
   def handle_info({:audit_one, name}, state) do
-    case Store.get_skill(name) do
-      nil ->
-        Logger.debug("[Acs.Skills.Auditor] skill '#{name}' not found for post-save audit")
+    audited =
+      case Store.get_skill(name) do
+        nil ->
+          Logger.debug("[Acs.Skills.Auditor] skill '#{name}' not found for post-save audit")
+          state.audited
 
-      skill ->
-        _ = audit_one(skill)
-    end
+        skill ->
+          # Allow re-audit after skill_save even if cached from a prior cycle.
+          audited = MapSet.delete(state.audited, skill.name)
 
-    {:noreply, state}
+          case audit_one(skill) do
+            %{name: n} when is_binary(n) -> MapSet.put(audited, n)
+            _ -> audited
+          end
+      end
+
+    {:noreply, %{state | audited: audited}}
   end
 
   @impl true
@@ -92,20 +104,30 @@ defmodule Acs.Skills.Auditor do
     Process.send_after(self(), :audit, audit_interval())
   end
 
-  def audit_all(skills \\ nil) do
-    skills =
-      (skills || Store.list_skills())
-      |> Enum.reject(&already_audited?/1)
-      |> Enum.map(fn meta -> Store.get_skill(meta["name"]) end)
-      |> Enum.reject(&is_nil/1)
+  @doc """
+  Audit skills that lack frontmatter audit fields and are not in `audited` cache.
 
-    Logger.info("[Acs.Skills.Auditor] Auditing #{length(skills)} skills")
+  Returns `{results, updated_audited}`.
+  """
+  def audit_all(skills \\ nil, audited \\ MapSet.new()) do
+    candidates =
+      (skills || Store.list_skills())
+      |> Enum.uniq_by(& &1["name"])
+      |> Enum.reject(fn meta ->
+        already_audited?(meta) or MapSet.member?(audited, meta["name"])
+      end)
+      |> Enum.map(fn meta -> Store.get_skill(meta["id"] || meta["name"]) end)
+      |> Enum.reject(&is_nil/1)
+      # get_skill(id) can still collide on name across duplicate trees — one LLM call each
+      |> Enum.uniq_by(& &1.name)
+
+    Logger.info("[Acs.Skills.Auditor] Auditing #{length(candidates)} skills")
 
     max_conc =
       Application.get_env(:steward_acs, :skill_auditor_max_concurrency, 5)
 
     results =
-      skills
+      candidates
       |> Task.async_stream(&audit_one/1, max_concurrency: max_conc, timeout: :infinity)
       |> Enum.map(fn
         {:ok, result} -> result
@@ -121,13 +143,20 @@ defmodule Acs.Skills.Auditor do
       "[Acs.Skills.Auditor] Audit complete: #{ok} ok, #{needs} needs_improvement, #{failing} failing"
     )
 
-    results
+    audited =
+      Enum.reduce(results, audited, fn
+        %{name: name}, acc when is_binary(name) -> MapSet.put(acc, name)
+        _, acc -> acc
+      end)
+
+    {results, audited}
   end
 
   defp already_audited?(meta) do
-    has_status = meta["audit_status"] && meta["audit_status"] != ""
-    has_audited_at = meta["audited_at"] && meta["audited_at"] != ""
-    has_status and has_audited_at
+    status = meta["audit_status"]
+    audited_at = meta["audited_at"]
+
+    is_binary(status) and status != "" and is_binary(audited_at) and audited_at != ""
   end
 
   defp audit_one(skill) do
@@ -197,7 +226,17 @@ defmodule Acs.Skills.Auditor do
       audit_reasoning: reasoning
     }
 
-    Store.write_audit_fields(skill.name, result)
+    # Prefer id so nested duplicate trees write the file we just evaluated.
+    case Store.write_audit_fields(skill.id || skill.name, result) do
+      :ok ->
+        :ok
+
+      other ->
+        Logger.error(
+          "[Acs.Skills.Auditor] Failed to persist audit for #{skill.name} (#{skill.id}): #{inspect(other)}"
+        )
+    end
+
     result
   end
 
