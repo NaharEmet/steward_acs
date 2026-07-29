@@ -309,6 +309,14 @@ defmodule Acs.MCP.Protocol do
         do: analysis_org(name, requested_arguments, agent_org_id, agent_permissions),
         else: agent_org_id
 
+    agent_id = if agent_identity && agent_identity != "" do
+      agent_identity
+    else
+      Acs.MCP.ClientSession.get_or_assign_agent_name()
+    end
+
+    attribution_id = agent_identity || Acs.Org.developer_name()
+
     auth_context = %{
       credential_org: agent_org_id,
       resource_org: resource_org,
@@ -316,7 +324,8 @@ defmodule Acs.MCP.Protocol do
       permissions: agent_permissions,
       allowed_teams: agent_allowed_teams,
       allowed_projects: agent_allowed_projects,
-      agent_id: agent_identity,
+      agent_id: agent_id,
+      attribution_id: attribution_id,
       audience: Acs.MCP.ClientSession.resolve_audience(agent_identity),
       mcp_endpoint: Acs.MCP.ClientSession.resolve_mcp_endpoint(agent_identity)
     }

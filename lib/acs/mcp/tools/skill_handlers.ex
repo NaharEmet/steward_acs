@@ -75,7 +75,8 @@ defmodule Acs.MCP.Tools.SkillHandlers do
            when_to_use: when_to_use,
            tags: tags,
            scope_paths: scope_paths,
-           status: "proposed"
+           status: "proposed",
+           proposed_by: blank_to_nil(args["_auth_attribution"]) || blank_to_nil(args["_auth_agent_id"]) || blank_to_nil(args["agent_id"])
          ) do
       {:ok, saved} ->
         # Post-save LLM quality audit (evaluate.md) — feeds governance UI + meta loops

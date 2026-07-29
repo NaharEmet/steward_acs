@@ -140,6 +140,22 @@ defmodule AcsWeb.AcsLive.SkillsLive do
 
   defp empty_stats, do: %{"total" => 0, "proposed" => 0, "approved" => 0, "rejected" => 0}
 
+  defp skill_meta(%{metadata: meta}, key) when is_map(meta) do
+    case Map.get(meta, key) do
+      nil -> nil
+      "" -> nil
+      value -> value
+    end
+  end
+
+  defp skill_meta(_, _), do: nil
+
+  defp skill_has_audit?(skill) do
+    skill_meta(skill, "audit_status") ||
+      skill_meta(skill, "audit_score") ||
+      skill_meta(skill, "audit_reasoning")
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -202,6 +218,14 @@ defmodule AcsWeb.AcsLive.SkillsLive do
                   <span class={"status-dot status-#{skill.status}"}></span>
                   <span class="category-badge"><%= skill.group %></span>
                   <span style="flex: 1; font-weight: 500; font-size: 0.88rem; color: var(--text);"><%= skill.name %></span>
+                  <%= if reviewed = skill_meta(skill, "proposed_by") || skill_meta(skill, "reviewed_by") || skill_meta(skill, "approved_by") do %>
+                    <span style="font-size: 0.68rem; color: var(--muted);" title={"By #{reviewed}"}><%= reviewed %></span>
+                  <% end %>
+                  <%= if audit = skill_meta(skill, "audit_status") do %>
+                    <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: var(--bg-elevated); color: var(--muted);">
+                      <%= audit %><%= if score = skill_meta(skill, "audit_score"), do: " · #{score}" %>
+                    </span>
+                  <% end %>
                   <%= for tag <- skill.tags || [] do %><span class="category-badge"><%= tag %></span><% end %>
                 </div>
                 <%= if skill.description do %>
@@ -229,9 +253,59 @@ defmodule AcsWeb.AcsLive.SkillsLive do
 
             <code style="font-size: 0.7rem; color: var(--muted);"><%= @selected_skill.id %></code>
             <%= if @selected_skill.description do %><p style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.5;"><%= @selected_skill.description %></p><% end %>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 18px;">
+            <%= if when_to_use = skill_meta(@selected_skill, "when_to_use") do %>
+              <div style="margin: 10px 0; padding: 10px; background: var(--bg); border-radius: var(--radius); font-size: 0.8rem; color: var(--text-dim); line-height: 1.45;">
+                <div class="agent-task-label" style="margin-bottom: 4px;">When to use</div>
+                <%= when_to_use %>
+              </div>
+            <% end %>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 12px;">
               <span class="category-badge"><%= @selected_skill.status %></span>
+              <%= if audience = skill_meta(@selected_skill, "audience") do %>
+                <span class="category-badge"><%= audience %></span>
+              <% end %>
               <%= for tag <- @selected_skill.tags || [] do %><span class="category-badge"><%= tag %></span><% end %>
+            </div>
+            <%= if (@selected_skill.scope_paths || []) != [] do %>
+              <div style="margin-bottom: 12px; font-size: 0.72rem; color: var(--muted);">
+                Scopes:
+                <%= for scope <- @selected_skill.scope_paths do %>
+                  <code style="font-size: 0.7rem; margin-left: 6px;"><%= scope %></code>
+                <% end %>
+              </div>
+            <% end %>
+            <%= if skill_has_audit?(@selected_skill) do %>
+              <div style="margin-bottom: 16px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);">
+                <div class="agent-task-label" style="margin-bottom: 6px;">LLM Audit</div>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); margin-bottom: 4px;">
+                  <%= if status = skill_meta(@selected_skill, "audit_status") do %>
+                    <span>Status: <strong style="color: var(--text);"><%= status %></strong></span>
+                  <% end %>
+                  <%= if score = skill_meta(@selected_skill, "audit_score") do %>
+                    <span>Score: <strong style="color: var(--text);"><%= score %></strong></span>
+                  <% end %>
+                  <%= if at = skill_meta(@selected_skill, "audited_at") do %>
+                    <span>Audited: <%= at %></span>
+                  <% end %>
+                </div>
+                <%= if reasoning = skill_meta(@selected_skill, "audit_reasoning") do %>
+                  <div style="font-size: 0.78rem; color: var(--text-dim); line-height: 1.45;"><%= reasoning %></div>
+                <% end %>
+              </div>
+            <% end %>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); margin-bottom: 16px;">
+              <%= if proposed_by = skill_meta(@selected_skill, "proposed_by") do %>
+                <span>Proposed by: <strong style="color: var(--text);"><%= proposed_by %></strong></span>
+              <% end %>
+              <%= if reviewed_by = skill_meta(@selected_skill, "reviewed_by") do %>
+                <span>Reviewed by: <strong style="color: var(--text);"><%= reviewed_by %></strong></span>
+              <% end %>
+              <%= if approved_by = skill_meta(@selected_skill, "approved_by") do %>
+                <span>Approved by: <strong style="color: var(--text);"><%= approved_by %></strong></span>
+              <% end %>
+              <%= if rejected_by = skill_meta(@selected_skill, "rejected_by") do %>
+                <span>Rejected by: <strong style="color: var(--text);"><%= rejected_by %></strong></span>
+              <% end %>
             </div>
             <div class="agent-task-label" style="margin-bottom: 8px;">Instructions (read-only)</div>
             <pre style="white-space: pre-wrap; word-break: break-word; margin: 0; padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-dim); font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.55;"><%= @selected_skill.content %></pre>

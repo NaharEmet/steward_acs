@@ -30,6 +30,8 @@ defmodule Acs.Memory.HybridSearch do
   - `:scope_weight` - weight for scope score (default 0.15)
   - `:metadata_weight` - weight for metadata score (default 0.10)
   - `:audience_weight` - weight for audience score (default 0.25)
+  - `:embedding` - precomputed query embedding (skips Ollama when provided)
+  - `:org` - tenant filter for vector search
   """
   def search(query, opts \\ []) when is_binary(query) do
     limit = Keyword.get(opts, :limit, @default_limit)
@@ -38,19 +40,19 @@ defmodule Acs.Memory.HybridSearch do
     audience = Keyword.get(opts, :audience)
     team_filter = Keyword.get(opts, :team_filter)
     project_filter = Keyword.get(opts, :project_filter)
+    org = Keyword.get(opts, :org) || Acs.Org.current()
 
-    query_embedding = get_query_embedding(query)
+    query_embedding = get_query_embedding(query, opts)
 
     lexical_opts =
       opts
       |> Keyword.put(:limit, limit * 2)
+      |> Keyword.put(:org, org)
       |> maybe_put_scope_path(scope)
 
-    lexical_results = Indexer.search(query, lexical_opts)
-
-    all_memory_ids = lexical_results |> Enum.map(& &1.id) |> Enum.uniq()
-
-    semantic_scores = fetch_semantic_scores(query_embedding, all_memory_ids)
+    # Lexical DB scan and vector ANN in parallel once embedding is ready.
+    {lexical_results, semantic_scores} =
+      run_lexical_and_semantic(query, lexical_opts, query_embedding, org, limit)
 
     scored_results =
       lexical_results
@@ -95,32 +97,43 @@ defmodule Acs.Memory.HybridSearch do
     %{query: query, results: scored_results, total: length(scored_results)}
   end
 
-  defp get_query_embedding(query) do
-    case Embedding.embed_text(query) do
-      {:ok, embedding} -> embedding
-      _ -> nil
+  # Prefer embedding from opts; fall back to embedding the query string.
+  defp get_query_embedding(query, opts) when is_binary(query) do
+    case Keyword.get(opts, :embedding) do
+      emb when is_list(emb) and emb != [] ->
+        emb
+
+      _ ->
+        case Embedding.embed_text(query) do
+          {:ok, embedding} -> embedding
+          _ -> nil
+        end
     end
   end
 
-  defp fetch_semantic_scores(nil, _), do: %{}
+  defp run_lexical_and_semantic(query, lexical_opts, nil, _org, _limit) do
+    {Indexer.search(query, lexical_opts), %{}}
+  end
 
-  defp fetch_semantic_scores(embedding, memory_ids) do
-    allowed_ids = MapSet.new(memory_ids)
+  defp run_lexical_and_semantic(query, lexical_opts, embedding, org, limit) do
+    vector_limit = max(limit * 10, 100)
 
-    all_similar =
-      VectorIndex.search_similar(embedding, limit: 1000)
-      |> Enum.filter(&MapSet.member?(allowed_ids, &1.memory_id))
+    lexical_task =
+      Task.async(fn ->
+        Acs.Org.with_current(org, fn -> Indexer.search(query, lexical_opts) end)
+      end)
 
-    memory_ids
-    |> Enum.map(fn id ->
-      score =
-        Enum.find_value(all_similar, 0.0, fn %{memory_id: mid, similarity: sim} ->
-          if mid == id, do: sim
+    semantic_task =
+      Task.async(fn ->
+        Acs.Org.with_current(org, fn ->
+          VectorIndex.search_similar(embedding, limit: vector_limit, org: org)
+          |> Map.new(fn %{memory_id: id, similarity: sim} -> {id, sim} end)
         end)
+      end)
 
-      {id, score}
-    end)
-    |> Enum.into(%{})
+    lexical_results = Task.await(lexical_task, 15_000)
+    semantic_scores = Task.await(semantic_task, 15_000)
+    {lexical_results, semantic_scores}
   end
 
   defp compute_lexical_score(memory, query) do

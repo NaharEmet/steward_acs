@@ -82,8 +82,9 @@ defmodule Acs.Specs.Search do
     limit = opts[:limit] || @max_results
     app = opts[:app]
     min_score = Keyword.get(opts, :min_score, @default_min_score)
+    vector_opts = vector_opts(opts, limit: limit, app: app)
 
-    case Acs.Specs.VectorSearch.search(query, limit: limit, app: app) do
+    case Acs.Specs.VectorSearch.search(query, vector_opts) do
       {:ok, results} ->
         enriched =
           results
@@ -111,7 +112,9 @@ defmodule Acs.Specs.Search do
       |> Enum.map(fn e -> "#{e.app}/#{e.id}" end)
       |> MapSet.new()
 
-    case Acs.Specs.VectorSearch.search(query, limit: limit * 2, app: app) do
+    vector_opts = vector_opts(opts, limit: limit * 2, app: app)
+
+    case Acs.Specs.VectorSearch.search(query, vector_opts) do
       {:ok, semantic_results} ->
         max_keyword_score = if keyword_results == [], do: 0.0, else: 1.0
 
@@ -151,6 +154,10 @@ defmodule Acs.Specs.Search do
       {:error, _reason} ->
         {:ok, keyword_results}
     end
+  end
+
+  defp vector_opts(opts, overrides) do
+    Keyword.merge(overrides, Keyword.take(opts, [:embedding, :org]))
   end
 
   defp enrich_rag_result(%{

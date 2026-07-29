@@ -72,7 +72,7 @@ defmodule Acs.Memory.Search do
   end
 
   defp search_auto(query, opts) do
-    if hybrid_available?() do
+    if hybrid_available?(opts) do
       hybrid_results = Acs.Memory.HybridSearch.search(query, opts)
       memory_ids = Enum.map(hybrid_results.results, & &1.memory_id)
 
@@ -93,7 +93,7 @@ defmodule Acs.Memory.Search do
   end
 
   defp search_auto_with_scores(query, opts) do
-    if hybrid_available?() do
+    if hybrid_available?(opts) do
       hybrid_results = Acs.Memory.HybridSearch.search(query, opts)
       memory_ids = Enum.map(hybrid_results.results, & &1.memory_id)
 
@@ -118,8 +118,8 @@ defmodule Acs.Memory.Search do
   end
 
   defp search_semantic(query, opts) do
-    if Acs.Memory.Embedding.available?() do
-      case Acs.Memory.Embedding.embed_text(query) do
+    if embedding_ready?(opts) do
+      case resolve_embedding(query, opts) do
         {:ok, embedding} ->
           limit = Keyword.get(opts, :limit, 20)
           similar = tenant_similar(embedding, opts, limit)
@@ -146,8 +146,8 @@ defmodule Acs.Memory.Search do
   end
 
   defp search_semantic_with_scores(query, opts) do
-    if Acs.Memory.Embedding.available?() do
-      case Acs.Memory.Embedding.embed_text(query) do
+    if embedding_ready?(opts) do
+      case resolve_embedding(query, opts) do
         {:ok, embedding} ->
           limit = Keyword.get(opts, :limit, 20)
           similar = tenant_similar(embedding, opts, limit)
@@ -175,6 +175,21 @@ defmodule Acs.Memory.Search do
     else
       Logger.warning("[Search] Embeddings unavailable for semantic search")
       {[], %{}}
+    end
+  end
+
+  # Precomputed `:embedding` opts skip the Ollama availability probe.
+  defp embedding_ready?(opts) do
+    case Keyword.get(opts, :embedding) do
+      emb when is_list(emb) and emb != [] -> true
+      _ -> Acs.Memory.Embedding.available?()
+    end
+  end
+
+  defp resolve_embedding(query, opts) do
+    case Keyword.get(opts, :embedding) do
+      emb when is_list(emb) and emb != [] -> {:ok, emb}
+      _ -> Acs.Memory.Embedding.embed_text(query)
     end
   end
 
@@ -208,10 +223,15 @@ defmodule Acs.Memory.Search do
     |> Enum.take(limit)
   end
 
-  defp hybrid_available? do
-    Code.ensure_loaded?(Acs.Memory.HybridSearch) &&
-      function_exported?(Acs.Memory.HybridSearch, :search, 2) &&
-      Acs.Memory.Embedding.available?()
+  defp hybrid_available?(opts) do
+    module_ok? =
+      Code.ensure_loaded?(Acs.Memory.HybridSearch) &&
+        function_exported?(Acs.Memory.HybridSearch, :search, 2)
+
+    case Keyword.get(opts, :embedding) do
+      emb when is_list(emb) and emb != [] -> module_ok?
+      _ -> module_ok? && Acs.Memory.Embedding.available?()
+    end
   end
 
   @doc """

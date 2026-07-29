@@ -54,7 +54,7 @@ defmodule Acs.MCP.Tools.PersonHandlers do
           "name" => name || email,
           "status" => status,
           "rank" => rank,
-          "updated_by" => args["_auth_agent_id"] || Acs.Org.developer_name()
+          "updated_by" => args["_auth_attribution"] || args["_auth_agent_id"] || Acs.Org.developer_name()
         }
 
         case PersonStatus.upsert(attrs) do

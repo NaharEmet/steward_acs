@@ -520,6 +520,11 @@ defmodule AcsWeb.AcsLive.MemoryLive do
                       ⚠ <%= count %>
                     </span>
                   <% end %>
+                  <%= if creator = creator_label(memory) do %>
+                    <span style="font-size: 0.68rem; color: var(--muted);" title={"Created by #{creator}"}>
+                      <%= creator %>
+                    </span>
+                  <% end %>
                   <span style="font-size: 0.7rem; color: var(--muted);">
                     <%= memory.scope_path %>
                   </span>
@@ -610,6 +615,38 @@ defmodule AcsWeb.AcsLive.MemoryLive do
               <code style="font-size: 0.72rem;"><%= @selected_memory.scope_path %></code>
             </div>
 
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; font-size: 0.72rem; color: var(--muted);">
+              <%= if creator = creator_label(@selected_memory) do %>
+                <span>
+                  Created by:
+                  <strong style="color: var(--text);"><%= creator %></strong>
+                  <%= if type = creator_type(@selected_memory) do %>
+                    <span class="category-badge" style="margin-left: 4px;"><%= type %></span>
+                  <% end %>
+                </span>
+              <% end %>
+              <%= if @selected_memory.audience do %>
+                <span>Audience: <strong style="color: var(--text);"><%= @selected_memory.audience %></strong></span>
+              <% end %>
+              <%= if @selected_memory.visibility do %>
+                <span>Visibility: <strong style="color: var(--text);"><%= @selected_memory.visibility %></strong></span>
+              <% end %>
+              <%= if @selected_memory.team do %>
+                <span>Team: <strong style="color: var(--text);"><%= @selected_memory.team %></strong></span>
+              <% end %>
+              <%= if @selected_memory.project do %>
+                <span>Project: <strong style="color: var(--text);"><%= @selected_memory.project %></strong></span>
+              <% end %>
+            </div>
+
+            <%= if tags = memory_tags(@selected_memory) do %>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+                <%= for tag <- tags do %>
+                  <span class="category-badge"><%= tag %></span>
+                <% end %>
+              </div>
+            <% end %>
+
             <%= if @selected_memory.summary do %>
               <div style="margin-bottom: 16px; padding: 10px; background: var(--bg); border-radius: var(--radius); font-size: 0.82rem; color: var(--text-dim); line-height: 1.5;">
                 <%= @selected_memory.summary %>
@@ -620,6 +657,29 @@ defmodule AcsWeb.AcsLive.MemoryLive do
               <div style="margin-bottom: 16px;">
                 <div style="font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px;">Content</div>
                 <pre style="background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; font-size: 0.75rem; line-height: 1.5; max-height: 300px; overflow-y: auto; color: var(--text-dim);"><%= @selected_memory.content %></pre>
+              </div>
+            <% end %>
+
+            <%= if flags = decode_auditor_flags(@selected_memory.auditor_flags) do %>
+              <div style="margin-bottom: 16px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);">
+                <div style="font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 8px;">LLM Audit</div>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); margin-bottom: 6px;">
+                  <%= if flags["audit_verdict"] || flags["auditVerdict"] do %>
+                    <span>Verdict: <strong style="color: var(--text);"><%= flags["audit_verdict"] || flags["auditVerdict"] %></strong></span>
+                  <% end %>
+                  <%= if flags["quality_score"] || flags["qualityScore"] do %>
+                    <span>Quality: <strong style="color: var(--text);"><%= flags["quality_score"] || flags["qualityScore"] %></strong></span>
+                  <% end %>
+                  <%= if flags["audited_at"] || flags["auditedAt"] do %>
+                    <span>Audited: <%= format_datetime_string(flags["audited_at"] || flags["auditedAt"]) %></span>
+                  <% end %>
+                  <%= if Map.get(flags, "needs_human_review") || Map.get(flags, "audit_error_count", 0) > 0 do %>
+                    <span style="color: #d97706; font-weight: 600;">Needs review</span>
+                  <% end %>
+                </div>
+                <%= if reasoning = flags["reasoning"] || flags["audit_reasoning"] do %>
+                  <div style="font-size: 0.78rem; color: var(--text-dim); line-height: 1.45;"><%= reasoning %></div>
+                <% end %>
               </div>
             <% end %>
 
@@ -657,6 +717,73 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   defp format_datetime(nil), do: "N/A"
   defp format_datetime(%DateTime{} = dt), do: Calendar.strftime(dt, "%b %d, %H:%M")
   defp format_datetime(%NaiveDateTime{} = ndt), do: Calendar.strftime(ndt, "%b %d, %H:%M")
+
+  defp format_datetime_string(nil), do: "N/A"
+
+  defp format_datetime_string(iso) when is_binary(iso) do
+    case DateTime.from_iso8601(iso) do
+      {:ok, dt, _} -> format_datetime(dt)
+      _ -> iso
+    end
+  end
+
+  defp format_datetime_string(_), do: "N/A"
+
+  defp creator_label(memory) do
+    cond do
+      is_binary(memory.created_by_agent) and memory.created_by_agent != "" ->
+        memory.created_by_agent
+
+      true ->
+        case decode_created_by(memory.created_by_json) do
+          %{"id" => id} when is_binary(id) and id != "" -> id
+          _ -> nil
+        end
+    end
+  end
+
+  defp creator_type(memory) do
+    case decode_created_by(memory.created_by_json) do
+      %{"type" => type} when is_binary(type) and type != "" -> type
+      _ -> nil
+    end
+  end
+
+  defp decode_created_by(nil), do: nil
+
+  defp decode_created_by(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, map} when is_map(map) -> map
+      _ -> nil
+    end
+  end
+
+  defp decode_created_by(_), do: nil
+
+  defp decode_auditor_flags(nil), do: nil
+
+  defp decode_auditor_flags(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, flags} when is_map(flags) and map_size(flags) > 0 ->
+        # Atom keys from older writes — normalize to strings
+        Map.new(flags, fn
+          {k, v} when is_atom(k) -> {Atom.to_string(k), v}
+          {k, v} -> {k, v}
+        end)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp decode_auditor_flags(_), do: nil
+
+  defp memory_tags(memory) do
+    case parse_tags_json(memory.tags_json) do
+      [] -> nil
+      tags -> tags
+    end
+  end
 
   defp parse_tags_json(nil), do: []
 

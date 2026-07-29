@@ -90,7 +90,7 @@ defmodule Acs.Skills.VectorSearch do
     limit = Keyword.get(opts, :limit, 20)
     org = org_filter(opts)
 
-    with {:ok, embedding} <- Acs.Memory.Embedding.embed_text(query) do
+    with {:ok, embedding} <- resolve_embedding(query, opts) do
       if Pgvector.enabled?() do
         search_pg(embedding, org, limit)
       else
@@ -100,6 +100,13 @@ defmodule Acs.Skills.VectorSearch do
       {:error, reason} ->
         Logger.warning("[Skills.VectorSearch] Embedding failed: #{reason}")
         {:error, reason}
+    end
+  end
+
+  defp resolve_embedding(query, opts) do
+    case Keyword.get(opts, :embedding) do
+      emb when is_list(emb) and emb != [] -> {:ok, emb}
+      _ -> Acs.Memory.Embedding.embed_text(query)
     end
   end
 

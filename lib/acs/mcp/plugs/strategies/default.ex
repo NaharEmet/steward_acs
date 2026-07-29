@@ -31,7 +31,7 @@ defmodule Acs.MCP.Plugs.Strategies.Default do
            role: "admin",
            org_id: nil,
            permissions: nil,
-           agent_identity: Acs.Org.developer_name()
+           agent_identity: nil
          }}
 
       true ->

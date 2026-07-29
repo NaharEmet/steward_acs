@@ -472,7 +472,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "ask",
-        "Primary retrieval for chat assistants and collaborators. Query the org knowledge base — memories, documents, and agent status — in one call. USE WHEN: answering questions about org knowledge, status, or prior decisions. (Chat connectors do not expose separate query_memories / query_specs.)",
+        "Primary retrieval for chat assistants and collaborators. Query the org knowledge base — memories, documents, related skills, and agent status — in one call. USE WHEN: answering questions about org knowledge, status, procedures, or prior decisions. (Chat connectors do not expose separate query_memories / query_specs.)",
         %{
           "kind" => %{
             "type" => "string",
@@ -483,7 +483,7 @@ defmodule Acs.MCP.Tools do
           "project" => %{"type" => "string", "description" => "Project scope filter"},
           "content_query" => %{
             "type" => "string",
-            "description" => "Full-text search string for memories and documents"
+            "description" => "Full-text search string for memories, documents, and skills"
           },
           "document_type" => %{
             "type" => "string",
@@ -497,6 +497,10 @@ defmodule Acs.MCP.Tools do
           "include_documents" => %{
             "type" => "boolean",
             "description" => "Include documents in results (default true)"
+          },
+          "include_skills" => %{
+            "type" => "boolean",
+            "description" => "Include related skills in results (default true)"
           },
           "include_agent_status" => %{
             "type" => "boolean",

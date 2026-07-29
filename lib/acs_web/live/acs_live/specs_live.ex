@@ -441,6 +441,16 @@ defmodule AcsWeb.AcsLive.SpecsLive do
                 <span style="font-size: 0.7rem; color: var(--muted); font-family: var(--font-mono);">
                   v<%= entry.version || "?" %>
                 </span>
+                <%= if entry.proposed_by do %>
+                  <span style="font-size: 0.68rem; color: var(--muted);" title={"Proposed by #{entry.proposed_by}"}>
+                    <%= entry.proposed_by %>
+                  </span>
+                <% end %>
+                <%= if entry.audit_verdict do %>
+                  <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: var(--bg-elevated); color: var(--muted);" title={entry.audit_reasoning}>
+                    audit: <%= entry.audit_verdict %><%= if entry.quality_score, do: " · #{entry.quality_score}" %>
+                  </span>
+                <% end %>
                 <span style="font-size: 0.7rem; color: var(--muted);">
                   <%= entry.id %>
                 </span>
@@ -703,12 +713,43 @@ defmodule AcsWeb.AcsLive.SpecsLive do
                 </div>
                 <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); margin-top: 6px;">
                   <span>Verification: <%= @selected_spec.verification_status || "unset" %></span>
+                  <%= if @selected_spec.visibility do %>
+                    <span>Visibility: <strong><%= @selected_spec.visibility %></strong></span>
+                  <% end %>
+                  <%= if @selected_spec.team do %>
+                    <span>Team: <strong><%= @selected_spec.team %></strong></span>
+                  <% end %>
+                  <%= if @selected_spec.project do %>
+                    <span>Project: <strong><%= @selected_spec.project %></strong></span>
+                  <% end %>
+                  <%= if @selected_spec.source do %>
+                    <span>Source: <code style="font-size: 0.65rem;"><%= @selected_spec.source %></code></span>
+                  <% end %>
                   <%= if @selected_spec.spec_hash do %>
                     <span title={@selected_spec.spec_hash}>
                       Hash: <code style="font-size: 0.65rem;"><%= String.slice(@selected_spec.spec_hash, 0, 12) %>…</code>
                     </span>
                   <% end %>
                 </div>
+                <%= if @selected_spec.audit_verdict || @selected_spec.quality_score || @selected_spec.audit_reasoning do %>
+                  <div style="margin-top: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);">
+                    <div style="font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px;">LLM Audit</div>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); margin-bottom: 4px;">
+                      <%= if @selected_spec.audit_verdict do %>
+                        <span>Verdict: <strong style="color: var(--text);"><%= @selected_spec.audit_verdict %></strong></span>
+                      <% end %>
+                      <%= if @selected_spec.quality_score do %>
+                        <span>Quality: <strong style="color: var(--text);"><%= @selected_spec.quality_score %></strong></span>
+                      <% end %>
+                      <%= if @selected_spec.audited_at do %>
+                        <span>Audited: <%= @selected_spec.audited_at %></span>
+                      <% end %>
+                    </div>
+                    <%= if @selected_spec.audit_reasoning do %>
+                      <div style="font-size: 0.78rem; color: var(--text-dim); line-height: 1.45;"><%= @selected_spec.audit_reasoning %></div>
+                    <% end %>
+                  </div>
+                <% end %>
                 <div style="display: flex; gap: 16px; margin-top: 6px; font-size: 0.72rem; color: var(--muted);">
                   <span>Created: <%= @selected_spec.created_at || "—" %></span>
                   <span>Updated: <%= @selected_spec.updated_at || "—" %></span>

@@ -94,7 +94,11 @@ defmodule Acs.Specs.Tools do
     ctx = Abac.from_args(args)
 
     with :ok <- require_params!(args, ~w(app path)),
-         attrs = args |> Map.drop(["app", "path"]) |> Map.take(@allowed_fields),
+         attrs =
+           args
+           |> Map.drop(["app", "path"])
+           |> Map.take(@allowed_fields)
+           |> maybe_put_proposed_by(args),
          :ok <- Abac.validate_write(ctx, attrs),
          :ok <- ensure_entry_writable(ctx, args["app"], args["path"]) do
       title = attrs["title"] || ""
@@ -156,6 +160,13 @@ defmodule Acs.Specs.Tools do
     do: {:ok, Map.put(spec_map, :deduplication_warnings, warnings)}
 
   defp wrap_with_warnings(result, _warnings), do: result
+
+  defp maybe_put_proposed_by(attrs, args) do
+    case args["_auth_attribution"] || args["_auth_agent_id"] || args["agent_id"] do
+      id when is_binary(id) and id != "" -> Map.put(attrs, "proposed_by", id)
+      _ -> attrs
+    end
+  end
 
   # ── Deduplication ──
 

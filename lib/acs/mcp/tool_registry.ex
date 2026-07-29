@@ -684,9 +684,10 @@ defmodule Acs.MCP.ToolRegistry do
          permissions: context[:permissions] || context["permissions"] || [],
          allowed_teams: context[:allowed_teams] || context["allowed_teams"],
          allowed_projects: context[:allowed_projects] || context["allowed_projects"],
-         agent_id: context[:agent_id] || context["agent_id"],
-         audience: context[:audience] || context["audience"],
-         mcp_endpoint: context[:mcp_endpoint] || context["mcp_endpoint"]
+        agent_id: context[:agent_id] || context["agent_id"],
+        attribution_id: context[:attribution_id] || context["attribution_id"],
+        audience: context[:audience] || context["audience"],
+        mcp_endpoint: context[:mcp_endpoint] || context["mcp_endpoint"]
        }}
     else
       {:error, "Missing authentication context"}
@@ -707,6 +708,7 @@ defmodule Acs.MCP.ToolRegistry do
       "_auth_allowed_teams" => auth.allowed_teams,
       "_auth_allowed_projects" => auth.allowed_projects,
       "_auth_agent_id" => auth.agent_id,
+      "_auth_attribution" => auth.attribution_id,
       "_auth_audience" => auth[:audience] && to_string(auth[:audience]),
       "_auth_mcp_endpoint" => auth[:mcp_endpoint]
     })

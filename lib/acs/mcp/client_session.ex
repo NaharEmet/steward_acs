@@ -48,6 +48,34 @@ defmodule Acs.MCP.ClientSession do
   end
 
   @doc """
+  Get or assign a pool-based agent name for the current session.
+  Returns the cached name if already assigned, otherwise gets a new
+  name from the round-robin pool and stores it in session data.
+  """
+  def get_or_assign_agent_name do
+    get_or_assign_agent_name(current_id())
+  end
+
+  def get_or_assign_agent_name(session_id) when is_binary(session_id) do
+    with {:ok, data} <- fetch(session_id),
+         name when is_binary(name) and name != "" <- Map.get(data, :agent_name) do
+      name
+    else
+      _ ->
+        pool_name = Acs.Acs.Cache.get_and_increment_agent_index()
+        with {:ok, data} <- fetch(session_id) do
+          merged = Map.put(data, :agent_name, pool_name)
+          put(session_id, merged)
+        else
+          _ -> put(session_id, %{agent_name: pool_name})
+        end
+        pool_name
+    end
+  end
+
+  def get_or_assign_agent_name(_), do: nil
+
+  @doc """
   Resolve audience for the current request.
 
   Prefers the bound session id, then `{:agent, agent_identity}`, else default.

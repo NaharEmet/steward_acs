@@ -3,7 +3,7 @@ defmodule Acs.MCP.Tools.QueryAgent do
   The `ask` tool — structured-param query interface for collaborators.
 
   Accepts filters and returns a formatted markdown summary of matched
-  memories, documents, and agent status. No server-side NL parsing —
+  memories, documents, skills, and agent status. No server-side NL parsing —
   the client AI translates the human's natural language into these
   structured parameters.
 
@@ -12,59 +12,101 @@ defmodule Acs.MCP.Tools.QueryAgent do
   - `kind` — memory kind filter (context, status, work_note, activity, ...)
   - `team` — team scope filter
   - `project` — project scope filter
-  - `content_query` — free-text search string for memories and documents
+  - `content_query` — free-text search string for memories, documents, and skills
   - `document_type` — document type filter (spec, knowledge, project, marketing, deliverable, policy, process, guideline, reference)
   - `status` — memory status filter (default: approved; use "all" for no filter)
   - `limit` — max results per category (default 10)
   - `include_documents` — whether to search documents too (default true)
+  - `include_skills` — whether to search skills too (default true)
   - `include_agent_status` — whether to include agent presence (default true)
   """
 
   require Logger
 
+  alias Acs.Skills.Store
+
   @default_limit 10
   @max_limit 50
+  @default_skill_min_score 0.45
 
   @doc """
-  Executes an `ask` query against memories, documents, and agent status.
+  Executes an `ask` query against memories, documents, skills, and agent status.
+
+  Always scoped to `Acs.Org.current/0` (passed explicitly into Tasks and search opts).
   """
   def ask(args) do
     limit = clamp_limit(args["limit"])
     abac_opts = extract_abac(args)
+    org = Acs.Org.current()
+    embedding = maybe_embed_query(args["content_query"])
+
+    search_opts =
+      abac_opts
+      |> Keyword.put(:org, org)
+      |> maybe_put(:embedding, embedding)
+
+    # Capture org for Task processes (Org.current/0 is process-local).
+    mem_task =
+      Task.async(fn ->
+        Acs.Org.with_current(org, fn -> search_memories(args, search_opts, limit) end)
+      end)
+
+    doc_task =
+      Task.async(fn ->
+        Acs.Org.with_current(org, fn -> search_documents(args, search_opts, limit) end)
+      end)
+
+    skill_task =
+      Task.async(fn ->
+        Acs.Org.with_current(org, fn -> search_skills(args, search_opts, limit) end)
+      end)
+
+    agents = agent_status(args)
 
     results = [
-      search_memories(args, abac_opts, limit),
-      search_documents(args, abac_opts, limit),
-      agent_status(args)
+      Task.await(mem_task, 35_000),
+      Task.await(doc_task, 35_000),
+      Task.await(skill_task, 35_000),
+      agents
     ]
 
     {:ok, format_response(args, results)}
   end
 
-  defp search_memories(args, abac_opts, limit) do
+  # One Ollama call shared by memory + document + skill hybrid search.
+  defp maybe_embed_query(query) when is_binary(query) and query != "" do
+    case Acs.Memory.Embedding.embed_text(query) do
+      {:ok, embedding} -> embedding
+      _ -> nil
+    end
+  end
+
+  defp maybe_embed_query(_), do: nil
+
+  defp search_memories(args, search_opts, limit) do
     query = args["content_query"]
     kind = args["kind"]
     status = Acs.Memory.Search.resolve_status_filter(args["status"])
     team = args["team"]
     project = args["project"]
 
-    search_opts =
-      abac_opts
+    opts =
+      search_opts
       |> Keyword.merge(limit: limit)
       |> maybe_put(:kind, kind)
       |> maybe_put(:status, status)
 
     case {query, team, project} do
       {q, nil, nil} when is_binary(q) and q != "" ->
-        mems = Acs.Memory.Search.search(q, search_opts)
+        mems = Acs.Memory.Search.search(q, opts)
         {:memory_results, mems}
 
       {nil, nil, nil} ->
-        mems = Acs.Memory.Search.list(search_opts)
+        mems = Acs.Memory.Search.list(opts)
         {:memory_results, mems}
 
       _ ->
-        list_opts = search_opts
+        list_opts = opts
         list_opts = if team, do: Keyword.put(list_opts, :team, team), else: list_opts
         list_opts = if project, do: Keyword.put(list_opts, :project, project), else: list_opts
         mems = Acs.Memory.Indexer.list_memories(list_opts)
@@ -72,17 +114,19 @@ defmodule Acs.MCP.Tools.QueryAgent do
     end
   end
 
-  defp search_documents(args, abac_opts, limit) do
+  defp search_documents(args, search_opts, limit) do
     if args["include_documents"] == false do
       {:document_results, []}
     else
       query = args["content_query"]
       doc_type = args["document_type"]
+      # Specs search accepts :embedding / :org from the shared ask opts.
+      spec_opts = Keyword.take(search_opts, [:embedding, :org])
 
       entries =
         cond do
           is_binary(query) and query != "" ->
-            case Acs.Specs.Search.search(query) do
+            case Acs.Specs.Search.search(query, spec_opts) do
               {:ok, results} -> results
               _ -> []
             end
@@ -105,8 +149,68 @@ defmodule Acs.MCP.Tools.QueryAgent do
             end
         end
 
-      {:document_results, Acs.Abac.filter(entries, Acs.Abac.from_keyword(abac_opts))}
+      {:document_results, Acs.Abac.filter(entries, Acs.Abac.from_keyword(search_opts))}
     end
+  end
+
+  defp search_skills(args, search_opts, limit) do
+    if args["include_skills"] == false do
+      {:skill_results, []}
+    else
+      query = args["content_query"]
+
+      skills =
+        cond do
+          is_binary(query) and query != "" ->
+            related_skills(query, search_opts, limit)
+
+          true ->
+            []
+        end
+
+      {:skill_results, skills}
+    end
+  end
+
+  # Prefer org-scoped vector hits with the shared embedding; fall back to lexical.
+  defp related_skills(query, search_opts, limit) do
+    vector_opts =
+      search_opts
+      |> Keyword.take([:embedding, :org])
+      |> Keyword.put(:limit, limit)
+
+    case Acs.Skills.VectorSearch.search(query, vector_opts) do
+      {:ok, scored} when is_list(scored) and scored != [] ->
+        scored
+        |> Enum.filter(&(&1.similarity >= @default_skill_min_score))
+        |> Enum.take(limit)
+        |> Enum.map(&enrich_skill/1)
+        |> Enum.reject(&is_nil/1)
+
+      _ ->
+        Store.search_skills(query)
+        |> Enum.take(limit)
+        |> Enum.map(&skill_summary/1)
+    end
+  end
+
+  defp enrich_skill(%{skill_name: name, similarity: sim}) do
+    case Store.get_skill(name) do
+      nil ->
+        %{name: name, description: nil, tags: [], similarity: Float.round(sim, 4)}
+
+      skill ->
+        skill_summary(skill) |> Map.put(:similarity, Float.round(sim, 4))
+    end
+  end
+
+  defp skill_summary(skill) do
+    %{
+      name: skill.name,
+      description: skill.description,
+      tags: skill.tags || [],
+      when_to_use: Map.get(skill, :when_to_use) || Map.get(skill, "when_to_use")
+    }
   end
 
   defp agent_status(args) do
@@ -132,12 +236,14 @@ defmodule Acs.MCP.Tools.QueryAgent do
   defp format_response(_args, results) do
     mems = Keyword.get(results, :memory_results) || []
     docs = Keyword.get(results, :document_results) || []
+    skills = Keyword.get(results, :skill_results) || []
     agents = Keyword.get(results, :agent_status) || []
 
     sections =
       []
       |> maybe_prepend(format_memories_section(mems))
       |> maybe_prepend(format_documents_section(docs))
+      |> maybe_prepend(format_skills_section(skills))
       |> maybe_prepend(format_status_section(agents))
 
     %{
@@ -149,8 +255,10 @@ defmodule Acs.MCP.Tools.QueryAgent do
       summary: %{
         memory_count: length(mems || []),
         document_count: length(docs || []),
+        skill_count: length(skills || []),
         agent_count: length(agents || [])
-      }
+      },
+      relevant_skills: skills
     }
   end
 
@@ -200,6 +308,25 @@ defmodule Acs.MCP.Tools.QueryAgent do
       end)
 
     "## Documents (#{length(docs)})\n\n#{Enum.join(items, "\n")}"
+  end
+
+  defp format_skills_section([]), do: nil
+  defp format_skills_section(nil), do: nil
+
+  defp format_skills_section(skills) do
+    items =
+      skills
+      |> Enum.take(@max_limit)
+      |> Enum.map(fn s ->
+        name = s[:name] || s["name"]
+        desc = s[:description] || s["description"] || ""
+        tags = s[:tags] || s["tags"] || []
+        tag_str = if tags == [], do: "", else: " [#{Enum.join(tags, ", ")}]"
+        desc_str = if desc == "" or is_nil(desc), do: "", else: " — #{desc}"
+        "- **#{name}**#{tag_str}#{desc_str}"
+      end)
+
+    "## Related Skills (#{length(skills)})\n\n#{Enum.join(items, "\n")}\n\nUse `skill_get(name:)` to load a procedure."
   end
 
   defp format_status_section([]), do: nil

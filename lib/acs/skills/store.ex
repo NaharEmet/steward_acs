@@ -85,7 +85,7 @@ defmodule Acs.Skills.Store do
   @doc """
   Create or overwrite a skill markdown file in the org skills dir.
 
-  Opts keys (string or atom): `description`, `when_to_use`, `tags`, `scope_paths`, `status`.
+  Opts keys (string or atom): `description`, `when_to_use`, `tags`, `scope_paths`, `status`, `proposed_by`.
   Defaults to `status: \"proposed\"`.
   """
   def save_skill(name, content, opts \\ []) when is_binary(name) and is_binary(content) do
@@ -102,7 +102,8 @@ defmodule Acs.Skills.Store do
         "when_to_use" => opts["when_to_use"],
         "tags" => opts["tags"] || [],
         "scope_paths" => opts["scope_paths"] || [],
-        "status" => opts["status"] || "proposed"
+        "status" => opts["status"] || "proposed",
+        "proposed_by" => opts["proposed_by"]
       }
 
       frontmatter =

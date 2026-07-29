@@ -51,6 +51,19 @@ defmodule Acs.Memory.HybridSearchTest do
     after
       cleanup_test_memories("test_hybrid_weak")
     end
+
+    test "uses precomputed embedding without calling Ollama" do
+      setup_test_memories("test_hybrid_embed")
+      # Zero vector: exercises :embedding opts path; Ollama may be down in CI.
+      fake = List.duplicate(0.0, Acs.Memory.Embedding.dimensions())
+      result = HybridSearch.search("cache release", embedding: fake, limit: 5, org: Acs.Org.current())
+
+      assert is_map(result)
+      assert result.query == "cache release"
+      assert is_list(result.results)
+    after
+      cleanup_test_memories("test_hybrid_embed")
+    end
   end
 
   describe "scoring functions" do

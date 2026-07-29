@@ -27,7 +27,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     ctx = Acs.Abac.from_args(args)
     org = Acs.Org.current()
 
-    creator_id = args["_auth_agent_id"] || Acs.Org.developer_name()
+    creator_id = args["_auth_attribution"] || args["_auth_agent_id"] || Acs.Org.developer_name()
 
     creator_type =
       if is_binary(creator_id) and String.contains?(creator_id, "@"), do: "user", else: "developer"

@@ -374,7 +374,8 @@ defmodule Acs.Observability.AgentOps do
 
   defp result_count("ask", {:ok, %{summary: summary}}) when is_map(summary) do
     (Map.get(summary, :memory_count) || Map.get(summary, "memory_count") || 0) +
-      (Map.get(summary, :document_count) || Map.get(summary, "document_count") || 0)
+      (Map.get(summary, :document_count) || Map.get(summary, "document_count") || 0) +
+      (Map.get(summary, :skill_count) || Map.get(summary, "skill_count") || 0)
   end
 
   defp result_count("query_memories", {:ok, payload}) when is_map(payload) do
