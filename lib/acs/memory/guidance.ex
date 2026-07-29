@@ -70,7 +70,7 @@ Code differs from its module spec? Pause → identify diff → ask user which to
 """
 
   @coding_finish """
-After release_work: skill_save / save_memory / specs_propose (code specs or documents) → submit_task_feedback last.
+After release_work: skill_save / save_memory / specs_propose (code specs or documents) → submit_task_feedback last. Feedback is a system review: (1) report stale/noisy memories/specs you saw, (2) suggest improvements, (3) flag missing guidance. Not just a formality — it makes Steward better for every agent.
 """
 
   @coding_maintenance """
@@ -115,7 +115,7 @@ Use skill_get to load procedures before answering. Use skill_save to document re
   @chat_workflow """
 Retrieve with ask (memories + documents + status; default approved — pass status:"all" to include stale/proposed/etc.). Load procedures with skill_get. Optionally create_work(claim: true) for multi-step tracked work.
 Answer from ACS; if nothing matches, say so. Save: save_memory (truths), documents_propose (long documents), skill_save (how-to procedures). Mark outdated truths with set_memory_status(status:"stale").
-Tracked work only: save → release_work → submit_task_feedback(learned_for_agents:) last. Simple Q&A needs no feedback.
+Feedback is a system review — not a task close. Use submit_task_feedback to: (1) report stale/wrong knowledge you found, (2) suggest improvements for Steward, (3) flag missing guidance or information gaps. No task_id needed for standalone feedback.
 """
 
   @chat_store """

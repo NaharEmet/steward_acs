@@ -238,7 +238,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       general:
         "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings as memories, release. Scopes may be code paths or business domains (org/domain/topic). Every response includes `_next` with suggested next tools.",
       get_started:
-        "1) `get_present_status(agent_id: \"your_name\")` — register  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check docs  5) `lock_file` files  6) do work  7) `save_memory` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback`",
+        "1) `get_present_status(agent_id: \"your_name\")` — register  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check docs  5) `lock_file` files  6) do work  7) `save_memory` / `skill_save` / `specs_propose` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last",
       org_knowledge_conventions:
         "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=truths, specs=code module docs, documents=non-code artifacts (same specs_* tools + document_type), skills=procedures.",
       memory_protocol: Acs.Memory.Guidance.memory_protocol(:coding),
@@ -298,9 +298,9 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       general:
         "ACS chat surface: retrieve with ask; save truths (save_memory), documents (documents_propose), and procedures (skill_save). Prefer business scopes (org/domain/topic). Create tracked work with create_work(claim: true).",
       get_started:
-        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  6) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback(learned_for_agents:) last. Simple Q&A needs no feedback.",
+        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  6) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback(learned_for_agents:, had_issues:, improvements:, info_needed:) last. Simple Q&A: standalone submit_task_feedback(learned_for_agents:) without task_id.",
       org_knowledge_conventions:
-        "Business scopes: acme/sales/pricing, acme/support/refunds. memories=truths, documents=long artifacts via documents_propose, skills=procedures via skill_save. Never invent org policy when ask returns nothing. Feedback only after claimed tasks — save knowledge first, then release_work, then submit_task_feedback.",
+        "Business scopes: acme/sales/pricing, acme/support/refunds. memories=truths, documents=long artifacts via documents_propose, skills=procedures via skill_save. Never invent org policy when ask returns nothing. Save knowledge first → release_work → submit_task_feedback. Standalone feedback (learned_for_agents, had_issues, improvements, info_needed) also works without task_id.",
       memory_protocol: Acs.Memory.Guidance.memory_protocol(:chat),
       tools: [
         %{tool: "get_started", description: "This startup packet", params: %{audience: "chat"}},
@@ -384,11 +384,13 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         %{
           tool: "submit_task_feedback",
           description:
-            "Last step after release_work — formally close a claimed task. Pass learned_for_agents.",
+            "Last step after release_work — formally close a claimed task, or standalone feedback without task_id. Categories: learned_for_agents (insights), had_issues (bugs), improvements (feature requests), info_needed (missing docs).",
           params: %{
             agent_id: "your_name",
-            task_id: "<slug>",
-            learned_for_agents: "What future sessions should know"
+            task_id: "<slug or omit for standalone>",
+            learned_for_agents: "What future sessions should know",
+            had_issues: "What went wrong",
+            improvements: "Suggestions for Steward"
           }
         }
       ]

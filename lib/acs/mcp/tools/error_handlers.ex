@@ -25,57 +25,64 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
 
   def acs_submit_task_feedback(args) do
     agent_id = args["_auth_agent_id"] || args["agent_id"]
-    task_id = args["task_id"]
     org = Acs.Org.current()
 
-    task = Acs.Acs.get_task(task_id)
+    args =
+      if args["task_id"] do
+        task = Acs.Acs.get_task(args["task_id"])
 
-    if is_nil(task) do
-      {:error, "Task not found"}
-    else
-      changeset =
-        %FeedbackSchema{}
-        |> FeedbackSchema.changeset(%{
-          task_id: task_id,
+        if is_nil(task) do
+          args
+        else
+          args
+        end
+      else
+        Map.put(args, "task_id", Ecto.UUID.generate())
+      end
+
+    task_id = args["task_id"]
+
+    changeset =
+      %FeedbackSchema{}
+      |> FeedbackSchema.changeset(%{
+        task_id: task_id,
+        agent_id: agent_id,
+        org: org,
+        most_surprising: args["learned_for_agents"] || args["most_surprising"],
+        most_time_consuming: args["had_issues"] || args["most_time_consuming"],
+        improvements_needed: args["improvements"] || args["improvements_needed"],
+        tools_wish_list: args["tools_wish_list"],
+        info_needed: args["info_needed"],
+        guidance_useful: args["guidance_useful"],
+        guidance_items_helpful: encode_array_field(args["guidance_items_helpful"]),
+        guidance_items_confusing: encode_array_field(args["guidance_items_confusing"]),
+        guidance_missing: args["guidance_missing"]
+      })
+
+    case Acs.Repo.insert(changeset) do
+      {:ok, feedback} ->
+        generate_memories_from_feedback(feedback, args)
+
+        Acs.Observability.AgentOps.log_feedback(
           agent_id: agent_id,
           org: org,
-          # API names → schema columns (cast drops unknown keys)
-          most_surprising: args["learned_for_agents"] || args["most_surprising"],
-          most_time_consuming: args["had_issues"] || args["most_time_consuming"],
-          improvements_needed: args["improvements"] || args["improvements_needed"],
-          tools_wish_list: args["tools_wish_list"],
-          info_needed: args["info_needed"],
+          audience: args["_auth_audience"],
+          task_id: task_id,
           guidance_useful: args["guidance_useful"],
-          guidance_items_helpful: encode_array_field(args["guidance_items_helpful"]),
-          guidance_items_confusing: encode_array_field(args["guidance_items_confusing"]),
-          guidance_missing: args["guidance_missing"]
-        })
+          learned_for_agents: args["learned_for_agents"],
+          had_issues: args["had_issues"],
+          improvements: args["improvements"],
+          info_needed: args["info_needed"]
+        )
 
-      case Acs.Repo.insert(changeset) do
-        {:ok, feedback} ->
-          generate_memories_from_feedback(feedback, args)
+        {:ok,
+         %{
+           feedback_id: feedback.id,
+           message: "Feedback submitted. Thanks for helping improve Steward."
+         }}
 
-          Acs.Observability.AgentOps.log_feedback(
-            agent_id: agent_id,
-            org: org,
-            audience: args["_auth_audience"],
-            task_id: task_id,
-            guidance_useful: args["guidance_useful"],
-            learned_for_agents: args["learned_for_agents"],
-            had_issues: args["had_issues"],
-            improvements: args["improvements"],
-            info_needed: args["info_needed"]
-          )
-
-          {:ok,
-           %{
-             feedback_id: feedback.id,
-             message: "Task complete. Feedback submitted — you're done."
-           }}
-
-        {:error, reason} ->
-          {:error, "Failed to submit feedback: #{inspect(reason)}"}
-      end
+      {:error, reason} ->
+        {:error, "Failed to submit feedback: #{inspect(reason)}"}
     end
   end
 
@@ -218,12 +225,14 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
   defp encode_array_field(value), do: value
 
   defp generate_memories_from_feedback(feedback, args) do
-    scope_path = derive_scope_from_task(args["task_id"]) || "agent_coordination_system/feedback"
+    task_id = args["task_id"]
+    is_standalone = is_standalone_feedback?(task_id)
+    scope_path = derive_scope_from_task(task_id) || "agent_coordination_system/feedback"
 
     if learned = args["learned_for_agents"] do
       save_feedback_memory(
         "learning",
-        "Key learning from task #{String.slice(args["task_id"] || "", 0, 8)}",
+        if(is_standalone, do: "Agent learning from chat interaction", else: "Key learning from task #{String.slice(task_id, 0, 8)}"),
         learned,
         scope_path,
         args
@@ -233,7 +242,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     if had_issues = args["had_issues"] do
       save_feedback_memory(
         "warning",
-        "Issue encountered in task #{String.slice(args["task_id"] || "", 0, 8)}",
+        if(is_standalone, do: "Issue or obstacle encountered", else: "Issue encountered in task #{String.slice(task_id, 0, 8)}"),
         had_issues,
         scope_path,
         args
@@ -243,7 +252,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     if improvements = args["improvements"] do
       save_feedback_memory(
         "learning",
-        "Improvement suggestion from task feedback",
+        "Improvement suggestion from agent feedback",
         improvements,
         scope_path,
         args
@@ -263,7 +272,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     if info_needed = args["info_needed"] do
       save_feedback_memory(
         "observation",
-        "Information gap identified in task",
+        if(is_standalone, do: "Information gap or missing knowledge", else: "Information gap identified in task"),
         info_needed,
         scope_path,
         args
@@ -273,8 +282,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     if guidance_useful = feedback.guidance_useful do
       save_feedback_memory(
         "observation",
-        "Guidance rated as #{if guidance_useful == true, do: "useful", else: "not useful"}",
-        "Agent rated guidance #{if guidance_useful == true, do: "as helpful", else: "as not helpful"} for this task",
+        "Guidance packet rated as #{if guidance_useful == true, do: "useful", else: "not useful"}",
+        "Agent rated guidance #{if guidance_useful == true, do: "as helpful", else: "as not helpful"} for this interaction",
         scope_path,
         args
       )
@@ -312,6 +321,15 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
       )
     end
   end
+
+  defp is_standalone_feedback?(task_id) when is_binary(task_id) do
+    case Acs.Acs.get_task(task_id) do
+      nil -> true
+      _ -> false
+    end
+  end
+
+  defp is_standalone_feedback?(_), do: true
 
   defp save_feedback_memory(kind, title, content, scope_path, args) do
     org = Acs.Org.current()

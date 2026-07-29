@@ -29,7 +29,7 @@ You are connected to Steward ACS. In chat connectors the available tools are **e
 | `release_work` | Release a claimed task |
 | `list_tasks` | List todo / in_progress work |
 | `get_present_status` | Register agent identity (`agent_id: ""`) |
-| `submit_task_feedback` | Formally close a **tracked** task (last step) |
+| `submit_task_feedback` | System review — report stale/wrong knowledge, missing guidance, or improvements (no task_id needed) |
 
 Do **not** call tools that are not in this table. If you see `query_memories`, `lock_file`, etc., you connected to the **coding** URL (`/mcp/sse`) — switch to `/mcp/chat/sse`.
 
@@ -39,14 +39,19 @@ Do **not** call tools that are not in this table. If you see `query_memories`, `
 3. Answer from ACS; if empty, say so — never invent org policy  
 4. Save durable results: `save_memory` / `documents_propose` / `skill_save`  
    (Follow `memory_protocol` from `get_started` / claim guidance before saving.)  
-5. Multi-step tracked work only: `create_work(agent_id, title, claim: true)` → work → save → `release_work` → `submit_task_feedback` (last)
+5. Tracked work: `create_work(agent_id, title, claim: true)` → work → save → `release_work` → `submit_task_feedback` (last)
+6. Found stale/wrong knowledge or something missing? Submit standalone feedback anytime — no task_id needed
 
-## Task feedback (when you used create_work / claim_work)
-Simple Q&A needs no feedback. If you claimed a task, close it properly:
-1. Save knowledge first (`save_memory` / `documents_propose` / `skill_save`)
-2. `release_work(task_id, agent_id)`
-3. `submit_task_feedback(task_id, agent_id, learned_for_agents: "...")` — **last**; do not tell the user you're done until this succeeds
-4. Optional but useful: `had_issues`, `improvements`, `info_needed` when something was hard
+## Feedback (system review, not just task close)
+Feedback helps improve Steward — clean up noisy/deprecated memories, fix broken guidance, and add missing knowledge. Use it for:
+
+- **Stale or wrong knowledge** — found a memory, document, or skill that's incorrect? Flag it in `info_needed`
+- **Improvement suggestions** — how could Steward be better? Use `improvements`
+- **Missing guidance** — couldn't find what you needed? Use `info_needed` or `guidance_missing`
+- **What you learned** — discovered something useful? Share it in `learned_for_agents` (creates a memory for future agents)
+- **Tracked task wrap-up** — after `release_work`, pass `task_id` to close properly
+
+When you `ask` and the results aren't helpful, `query_memories`/`query_specs` returns nothing useful, or you spot something wrong — that's a great time to submit feedback. No task needed. Even one sentence helps.
 
 ## Scopes
 Use business domains: `acme/sales/pricing`, `acme/support/refunds`, `acme/policy/privacy`.  

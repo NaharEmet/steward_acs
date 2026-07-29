@@ -34,6 +34,6 @@ defmodule Acs.Acs.TaskCompletionFeedback do
       :guidance_items_confusing,
       :guidance_missing
     ])
-    |> validate_required([:task_id, :agent_id])
+    |> validate_required([:agent_id])
   end
 end

@@ -627,9 +627,12 @@ defmodule Acs.MCP.Tools do
       # Task Completion Feedback
       tool_def(
         "submit_task_feedback",
-        "Submit task feedback to formally close a completed task. Call this LAST — after release_work and after saving skills (skill_save), memories (save_memory), and documents/specs (documents_propose or specs_propose). Auto-generates knowledge memories from your learnings. Chat: only after create_work/claim_work — not for simple Q&A.",
+        "Submit feedback to help improve Steward. Feedback is a system review — tell us what worked, what didn't, and what's missing so we can clean up noisy memories/documents/skills and improve guidance. Auto-generates knowledge memories from your learnings. Two modes: (1) tracked task feedback — pass task_id after release_work; (2) standalone feedback — skip task_id to report an issue or share a learning at any time. Chat agents: use this whenever you find stale or wrong knowledge, not just after tracked tasks.",
         %{
-          "task_id" => %{"type" => "string", "description" => "The completed task slug (e.g. fix-login-bug)"},
+          "task_id" => %{
+            "type" => "string",
+            "description" => "Optional task slug (e.g. fix-login-bug). Omit for standalone feedback without a task."
+          },
           "agent_id" => %{
             "type" => "string",
             "description" =>
@@ -638,27 +641,27 @@ defmodule Acs.MCP.Tools do
           "learned_for_agents" => %{
             "type" => "string",
             "description" =>
-              "What did you learn that will help agents in the future? Strongly recommended whenever you close a task."
+              "What did you learn that will help agents in the future? This creates a memory visible to all agents. Use this for: new insights, workarounds, patterns discovered."
           },
           "had_issues" => %{
             "type" => "string",
-            "description" => "What issues or obstacles did you encounter?"
+            "description" => "What issues or obstacles did you encounter? Use this for: bugs, confusing guidance, things that wasted your time."
           },
           "improvements" => %{
             "type" => "string",
-            "description" => "What could have made this task easier?"
+            "description" => "What could Steward do better? Use this for: feature requests, workflow improvements, missing capabilities."
           },
           "tools_wish_list" => %{
             "type" => "string",
-            "description" => "What tools or capabilities would make future tasks easier?"
+            "description" => "What tools or capabilities would make future work easier?"
           },
           "info_needed" => %{
             "type" => "string",
-            "description" => "What information was hard to find during this task?"
+            "description" => "What information was hard to find? Use this for: missing docs, poor search results, knowledge gaps."
           },
           "guidance_useful" => %{
             "type" => "boolean",
-            "description" => "Was the guidance packet useful for this task?"
+            "description" => "Was the guidance packet useful for this task/interaction?"
           },
           "guidance_items_helpful" => %{
             "type" => "array",
@@ -676,7 +679,7 @@ defmodule Acs.MCP.Tools do
             "description" => "What guidance was needed but missing from the packet?"
           }
         },
-        ["task_id", "agent_id"]
+        ["agent_id"]
       ),
       tool_def(
         "help",
@@ -1557,7 +1560,14 @@ defmodule Acs.MCP.Tools do
             }
           ]
         else
-          []
+          [
+            %{
+              tool: "submit_task_feedback",
+              prompt:
+                "Results not quite right? Flag stale or noisy memories in feedback so Steward improves",
+              params: %{agent_id: agent_id, info_needed: "Search for '<query>' returned poor results"}
+            }
+          ]
         end
 
       "set_memory_status" ->
@@ -1731,8 +1741,56 @@ defmodule Acs.MCP.Tools do
               document_type: "deliverable",
               content: "..."
             }
+          },
+          %{
+            tool: "submit_task_feedback",
+            prompt:
+              "Found outdated or missing specs? Flag them in feedback to improve the knowledge base",
+            params: %{agent_id: agent_id, info_needed: "Spec search results were incomplete or outdated"}
           }
         ]
+
+      "ask" ->
+        result_count = Map.get(result, :total, 0)
+        content_query = Map.get(args, "content_query", "")
+
+        query_prompt =
+          if is_binary(content_query) and content_query != "" do
+            "Search for '#{content_query}' returned poor results"
+          else
+            "Search results were incomplete or outdated"
+          end
+
+        if result_count == 0 do
+          [
+            %{
+              tool: "save_memory",
+              prompt:
+                "No results — document your knowledge so others find it",
+              params: %{
+                kind: "learning",
+                title: "...",
+                content: "...",
+                scope_path: "<scope_path>"
+              }
+            },
+            %{
+              tool: "submit_task_feedback",
+              prompt:
+                "Couldn't find what you needed? Flag the gap in feedback so Steward improves",
+              params: %{agent_id: agent_id, info_needed: query_prompt}
+            }
+          ]
+        else
+          [
+            %{
+              tool: "submit_task_feedback",
+              prompt:
+                "Results not quite what you expected? Flag stale or wrong knowledge in feedback",
+              params: %{agent_id: agent_id, info_needed: query_prompt}
+            }
+          ]
+        end
 
       name when name in ["specs_propose", "documents_propose"] ->
         [
