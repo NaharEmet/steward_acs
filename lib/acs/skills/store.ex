@@ -2,10 +2,17 @@ defmodule Acs.Skills.Store do
   @moduledoc """
   File-based skill store. Skills are Markdown files with YAML frontmatter.
 
-  Skills live under `priv/skills/` by default or `<vault>/orgs/<org>/skills/`
-  when an Obsidian vault is configured. Files are discovered recursively so external
-  tools may organize skills into directories. Vault files take precedence over
-  bundled files with the same relative path.
+  Skills live under `<vault>/orgs/<org>/skills/` when a vault is configured,
+  otherwise under a per-org fallback. Files are discovered recursively so external
+  tools may organize skills into directories.
+
+  Bundled ACS operator skills in `priv/skills/` are merged only in
+  single-tenant/local mode. Multi-tenant orgs use their vault skills only
+  (default tenant skills are seeded later as a single replaceable set).
+
+  Vault/canonical files take precedence over bundled files with the same
+  relative path or the same skill name. Paths under an `orgs/` partition
+  inside a search root are never listed (avoids nested duplicate trees).
 
   Skill content may be saved via MCP `skill_save` (lands as `status: proposed`)
   or authored externally. Governance/audit fields can be patched on frontmatter.
@@ -26,6 +33,8 @@ defmodule Acs.Skills.Store do
     |> Enum.uniq_by(&elem(&1, 0))
     |> Enum.map(fn {_id, path, root} -> parse_skill_file(path, root) end)
     |> Enum.reject(&is_nil/1)
+    # One skill per name: earlier roots win (org vault → legacy → builtin).
+    |> Enum.uniq_by(&String.downcase(&1.name || &1.id))
   end
 
   def list_skills(tag \\ nil) do
@@ -154,17 +163,23 @@ defmodule Acs.Skills.Store do
   defp builtin_dir, do: Path.join(Application.app_dir(:steward_acs), @builtin_dir)
 
   defp search_dirs do
-    [skill_dir() | Acs.Org.legacy_skills_dirs() ++ [builtin_dir()]]
-    |> Enum.uniq()
+    dirs = [skill_dir() | Acs.Org.legacy_skills_dirs()]
+    dirs = if include_builtins?(), do: dirs ++ [builtin_dir()], else: dirs
+    Enum.uniq(dirs)
   end
+
+  # ACS ops playbooks in priv/skills are for local Steward development only.
+  # Multi-tenant tenants must not inherit them; seed default skills separately later.
+  defp include_builtins?, do: not Acs.Org.multi_tenant?()
 
   defp skill_paths(root) do
     [Path.join(root, "*.md"), Path.join(root, "**/*.md")]
     |> Enum.flat_map(&Path.wildcard/1)
     |> Enum.uniq()
     |> Enum.reject(fn path ->
-      legacy_partition_container?(root) and
-        match?(["orgs" | _], Path.split(Path.relative_to(path, root)))
+      # Never list org-partition trees under a search root (legacy vault/skills/orgs/*
+      # and accidental priv/skills/orgs/* nests from audit copy-on-write).
+      match?(["orgs" | _], Path.split(Path.relative_to(path, root)))
     end)
     |> Enum.filter(fn path ->
       if root == builtin_dir() do
@@ -174,13 +189,6 @@ defmodule Acs.Skills.Store do
           match?({:ok, %File.Stat{type: :regular}}, File.lstat(path))
       end
     end)
-  end
-
-  defp legacy_partition_container?(root) do
-    case Acs.Org.vault_base() do
-      nil -> false
-      base -> Path.expand(root) == Path.expand(Path.join(base, "skills"))
-    end
   end
 
   defp parse_skill_file(path, root) do
@@ -252,7 +260,15 @@ defmodule Acs.Skills.Store do
 
     Enum.find_value(search_dirs(), path, fn root ->
       if root != primary and path_within?(path, root) do
-        Path.join(primary, Path.relative_to(path, root))
+        rel = Path.relative_to(path, root)
+        # Flatten orgs/* nests so audit/approve cannot re-nest under skill_dir.
+        rel =
+          case Path.split(rel) do
+            ["orgs" | _] -> Path.basename(rel)
+            _ -> rel
+          end
+
+        Path.join(primary, rel)
       end
     end)
   end

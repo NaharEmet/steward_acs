@@ -12,6 +12,7 @@ defmodule AcsWeb.McpUrls do
 
   @coding_path "/mcp/coding/sse"
   @chat_path "/mcp/chat/sse"
+  @chat_system_prompt_file "prompts/chat_system_prompt.md"
 
   @type endpoint :: %{
           id: String.t(),
@@ -22,6 +23,22 @@ defmodule AcsWeb.McpUrls do
           path: String.t(),
           url: String.t()
         }
+
+  @doc """
+  Paste into Claude.ai / ChatGPT connector custom instructions.
+
+  Loaded from `priv/prompts/chat_system_prompt.md`.
+  """
+  @spec chat_system_prompt() :: String.t()
+  def chat_system_prompt do
+    :code.priv_dir(:steward_acs)
+    |> Path.join(@chat_system_prompt_file)
+    |> File.read()
+    |> case do
+      {:ok, content} -> String.trim(content)
+      {:error, _} -> ""
+    end
+  end
 
   @doc false
   @spec endpoints(URI.t() | nil) :: [endpoint()]

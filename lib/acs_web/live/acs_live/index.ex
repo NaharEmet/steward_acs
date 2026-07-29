@@ -27,7 +27,8 @@ defmodule AcsWeb.AcsLive.Index do
         selected_status: "all",
         pending_requests_count: Acs.MCP.ToolRequests.pending_count(),
         getting_started_dismissed: getting_started_dismissed?(socket),
-        mcp_endpoints: AcsWeb.McpUrls.endpoints()
+        mcp_endpoints: AcsWeb.McpUrls.endpoints(),
+        chat_system_prompt: AcsWeb.McpUrls.chat_system_prompt()
       )
 
     socket =
@@ -197,6 +198,7 @@ defmodule AcsWeb.AcsLive.Index do
         <div class="mcp-connectors-body">
           <p class="mcp-connectors-note text-dim">
             Paste into your MCP client. OAuth API identifier stays <code>/mcp/sse</code>.
+            For Claude.ai, also copy the Always Active instructions into connector custom instructions.
           </p>
 
           <div class="mcp-connectors-list">
@@ -209,17 +211,43 @@ defmodule AcsWeb.AcsLive.Index do
                   </div>
                   <p class="text-dim"><%= endpoint.clients %></p>
                 </div>
-                <div class="copy-field">
-                  <span id={endpoint.id} class="mono" style="font-size: 0.82rem; color: var(--text-dim); word-break: break-all;"><%= endpoint.url %></span>
-                  <button
-                    type="button"
-                    class="btn btn-copy"
-                    data-copy-value={endpoint.url}
-                    data-copy-label="Copy"
-                    data-copy-success="Copied."
-                  >
-                    Copy
-                  </button>
+                <div class="mcp-connector-actions">
+                  <div class="copy-field">
+                    <span id={endpoint.id} class="mono" style="font-size: 0.82rem; color: var(--text-dim); word-break: break-all;"><%= endpoint.url %></span>
+                    <button
+                      type="button"
+                      class="btn btn-copy"
+                      data-copy-value={endpoint.url}
+                      data-copy-label="Copy URL"
+                      data-copy-success="Copied."
+                    >
+                      Copy URL
+                    </button>
+                  </div>
+                  <%= if endpoint.audience == "chat" and @chat_system_prompt != "" do %>
+                    <div class="copy-field">
+                      <span class="text-dim" style="font-size: 0.78rem;">Copy this into your Claude</span>
+                      <button
+                        id="copy-chat-system-prompt"
+                        type="button"
+                        class="btn btn-copy"
+                        data-copy-target="mcp-chat-system-prompt"
+                        data-copy-status="mcp-chat-prompt-copy-status"
+                        data-copy-label="Copy into Claude"
+                        data-copy-success="Copied Always Active prompt."
+                      >
+                        Copy into Claude
+                      </button>
+                    </div>
+                    <textarea
+                      id="mcp-chat-system-prompt"
+                      class="sr-only"
+                      readonly
+                      tabindex="-1"
+                      aria-hidden="true"
+                    ><%= @chat_system_prompt %></textarea>
+                    <p id="mcp-chat-prompt-copy-status" class="form-hint sr-only" aria-live="polite"></p>
+                  <% end %>
                 </div>
                 <p id={endpoint.copy_status_id} class="form-hint sr-only" aria-live="polite"></p>
               </div>
@@ -252,7 +280,7 @@ defmodule AcsWeb.AcsLive.Index do
             <div class="card-elevated" style="padding: 16px;">
               <strong>1. Configure MCP</strong>
               <p class="text-dim" style="font-size: 0.8rem; margin-top: 6px;">
-                Open <a href="#mcp-connectors" class="text-accent">Agent URLs</a> above and copy the coding or chat connector.
+                Open <a href="#mcp-connectors" class="text-accent">Agent URLs</a> above, copy the connector URL, and for Claude.ai also <strong>Copy into Claude</strong>.
               </p>
             </div>
             <div class="card-elevated" style="padding: 16px;">

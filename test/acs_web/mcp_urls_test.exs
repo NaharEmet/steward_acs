@@ -23,4 +23,12 @@ defmodule AcsWeb.McpUrlsTest do
     assert chat.path == "/mcp/chat/sse"
     assert chat.url == "https://prod.stewardacs.xyz/mcp/chat/sse"
   end
+
+  test "chat_system_prompt loads Always Active instructions" do
+    prompt = McpUrls.chat_system_prompt()
+
+    assert prompt =~ "Steward ACS — Always Active"
+    assert prompt =~ "tool_search(\"steward\")"
+    assert prompt =~ "get_present_status"
+  end
 end

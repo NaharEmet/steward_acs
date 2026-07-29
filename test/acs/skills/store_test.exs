@@ -120,6 +120,52 @@ defmodule Acs.Skills.StoreTest do
     assert {:error, :invalid_status} = Store.update_status("deployment", "deleted")
   end
 
+  test "multi-tenant orgs do not inherit bundled ACS operator skills", %{skills_dir: skills_dir} do
+    original_multi = Application.get_env(:steward_acs, :multi_tenant)
+    Application.put_env(:steward_acs, :multi_tenant, true)
+
+    on_exit(fn ->
+      if is_nil(original_multi),
+        do: Application.delete_env(:steward_acs, :multi_tenant),
+        else: Application.put_env(:steward_acs, :multi_tenant, original_multi)
+    end)
+
+    # Empty tenant vault — builtins must not leak in.
+    assert File.ls!(skills_dir) == []
+    assert Store.get_skill("deployment") == nil
+    refute Enum.any?(Store.all_skills(), &(&1.name == "deployment"))
+  end
+
+  test "orgs/ trees under a skills root are not listed as duplicate skills", %{
+    skills_dir: skills_dir
+  } do
+    nested = Path.join([skills_dir, "orgs", "default", "deployment.md"])
+    File.mkdir_p!(Path.dirname(nested))
+
+    File.write!(nested, """
+    ---
+    name: Nested Deployment
+    status: proposed
+    ---
+
+    Accidental nest.
+    """)
+
+    File.write!(Path.join(skills_dir, "deployment.md"), """
+    ---
+    name: deployment
+    status: proposed
+    ---
+
+    Canonical.
+    """)
+
+    assert [%{name: "deployment", id: "deployment"}] =
+             Enum.filter(Store.all_skills(), &(&1.name == "deployment" or &1.name == "Nested Deployment"))
+
+    assert Store.get_skill("orgs/default/deployment") == nil
+  end
+
   test "save_skill writes proposed markdown into org skills dir", %{skills_dir: skills_dir} do
     assert {:ok, %{name: "Rotate Token", id: "rotate-token", status: "proposed"}} =
              Store.save_skill(

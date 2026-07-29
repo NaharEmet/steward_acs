@@ -71,16 +71,19 @@ document.addEventListener("click", async (event) => {
     if (input) {
       input.focus()
       input.select()
+      if (typeof input.setSelectionRange === "function") {
+        input.setSelectionRange(0, text.length)
+      }
       return document.execCommand("copy")
     }
-    const temp = document.createElement("input")
+    const temp = document.createElement("textarea")
     temp.value = text
     temp.style.position = "fixed"
     temp.style.opacity = "0"
     temp.readOnly = true
     document.body.appendChild(temp)
     temp.select()
-    temp.setSelectionRange(0, 99999)
+    temp.setSelectionRange(0, text.length)
     const result = document.execCommand("copy")
     document.body.removeChild(temp)
     return result
