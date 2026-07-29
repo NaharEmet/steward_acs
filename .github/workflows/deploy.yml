@@ -38,7 +38,7 @@ on:
         default: ""
 
   push:
-    branches: [main]
+    branches: [prod]
     paths:
       - "lib/**"
       - "config/**"

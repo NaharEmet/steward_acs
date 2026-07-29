@@ -29,7 +29,7 @@ docker compose up -d
 
 Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
 
-1. Merge/push to `main` (paths under `lib/`, `config/`, `priv/`, `assets/`, `Dockerfile`, compose/Caddy, deploy scripts, or the workflow itself), **or** run **Actions → Deploy → Run workflow**.
+1. Merge/push to `prod` (paths under `lib/`, `config/`, `priv/`, `assets/`, `Dockerfile`, compose/Caddy, deploy scripts, or the workflow itself), **or** run **Actions → Deploy → Run workflow**.
 2. Job `build-push` builds the Postgres release image and pushes `naharemete/steward_acs:<git-sha>` (+ `:multitenant`).
 3. Job `cutover` SSHs to the Environment host and runs `./scripts/deploy.sh --resume` (pull, Infisical compose up, health + smoke).
 
@@ -67,7 +67,7 @@ SERVER=ubuntu@NEW_HOST ACS_IMAGE_TAG=<sha> ./scripts/bootstrap-server.sh --start
 
 ### Escape hatch (laptop / emergency)
 
-Prefer Actions. Use workstation deploy only for break-glass (e.g. Actions down, or a one-off dirty hotfix you intend to replace with a clean main build ASAP):
+Prefer Actions. Use workstation deploy only for break-glass (e.g. Actions down, or a one-off dirty hotfix you intend to replace with a clean prod build ASAP):
 
 ```bash
 SERVER=ubuntu@YOUR_HOST ./scripts/deploy.sh          # clean tree → SHA tag
