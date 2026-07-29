@@ -239,7 +239,7 @@
       "name": "Recent errors",
       "sectionId": "7f2a1c90-a1b2-4a01-8b01-555555555555",
       "query": {
-        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"error\"\n| project _time, error_type, provider, model, call_type, subject_id, audience, latency_ms, prompt_chars, message\n| order by _time desc\n| limit 40"
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and ['status'] == \"error\"\n| project _time, error_type, provider, model, call_type, audience, latency_ms, message\n| order by _time desc\n| limit 40"
       }
     }
   ],

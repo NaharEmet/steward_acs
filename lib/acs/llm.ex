@@ -184,14 +184,14 @@ defmodule Acs.LLM do
   # Uses LLMUtils.Client for the actual HTTP call.
 
   defp try_providers(memory_id, providers, prompt) do
-    try_providers(memory_id, providers, prompt, [])
+    try_providers(memory_id, providers, prompt, [], byte_size(prompt))
   end
 
-  defp try_providers(_memory_id, [], _prompt, errors) do
+  defp try_providers(_memory_id, [], _prompt, errors, _prompt_chars) do
     {:error, {:all_providers_failed, errors |> Enum.reverse() |> Enum.take(3)}}
   end
 
-  defp try_providers(memory_id, [provider_id | rest], prompt, errors) do
+  defp try_providers(memory_id, [provider_id | rest], prompt, errors, prompt_chars) do
     # Start is debug-only — do not tag action: "llm_call" (dashboard counts those).
     Logger.debug("[Acs.LLM] Trying provider: #{provider_id}",
       provider: provider_id,
@@ -199,20 +199,20 @@ defmodule Acs.LLM do
       status: "start"
     )
 
-    case call_provider(provider_id, prompt) do
+    case call_provider(provider_id, prompt, memory_id, prompt_chars) do
       {:ok, evaluation} ->
         {:ok, evaluation}
 
       {:error, reason} ->
         # call_provider already logged the failure with model/latency — don't double-count.
-        try_providers(memory_id, rest, prompt, [{provider_id, reason} | errors])
+        try_providers(memory_id, rest, prompt, [{provider_id, reason} | errors], prompt_chars)
     end
   end
 
   # ── Provider call ────────────────────────────────────────────────────
   # Uses LLMUtils.Client with options for metrics, rate limiting, logging.
 
-  defp call_provider(provider_id, prompt) do
+  defp call_provider(provider_id, prompt, call_type, prompt_chars) do
     config = LLMUtils.Providers.get(provider_id)
 
     if is_nil(config) do
@@ -257,6 +257,8 @@ defmodule Acs.LLM do
             llm_event: "chat",
             status: "ok",
             action: "llm_call",
+            call_type: call_type,
+            prompt_chars: prompt_chars,
             tokens_in: llm_usage(response, :input),
             tokens_out: llm_usage(response, :output)
           )
@@ -274,6 +276,7 @@ defmodule Acs.LLM do
             llm_event: "chat",
             status: "error",
             action: "llm_call",
+            call_type: call_type,
             error_type: "unexpected_response_format"
           )
 
@@ -289,6 +292,7 @@ defmodule Acs.LLM do
             llm_event: "chat",
             status: "error",
             action: "llm_call",
+            call_type: call_type,
             error_type: normalize_error_type(reason)
           )
 
