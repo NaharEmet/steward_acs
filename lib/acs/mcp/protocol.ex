@@ -309,13 +309,17 @@ defmodule Acs.MCP.Protocol do
         do: analysis_org(name, requested_arguments, agent_org_id, agent_permissions),
         else: agent_org_id
 
-    agent_id = if agent_identity && agent_identity != "" do
-      agent_identity
-    else
-      Acs.MCP.ClientSession.get_or_assign_agent_name()
-    end
+    agent_id =
+      if usable_agent_identity?(agent_identity) do
+        agent_identity
+      else
+        Acs.MCP.ClientSession.get_or_assign_agent_name()
+      end
 
-    attribution_id = agent_identity || Acs.Org.developer_name()
+    attribution_id =
+      if usable_agent_identity?(agent_identity),
+        do: agent_identity,
+        else: Acs.Org.developer_name()
 
     auth_context = %{
       credential_org: agent_org_id,
@@ -457,4 +461,12 @@ defmodule Acs.MCP.Protocol do
     """
     |> String.trim()
   end
+
+  # Placeholder ACS_DEVELOPER_NAME / missing identity must not block the pool.
+  defp usable_agent_identity?(id) when is_binary(id) do
+    trimmed = String.trim(id)
+    trimmed != "" and trimmed != "unknown"
+  end
+
+  defp usable_agent_identity?(_), do: false
 end

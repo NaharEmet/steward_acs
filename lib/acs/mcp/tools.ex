@@ -1033,7 +1033,7 @@ defmodule Acs.MCP.Tools do
     auth_identity = Map.get(args, "_auth_agent_id")
 
     cond do
-      blank_agent_id?(requested) and is_binary(auth_identity) and auth_identity != "" ->
+      blank_agent_id?(requested) and usable_auth_agent_id?(auth_identity) ->
         Map.put(args, "agent_id", auth_identity)
 
       blank_agent_id?(requested) ->
@@ -1045,8 +1045,19 @@ defmodule Acs.MCP.Tools do
   end
 
   defp blank_agent_id?(nil), do: true
-  defp blank_agent_id?(id) when is_binary(id), do: String.trim(id) == ""
+  defp blank_agent_id?(id) when is_binary(id) do
+    trimmed = String.trim(id)
+    trimmed == "" or trimmed == "unknown"
+  end
+
   defp blank_agent_id?(_), do: false
+
+  defp usable_auth_agent_id?(id) when is_binary(id) do
+    trimmed = String.trim(id)
+    trimmed != "" and trimmed != "unknown"
+  end
+
+  defp usable_auth_agent_id?(_), do: false
 
   defp validate_agent_identity(args) do
     requested = Map.get(args, "agent_id")
@@ -1060,7 +1071,7 @@ defmodule Acs.MCP.Tools do
       auth_role == "admin" ->
         :ok
 
-      is_nil(auth_identity) or auth_identity == "" ->
+      not usable_auth_agent_id?(auth_identity) ->
         {:error, "Authenticated agent identity is required"}
 
       normalize_agent_id(requested) == normalize_agent_id(auth_identity) ->

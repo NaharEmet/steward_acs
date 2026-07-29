@@ -5,6 +5,7 @@ defmodule AcsWeb.AcsLive.SettingsLive do
 
   use AcsWeb, :live_view
   alias Acs
+  alias Acs.Developers
 
   def on_mount(_params, _session, socket) do
     {:cont, assign(socket, current_path: socket.assigns[:current_path] || "/")}
@@ -18,7 +19,13 @@ defmodule AcsWeb.AcsLive.SettingsLive do
     socket =
       socket
       |> assign(
-        is_admin: role in ["owner", "admin"]
+        is_admin: role in ["owner", "admin"],
+        local_identity?: not Acs.Org.multi_tenant?(),
+        developer_name: Acs.Org.usable_developer_name() || "",
+        name_form: to_form(%{"name" => Acs.Org.usable_developer_name() || ""}, as: :identity),
+        key_form: to_form(%{"name" => Acs.Org.usable_developer_name() || ""}, as: :key),
+        minted_key: nil,
+        developers: list_dev_keys()
       )
 
     {:ok, socket}
@@ -44,9 +51,78 @@ defmodule AcsWeb.AcsLive.SettingsLive do
     end
   end
 
-  @impl true
+  def handle_event("save-developer-name", %{"identity" => %{"name" => name}}, socket) do
+    if socket.assigns.local_identity? and socket.assigns.is_admin do
+      case Acs.Org.set_developer_name(name) do
+        {:ok, trimmed} ->
+          {:noreply,
+           socket
+           |> assign(
+             developer_name: trimmed,
+             name_form: to_form(%{"name" => trimmed}, as: :identity)
+           )
+           |> put_flash(
+             :info,
+             "Coding identity set to #{trimmed}. Restart Cursor MCP (or reconnect) to pick it up."
+           )}
+
+        {:error, :blank} ->
+          {:noreply, put_flash(socket, :error, "Enter your name.")}
+
+        {:error, :placeholder} ->
+          {:noreply, put_flash(socket, :error, "Pick a real name — not \"unknown\".")}
+
+        {:error, :multi_tenant} ->
+          {:noreply,
+           put_flash(socket, :error, "Use a developer API key for identity on multi-tenant hosts.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Only local admins can set the coding identity.")}
+    end
+  end
+
+  def handle_event("mint-developer-key", %{"key" => %{"name" => name}}, socket) do
+    if socket.assigns.is_admin do
+      name = String.trim(name || "")
+
+      if name == "" do
+        {:noreply, put_flash(socket, :error, "Name is required for a developer key.")}
+      else
+        case Developers.generate_key(name, role: "admin", org: Acs.Org.current()) do
+          {:ok, %{key: raw_key, developer: dev}} ->
+            _ = if socket.assigns.local_identity?, do: Acs.Org.set_developer_name(name)
+
+            {:noreply,
+             socket
+             |> assign(
+               minted_key: raw_key,
+               developers: list_dev_keys(),
+               developer_name: Acs.Org.usable_developer_name() || name,
+               key_form: to_form(%{"name" => name}, as: :key),
+               name_form: to_form(%{"name" => name}, as: :identity)
+             )
+             |> put_flash(
+               :info,
+               "Key created for #{dev.developer_name}. Copy it now — it will not be shown again. Put it in Cursor mcp.json as x-api-key (prod coding path)."
+             )}
+
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, "Could not create key: #{inspect(reason)}")}
+        end
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Only organization administrators can mint keys.")}
+    end
+  end
+
   def handle_event(_event, _params, socket) do
     {:noreply, socket}
+  end
+
+  defp list_dev_keys do
+    Developers.list_developers()
+    |> Enum.filter(& &1.active)
+    |> Enum.sort_by(& &1.inserted_at, {:desc, DateTime})
   end
 
   @impl true
@@ -60,6 +136,87 @@ defmodule AcsWeb.AcsLive.SettingsLive do
       </section>
 
       <%= if @is_admin do %>
+        <div class="card" style="padding: 24px; margin-bottom: 16px;">
+          <div class="section-header" style="align-items: flex-start; margin-bottom: 12px;">
+            <div>
+              <h2 class="section-title">Coding identity</h2>
+              <p class="text-dim" style="font-size: 0.8rem; margin-top: 5px;">
+                Same idea as prod: a named developer identity for MCP.
+                <%= if @local_identity? do %>
+                  Local shared <code>MCP_API_KEY</code> uses this name in Active Agents.
+                  Prefer an <code>acs_dev_</code> key in Cursor for the full prod path.
+                <% else %>
+                  Mint an <code>acs_dev_</code> key and put it in your agent’s <code>x-api-key</code> header.
+                <% end %>
+              </p>
+            </div>
+          </div>
+
+          <%= if @local_identity? do %>
+            <.form for={@name_form} id="developer-name-form" phx-submit="save-developer-name">
+              <label for="identity-name" class="form-label">Your name</label>
+              <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+                <input
+                  id="identity-name"
+                  type="text"
+                  name={@name_form[:name].name}
+                  value={@name_form[:name].value}
+                  class="form-input"
+                  placeholder="e.g. Nahar"
+                  autocomplete="name"
+                  style="flex: 1;"
+                />
+                <button type="submit" class="btn btn-primary">Save name</button>
+              </div>
+            </.form>
+          <% end %>
+
+          <.form for={@key_form} id="mint-key-form" phx-submit="mint-developer-key" style={"margin-top: #{if @local_identity?, do: "20px", else: "0"};"}>
+            <label for="key-name" class="form-label">Developer API key (prod coding path)</label>
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
+              <input
+                id="key-name"
+                type="text"
+                name={@key_form[:name].name}
+                value={@key_form[:name].value}
+                class="form-input"
+                placeholder="Name on the key"
+                style="flex: 1;"
+              />
+              <button type="submit" class="btn btn-copy">Generate key</button>
+            </div>
+          </.form>
+
+          <%= if @minted_key do %>
+            <div style="margin-top: 14px;">
+              <p class="text-dim" style="font-size: 0.75rem; margin-bottom: 6px;">Copy now — shown once:</p>
+              <div class="mcp-url-row">
+                <code id="minted-acs-dev-key" class="mcp-url-value"><%= @minted_key %></code>
+                <button
+                  type="button"
+                  class="btn btn-copy"
+                  data-copy-value={@minted_key}
+                  data-copy-label="Copy key"
+                  data-copy-success="Copied."
+                >
+                  Copy key
+                </button>
+              </div>
+            </div>
+          <% end %>
+
+          <%= if @developers != [] do %>
+            <ul class="text-dim" style="font-size: 0.8rem; margin-top: 16px; list-style: none; padding: 0;">
+              <%= for dev <- @developers do %>
+                <li style="padding: 4px 0;">
+                  <strong style="color: var(--text);"><%= dev.developer_name %></strong>
+                  · <%= dev.role %> · <code><%= dev.key_prefix %>…</code>
+                </li>
+              <% end %>
+            </ul>
+          <% end %>
+        </div>
+
         <div class="card" style="padding: 24px;">
           <div class="section-header" style="align-items: flex-start;">
             <div>

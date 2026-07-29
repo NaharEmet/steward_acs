@@ -6,14 +6,16 @@ defmodule Acs.MCP.Plugs.Strategies.Default do
   def authenticate(key, conn) do
     cond do
       key && dev_key_valid?(key) ->
-        Logger.debug("[MCPAuth] authenticated via dev key as admin")
+        Logger.debug("[MCPAuth] authenticated via shared MCP_API_KEY as admin")
 
+        # Prefer ACS_DEVELOPER_NAME (setup/signup). Nil → Protocol pool name.
+        # Named acs_dev_ keys take Strategies.Developer first (prod coding path).
         {:ok,
          %{
            role: "admin",
            org_id: nil,
            permissions: nil,
-           agent_identity: Acs.Org.developer_name()
+           agent_identity: Acs.Org.usable_developer_name()
          }}
 
       key && service_key_valid?(key) ->
@@ -31,7 +33,7 @@ defmodule Acs.MCP.Plugs.Strategies.Default do
            role: "admin",
            org_id: nil,
            permissions: nil,
-           agent_identity: nil
+           agent_identity: Acs.Org.usable_developer_name()
          }}
 
       true ->

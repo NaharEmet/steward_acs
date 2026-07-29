@@ -31,9 +31,8 @@ priv/acs_memory/
 # Test artifacts
 /tmp/
 priv/acs_time_offset.txt
-
-# Cursor project MCP (contains ACS + Infisical machine identity — never commit)
-.cursor/mcp.json
+priv/acs_developer_name.txt
+priv/acs_next_agent.txt
 
 # Cursor project MCP (contains ACS + Infisical machine identity — never commit)
 .cursor/mcp.json

@@ -133,4 +133,43 @@ defmodule Acs.OrgTest do
       assert Acs.Orgs.get_by_slug("acme").id == org.id
     end
   end
+
+  describe "developer name identity" do
+    test "set_developer_name persists for single-tenant and usable_developer_name reads it" do
+      original = Application.get_env(:steward_acs, :developer_name)
+      original_mt = Application.get_env(:steward_acs, :multi_tenant)
+      file = "priv/acs_developer_name.txt"
+      previous = if File.exists?(file), do: File.read!(file), else: :absent
+
+      Application.put_env(:steward_acs, :multi_tenant, false)
+
+      on_exit(fn ->
+        Application.put_env(:steward_acs, :developer_name, original)
+        Application.put_env(:steward_acs, :multi_tenant, original_mt)
+
+        case previous do
+          :absent -> File.rm(file)
+          content -> File.write!(file, content)
+        end
+      end)
+
+      assert {:ok, "Nahar"} = Org.set_developer_name("  Nahar  ")
+      assert Org.usable_developer_name() == "Nahar"
+      assert File.read!(file) == "Nahar"
+
+      Application.put_env(:steward_acs, :developer_name, "unknown")
+      assert Org.usable_developer_name() == "Nahar"
+    end
+
+    test "set_developer_name rejects multi-tenant" do
+      original_mt = Application.get_env(:steward_acs, :multi_tenant)
+      Application.put_env(:steward_acs, :multi_tenant, true)
+
+      on_exit(fn ->
+        Application.put_env(:steward_acs, :multi_tenant, original_mt)
+      end)
+
+      assert {:error, :multi_tenant} = Org.set_developer_name("Nahar")
+    end
+  end
 end

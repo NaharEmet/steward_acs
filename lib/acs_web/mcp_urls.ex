@@ -13,6 +13,7 @@ defmodule AcsWeb.McpUrls do
   @coding_path "/mcp/coding/sse"
   @chat_path "/mcp/chat/sse"
   @chat_system_prompt_file "prompts/chat_system_prompt.md"
+  @coding_system_prompt_file "prompts/coding_system_prompt.md"
 
   @type endpoint :: %{
           id: String.t(),
@@ -31,12 +32,34 @@ defmodule AcsWeb.McpUrls do
   """
   @spec chat_system_prompt() :: String.t()
   def chat_system_prompt do
-    :code.priv_dir(:steward_acs)
-    |> Path.join(@chat_system_prompt_file)
-    |> File.read()
-    |> case do
-      {:ok, content} -> String.trim(content)
-      {:error, _} -> ""
+    read_prompt(Path.join(:code.priv_dir(:steward_acs), @chat_system_prompt_file)) || ""
+  end
+
+  @doc """
+  Paste into the project's `AGENTS.md` (or agent rules file).
+
+  Prefers repo-root `AGENTS_STEWARD.md` in dev; falls back to
+  `priv/prompts/coding_system_prompt.md` in releases.
+  """
+  @spec coding_system_prompt() :: String.t()
+  def coding_system_prompt do
+    [
+      Path.join(File.cwd!(), "AGENTS_STEWARD.md"),
+      Path.join(:code.priv_dir(:steward_acs), @coding_system_prompt_file)
+    ]
+    |> Enum.find_value("", &read_prompt/1)
+  end
+
+  defp read_prompt(path) when is_binary(path) do
+    case File.read(path) do
+      {:ok, content} ->
+        case String.trim(content) do
+          "" -> nil
+          trimmed -> trimmed
+        end
+
+      {:error, _} ->
+        nil
     end
   end
 

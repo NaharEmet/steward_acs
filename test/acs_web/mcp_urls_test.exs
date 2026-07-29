@@ -31,4 +31,12 @@ defmodule AcsWeb.McpUrlsTest do
     assert prompt =~ "tool_search(\"steward\")"
     assert prompt =~ "get_present_status"
   end
+
+  test "coding_system_prompt loads AGENTS_STEWARD instructions" do
+    prompt = McpUrls.coding_system_prompt()
+
+    assert prompt =~ "Steward ACS — Agent Instructions"
+    assert prompt =~ "get_present_status"
+    assert prompt =~ "create_work"
+  end
 end

@@ -29,6 +29,7 @@ defmodule Acs.Application do
     :ok = Acs.Observability.LiveViewMetrics.attach()
     Acs.MCP.HealthCache.setup()
     Acs.OrgsCache.setup()
+    :ok = Acs.Org.load_persisted_developer_name()
 
     meta_harness_children =
       if meta_harness_enabled?() do

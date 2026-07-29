@@ -28,7 +28,8 @@ defmodule AcsWeb.AcsLive.Index do
         pending_requests_count: Acs.MCP.ToolRequests.pending_count(),
         getting_started_dismissed: getting_started_dismissed?(socket),
         mcp_endpoints: AcsWeb.McpUrls.endpoints(),
-        chat_system_prompt: AcsWeb.McpUrls.chat_system_prompt()
+        chat_system_prompt: AcsWeb.McpUrls.chat_system_prompt(),
+        coding_system_prompt: AcsWeb.McpUrls.coding_system_prompt()
       )
 
     socket =
@@ -197,60 +198,90 @@ defmodule AcsWeb.AcsLive.Index do
 
         <div class="mcp-connectors-body">
           <p class="mcp-connectors-note text-dim">
-            Paste into your MCP client. OAuth API identifier stays <code>/mcp/sse</code>.
-            For Claude.ai, also copy the Always Active instructions into connector custom instructions.
+            Two steps each: copy the connector URL, then paste the instructions into
+            <code>AGENTS.md</code> (coding) or Claude system prompt (chat).
+            OAuth API identifier stays <code>/mcp/sse</code>.
           </p>
 
           <div class="mcp-connectors-list">
             <%= for endpoint <- @mcp_endpoints do %>
-              <div class="mcp-connector-row">
-                <div class="mcp-connector-meta">
+              <% {prompt, prompt_label, prompt_button, prompt_dest} =
+                   case endpoint.audience do
+                     "coding" ->
+                       {@coding_system_prompt, "Copy this into your AGENTS.md", "Copy into AGENTS.md",
+                        "Paste into AGENTS.md / agent rules"}
+
+                     "chat" ->
+                       {@chat_system_prompt, "Copy this into your Claude system prompt",
+                        "Copy into Claude", "Paste into Claude system prompt"}
+
+                     _ ->
+                       {"", nil, nil, nil}
+                   end %>
+              <% prompt_id = "mcp-#{endpoint.audience}-system-prompt" %>
+              <% prompt_btn_id = "copy-#{endpoint.audience}-system-prompt" %>
+              <% prompt_status_id = "mcp-#{endpoint.audience}-prompt-copy-status" %>
+              <article class={"mcp-connector-card mcp-connector-card--#{endpoint.audience}"}>
+                <header class="mcp-connector-card-header">
                   <div class="mcp-connector-heading">
                     <strong id={"#{endpoint.id}-title"}><%= endpoint.title %></strong>
                     <span class={"badge-status badge-#{endpoint.audience}"}><%= endpoint.audience %></span>
                   </div>
-                  <p class="text-dim"><%= endpoint.clients %></p>
-                </div>
-                <div class="mcp-connector-actions">
-                  <div class="copy-field">
-                    <span id={endpoint.id} class="mono" style="font-size: 0.82rem; color: var(--text-dim); word-break: break-all;"><%= endpoint.url %></span>
-                    <button
-                      type="button"
-                      class="btn btn-copy"
-                      data-copy-value={endpoint.url}
-                      data-copy-label="Copy URL"
-                      data-copy-success="Copied."
-                    >
-                      Copy URL
-                    </button>
-                  </div>
-                  <%= if endpoint.audience == "chat" and @chat_system_prompt != "" do %>
-                    <div class="copy-field">
-                      <span class="text-dim" style="font-size: 0.78rem;">Copy this into your Claude</span>
+                  <p class="mcp-connector-clients"><%= endpoint.clients %></p>
+                </header>
+
+                <div class="mcp-connector-step">
+                  <span class="mcp-connector-step-num" aria-hidden="true">1</span>
+                  <div class="mcp-connector-step-body">
+                    <p class="mcp-connector-step-label">Connector URL</p>
+                    <div class="mcp-url-row">
+                      <code id={endpoint.id} class="mcp-url-value"><%= endpoint.url %></code>
                       <button
-                        id="copy-chat-system-prompt"
                         type="button"
                         class="btn btn-copy"
-                        data-copy-target="mcp-chat-system-prompt"
-                        data-copy-status="mcp-chat-prompt-copy-status"
-                        data-copy-label="Copy into Claude"
-                        data-copy-success="Copied Always Active prompt."
+                        data-copy-value={endpoint.url}
+                        data-copy-label="Copy URL"
+                        data-copy-success="Copied."
                       >
-                        Copy into Claude
+                        Copy URL
                       </button>
                     </div>
-                    <textarea
-                      id="mcp-chat-system-prompt"
-                      class="sr-only"
-                      readonly
-                      tabindex="-1"
-                      aria-hidden="true"
-                    ><%= @chat_system_prompt %></textarea>
-                    <p id="mcp-chat-prompt-copy-status" class="form-hint sr-only" aria-live="polite"></p>
-                  <% end %>
+                  </div>
                 </div>
+
+                <%= if prompt != "" and prompt_label do %>
+                  <div class="mcp-connector-step mcp-connector-step--prompt">
+                    <span class="mcp-connector-step-num" aria-hidden="true">2</span>
+                    <div class="mcp-connector-step-body">
+                      <p class="mcp-connector-step-label"><%= prompt_dest %></p>
+                      <div class="mcp-prompt-copy">
+                        <p class="mcp-prompt-copy-label"><%= prompt_label %></p>
+                        <button
+                          id={prompt_btn_id}
+                          type="button"
+                          class="btn btn-copy btn-copy-prompt"
+                          data-copy-target={prompt_id}
+                          data-copy-status={prompt_status_id}
+                          data-copy-label={prompt_button}
+                          data-copy-success={"Copied #{prompt_button}."}
+                        >
+                          <%= prompt_button %>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <textarea
+                    id={prompt_id}
+                    class="sr-only"
+                    readonly
+                    tabindex="-1"
+                    aria-hidden="true"
+                  ><%= prompt %></textarea>
+                  <p id={prompt_status_id} class="form-hint sr-only" aria-live="polite"></p>
+                <% end %>
+
                 <p id={endpoint.copy_status_id} class="form-hint sr-only" aria-live="polite"></p>
-              </div>
+              </article>
             <% end %>
           </div>
         </div>
@@ -280,7 +311,7 @@ defmodule AcsWeb.AcsLive.Index do
             <div class="card-elevated" style="padding: 16px;">
               <strong>1. Configure MCP</strong>
               <p class="text-dim" style="font-size: 0.8rem; margin-top: 6px;">
-                Open <a href="#mcp-connectors" class="text-accent">Agent URLs</a> above, copy the connector URL, and for Claude.ai also <strong>Copy into Claude</strong>.
+                Open <a href="#mcp-connectors" class="text-accent">Agent URLs</a> above — copy the URL, then <strong>Copy into AGENTS.md</strong> or <strong>Copy this into your Claude system prompt</strong>.
               </p>
             </div>
             <div class="card-elevated" style="padding: 16px;">

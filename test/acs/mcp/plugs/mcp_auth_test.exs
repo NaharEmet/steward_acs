@@ -78,18 +78,62 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       assert result.assigns.agent_org_id == "dev"
     end
 
+    test "shared MCP_API_KEY leaves agent_identity nil for pool assignment" do
+      original_key = Application.get_env(:steward_acs, :mcp_api_key)
+      original_name = Application.get_env(:steward_acs, :developer_name)
+      Application.put_env(:steward_acs, :mcp_api_key, "test-shared-mcp-key")
+      Application.put_env(:steward_acs, :developer_name, "unknown")
+
+      on_exit(fn ->
+        Application.put_env(:steward_acs, :mcp_api_key, original_key)
+        Application.put_env(:steward_acs, :developer_name, original_name)
+      end)
+
+      conn =
+        Plug.Test.conn(:get, "/mcp/v1/messages")
+        |> Plug.Conn.put_req_header("x-api-key", "test-shared-mcp-key")
+
+      result = MCPAuth.call(conn, [])
+      assert result.assigns.agent_role == "admin"
+      assert result.assigns.agent_identity == nil
+    end
+
+    test "shared MCP_API_KEY uses ACS_DEVELOPER_NAME when set" do
+      original_key = Application.get_env(:steward_acs, :mcp_api_key)
+      original_name = Application.get_env(:steward_acs, :developer_name)
+      Application.put_env(:steward_acs, :mcp_api_key, "test-shared-mcp-key")
+      Application.put_env(:steward_acs, :developer_name, "Nahar")
+
+      on_exit(fn ->
+        Application.put_env(:steward_acs, :mcp_api_key, original_key)
+        Application.put_env(:steward_acs, :developer_name, original_name)
+      end)
+
+      conn =
+        Plug.Test.conn(:get, "/mcp/v1/messages")
+        |> Plug.Conn.put_req_header("x-api-key", "test-shared-mcp-key")
+
+      result = MCPAuth.call(conn, [])
+      assert result.assigns.agent_role == "admin"
+      assert result.assigns.agent_identity == "Nahar"
+    end
+
     test "localhost fallback grants admin when enabled and no key provided" do
       original = Application.get_env(:steward_acs, :mcp_auth_local_fallback)
+      original_name = Application.get_env(:steward_acs, :developer_name)
       Application.put_env(:steward_acs, :mcp_auth_local_fallback, true)
+      Application.put_env(:steward_acs, :developer_name, "unknown")
 
       on_exit(fn ->
         Application.put_env(:steward_acs, :mcp_auth_local_fallback, original)
+        Application.put_env(:steward_acs, :developer_name, original_name)
       end)
 
       conn = Plug.Test.conn(:get, "/mcp/v1/messages")
 
       result = MCPAuth.call(conn, [])
       assert result.assigns.agent_role == "admin"
+      assert result.assigns.agent_identity == nil
     end
 
     test "localhost fallback does not bypass invalid API key" do

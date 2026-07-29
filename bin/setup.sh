@@ -48,7 +48,18 @@ echo "║        Steward ACS — Quick Setup                ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 
+# ─── Your name (MCP agent identity — same role as acs_dev_ keys in prod) ──────
+echo "Your name is used as the agent identity for local coding MCP"
+echo "(Active Agents, task ownership). Same idea as a named developer key in prod."
+echo ""
+ask "Your name (for coding agents)" "" ACS_DEVELOPER_NAME
+if [ -z "${ACS_DEVELOPER_NAME}" ]; then
+  echo "  No name entered — agents will get a pool name (Alice/Yara/…) until you set one."
+  ACS_DEVELOPER_NAME="unknown"
+fi
+
 # ─── Question 1: LLM Provider ─────────────────────────────────────────────────
+echo ""
 echo "The memory auditor needs an LLM to evaluate memory quality."
 echo "Without one, memories auto-approve (no quality checks)."
 echo ""
@@ -251,7 +262,7 @@ $( [ "$DB" = "sqlite" ] && echo "DATABASE_PATH=./var/acs.sqlite" || echo "# DATA
 
 # Optional
 # ACS_ORG_NAME=default
-# ACS_DEVELOPER_NAME=unknown
+ACS_DEVELOPER_NAME=${ACS_DEVELOPER_NAME}
 # ADMIN_EMAILS=
 ENV
 
@@ -299,8 +310,8 @@ This file is gitignored. Non-ACS agents never see it.
 
 ## Startup
 At the start of every session:
-  1. acs_get_present_status(agent_id: "YourName") — Register
-  2. acs_claim_work(agent_id: "YourName") — Get task + guidance packet
+  1. acs_get_present_status(agent_id: "") — register (returns assigned_agent_id; use "${ACS_DEVELOPER_NAME}" if set)
+  2. acs_create_work / acs_claim_work — get task + guidance packet
 
 Then follow the guidance packet: lock files, save memories, release when done.
 ACSMD
@@ -312,8 +323,7 @@ echo "║  Done. Run:                                     ║"
 echo "║                                                  ║"
 echo "║    docker compose --env-file steward.env -f steward.docker-compose.yml up -d                          ║"
 echo "║                                                  ║"
-echo "║  Then from your agent:                           ║"
-echo "║    acs_get_present_status(agent_id: \"YourName\")  ║"
-echo "║    acs_claim_work(agent_id: \"YourName\")          ║"
+echo "║  Coding identity: ${ACS_DEVELOPER_NAME}          ║"
+echo "║  (Settings → Coding identity, or acs_dev_ key)   ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""

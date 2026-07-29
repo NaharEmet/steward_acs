@@ -60,4 +60,18 @@ defmodule Acs.MCP.ClientSessionTest do
       assert {:ok, %{mcp_endpoint: "/mcp/chat/sse"}} = ClientSession.fetch("sess_endpoint")
     end)
   end
+
+  test "get_or_assign_agent_name sticks a pool name to the session" do
+    session_id = "sess_pool_#{System.unique_integer([:positive])}"
+
+    ClientSession.bind(session_id, fn ->
+      name1 = ClientSession.get_or_assign_agent_name()
+      name2 = ClientSession.get_or_assign_agent_name()
+
+      assert is_binary(name1)
+      assert name1 != ""
+      assert name1 != "unknown"
+      assert name2 == name1
+    end)
+  end
 end

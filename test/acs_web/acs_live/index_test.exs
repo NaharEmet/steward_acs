@@ -27,9 +27,12 @@ defmodule AcsWeb.AcsLive.IndexTest do
     assert html =~ "https://prod.stewardacs.xyz/mcp/chat/sse"
     assert html =~ "Cursor, Claude Code, OpenCode"
     assert html =~ "Claude.ai, ChatGPT"
-    assert html =~ "Copy this into your Claude"
+    assert html =~ "Copy this into your Claude system prompt"
+    assert html =~ "Copy this into your AGENTS.md"
     assert html =~ ~s(id="copy-chat-system-prompt")
+    assert html =~ ~s(id="copy-coding-system-prompt")
     assert html =~ "Steward ACS — Always Active"
+    assert html =~ "Steward ACS — Agent Instructions"
     # One disclosure only — no duplicated connector blocks
     assert length(Regex.scan(~r/id="mcp-connectors"/, html)) == 1
     assert length(Regex.scan(~r/id="mcp-coding-url"/, html)) == 1
@@ -82,7 +85,8 @@ defmodule AcsWeb.AcsLive.IndexTest do
           can_reset_data: false,
           getting_started_dismissed: false,
           mcp_endpoints: AcsWeb.McpUrls.endpoints(),
-          chat_system_prompt: AcsWeb.McpUrls.chat_system_prompt()
+          chat_system_prompt: AcsWeb.McpUrls.chat_system_prompt(),
+          coding_system_prompt: AcsWeb.McpUrls.coding_system_prompt()
         },
         Map.new(overrides)
       )

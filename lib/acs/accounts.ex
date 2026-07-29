@@ -15,9 +15,16 @@ defmodule Acs.Accounts do
   def get_user!(id), do: Repo.get!(User, id)
 
   def update_user_name(%User{} = user, name) when is_binary(name) and name != "" do
-    user
-    |> User.name_changeset(name)
-    |> Repo.update()
+    case user |> User.name_changeset(name) |> Repo.update() do
+      {:ok, _updated} = ok ->
+        # Local/single-tenant: signup name doubles as MCP agent identity
+        # (same idea as acs_dev_ developer_name in prod).
+        _ = Acs.Org.set_developer_name(name)
+        ok
+
+      error ->
+        error
+    end
   end
 
   def update_user_name(_user, _name), do: {:error, "Name cannot be blank"}

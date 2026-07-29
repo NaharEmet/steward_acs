@@ -233,12 +233,15 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   end
 
   defp coding_get_started do
+    identity = coding_identity_guidance()
+
     %{
       audience: :coding,
       general:
         "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings as memories, release. Scopes may be code paths or business domains (org/domain/topic). Every response includes `_next` with suggested next tools.",
       get_started:
-        "1) `get_present_status(agent_id: \"your_name\")` — register  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check docs  5) `lock_file` files  6) do work  7) `save_memory` / `skill_save` / `specs_propose` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last",
+        "1) `get_present_status(agent_id: \"\")` — register (use returned assigned_agent_id)  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check docs  5) `lock_file` files  6) do work  7) `save_memory` / `skill_save` / `specs_propose` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last",
+      agent_identity: identity,
       org_knowledge_conventions:
         "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=truths, specs=code module docs, documents=non-code artifacts (same specs_* tools + document_type), skills=procedures.",
       memory_protocol: Acs.Memory.Guidance.memory_protocol(:coding),
@@ -246,7 +249,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         %{
           tool: "get_present_status",
           description: "Register and see all active agents",
-          params: %{agent_id: "your_name"}
+          params: %{agent_id: ""}
         },
         %{
           tool: "create_work",
@@ -290,6 +293,19 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         }
       ]
     }
+  end
+
+  defp coding_identity_guidance do
+    case Acs.Org.usable_developer_name() do
+      name when is_binary(name) ->
+        "Using developer name \"#{name}\" (from ACS_DEVELOPER_NAME / signup / Settings). Prod equivalent: acs_dev_ key with that developer_name."
+
+      nil ->
+        """
+        No named coding identity yet. Closest to prod: ask the human their name, then call generate_developer_key(name:, role: \"admin\") and tell them to put the returned key in Cursor mcp.json as x-api-key. Local shortcuts: Settings → Coding identity, or set ACS_DEVELOPER_NAME in .env / bin/setup.sh. Until then get_present_status assigns a pool name (Alice/Yara/…).
+        """
+        |> String.trim()
+    end
   end
 
   defp chat_get_started do
@@ -403,7 +419,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   end
 
   def acs_get_present_status(%{"agent_id" => agent_id})
-      when agent_id != nil and agent_id != "" do
+      when is_binary(agent_id) and agent_id != "" and agent_id != "unknown" do
     statuses = Acs.Acs.get_present_status()
     my_status = Enum.find(statuses, %{}, fn s -> s.agent_id == agent_id end)
     {:ok, %{agents: statuses, agent: my_status, agent_id: agent_id}}
@@ -416,8 +432,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   def acs_get_present_status(args) do
     agent_name =
       case Map.get(args, "_auth_agent_id") do
-        nil -> Cache.get_and_increment_agent_index()
-        "" -> Cache.get_and_increment_agent_index()
+        id when id in [nil, "", "unknown"] -> Cache.get_and_increment_agent_index()
         auth_id -> auth_id
       end
 

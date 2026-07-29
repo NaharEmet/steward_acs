@@ -452,7 +452,101 @@ defmodule Acs.Org do
   end
 
   def developer_name do
-    Application.get_env(:steward_acs, :developer_name, "unknown")
+    case Application.get_env(:steward_acs, :developer_name) do
+      name when is_binary(name) and name != "" and name != "unknown" ->
+        name
+
+      _ ->
+        case read_persisted_developer_name() do
+          name when is_binary(name) -> name
+          _ -> "unknown"
+        end
+    end
+  end
+
+  @doc """
+  Developer name when it is a real identity (not blank / placeholder `unknown`).
+  Used as MCP agent_identity for shared local MCP_API_KEY — same role as
+  `developer_name` on an `acs_dev_` key in prod.
+  """
+  def usable_developer_name do
+    case developer_name() do
+      name when is_binary(name) ->
+        trimmed = String.trim(name)
+        if trimmed != "" and trimmed != "unknown", do: trimmed, else: nil
+
+      _ ->
+        nil
+    end
+  end
+
+  @doc """
+  Persist a local developer display name (single-tenant / laptop).
+
+  Writes `priv/acs_developer_name.txt` and updates Application env so shared
+  MCP_API_KEY auth picks it up without restart. No-op for multi-tenant —
+  those identities come from OAuth / acs_dev_ keys.
+  """
+  def set_developer_name(name) when is_binary(name) do
+    if multi_tenant?() do
+      {:error, :multi_tenant}
+    else
+      trimmed = String.trim(name)
+
+      cond do
+        trimmed == "" ->
+          {:error, :blank}
+
+        trimmed == "unknown" ->
+          {:error, :placeholder}
+
+        true ->
+          Application.put_env(:steward_acs, :developer_name, trimmed)
+          write_persisted_developer_name(trimmed)
+          {:ok, trimmed}
+      end
+    end
+  end
+
+  def set_developer_name(_), do: {:error, :blank}
+
+  @doc "Load persisted local developer name into Application env (boot)."
+  def load_persisted_developer_name do
+    unless multi_tenant?() do
+      case read_persisted_developer_name() do
+        name when is_binary(name) ->
+          case Application.get_env(:steward_acs, :developer_name) do
+            env when env in [nil, "", "unknown"] ->
+              Application.put_env(:steward_acs, :developer_name, name)
+
+            _ ->
+              :ok
+          end
+
+        _ ->
+          :ok
+      end
+    end
+
+    :ok
+  end
+
+  @developer_name_file "priv/acs_developer_name.txt"
+
+  defp read_persisted_developer_name do
+    case File.read(@developer_name_file) do
+      {:ok, content} ->
+        trimmed = String.trim(content)
+        if trimmed != "" and trimmed != "unknown", do: trimmed, else: nil
+
+      _ ->
+        nil
+    end
+  end
+
+  defp write_persisted_developer_name(name) do
+    Path.dirname(@developer_name_file) |> File.mkdir_p!()
+    File.write!(@developer_name_file, name)
   end
 
   def project_name do
