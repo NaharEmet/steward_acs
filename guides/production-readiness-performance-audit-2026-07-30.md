@@ -29,7 +29,7 @@ The release has one confirmed critical authentication defect, multiple high-seve
 
 | ID | Severity | Area | Finding |
 |---|---|---|---|
-| SEC-1 | Critical | Authentication | Production browser login can fall back to `admin/admin` |
+| SEC-1 | Critical | Authentication | Basic login is fixed to `admin/admin` whenever OIDC is unavailable |
 | SEC-2 | High | Rate limiting | Unauthenticated callers can rotate limiter identities and exhaust global state |
 | SEC-3 | High | Database transport | TLS is optional and CA failure downgrades verification |
 | SEC-4 | High | Credential lifecycle | Removed administrators retain independently minted admin MCP keys |
