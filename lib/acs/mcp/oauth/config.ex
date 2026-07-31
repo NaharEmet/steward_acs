@@ -16,6 +16,26 @@ defmodule Acs.MCP.OAuth.Config do
       is_binary(audience()) and audience() != ""
   end
 
+  @doc """
+  MCP OAuth is multi-tenant only. Single-tenant / local uses `MCP_API_KEY`.
+
+  Called from `config/runtime.exs` before enabling OAuth so misconfigured
+  local envs fail at boot instead of half-working (Cursor re-auth loops).
+  """
+  @spec assert_runtime_allowed!(boolean(), boolean()) :: :ok
+  def assert_runtime_allowed!(true, false) do
+    raise """
+    OAUTH_BEARER_ENABLED=true is not supported in single-tenant mode.
+
+    Local / single-tenant ACS authenticates MCP with MCP_API_KEY (x-api-key in mcp.json).
+    Auth0 MCP OAuth is for MULTI_TENANT=true hosts only (Claude Connectors, etc.).
+
+    Fix: set OAUTH_BEARER_ENABLED=false, or enable MULTI_TENANT=true with a proper Auth0 setup.
+    """
+  end
+
+  def assert_runtime_allowed!(_oauth_enabled?, _multi_tenant?), do: :ok
+
   @spec domain() :: String.t() | nil
   def domain, do: Application.get_env(:steward_acs, :auth0_domain)
 

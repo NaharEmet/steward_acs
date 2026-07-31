@@ -207,7 +207,13 @@ if System.get_env("MCP_QUERY_KEY_AUTH") do
          System.get_env("MCP_QUERY_KEY_AUTH") == "true"
 end
 
-if System.get_env("OAUTH_BEARER_ENABLED") == "true" do
+oauth_bearer_enabled = System.get_env("OAUTH_BEARER_ENABLED") == "true"
+multi_tenant? = System.get_env("MULTI_TENANT", "false") == "true"
+
+# Fail loud: OAuth in single-tenant half-works (Cursor re-prompts every run).
+Acs.MCP.OAuth.Config.assert_runtime_allowed!(oauth_bearer_enabled, multi_tenant?)
+
+if oauth_bearer_enabled do
   config :steward_acs,
          :oauth_bearer_enabled,
          true
