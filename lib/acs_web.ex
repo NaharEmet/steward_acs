@@ -4,7 +4,7 @@ defmodule AcsWeb do
   as controllers, components, channels, and liveviews.
   """
 
-  def static_paths, do: ~w(assets favicon.ico favicon.png)
+  def static_paths, do: ~w(assets favicon.ico favicon.png favicon.svg)
 
   def router do
     quote do
