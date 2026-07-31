@@ -610,7 +610,13 @@ defmodule Acs.Memory.Auditor do
 
     if suggested && is_binary(suggested) && String.trim(suggested) != "" &&
          String.trim(suggested) != memory.title do
-      case Indexer.update_field(public_id, :title, String.trim(suggested), memory.org) do
+      case Acs.Memory.Store.revise(public_id, %{title: String.trim(suggested)},
+             org: memory.org,
+             actor: %{type: "system", id: "memory_auditor"},
+             source: "auditor",
+             message: "Memory auditor improved title",
+             metadata: %{auditor_flags: flags}
+           ) do
         {:ok, _} ->
           Logger.info(
             "[Acs.Memory.Auditor] Auto-improved title for #{memory.id}: '#{memory.title}' → '#{String.trim(suggested)}'"
@@ -648,7 +654,13 @@ defmodule Acs.Memory.Auditor do
 
       new_content = content <> "\n\n---\nImprovements: " <> String.trim(improvements)
 
-      case Indexer.update_field(public_id, :content, new_content, memory.org) do
+      case Acs.Memory.Store.revise(public_id, %{content: new_content},
+             org: memory.org,
+             actor: %{type: "system", id: "memory_auditor"},
+             source: "auditor",
+             message: "Memory auditor improved content",
+             metadata: %{auditor_flags: flags}
+           ) do
         {:ok, _} ->
           Logger.info("[Acs.Memory.Auditor] Auto-improved content for #{memory.id}")
           Map.put(flags, :content_improved, true)
@@ -676,8 +688,14 @@ defmodule Acs.Memory.Auditor do
       memory ->
         public_id = Indexer.public_id(memory.id, memory.org)
 
-        with {:ok, schema} <- Indexer.update_status(public_id, new_status, memory.org),
-             :ok <- persist_status_to_vault(schema, new_status) do
+        with {:ok, _result} <-
+               Acs.Memory.Store.transition(public_id, new_status,
+                 org: memory.org,
+                 actor: %{type: "system", id: "memory_auditor"},
+                 source: "auditor",
+                 message: "Memory auditor marked #{public_id} #{new_status}",
+                 metadata: %{auditor_flags: auditor_flags}
+               ) do
           import Ecto.Query
 
           Repo.update_all(
@@ -697,47 +715,6 @@ defmodule Acs.Memory.Auditor do
       Logger.error("[Acs.Memory.Auditor] Failed to update memory #{memory_id}: #{inspect(e)}")
       {:error, e}
   end
-
-  # YAML is canonical; without this VaultSweeper re-upserts status=proposed from the file.
-  defp persist_status_to_vault(schema, new_status) when new_status in ~w(approved rejected) do
-    now = DateTime.utc_now() |> DateTime.to_iso8601()
-
-    verification =
-      case new_status do
-        "approved" ->
-          %{
-            "status" => "approved",
-            "approved_by" => "memory_auditor",
-            "approved_at" => now
-          }
-
-        "rejected" ->
-          %{
-            "status" => "rejected",
-            "rejected_by" => "memory_auditor",
-            "rejected_at" => now
-          }
-      end
-
-    attrs =
-      schema
-      |> Indexer.schema_to_memory_attrs()
-      |> Map.merge(%{"status" => new_status, "verification" => verification})
-
-    case attrs |> Acs.Memory.new() |> Acs.Memory.Loader.save() do
-      :ok ->
-        :ok
-
-      {:error, reason} ->
-        Logger.error(
-          "[Acs.Memory.Auditor] Failed to persist #{new_status} to vault for #{schema.id}: #{inspect(reason)}"
-        )
-
-        {:error, reason}
-    end
-  end
-
-  defp persist_status_to_vault(_schema, _status), do: :ok
 
   # Mark memory as rejected with reason
   defp mark_as_rejected(memory_id, reason) do
@@ -777,6 +754,7 @@ defmodule Acs.Memory.Auditor do
           |> Map.put("last_audit_error_at", DateTime.utc_now() |> DateTime.to_iso8601())
 
         flags_json = Jason.encode!(merged_flags)
+        :ok = record_audit_revision(memory, merged_flags, "Memory auditor requested human review")
 
         Repo.update_all(
           from(m in Schema, where: m.id == ^memory_id),
@@ -811,13 +789,14 @@ defmodule Acs.Memory.Auditor do
       memory ->
         existing_flags = decode_auditor_flags(memory.auditor_flags)
 
-        flags_json =
-          existing_flags
-          |> Map.merge(%{
+        merged_flags =
+          Map.merge(existing_flags, %{
             flagged_reason: reason,
             flagged_at: DateTime.utc_now() |> DateTime.to_iso8601()
           })
-          |> Jason.encode!()
+
+        flags_json = Jason.encode!(merged_flags)
+        :ok = record_audit_revision(memory, merged_flags, "Memory auditor flagged duplicate")
 
         Repo.update_all(
           from(m in Schema, where: m.id == ^memory_id),
@@ -845,6 +824,25 @@ defmodule Acs.Memory.Auditor do
     end
   end
 
+  defp record_audit_revision(memory, flags, message) do
+    if Acs.Org.multi_tenant?() do
+      public_id = Indexer.public_id(memory.id, memory.org)
+
+      case Acs.Memory.Store.revise(public_id, %{},
+             org: memory.org,
+             actor: %{type: "system", id: "memory_auditor"},
+             source: "auditor",
+             message: message,
+             metadata: %{auditor_flags: flags}
+           ) do
+        {:ok, _} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      :ok
+    end
+  end
+
   defp increment_audit_error(memory_id, reason) do
     import Ecto.Query
     alias Acs.Memory.Schema
@@ -867,6 +865,9 @@ defmodule Acs.Memory.Auditor do
           })
 
         flags_json = Jason.encode!(updated_flags)
+
+        :ok =
+          record_audit_revision(memory, updated_flags, "Memory auditor recorded an audit error")
 
         Repo.update_all(
           from(m in Schema, where: m.id == ^memory_id),

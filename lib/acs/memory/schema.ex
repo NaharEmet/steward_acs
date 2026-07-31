@@ -1,9 +1,10 @@
 defmodule Acs.Memory.Schema do
   @moduledoc """
-  Ecto schema for the acs_memories SQLite table.
+  Current-memory query projection.
 
-  This is the derived/index table. The canonical source is YAML files.
-  This table can always be regenerated from YAML.
+  In single-tenant mode this is derived from canonical YAML/Markdown files. In
+  multi-tenant mode it is a rebuildable projection of the immutable database
+  revision ledger; `head_revision_id` identifies the canonical snapshot.
   """
 
   use Ecto.Schema
@@ -36,6 +37,8 @@ defmodule Acs.Memory.Schema do
     field :project, :string
     field :visibility, :string, default: "org"
     field :org, :string, default: "default"
+    field :company_memory_id, :string
+    field :head_revision_id, :string
     timestamps(type: :utc_datetime, inserted_at: :created_at)
   end
 
@@ -65,7 +68,9 @@ defmodule Acs.Memory.Schema do
       :team,
       :project,
       :visibility,
-      :org
+      :org,
+      :company_memory_id,
+      :head_revision_id
     ])
     |> validate_required([:id, :kind, :title, :content, :scope_path])
     |> validate_inclusion(

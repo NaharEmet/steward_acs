@@ -79,6 +79,18 @@ defmodule Acs.OrgIsolationTest do
   test "memory index isolates identical public IDs across orgs" do
     id = "shared-#{System.unique_integer([:positive])}"
 
+    for org <- ["acme", "beta"] do
+      %Acs.Orgs.Organization{}
+      |> Acs.Orgs.Organization.changeset(%{
+        name: org,
+        slug: org,
+        subdomain: org,
+        plan: "free",
+        provisioning_status: "ready"
+      })
+      |> Repo.insert(on_conflict: :nothing)
+    end
+
     for {org, title} <- [{"acme", "Acme memory"}, {"beta", "Beta memory"}] do
       memory =
         Acs.Memory.new(%{
@@ -90,7 +102,14 @@ defmodule Acs.OrgIsolationTest do
           "org" => org
         })
 
-      assert {:ok, _} = Acs.Memory.Indexer.upsert_memory(memory)
+      Org.with_current(org, fn ->
+        assert {:ok, _} =
+                 Acs.Memory.Store.save(memory,
+                   actor: %{type: "system", id: "org-isolation-test"},
+                   source: "system",
+                   message: "Create isolated memory"
+                 )
+      end)
     end
 
     assert Acs.Memory.Indexer.get_memory(id, "acme").title == "Acme memory"

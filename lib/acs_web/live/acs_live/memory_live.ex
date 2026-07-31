@@ -161,22 +161,20 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     org = socket.assigns.current_org
     proposed_memories = Indexer.list_memories(status: "proposed", limit: 500, org: org)
 
+    actor = web_actor(socket)
+
     results =
       Enum.map(proposed_memories, fn memory ->
-        case Indexer.update_status(Indexer.public_id(memory.id, org), "approved", org) do
-          {:ok, schema} ->
-            attrs = build_verification_attrs("approved")
+        public_id = Indexer.public_id(memory.id, org)
 
-            schema
-            |> Indexer.schema_to_memory_attrs()
-            |> Map.merge(attrs)
-            |> Acs.Memory.new()
-            |> Acs.Memory.Loader.save()
-
-            {:ok, memory.id}
-
-          {:error, reason} ->
-            {:error, memory.id, reason}
+        case Acs.Memory.Store.transition(public_id, "approved",
+               org: org,
+               actor: actor,
+               source: "web",
+               message: "Bulk approve memory #{public_id}"
+             ) do
+          {:ok, _result} -> {:ok, memory.id}
+          {:error, reason} -> {:error, memory.id, reason}
         end
       end)
 
@@ -201,7 +199,11 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   end
 
   def handle_info(:check_conflicts, socket) do
-    {:noreply, assign(socket, conflict_alerts: compute_conflict_alerts(socket.assigns.memories, socket.assigns.status_filter))}
+    {:noreply,
+     assign(socket,
+       conflict_alerts:
+         compute_conflict_alerts(socket.assigns.memories, socket.assigns.status_filter)
+     )}
   end
 
   @impl true
@@ -220,17 +222,13 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   end
 
   defp update_memory_status(socket, id, new_status, flash_opts) do
-    case Indexer.update_status(id, new_status, socket.assigns.current_org) do
-      {:ok, schema} ->
-        # Persist to YAML with verification metadata
-        attrs = build_verification_attrs(new_status)
-
-        schema
-        |> Indexer.schema_to_memory_attrs()
-        |> Map.merge(attrs)
-        |> Acs.Memory.new()
-        |> Acs.Memory.Loader.save()
-
+    case Acs.Memory.Store.transition(id, new_status,
+           org: socket.assigns.current_org,
+           actor: web_actor(socket),
+           source: "web",
+           message: "#{flash_opts[:action]} memory #{id}"
+         ) do
+      {:ok, _result} ->
         # Switch to "all" view — handle_params will load data and select the memory
         socket =
           socket
@@ -247,29 +245,15 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     end
   end
 
-  defp build_verification_attrs("approved") do
-    %{
-      "status" => "approved",
-      "verification" => %{
-        "status" => "approved",
-        "approved_by" => "human",
-        "approved_at" => DateTime.utc_now() |> DateTime.to_iso8601()
-      }
-    }
-  end
+  defp web_actor(socket) do
+    case socket.assigns[:current_user] do
+      %{id: id} = user ->
+        %{type: "user", id: to_string(id), display: Map.get(user, :email) || Map.get(user, :name)}
 
-  defp build_verification_attrs("rejected") do
-    %{
-      "status" => "rejected",
-      "verification" => %{
-        "status" => "rejected",
-        "rejected_by" => "human",
-        "rejected_at" => DateTime.utc_now() |> DateTime.to_iso8601()
-      }
-    }
+      _ ->
+        %{type: "user", id: "unknown"}
+    end
   end
-
-  defp build_verification_attrs(_), do: %{}
 
   defp load_data(socket) do
     query = socket.assigns.search_query
@@ -310,7 +294,8 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         end
       end
 
-    conflict_alerts = if connected?(socket), do: %{}, else: compute_conflict_alerts(memories, status_filter)
+    conflict_alerts =
+      if connected?(socket), do: %{}, else: compute_conflict_alerts(memories, status_filter)
 
     selected_memory =
       if socket.assigns.selected_memory do

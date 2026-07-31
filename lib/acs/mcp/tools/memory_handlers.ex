@@ -30,7 +30,9 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     creator_id = args["_auth_attribution"] || args["_auth_agent_id"] || Acs.Org.developer_name()
 
     creator_type =
-      if is_binary(creator_id) and String.contains?(creator_id, "@"), do: "user", else: "developer"
+      if is_binary(creator_id) and String.contains?(creator_id, "@"),
+        do: "user",
+        else: "developer_key"
 
     args = normalize_about_args(args)
     {:ok, intake} = Acs.Memory.Intake.review(args)
@@ -100,7 +102,11 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
          :ok <- Acs.Memory.validate(memory_map) do
       memory = Acs.Memory.new(memory_map)
 
-      case do_save_with_validation(memory, memory_map) do
+      case do_save_with_validation(memory, memory_map,
+             actor: %{type: creator_type, id: creator_id},
+             source: "mcp",
+             message: "Create memory #{memory.id}"
+           ) do
         {:ok, result} ->
           {:ok, maybe_attach_sensitive_note(result, intake, visibility)}
 
@@ -196,6 +202,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
     valid_statuses = ~w(approved rejected stale deprecated)
     chat? = Acs.MCP.Audience.normalize(args["_auth_audience"]) == :chat
+    governor? = args["_auth_role"] == "admin"
 
     cond do
       status not in valid_statuses ->
@@ -205,64 +212,26 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
         {:error,
          "Chat can only mark memories stale or deprecated. Use status: \"stale\" (outdated) or \"deprecated\" (retired)."}
 
+      status in ~w(approved rejected) and not governor? ->
+        {:error, "Only organization admins can approve or reject company memories."}
+
       true ->
-        case Acs.Memory.Indexer.update_status(memory_id, status, Acs.Org.current()) do
-          {:ok, schema} ->
-            attrs =
-              case status do
-                "approved" ->
-                  %{
-                    "status" => "approved",
-                    "verification" => %{
-                      "status" => "approved",
-                      "approved_by" => args["notes"] || "human",
-                      "approved_at" => DateTime.utc_now() |> DateTime.to_iso8601()
-                    }
-                  }
+        actor_id = args["_auth_attribution"] || args["_auth_agent_id"] || "unknown"
 
-                "rejected" ->
-                  %{
-                    "status" => "rejected",
-                    "verification" => %{
-                      "status" => "rejected",
-                      "rejected_by" => args["notes"] || "human",
-                      "rejected_at" => DateTime.utc_now() |> DateTime.to_iso8601()
-                    }
-                  }
+        actor_type =
+          if is_binary(actor_id) and String.contains?(actor_id, "@"),
+            do: "user",
+            else: "developer_key"
 
-                "stale" ->
-                  %{
-                    "status" => "stale",
-                    "revalidation" => %{
-                      "reason" => args["notes"] || "No reason provided",
-                      "marked_at" => DateTime.utc_now() |> DateTime.to_iso8601()
-                    }
-                  }
-
-                "deprecated" ->
-                  %{
-                    "status" => "deprecated",
-                    "revalidation" => %{
-                      "reason" => args["notes"] || "No reason provided",
-                      "marked_at" => DateTime.utc_now() |> DateTime.to_iso8601()
-                    }
-                  }
-              end
-
-            result =
-              schema
-              |> Acs.Memory.Indexer.schema_to_memory_attrs()
-              |> Map.merge(attrs)
-              |> Acs.Memory.new()
-              |> Acs.Memory.Loader.save()
-
-            case result do
-              :ok ->
-                {:ok, %{status: status, memory_id: memory_id, message: "Memory #{status}"}}
-
-              {:error, reason} ->
-                {:error, "Failed to save memory status: #{inspect(reason)}"}
-            end
+        case Acs.Memory.Store.transition(memory_id, status,
+               org: Acs.Org.current(),
+               actor: %{type: actor_type, id: actor_id},
+               source: "mcp",
+               reason: args["notes"],
+               message: args["notes"] || "Transition memory #{memory_id} to #{status}"
+             ) do
+          {:ok, _result} ->
+            {:ok, %{status: status, memory_id: memory_id, message: "Memory #{status}"}}
 
           {:error, reason} ->
             {:error, "Failed to update memory status: #{inspect(reason)}"}
@@ -647,30 +616,20 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
   defp decode_created_by(_), do: nil
 
-  defp do_save_with_validation(memory, memory_map) do
+  defp do_save_with_validation(memory, memory_map, store_opts) do
     with :ok <- check_exact_memory_duplicate(memory.id),
          :ok <- check_semantic_memory_duplicate(memory),
          {:ok, conflict_flags} <- Acs.Memory.Conflict.check_before_save(memory_map),
-         :ok <- Acs.Memory.Loader.save(memory) do
-      case Acs.Memory.Indexer.upsert_memory(memory) do
-        {:ok, _} ->
-          store_memory_embedding(memory)
+         {:ok, _result} <- Acs.Memory.Store.save(memory, store_opts) do
+      store_memory_embedding(memory)
 
-          {:ok,
-           %{
-             id: memory.id,
-             status: memory.status,
-             conflict_flags: conflict_flags,
-             message: "Memory saved with status: #{memory.status}"
-           }}
-
-        {:error, reason} ->
-          Logger.error(
-            "[Tools] Index upsert failed after save for #{memory.id}: #{inspect(reason)}"
-          )
-
-          {:error, "Memory saved but indexing failed: #{inspect(reason)}"}
-      end
+      {:ok,
+       %{
+         id: memory.id,
+         status: memory.status,
+         conflict_flags: conflict_flags,
+         message: "Memory saved with status: #{memory.status}"
+       }}
     else
       {:error, reason} -> {:error, reason}
     end

@@ -88,7 +88,6 @@ defmodule AcsWeb.Router do
       live "/", AcsLive.Index, :index
       live "/tools", AcsLive.Tools, :index
       live "/tools/requests", AcsLive.ToolRequests, :index
-      live "/memories", AcsLive.MemoryLive, :index
       live "/documents", AcsLive.SpecsLive, :index
       live "/skills", AcsLive.SkillsLive, :index
       live "/error-traces", AcsLive.ErrorTracesLive, :index
@@ -97,6 +96,17 @@ defmodule AcsWeb.Router do
 
   scope "/", AcsWeb do
     pipe_through [:browser, :require_auth, :tenant_user]
+
+    live_session :memory_governance,
+      session: {AcsWeb.UserAuth, :fetch_user_token, []},
+      on_mount: [
+        {AcsWeb.UserAuth, :assign_org},
+        {AcsWeb.UserAuth, :ensure_authenticated},
+        {AcsWeb.UserAuth, :ensure_tenant_member},
+        {AcsWeb.UserAuth, :ensure_org_admin}
+      ] do
+      live "/memories", AcsLive.MemoryLive, :index
+    end
 
     live_session :org_admin,
       session: {AcsWeb.UserAuth, :fetch_user_token, []},

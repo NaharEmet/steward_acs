@@ -82,15 +82,13 @@ defmodule Acs.Application do
     # to avoid background tasks conflicting with Ecto sandbox connections.
     children =
       if background_workers? do
-        [
-          Acs.Memory.Auditor,
-          Acs.Memory.FileWatcher,
-          Acs.Memory.VaultSweeper,
-          Acs.Specs.FileWatcher,
-          Acs.Specs.Auditor,
-          {Acs.Log.RetentionSweeper, []},
-          Acs.Skills.Auditor | children
-        ] ++ tools_watcher_children
+        memory_background_children(Acs.Org.multi_tenant?(), true) ++
+          [
+            Acs.Specs.FileWatcher,
+            Acs.Specs.Auditor,
+            {Acs.Log.RetentionSweeper, []},
+            Acs.Skills.Auditor | children
+          ] ++ tools_watcher_children
       else
         children
       end
@@ -103,14 +101,16 @@ defmodule Acs.Application do
     # to avoid Ecto sandbox conflicts with background DB queries.
     if Application.get_env(:steward_acs, :start_background_workers, true) do
       Task.start(fn ->
-        {:ok, count, quarantined} = Acs.Memory.Indexer.sync_all()
+        unless Acs.Org.multi_tenant?() do
+          {:ok, count, quarantined} = Acs.Memory.Indexer.sync_all()
 
-        if quarantined != [] do
-          Logger.warning(
-            "[Application] Initial memory sync: #{count} indexed, #{length(quarantined)} quarantined"
-          )
-        else
-          Logger.info("[Application] Initial memory sync: #{count} memories indexed")
+          if quarantined != [] do
+            Logger.warning(
+              "[Application] Initial memory sync: #{count} indexed, #{length(quarantined)} quarantined"
+            )
+          else
+            Logger.info("[Application] Initial memory sync: #{count} memories indexed")
+          end
         end
 
         case Acs.Memory.Embedding.ensure_embeddings() do
@@ -229,6 +229,14 @@ defmodule Acs.Application do
     else
       []
     end
+  end
+
+  @doc false
+  def memory_background_children(_multi_tenant?, false), do: []
+  def memory_background_children(true, true), do: [Acs.Memory.Auditor]
+
+  def memory_background_children(false, true) do
+    [Acs.Memory.Auditor, Acs.Memory.FileWatcher, Acs.Memory.VaultSweeper]
   end
 
   defp vault_configured? do

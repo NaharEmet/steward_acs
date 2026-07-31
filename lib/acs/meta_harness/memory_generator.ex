@@ -75,8 +75,12 @@ defmodule Acs.MetaHarness.MemoryGenerator do
         "failure_modes" => ["tool_unavailable", "input_validation_error", "timeout"]
       })
 
-    case Acs.Memory.Loader.save(memory) do
-      :ok ->
+    case Acs.Memory.Store.save(memory,
+           actor: %{type: "system", id: "meta_harness"},
+           source: "meta_harness",
+           message: "Record high failure rate for #{tool_name}"
+         ) do
+      {:ok, _} ->
         "#{tool_name}: high failure rate"
 
       {:error, reason} ->
@@ -105,8 +109,12 @@ defmodule Acs.MetaHarness.MemoryGenerator do
         "failure_modes" => ["backend_slow", "rate_limited", "large_response"]
       })
 
-    case Acs.Memory.Loader.save(memory) do
-      :ok ->
+    case Acs.Memory.Store.save(memory,
+           actor: %{type: "system", id: "meta_harness"},
+           source: "meta_harness",
+           message: "Record slow tool #{tool_name}"
+         ) do
+      {:ok, _} ->
         "#{tool_name}: slow tool"
 
       {:error, reason} ->

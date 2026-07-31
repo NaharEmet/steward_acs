@@ -102,8 +102,12 @@ db_url = System.get_env("DATABASE_URL")
 if db_path in [nil, ""] and db_url not in [nil, ""] do
   use_ssl? =
     case System.get_env("PGSSL") do
-      "true" -> true
-      "false" -> false
+      "true" ->
+        true
+
+      "false" ->
+        false
+
       _ ->
         String.contains?(db_url, "neon.tech") or
           String.contains?(db_url, "sslmode=require") or
@@ -354,7 +358,14 @@ config :steward_acs,
        :org_name,
        System.get_env("ACS_ORG_NAME") || System.get_env("ACS_CLUSTER_NAME", "default")
 
-config :steward_acs, :multi_tenant, System.get_env("MULTI_TENANT", "false") == "true"
+multi_tenant? = System.get_env("MULTI_TENANT", "false") == "true"
+memory_store = System.get_env("MEMORY_STORE", if(multi_tenant?, do: "database", else: "yaml"))
+
+if multi_tenant? and memory_store != "database" do
+  raise "MULTI_TENANT=true requires MEMORY_STORE=database; filesystem memory stores are not supported"
+end
+
+config :steward_acs, :multi_tenant, multi_tenant?
 
 if orgs_file = System.get_env("ORGS_FILE") do
   config :steward_acs, :orgs_file, orgs_file
@@ -370,7 +381,7 @@ config :steward_acs,
        :developer_name,
        System.get_env("ACS_DEVELOPER_NAME", "unknown")
 
-config :steward_acs, :memory_store, System.get_env("MEMORY_STORE", "yaml")
+config :steward_acs, :memory_store, memory_store
 
 if obsidian_path = System.get_env("OBSIDIAN_VAULT_PATH") do
   config :steward_acs, :obsidian_vault_path, obsidian_path

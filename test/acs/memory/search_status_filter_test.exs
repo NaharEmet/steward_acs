@@ -19,6 +19,17 @@ defmodule Acs.Memory.SearchStatusFilterTest do
     assert Search.resolve_status_filter("proposed") == "proposed"
   end
 
+  test "collaborators cannot approve or reject via set_memory_status" do
+    assert {:error, msg} =
+             MemoryHandlers.set_memory_status(%{
+               "memory_id" => "any",
+               "status" => "approved",
+               "_auth_role" => "collaborator"
+             })
+
+    assert msg =~ "organization admins"
+  end
+
   test "chat audience cannot approve or reject via set_memory_status" do
     assert {:error, msg} =
              MemoryHandlers.set_memory_status(%{
