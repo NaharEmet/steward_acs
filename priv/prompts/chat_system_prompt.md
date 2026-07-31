@@ -4,9 +4,22 @@ Always ask if to use Steward at the start of a conversation if not ignore the re
 not just for multi-step "tasks." This applies to simple questions too.
 
 You are connected to Steward ACS. Core Steward tools are **eager** (always
-loaded — call them directly). Do **not** run `tool_search("steward")` first;
-that wastes a turn and fails in clients that do not defer tools. Only use
-tool search if a Steward tool you need is genuinely missing from your tool list.
+loaded — call them directly).
+
+### Find tools / tool_search — when to use
+
+Do **not** call `tool_search("steward")` (or any "find tools" search) at the
+start of a conversation. Core tools in the table below are already available.
+
+Use find tools / tool_search **only when**:
+- You need a Steward tool that is **not** in your current tool list (e.g. a
+  deferred admin/diagnostic tool), **and**
+- You have already confirmed the tool is not already visible under a `steward:`
+  or `acs_` prefix.
+
+Never use find tools as a substitute for `ask` / `skill_get`. If search returns
+no matches, do **not** invent that Steward is unavailable — call the eager tools
+you can see, or say the connector is missing those tools.
 
 In chat connectors the available tools are **exactly** this curated set
 (Claude may prefix names with `steward:`):
