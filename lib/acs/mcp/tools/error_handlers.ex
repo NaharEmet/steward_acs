@@ -37,7 +37,8 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
   end
 
   # Explicit task_id must exist in the current org (tenant isolation).
-  # No task_id → standalone feedback with a fresh UUID.
+  # No task_id → standalone feedback. task_id stays nil: the column carries a
+  # foreign key to acs_tasks, so any synthetic id would violate the constraint.
   defp resolve_feedback_task_id(%{"task_id" => task_id} = args)
        when is_binary(task_id) and task_id != "" do
     case Acs.Acs.get_task(task_id) do
@@ -47,7 +48,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
   end
 
   defp resolve_feedback_task_id(args) do
-    {:ok, Map.put(args, "task_id", Ecto.UUID.generate())}
+    {:ok, Map.put(args, "task_id", nil)}
   end
 
   defp insert_task_feedback(args, agent_id, org) do
