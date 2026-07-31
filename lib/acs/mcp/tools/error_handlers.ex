@@ -371,8 +371,14 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
       :ok ->
         memory = Acs.Memory.new(memory_map)
 
-        with :ok <- Acs.Memory.Loader.save(memory),
-             {:ok, _} <- Acs.Memory.Indexer.upsert_memory(memory) do
+        actor_id = args["_auth_attribution"] || args["_auth_agent_id"] || Acs.Org.developer_name()
+
+        with {:ok, _} <-
+               Acs.Memory.Store.save(memory,
+                 actor: %{type: "developer_key", id: actor_id},
+                 source: "mcp",
+                 message: "Create feedback memory #{memory.id}"
+               ) do
           :ok
         else
           {:error, reason} ->

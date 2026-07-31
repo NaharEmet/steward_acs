@@ -58,8 +58,9 @@ x-steward-acs: &steward_acs
     AUTH0_WEB_REDIRECT_URI: "${AUTH0_WEB_REDIRECT_URI:-https://prod.stewardacs.xyz/auth/callback}"
     SELF_SERVICE_ORGS_ENABLED: "${SELF_SERVICE_ORGS_ENABLED:-true}"
     OLLAMA_URL: http://ollama:11434
+    # Vault remains mounted for skills/specs/prompts only. Company memories are DB-canonical.
     OBSIDIAN_VAULT_PATH: /vaults
-    MEMORY_STORE: obsidian
+    MEMORY_STORE: database
     # LLM providers (Infisical). Compose --env-file alone does not inject into
     # the container — each key must be listed here for memory/skill auditing.
     ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-}"

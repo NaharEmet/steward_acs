@@ -50,9 +50,14 @@ defmodule Acs.Memory.Indexer do
       count =
         Enum.reduce(memories, 0, fn memory, acc ->
           case upsert_memory(memory, broadcast: false) do
-            {:ok, _} -> acc + 1
+            {:ok, _} ->
+              acc + 1
+
             {:error, reason} ->
-              Logger.warning("[Memory.Indexer] Failed to index #{memory.id} org=#{org}: #{reason}")
+              Logger.warning(
+                "[Memory.Indexer] Failed to index #{memory.id} org=#{org}: #{reason}"
+              )
+
               acc
           end
         end)
@@ -123,6 +128,14 @@ defmodule Acs.Memory.Indexer do
   `created_at`, and `parse_error`.
   """
   def upsert_memory(%Acs.Memory{} = memory, opts \\ []) do
+    if Acs.Org.multi_tenant?() and is_nil(Keyword.get(opts, :head_revision_id)) do
+      {:error, "Direct projection writes are disabled in multi-tenant mode"}
+    else
+      do_upsert_memory(memory, opts)
+    end
+  end
+
+  defp do_upsert_memory(%Acs.Memory{} = memory, opts) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
     created_at = parse_datetime(memory.created_at) || now
     updated_at = parse_datetime(memory.updated_at) || now
@@ -145,11 +158,14 @@ defmodule Acs.Memory.Indexer do
       created_by_json: Jason.encode!(memory.created_by),
       created_by_agent: get_in(memory.created_by, ["id"]),
       audience: memory.audience,
-      file_path: Acs.Memory.Loader.memory_to_path(memory),
+      file_path:
+        if(Acs.Org.multi_tenant?(), do: nil, else: Acs.Memory.Loader.memory_to_path(memory)),
       team: memory.team,
       project: memory.project,
       visibility: memory.visibility,
-      org: memory.org
+      org: memory.org,
+      company_memory_id: Keyword.get(opts, :company_memory_id),
+      head_revision_id: Keyword.get(opts, :head_revision_id)
     }
 
     result =
@@ -178,6 +194,14 @@ defmodule Acs.Memory.Indexer do
   Removes a memory from the index by id.
   """
   def remove_memory(memory_id, org \\ Acs.Org.current()) do
+    if Acs.Org.multi_tenant?() do
+      {:error, "Direct memory deletion is disabled in multi-tenant mode"}
+    else
+      do_remove_memory(memory_id, org)
+    end
+  end
+
+  defp do_remove_memory(memory_id, org) do
     result =
       Retry.with_busy_retry(fn ->
         case get_memory(memory_id, org) do
@@ -200,6 +224,14 @@ defmodule Acs.Memory.Indexer do
   """
   def update_status(memory_id, new_status, org \\ Acs.Org.current())
       when new_status in ~w(proposed approved rejected stale deprecated archived parse_error) do
+    if Acs.Org.multi_tenant?() do
+      {:error, "Direct status updates are disabled in multi-tenant mode"}
+    else
+      do_update_status(memory_id, new_status, org)
+    end
+  end
+
+  defp do_update_status(memory_id, new_status, org) do
     result =
       Retry.with_busy_retry(fn ->
         case get_memory(memory_id, org) do
@@ -231,6 +263,14 @@ defmodule Acs.Memory.Indexer do
   """
   def update_field(memory_id, field, value, org \\ Acs.Org.current())
       when field in ~w(title content)a do
+    if Acs.Org.multi_tenant?() do
+      {:error, "Direct field updates are disabled in multi-tenant mode"}
+    else
+      do_update_field(memory_id, field, value, org)
+    end
+  end
+
+  defp do_update_field(memory_id, field, value, org) do
     result =
       Retry.with_busy_retry(fn ->
         case get_memory(memory_id, org) do
@@ -543,7 +583,9 @@ defmodule Acs.Memory.Indexer do
 
   defp apply_audience_order(query, audience) when is_binary(audience) and audience != "" do
     import Ecto.Query
-    from m in query, order_by: [desc: fragment("CASE WHEN ? = ? THEN 1 ELSE 0 END", m.audience, ^audience)]
+
+    from m in query,
+      order_by: [desc: fragment("CASE WHEN ? = ? THEN 1 ELSE 0 END", m.audience, ^audience)]
   end
 
   defp apply_audience_order(query, _), do: query

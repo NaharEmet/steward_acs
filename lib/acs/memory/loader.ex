@@ -404,6 +404,14 @@ defmodule Acs.Memory.Loader do
   - default ("yaml") → pure YAML (.yaml) — legacy behaviour
   """
   def save(%Acs.Memory{} = memory) do
+    if Acs.Org.multi_tenant?() do
+      {:error, "Filesystem memory writes are disabled in multi-tenant mode"}
+    else
+      save_to_file(memory)
+    end
+  end
+
+  defp save_to_file(%Acs.Memory{} = memory) do
     file_path = memory_to_path(memory)
     target_root = Acs.Org.memory_dir(memory.org || Acs.Org.current())
 
@@ -642,6 +650,14 @@ defmodule Acs.Memory.Loader do
   Deletes a memory file. Returns :ok or {:error, reason}.
   """
   def delete(%Acs.Memory{} = memory) do
+    if Acs.Org.multi_tenant?() do
+      {:error, "Filesystem memory deletes are disabled in multi-tenant mode"}
+    else
+      delete_file(memory)
+    end
+  end
+
+  defp delete_file(%Acs.Memory{} = memory) do
     file_path = memory_to_path(memory)
 
     case File.rm(file_path) do
