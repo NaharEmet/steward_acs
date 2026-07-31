@@ -58,4 +58,21 @@ defmodule Acs.MCP.CoreToolRolesTest do
     assert "set_person_status" in surface
     refute "specs_propose" in surface
   end
+
+  test "eager tools cover chat surface and coding session basics" do
+    assert CoreToolRoles.eager_tool?("ask")
+    assert CoreToolRoles.eager_tool?("get_present_status")
+    assert CoreToolRoles.eager_tool?("lock_file")
+    assert CoreToolRoles.eager_tool?("query_memories")
+    refute CoreToolRoles.eager_tool?("query")
+    refute CoreToolRoles.eager_tool?("get_logs")
+  end
+
+  test "with_eager_meta sets anthropic alwaysLoad" do
+    tool = CoreToolRoles.with_eager_meta(%{"name" => "ask", "description" => "x"})
+    assert tool["_meta"]["anthropic/alwaysLoad"] == true
+
+    deferred = CoreToolRoles.with_eager_meta(%{"name" => "query", "description" => "x"})
+    refute Map.has_key?(deferred, "_meta")
+  end
 end

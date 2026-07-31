@@ -28,7 +28,8 @@ defmodule AcsWeb.McpUrlsTest do
     prompt = McpUrls.chat_system_prompt()
 
     assert prompt =~ "Steward ACS — Always Active"
-    assert prompt =~ "tool_search(\"steward\")"
+    assert prompt =~ "eager"
+    assert prompt =~ "Do **not** run `tool_search(\"steward\")`"
     assert prompt =~ "get_present_status"
   end
 

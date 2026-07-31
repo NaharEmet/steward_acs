@@ -10,6 +10,9 @@ defmodule Acs.MCP.CoreToolRoles do
   Chat assistants (Claude.ai / ChatGPT connectors) get a **curated** tool list
   via `chat_surface/0` when session audience is `:chat`. Keep that list in sync
   with `priv/prompts/chat_system_prompt.md` and chat guidance packets.
+
+  Session-critical tools also get `_meta["anthropic/alwaysLoad"]` via
+  `eager_tool?/1` so Anthropic Tool Search does not defer them.
   """
 
   @admin_only ~w(
@@ -87,6 +90,22 @@ defmodule Acs.MCP.CoreToolRoles do
     submit_task_feedback
   )
 
+  # Anthropic Tool Search defers MCP tools by default. Mark session-critical tools
+  # with `_meta["anthropic/alwaysLoad"]` so Claude can call them without tool_search.
+  # Chat: entire curated surface. Coding: surface + locks / help / memory+spec entry points.
+  # Admin/diagnostic tools stay deferred.
+  @eager_coding_extras ~w(
+    lock_file
+    unlock_file
+    get_locked_files
+    help
+    query_memories
+    generate_guidance_packet
+    specs_get
+    query_specs
+    specs_propose
+  )
+
   @admin_service ~w(time)
 
   @roles Map.new(@admin_only, &{&1, ["admin"]})
@@ -103,6 +122,30 @@ defmodule Acs.MCP.CoreToolRoles do
   @spec chat_tool?(String.t()) :: boolean()
   def chat_tool?(name) when is_binary(name), do: name in @chat_surface
   def chat_tool?(_), do: false
+
+  @doc """
+  Tools that must stay in the model context under Anthropic Tool Search.
+
+  Emits `_meta["anthropic/alwaysLoad"] = true` on `tools/list` so Claude.ai /
+  Claude Code do not require `tool_search` before calling them.
+  """
+  @spec eager_tool?(String.t()) :: boolean()
+  def eager_tool?(name) when is_binary(name),
+    do: chat_tool?(name) or name in @eager_coding_extras
+
+  def eager_tool?(_), do: false
+
+  @doc "Attach Anthropic alwaysLoad `_meta` when `name` is eager."
+  @spec with_eager_meta(map()) :: map()
+  def with_eager_meta(%{"name" => name} = tool) do
+    if eager_tool?(name) do
+      Map.put(tool, "_meta", %{"anthropic/alwaysLoad" => true})
+    else
+      tool
+    end
+  end
+
+  def with_eager_meta(tool), do: tool
 
   @doc "Returns the roles allowed to call a core tool."
   @spec roles_for(String.t()) :: [String.t()]

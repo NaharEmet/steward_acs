@@ -108,7 +108,11 @@ defmodule Acs.MCP.ToolRegistry do
       Acs.MCP.Tools.list_tools()
       |> Enum.filter(&Acs.MCP.CoreToolRoles.authorized?(&1["name"], role, audience))
 
-    {:reply, yaml_tools ++ core_tools, state}
+    tools =
+      (yaml_tools ++ core_tools)
+      |> Enum.map(&Acs.MCP.CoreToolRoles.with_eager_meta/1)
+
+    {:reply, tools, state}
   end
 
   def handle_call({:list_categories, org}, _from, state) do
