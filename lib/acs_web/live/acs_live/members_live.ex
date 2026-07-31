@@ -299,6 +299,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
     invitation_link = %{
       id: invitation_id(invitation),
       email: invitation_email(invitation),
+      role: invitation_role(invitation),
       expires_at: field(invitation, :expires_at),
       url: url,
       emailed: emailed?,
@@ -613,6 +614,10 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
   defp role_options, do: @roles
 
+  defp role_label("admin"), do: "Administrator"
+  defp role_label("owner"), do: "Owner"
+  defp role_label(_role), do: "Member"
+
   defp current_user_role(current_user, members) do
     current_id = field(current_user, :id)
     current_email = normalize_email(field(current_user, :email, ""))
@@ -827,7 +832,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
               </div>
 
               <div class="form-field">
-                <label for="invite-role" class="form-label">Organization role</label>
+                <label for="invite-role" class="form-label">Access level</label>
                 <select
                   id="invite-role"
                   name={@invitation_form[:role].name}
@@ -836,7 +841,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                   aria-describedby="invite-role-hint invite-role-errors"
                 >
                   <%= for role <- allowed_invite_roles(assigns) do %>
-                    <option value={role} selected={@invitation_form[:role].value == role}><%= role %></option>
+                    <option value={role} selected={@invitation_form[:role].value == role}><%= role_label(role) %></option>
                   <% end %>
                 </select>
                 <p id="invite-role-hint" class="form-hint">
@@ -883,9 +888,9 @@ defmodule AcsWeb.AcsLive.MembersLive do
               </div>
               <p id="invitation-link-recipient">
                 <%= if @invitation_link.emailed do %>
-                  Sent to <strong><%= @invitation_link.email %></strong>. Keep this backup URL private; creating another invitation invalidates it.
+                  Sent to <strong><%= @invitation_link.email %></strong> with <strong><%= role_label(@invitation_link.role) %></strong> access. Keep this backup URL private; creating another invitation invalidates it.
                 <% else %>
-                  Share only with <strong><%= @invitation_link.email %></strong>. Creating another link invalidates this one.
+                  Share only with <strong><%= @invitation_link.email %></strong>. This invitation grants <strong><%= role_label(@invitation_link.role) %></strong> access. Creating another link invalidates this one.
                 <% end %>
               </p>
               <%= if @invitation_link[:org_move] do %>
@@ -976,7 +981,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
               <thead>
                 <tr>
                   <th scope="col">Member</th>
-                  <th scope="col">Role</th>
+                  <th scope="col">Access level</th>
                   <th scope="col">Joined</th>
                   <th scope="col" class="actions-column">Actions</th>
                 </tr>
@@ -995,17 +1000,17 @@ defmodule AcsWeb.AcsLive.MembersLive do
                         <% end %>
                       </div>
                     </td>
-                    <td><span class={"role-badge role-#{member_role(member)}"}><%= member_role(member) %></span></td>
+                    <td><span class={"role-badge role-#{member_role(member)}"}><%= role_label(member_role(member)) %></span></td>
                     <td class="timestamp"><%= format_datetime(member_joined_at(member)) %></td>
                     <td>
                       <div class="table-actions">
                         <%= if can_edit_role?(member, @current_user, @current_role) do %>
                           <form id={dom_id("role-form", member_id(member))} phx-submit="change-role" class="role-form">
                             <input type="hidden" name="target_id" value={member_id(member)} />
-                             <label class="sr-only" for={dom_id("member-role", member_id(member))}>Role for <%= member_name(member) %></label>
+                             <label class="sr-only" for={dom_id("member-role", member_id(member))}>Access level for <%= member_name(member) %></label>
                             <select id={dom_id("member-role", member_id(member))} name="role" class="form-control form-select form-control-sm">
                               <%= for role <- role_options() do %>
-                                <option value={role} selected={member_role(member) == role}><%= role %></option>
+                                <option value={role} selected={member_role(member) == role}><%= role_label(role) %></option>
                               <% end %>
                             </select>
                             <button
@@ -1066,7 +1071,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
               <thead>
                 <tr>
                   <th scope="col">Invited email</th>
-                  <th scope="col">Role</th>
+                  <th scope="col">Access level</th>
                   <th scope="col"><%= if @email_delivery_enabled, do: "Delivery", else: "Link status" %></th>
                   <th scope="col">Expires</th>
                   <th scope="col" class="actions-column">Actions</th>
@@ -1076,7 +1081,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                 <%= for invitation <- @pending_invitations do %>
                   <tr id={dom_id("invitation-row", invitation_id(invitation))}>
                     <td><strong class="table-primary"><%= invitation_email(invitation) %></strong></td>
-                    <td><span class={"role-badge role-#{invitation_role(invitation)}"}><%= invitation_role(invitation) %></span></td>
+                    <td><span class={"role-badge role-#{invitation_role(invitation)}"}><%= role_label(invitation_role(invitation)) %></span></td>
                     <td>
                       <span class="delivery-state"><span class="status-dot" aria-hidden="true"></span><%= invitation_delivery_state(invitation, @email_delivery_enabled) %></span>
                     </td>
