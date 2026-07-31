@@ -73,6 +73,8 @@ defmodule Acs.MCP.Plugs.OAuthLocalAuthorizationTest do
     {:ok, _user} =
       Accounts.register_user(%{
         email: "oidc-member@example.test",
+        first_name: "Ada",
+        last_name: "Lovelace",
         org: organization.slug,
         organization_id: organization.id,
         org_role: "member",
@@ -87,6 +89,7 @@ defmodule Acs.MCP.Plugs.OAuthLocalAuthorizationTest do
 
     assert result.assigns.agent_role == "collaborator"
     assert result.assigns.agent_org_id == organization.slug
+    assert result.assigns.agent_identity == "Ada Lovelace"
   end
 
   test "rejects a validated OIDC identity with no local user" do
@@ -109,6 +112,7 @@ defmodule Acs.MCP.Plugs.OAuthLocalAuthorizationTest do
     {:ok, _user} =
       Accounts.register_user(%{
         email: "oidc-member@example.test",
+        name: "Casey Member",
         org: organization.slug,
         organization_id: organization.id,
         org_role: "member",
@@ -127,6 +131,28 @@ defmodule Acs.MCP.Plugs.OAuthLocalAuthorizationTest do
 
     assert result.assigns.agent_role == "collaborator"
     assert result.assigns.agent_org_id == organization.slug
+    assert result.assigns.agent_identity == "Casey Member"
+  end
+
+  test "falls back to email local-part when user has no name fields" do
+    organization = organization!()
+
+    {:ok, _user} =
+      Accounts.register_user(%{
+        email: "oidc-member@example.test",
+        org: organization.slug,
+        organization_id: organization.id,
+        org_role: "member",
+        oidc_issuer: "https://issuer.example.test/",
+        oidc_subject: "oidc-member-subject"
+      })
+
+    result =
+      Plug.Test.conn(:get, "/mcp/v1/messages")
+      |> Plug.Conn.assign(:current_org, organization.slug)
+      |> MCPAuth.call([])
+
+    assert result.assigns.agent_identity == "oidc-member"
   end
 
   defp organization! do

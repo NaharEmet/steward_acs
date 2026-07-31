@@ -68,11 +68,15 @@ defmodule Acs.Acs.Cache do
   Removes ANY agent (purpose: "active", "sleeping", "working on task")
   that hasn't made a tool call in >60s (updated_at stale).
   Cleans both ETS cache and DB. Agents re-register on next tool call.
+
+  Scans **all orgs** — Cache GenServer has no tenant Org.current(), so
+  filtering by default would leave other tenants' ghosts forever (e.g. safetyconnect).
   """
   def handle_info(:sweep_stale_agents, state) do
     Repo.transaction(fn ->
       cutoff = DateTime.add(DateTime.utc_now(), -60, :second)
-      statuses = get_all_agent_statuses()
+      # ponytail: full ETS scan every 30s; ceiling is tens of agents per tenant
+      statuses = get_all_agent_statuses(:all)
 
       stale =
         Enum.filter(statuses, fn s ->
@@ -388,7 +392,14 @@ defmodule Acs.Acs.Cache do
     end
   end
 
-  def get_all_agent_statuses(org \\ Acs.Org.current()) do
+  def get_all_agent_statuses(org \\ Acs.Org.current())
+
+  def get_all_agent_statuses(:all) do
+    :ets.tab2list(@agent_status_table)
+    |> Enum.map(fn {{_org, agent_id}, status} -> Map.put(status, :agent_id, agent_id) end)
+  end
+
+  def get_all_agent_statuses(org) when is_binary(org) do
     :ets.tab2list(@agent_status_table)
     |> Enum.flat_map(fn
       {{^org, agent_id}, status} -> [Map.put(status, :agent_id, agent_id)]

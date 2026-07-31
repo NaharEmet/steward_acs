@@ -160,7 +160,14 @@ defmodule Acs.MCP.Plugs.MCPAuth do
         with "ready" <- Map.get(org, :provisioning_status),
              slug when is_binary(slug) and slug == request_org <- Map.get(org, :slug),
              {:ok, role} <- oidc_role(Map.get(user, :org_role), result.permissions) do
-          {:ok, %{result | role: role, org_id: slug}}
+          # Prefer human name over Auth0 sub (email|…) / raw email for agent roster.
+          {:ok,
+           %{
+             result
+             | role: role,
+               org_id: slug,
+               agent_identity: Acs.Accounts.User.display_name(user)
+           }}
         else
           {:error, reason} when is_binary(reason) ->
             {:error, reason}
