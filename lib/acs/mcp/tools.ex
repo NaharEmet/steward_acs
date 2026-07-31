@@ -76,7 +76,7 @@ defmodule Acs.MCP.Tools do
     [
       tool_def(
         "get_started",
-        "Call this when you receive new instructions to refresh context. Returns audience-aware ACS instructions (coding vs chat), org knowledge structure conventions, entry-point tools, and recommended next steps. Audience is inferred from the MCP session (clientInfo) or override with audience=coding|chat.",
+        "Steward startup packet. Call first (or after new instructions) to refresh ACS context — audience-aware coding vs chat instructions, org knowledge conventions, entry-point tools, and next steps. Audience from MCP session (clientInfo) or override with audience=coding|chat.",
         %{
           "agent_id" => %{
             "type" => "string",
@@ -117,7 +117,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "release_work",
-        "Release a task lock. Then save skills/memories/specs, then submit_task_feedback last to formally close. Do not tell the user you're done until feedback is submitted.",
+        "Release a task lock. Save skills/memories/specs (or documents) BEFORE calling this, then submit_task_feedback last to formally close. Do not tell the user you're done until feedback is submitted.",
         %{
           "agent_id" => %{"type" => "string", "description" => "Your team member name."},
           "task_id" => %{
@@ -472,7 +472,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "ask",
-        "Primary retrieval for chat assistants and collaborators. Query the org knowledge base — memories, documents, related skills, and agent status — in one call. USE WHEN: answering questions about org knowledge, status, procedures, or prior decisions. (Chat connectors do not expose separate query_memories / query_specs.)",
+        "Steward primary retrieve — search org memories, documents, related skills, and agent status in one call. USE WHEN answering questions about org knowledge, status, procedures, or prior decisions. (Chat connectors do not expose separate query_memories / query_specs.)",
         %{
           "kind" => %{
             "type" => "string",
@@ -2155,8 +2155,9 @@ defmodule Acs.MCP.Tools do
   defp skill_save_description do
     base =
       "Create or update a skill — a reusable step-by-step workflow for other agents. " <>
-        "USE WHEN: the task follows a repeatable procedure worth documenting (deploy, secrets, install). " <>
-        "NOT for one-line truths (use save_memory). " <>
+        "USE WHEN: you followed a repeatable multi-step procedure worth re-running " <>
+        "(deploy, secrets, install, MCP sequence, debug playbook, ingest, review, support) — not a one-off patch note. " <>
+        "NOT for one-line truths (use save_memory) or long shareable docs (use specs_propose/documents_propose). " <>
         "REQUIRES: name, description (one sentence, distinct from name), tags, scope_paths, " <>
         "and markdown content with numbered steps, prerequisites, verification, and failure recovery. " <>
         "Intake is single-pass and defaults to allow; only returns needs_input for secrets, unusable content, or no followable steps. " <>

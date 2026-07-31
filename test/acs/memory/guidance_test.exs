@@ -191,6 +191,30 @@ defmodule Acs.Memory.GuidanceTest do
       refute Map.has_key?(packet, :honesty)
       refute Map.has_key?(packet, :store)
     end
+
+    test "claim tier loads complete claim instruction files without mid-sentence slice" do
+      coding = Guidance.generate("lib/acs/memory", mode: :coding, tier: :claim)
+      chat = Guidance.generate("acme/sales", mode: :chat, tier: :claim)
+
+      assert coding.tier == :claim
+      assert coding.skills_instructions =~ "skill_save"
+      assert coding.skills_instructions =~ "specs_propose"
+      assert coding.skills_instructions =~ "save_memory"
+      refute coding.skills_instructions =~ "**specs_propose** \n\n"
+      assert coding.specs_instructions =~ "DOCUMENT"
+      assert coding.specs_instructions =~ "document_type"
+      refute coding.specs_instructions =~ "Treat them as **specs\n"
+      assert coding.workflow =~ "save"
+      assert coding.workflow =~ "release_work"
+      # save before release
+      assert coding.workflow =~ ~r/save.*release_work/s
+
+      assert chat.tier == :claim
+      assert chat.skills_instructions =~ "skill_save"
+      assert chat.skills_instructions =~ "documents_propose"
+      assert chat.specs_instructions =~ "documents_propose"
+      assert chat.specs_instructions =~ "document_type"
+    end
   end
 
   describe "task_context business domains" do

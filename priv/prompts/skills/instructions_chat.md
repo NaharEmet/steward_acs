@@ -1,4 +1,4 @@
-Skills are step-by-step guides for repeatable tasks. Load them before multi-step work and save them when you discover a useful procedure.
+Skills are step-by-step guides for repeatable tasks. Load them before multi-step work and save them when you discover a useful procedure (support flows, onboarding, ingest, review — not one-off notes).
 
 ## Loading skills
 
@@ -26,6 +26,8 @@ skill_save(
 - **skill_save** — step-by-step procedures (must have numbered steps)
 - **save_memory** — short eternal truths (principles, decisions, invariants)
 - **documents_propose** — long documents (policies, briefs, research, reports)
+
+Save before `release_work`.
 
 ## What makes a good skill
 

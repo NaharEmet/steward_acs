@@ -22,7 +22,7 @@ defmodule Acs.Memory.Guidance do
   # ── Coding packet copy ──────────────────────────────────────────────
 
   @coding_workflow """
-Start: create or claim a task. Then: lock_file → work → unlock_file → release_work → skill_save / save_memory / specs_propose → submit_task_feedback last.
+Start: create or claim a task. Then: lock_file → work → unlock_file → save (skill_save / specs_propose for specs or documents / save_memory) → release_work → submit_task_feedback last.
 No tasks? list_tasks or wait for the next user request. Scopes: code paths OR business domains (org/domain/topic).
 """
 
@@ -70,7 +70,7 @@ Code differs from its module spec? Pause → identify diff → ask user which to
 """
 
   @coding_finish """
-After release_work: skill_save / save_memory / specs_propose (code specs or documents) → submit_task_feedback last. Feedback is a system review: (1) report stale/noisy memories/specs you saw, (2) suggest improvements, (3) flag missing guidance. Not just a formality — it makes Steward better for every agent.
+Before release_work: pick one — skill_save (how-to) | specs_propose document_type+content (long doc) | specs_propose purpose/invariants (code spec) | save_memory (short truth). Then release_work → submit_task_feedback last. Feedback is a system review: (1) report stale/noisy memories/specs, (2) suggest improvements, (3) flag missing guidance.
 """
 
   @coding_maintenance """
@@ -84,14 +84,15 @@ get_present_status(agent_id: "") → assigned_agent_id. Use that name in all too
   @coding_conventions """
 ## Knowledge structure (coding)
 Scopes: code paths OR org/domain/topic.
-- memories — eternal truths
-- specs — code module docs (purpose, invariants, workflows)
-- documents — non-code artifacts (same specs_* tools + document_type)
-- skills — procedures
+- memories — short eternal truths (save_memory)
+- specs — code module docs via specs_propose (purpose, invariants, workflows)
+- documents — long non-code artifacts via specs_propose(document_type, title, content) under documents/<type>/<slug>
+- skills — step-by-step procedures (skill_get / skill_save)
+End of task pick one primary store (how-to / long doc / code spec / short truth).
 """
 
   @specs_instructions_short """
-After work: specs_propose for code specs (module changes) OR documents (document_type + content). query_specs finds both.
+specs_propose: code SPEC (purpose/invariants) when module intent changed; DOCUMENT (document_type+title+content) for policy/brief/research/marketing. Not truths or how-tos. query_specs finds both.
 """
 
   @specs_instructions """
@@ -99,15 +100,15 @@ specs_propose saves specs (code) and documents (non-code). Spec: purpose, invari
 """
 
   @skills_instructions_short """
-Check relevant_skills — skill_get(name:) before procedural work. skill_save for workflows; save_memory for eternal truths.
+Skills = step-by-step how-tos. skill_get before procedural work; skill_save for repeatable workflows (deploy, MCP/debug playbook, ingest, review) — not one-off notes. Else use specs_propose or save_memory.
 """
 
   @specs_instructions_chat """
-Chat agents save documents, not code specs. Use documents_propose(document_type:, title:, content:) for long knowledge; save_memory for short truths. Document types: knowledge, project, marketing, deliverable, policy, process, guideline, reference.
+documents_propose saves long non-code artifacts (policy, brief, marketing, knowledge) via document_type + title + content. Not for truths (save_memory) or how-tos (skill_save). Prefer ingest-document skill first.
 """
 
   @skills_instructions_chat """
-Use skill_get to load procedures before answering. Use skill_save to document repeatable workflows. Skills need: prerequisites, numbered steps, verification, failure recovery.
+Skills = step-by-step playbooks. skill_get before multi-step work; skill_save after discovering a reusable procedure. Need: prerequisites, numbered steps, verification, failure recovery.
 """
 
   # ── Chat packet copy ────────────────────────────────────────────────
@@ -696,12 +697,11 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
   end
 
   def specs_instructions_for_tier(:claim) do
-    short = Acs.Prompts.instructions("specs")
+    claim = Acs.Prompts.instructions_claim("specs")
 
-    if short != "" do
-      String.slice(short, 0, 500) <> "\n\n" <> @specs_instructions_short
-    else
-      @specs_instructions_short
+    cond do
+      claim != "" -> claim
+      true -> @specs_instructions_short
     end
   end
 
@@ -711,12 +711,11 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
   end
 
   def skills_instructions_for_tier(:claim) do
-    short = Acs.Prompts.instructions("skills")
+    claim = Acs.Prompts.instructions_claim("skills")
 
-    if short != "" do
-      String.slice(short, 0, 500) <> "\n\n" <> @skills_instructions_short
-    else
-      @skills_instructions_short
+    cond do
+      claim != "" -> claim
+      true -> @skills_instructions_short
     end
   end
 
@@ -726,11 +725,11 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
   end
 
   def specs_instructions_chat_for_tier(:claim) do
-    short = Acs.Prompts.instructions_chat("specs")
-    if short != "" do
-      String.slice(short, 0, 500)
-    else
-      @specs_instructions_chat
+    claim = Acs.Prompts.instructions_chat_claim("specs")
+
+    cond do
+      claim != "" -> claim
+      true -> @specs_instructions_chat
     end
   end
 
@@ -740,11 +739,11 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
   end
 
   def skills_instructions_chat_for_tier(:claim) do
-    short = Acs.Prompts.instructions_chat("skills")
-    if short != "" do
-      String.slice(short, 0, 500)
-    else
-      @skills_instructions_chat
+    claim = Acs.Prompts.instructions_chat_claim("skills")
+
+    cond do
+      claim != "" -> claim
+      true -> @skills_instructions_chat
     end
   end
 

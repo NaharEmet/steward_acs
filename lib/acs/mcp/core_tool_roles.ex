@@ -11,8 +11,9 @@ defmodule Acs.MCP.CoreToolRoles do
   via `chat_surface/0` when session audience is `:chat`. Keep that list in sync
   with `priv/prompts/chat_system_prompt.md` and chat guidance packets.
 
-  Session-critical tools also get `_meta["anthropic/alwaysLoad"]` via
-  `eager_tool?/1` so Anthropic Tool Search does not defer them.
+  Session-critical tools get `_meta["anthropic/alwaysLoad"]` via a short
+  ordered `eager_priority/0` list (`ask` and `get_started` first). Claude may
+  truncate large alwaysLoad budgets — keep that list small.
   """
 
   @admin_only ~w(
@@ -90,21 +91,38 @@ defmodule Acs.MCP.CoreToolRoles do
     submit_task_feedback
   )
 
-  # Anthropic Tool Search defers MCP tools by default. Mark session-critical tools
-  # with `_meta["anthropic/alwaysLoad"]` so Claude can call them without tool_search.
-  # Chat: entire curated surface. Coding: surface + locks / help / memory+spec entry points.
-  # Admin/diagnostic tools stay deferred.
-  @eager_coding_extras ~w(
+  # Ordered alwaysLoad list. Claude truncates large alwaysLoad budgets — put
+  # ask + get_started first so they survive. Keep this ~10 tools max.
+  # Remaining chat_surface tools stay discoverable via searchHint.
+  @eager_priority ~w(
+    ask
+    get_started
+    get_present_status
+    save_memory
+    skill_get
+    create_work
+    claim_work
+    release_work
+    submit_task_feedback
     lock_file
     unlock_file
-    get_locked_files
     help
-    query_memories
-    generate_guidance_packet
-    specs_get
-    query_specs
-    specs_propose
   )
+
+  @search_hints %{
+    "ask" => "steward ask retrieve search memories documents knowledge status",
+    "get_started" => "steward get started startup instructions guidance onboard",
+    "get_present_status" => "steward register agent identity status",
+    "save_memory" => "steward save memory truth decision invariant",
+    "skill_get" => "steward skill procedure how-to",
+    "skill_save" => "steward skill save procedure",
+    "documents_propose" => "steward document policy brief propose",
+    "list_tasks" => "steward list tasks todo",
+    "create_work" => "steward create claim task",
+    "claim_work" => "steward claim task",
+    "release_work" => "steward release task",
+    "submit_task_feedback" => "steward feedback close task"
+  }
 
   @admin_service ~w(time)
 
@@ -126,26 +144,44 @@ defmodule Acs.MCP.CoreToolRoles do
   @doc """
   Tools that must stay in the model context under Anthropic Tool Search.
 
-  Emits `_meta["anthropic/alwaysLoad"] = true` on `tools/list` so Claude.ai /
-  Claude Code do not require `tool_search` before calling them.
+  Ordered via `eager_priority/0` — `ask` and `get_started` come first so they
+  survive Claude's alwaysLoad budget. Emits `_meta["anthropic/alwaysLoad"]`.
   """
   @spec eager_tool?(String.t()) :: boolean()
-  def eager_tool?(name) when is_binary(name),
-    do: chat_tool?(name) or name in @eager_coding_extras
-
+  def eager_tool?(name) when is_binary(name), do: name in @eager_priority
   def eager_tool?(_), do: false
 
-  @doc "Attach Anthropic alwaysLoad `_meta` when `name` is eager."
-  @spec with_eager_meta(map()) :: map()
-  def with_eager_meta(%{"name" => name} = tool) do
-    if eager_tool?(name) do
-      Map.put(tool, "_meta", %{"anthropic/alwaysLoad" => true})
-    else
-      tool
+  @doc "Priority order for alwaysLoad tools (`ask` / `get_started` first)."
+  @spec eager_priority() :: [String.t()]
+  def eager_priority, do: @eager_priority
+
+  @doc "Sort key so eager tools lead tools/list (ask/get_started first)."
+  @spec list_sort_key(map()) :: {integer(), integer() | String.t()}
+  def list_sort_key(%{"name" => name}) do
+    case Enum.find_index(@eager_priority, &(&1 == name)) do
+      nil -> {1, name}
+      idx -> {0, idx}
     end
   end
 
+  def list_sort_key(_), do: {1, ""}
+
+  @doc "Attach Anthropic alwaysLoad / searchHint `_meta`."
+  @spec with_eager_meta(map()) :: map()
+  def with_eager_meta(%{"name" => name} = tool) do
+    meta =
+      %{}
+      |> maybe_put_meta("anthropic/alwaysLoad", eager_tool?(name) && true)
+      |> maybe_put_meta("anthropic/searchHint", Map.get(@search_hints, name))
+
+    if meta == %{}, do: tool, else: Map.put(tool, "_meta", meta)
+  end
+
   def with_eager_meta(tool), do: tool
+
+  defp maybe_put_meta(meta, _key, false), do: meta
+  defp maybe_put_meta(meta, _key, nil), do: meta
+  defp maybe_put_meta(meta, key, value), do: Map.put(meta, key, value)
 
   @doc "Returns the roles allowed to call a core tool."
   @spec roles_for(String.t()) :: [String.t()]

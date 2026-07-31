@@ -238,12 +238,12 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     %{
       audience: :coding,
       general:
-        "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings as memories, release. Scopes may be code paths or business domains (org/domain/topic). Every response includes `_next` with suggested next tools.",
+        "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings (skills / documents / specs / memories), then release. Scopes may be code paths or business domains (org/domain/topic). Every response includes `_next` with suggested next tools.",
       get_started:
-        "1) `get_present_status(agent_id: \"\")` — register (use returned assigned_agent_id)  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check docs  5) `lock_file` files  6) do work  7) `save_memory` / `skill_save` / `specs_propose` learnings  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last",
+        "1) `get_present_status(agent_id: \"\")` — register (use returned assigned_agent_id)  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check specs/documents  5) `lock_file` files  6) do work  7) pick one save: `skill_save` (how-to) | `specs_propose` document_type+content (long doc) | `specs_propose` purpose/invariants (code spec) | `save_memory` (short truth)  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last",
       agent_identity: identity,
       org_knowledge_conventions:
-        "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=truths, specs=code module docs, documents=non-code artifacts (same specs_* tools + document_type), skills=procedures.",
+        "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=short truths, specs=code module docs via specs_propose, documents=long non-code via specs_propose(document_type,title,content) under documents/<type>/<slug>, skills=procedures via skill_save. End of task pick one primary store.",
       memory_protocol: Acs.Memory.Guidance.memory_protocol(:coding),
       tools: [
         %{
@@ -278,13 +278,30 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         },
         %{
           tool: "skill_get",
-          description: "Find or list reusable workflow guides",
+          description: "Find or list reusable workflow guides (how-tos)",
           params: %{search: "...", tag: "..."}
         },
         %{
           tool: "skill_save",
-          description: "Create a reusable workflow guide for other agents",
+          description: "Save a reusable step-by-step procedure (before release_work)",
           params: %{name: "...", content: "...", tags: ["..."], scope_paths: ["org/domain"]}
+        },
+        %{
+          tool: "specs_propose",
+          description:
+            "Save a code SPEC (purpose/invariants) or DOCUMENT (document_type + title + content)",
+          params: %{
+            app: "<app>",
+            path: "documents/<type>/<slug>",
+            document_type: "knowledge",
+            title: "...",
+            content: "..."
+          }
+        },
+        %{
+          tool: "save_memory",
+          description: "Save a short eternal truth (see memory_protocol)",
+          params: %{kind: "decision", title: "...", content: "...", scope_path: "org/domain"}
         },
         %{
           tool: "skill_audit_status",

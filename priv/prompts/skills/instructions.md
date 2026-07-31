@@ -1,4 +1,4 @@
-Skills are reusable step-by-step workflows for repeatable tasks (deployment, secrets, testing, support). Load them before multi-step work and save them when you discover a repeatable pattern.
+Skills are reusable step-by-step workflows for repeatable tasks. USE WHEN: you followed a multi-step procedure another agent should re-run (deploy, secrets, testing, support, MCP sequences, debug playbooks, ingest, review) — not a one-off patch note.
 
 ## Before multi-step work
 
@@ -14,9 +14,10 @@ skill_get()                          # full catalog with when_to_use
 
 | Store | When | Example |
 |-------|------|---------|
-| **skill_save** | Repeatable procedure | How to deploy, rotate keys, run a refund |
+| **skill_save** | Repeatable procedure | How to deploy, rotate keys, upsert an Axiom dashboard |
 | **save_memory** | Eternal truth, principle | "LiveViews need catch-all handle_info" |
-| **specs_propose** | Module docs or long docs | Why a module exists, project brief |
+| **specs_propose** (document) | Long non-code artifact | Policy, brief, research — document_type + content |
+| **specs_propose** (spec) | Code module docs | purpose/invariants for a module |
 
 ## Writing a good skill
 

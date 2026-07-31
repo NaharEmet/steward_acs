@@ -1,10 +1,10 @@
-Skills are reusable workflow guides — step-by-step know-how for repeatable tasks. USE WHEN: a task follows a known procedure (deploy, manage secrets, install, run tests) or you discover a repeatable pattern worth documenting for other agents.
+Skills are reusable workflow guides — step-by-step know-how for repeatable tasks. USE WHEN: you followed a multi-step procedure another agent should re-run (deploy, secrets, install, tests, MCP sequences, debug playbooks, ingest, review, support) — not a one-off patch note.
 
 ## When to use skills vs memories vs specs/documents
 
-- **skill_save** — procedural workflows with ordered steps (how to deploy, how to rotate secrets)
+- **skill_save** — procedural workflows with ordered steps (how to deploy, rotate secrets, upsert dashboards, ingest docs)
 - **save_memory** — eternal truths and principles (invariants, pitfalls, decisions)
-- **specs_propose** — **specs** for code modules, or **documents** for non-code artifacts (policy, marketing, briefs)
+- **specs_propose** — **specs** for code modules (purpose/invariants), or **documents** for non-code artifacts (`document_type` + `title` + `content`)
 
 ## Writing a good skill
 

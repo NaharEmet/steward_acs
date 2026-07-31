@@ -30,7 +30,9 @@ defmodule AcsWeb.McpUrlsTest do
     assert prompt =~ "Steward ACS — Always Active"
     assert prompt =~ "eager"
     assert prompt =~ "Find tools / tool_search — when to use"
-    assert prompt =~ "Do **not** call `tool_search(\"steward\")`"
+    assert prompt =~ "Do **not** start with `tool_search(\"steward\")`"
+    assert prompt =~ "`ask`"
+    assert prompt =~ "`get_started`"
     assert prompt =~ "get_present_status"
   end
 

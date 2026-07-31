@@ -457,7 +457,7 @@ defmodule Acs.MCP.Protocol do
 
   defp audience_instructions(_coding) do
     """
-    ACS audience: coding agent. Create/claim tasks, lock files before edits, save learnings. Scopes may be code paths or business domains (org/domain/topic). Call get_started or generate_guidance_packet(scope_path:) when entering a new area. Connect via /mcp/sse.
+    ACS audience: coding agent. Create/claim tasks, lock files before edits. Save before release: skill_save (how-to procedures), specs_propose for code specs OR documents (document_type + title + content), save_memory (short truths). Scopes may be code paths or business domains (org/domain/topic). Call get_started or generate_guidance_packet(scope_path:) when entering a new area. Connect via /mcp/sse.
     """
     |> String.trim()
   end

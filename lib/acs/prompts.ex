@@ -29,6 +29,18 @@ defmodule Acs.Prompts do
   @doc "Load chat-facing instructions for a category (`skills`, `specs`)."
   def instructions_chat(category), do: load(category, "instructions_chat")
 
+  @doc """
+  Load claim-tier instructions (complete + short). Never slice the full file.
+
+  Falls back to `instructions/1` only if no claim file exists.
+  """
+  def instructions_claim(category), do: load(category, "instructions_claim")
+
+  @doc """
+  Load chat claim-tier instructions. Falls back to `instructions_chat/1`.
+  """
+  def instructions_chat_claim(category), do: load(category, "instructions_chat_claim")
+
   defp candidate_paths(category, name) do
     if safe_segment?(category) and safe_segment?(name) do
       file = "#{name}.md"

@@ -59,20 +59,43 @@ defmodule Acs.MCP.CoreToolRolesTest do
     refute "specs_propose" in surface
   end
 
-  test "eager tools cover chat surface and coding session basics" do
+  test "eager tools prioritize ask and get_started; admin stays deferred" do
     assert CoreToolRoles.eager_tool?("ask")
+    assert CoreToolRoles.eager_tool?("get_started")
     assert CoreToolRoles.eager_tool?("get_present_status")
+    assert CoreToolRoles.eager_tool?("save_memory")
     assert CoreToolRoles.eager_tool?("lock_file")
-    assert CoreToolRoles.eager_tool?("query_memories")
+    # Deferred chat tools — discover via searchHint, not alwaysLoad budget.
+    refute CoreToolRoles.eager_tool?("documents_propose")
+    refute CoreToolRoles.eager_tool?("list_tasks")
     refute CoreToolRoles.eager_tool?("query")
     refute CoreToolRoles.eager_tool?("get_logs")
+    assert hd(CoreToolRoles.eager_priority()) == "ask"
+    assert Enum.at(CoreToolRoles.eager_priority(), 1) == "get_started"
   end
 
-  test "with_eager_meta sets anthropic alwaysLoad" do
+  test "with_eager_meta sets alwaysLoad and searchHint for ask" do
     tool = CoreToolRoles.with_eager_meta(%{"name" => "ask", "description" => "x"})
     assert tool["_meta"]["anthropic/alwaysLoad"] == true
+    assert tool["_meta"]["anthropic/searchHint"] =~ "steward ask"
 
-    deferred = CoreToolRoles.with_eager_meta(%{"name" => "query", "description" => "x"})
-    refute Map.has_key?(deferred, "_meta")
+    deferred = CoreToolRoles.with_eager_meta(%{"name" => "documents_propose", "description" => "x"})
+    refute Map.has_key?(deferred["_meta"] || %{}, "anthropic/alwaysLoad")
+    assert deferred["_meta"]["anthropic/searchHint"] =~ "steward"
+
+    admin = CoreToolRoles.with_eager_meta(%{"name" => "query", "description" => "x"})
+    refute Map.has_key?(admin, "_meta")
+  end
+
+  test "list_sort_key puts ask before other tools" do
+    tools = [
+      %{"name" => "save_memory"},
+      %{"name" => "ask"},
+      %{"name" => "get_started"},
+      %{"name" => "zzz"}
+    ]
+
+    sorted = Enum.sort_by(tools, &CoreToolRoles.list_sort_key/1)
+    assert Enum.map(sorted, & &1["name"]) == ["ask", "get_started", "save_memory", "zzz"]
   end
 end

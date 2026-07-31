@@ -111,6 +111,7 @@ defmodule Acs.MCP.ToolRegistry do
     tools =
       (yaml_tools ++ core_tools)
       |> Enum.map(&Acs.MCP.CoreToolRoles.with_eager_meta/1)
+      |> Enum.sort_by(&Acs.MCP.CoreToolRoles.list_sort_key/1)
 
     {:reply, tools, state}
   end

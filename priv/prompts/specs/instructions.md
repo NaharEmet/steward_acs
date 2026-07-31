@@ -26,9 +26,11 @@ Required: `document_type`, `title`, `content`. Optional: `source`, `project`, `t
 
 ## When to call specs_propose
 
-- After implementing or changing a module → save a **spec**
-- After producing a document the user wants to keep → save a **document**
-- At task finish (`release_work` flow), before `submit_task_feedback`
+- After implementing or changing a module → save a **spec** (purpose / invariants / workflows)
+- After producing a document to keep → save a **document** (`document_type` + `title` + `content` under `documents/<type>/<slug>`)
+- Before `release_work` (then `submit_task_feedback` last)
+
+Not for short truths (`save_memory`) or step-by-step how-tos (`skill_save`).
 
 ## Tools
 

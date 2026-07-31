@@ -23,7 +23,11 @@ Do not skip this step. Do not assume you can create the task later. Even if the 
 
 When the work is done:
 
-1. **Save information** — `acs_skill_save(...)`, `acs_save_memory(...)`, `acs_specs_propose(...)` as applicable
+1. **Save information** — pick one primary store:
+   - **skill_save** — repeatable how-to you just followed (numbered steps)
+   - **specs_propose** with `document_type` + `title` + `content` — long non-code document
+   - **specs_propose** with purpose/invariants/workflows — code module spec
+   - **save_memory** — short eternal truth
 2. **Release the task** — `acs_release_work(task_id: "<id>", agent_id: "<AGENT>")`
 3. **Submit feedback** — `acs_submit_task_feedback(...)` last, to formally close the task
 4. Only then tell the user you're done
@@ -68,7 +72,7 @@ Chat agents can submit feedback **without** a task_id for simple Q&A interaction
 - Business: `acme/sales/pricing`, `acme/support/refunds`, `acme/policy/privacy`
 - Code: `lib/acs/memory`, `agent_coordination_system/tools`
 
-Store: **memories** = eternal truths · **specs** = code module docs · **documents** = non-code artifacts (same `specs_*` tools) · **skills** = procedures.
+Store: **memories** = short eternal truths · **specs** = code module docs · **documents** = long non-code artifacts via `specs_propose(document_type, title, content)` · **skills** = step-by-step procedures.
 Always attach a clear `scope_path` when saving so the next agent can retrieve by domain.
 
 ## 👤 Human-Readable Task IDs (Slugs)
