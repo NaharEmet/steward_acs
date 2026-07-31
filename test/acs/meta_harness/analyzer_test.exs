@@ -3,9 +3,17 @@ defmodule Acs.MetaHarness.AnalyzerTest do
   Tests for the ACS Meta-Harness Analyzer module.
   Tests through public API since helpers are private functions.
   """
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Acs.MetaHarness.Analyzer
+  alias Acs.MetaHarness.RecentOps
+
+  setup do
+    RecentOps.setup()
+    RecentOps.clear()
+    on_exit(fn -> RecentOps.clear() end)
+    :ok
+  end
 
   describe "analyze/1" do
     test "returns map with correct top-level keys" do
@@ -51,7 +59,8 @@ defmodule Acs.MetaHarness.AnalyzerTest do
     end
 
     test "returns empty collections when no repo available" do
-      result = Analyzer.analyze(timeframe: :last_30_days)
+      # Skip ETS fallback so concurrent suite ops cannot pollute this assertion.
+      result = Analyzer.analyze(timeframe: :last_30_days, ets_fallback: false)
 
       assert result.tool_reliability == %{}
       assert result.latency_analysis == %{}
@@ -89,7 +98,7 @@ defmodule Acs.MetaHarness.AnalyzerTest do
     end
 
     test "returns zeros when no data available" do
-      summary = Analyzer.quick_summary(timeframe: :last_24_hours)
+      summary = Analyzer.quick_summary(timeframe: :last_24_hours, ets_fallback: false)
 
       assert summary.total_tools == 0
       assert summary.overall_success_rate == 0.0

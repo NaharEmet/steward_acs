@@ -18,7 +18,12 @@ defmodule Acs.MetaHarness.DocumentGenerator do
   @spec generate(keyword()) :: String.t()
   def generate(opts \\ []) do
     timeframe = Keyword.get(opts, :timeframe, :last_24_hours)
-    analysis = Acs.MetaHarness.Analyzer.analyze(timeframe: timeframe)
+
+    analysis =
+      opts
+      |> Keyword.take([:timeframe, :min_sample_size, :min_cluster_size, :ets_fallback])
+      |> Keyword.put_new(:timeframe, timeframe)
+      |> Acs.MetaHarness.Analyzer.analyze()
 
     build_report(analysis, timeframe)
   end
@@ -191,7 +196,8 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     end
   end
 
-  defp format_rate(rate), do: "#{(rate * 100.0) |> Float.round(1)}%"
+  defp format_rate(rate) when is_number(rate), do: "#{Float.round(rate * 100.0, 1)}%"
+  defp format_rate(_), do: "N/A"
 
   defp format_tool(nil), do: "N/A"
   defp format_tool({name, _}), do: name
@@ -226,7 +232,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     |> Enum.sort_by(fn {_, d} -> d.avg_latency || 0 end, :desc)
     |> Enum.take(10)
     |> Enum.map(fn {name, data} ->
-      "  - **#{name}**: avg #{Float.round(data.avg_latency || 0, 1)}ms, p95 #{data.p95_latency}ms, p99 #{data.p99_latency}ms"
+      "  - **#{name}**: avg #{format_ms(data.avg_latency)}, p95 #{format_ms(Map.get(data, :p95_latency))}, p99 #{format_ms(Map.get(data, :p99_latency))}"
     end)
     |> Enum.join("\n")
   end
@@ -243,6 +249,10 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     end)
     |> Enum.join("\n")
   end
+
+  defp format_ms(nil), do: "0.0ms"
+  defp format_ms(n) when is_number(n), do: "#{Float.round(n * 1.0, 1)}ms"
+  defp format_ms(_), do: "0.0ms"
 
   defp format_agent_behavior(behavior) when map_size(behavior) == 0 do
     "  _No agent data available_"

@@ -27,19 +27,30 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     agent_id = args["_auth_agent_id"] || args["agent_id"]
     org = Acs.Org.current()
 
-    args =
-      if args["task_id"] do
-        task = Acs.Acs.get_task(args["task_id"])
+    case resolve_feedback_task_id(args) do
+      {:error, reason} ->
+        {:error, reason}
 
-        if is_nil(task) do
-          args
-        else
-          args
-        end
-      else
-        Map.put(args, "task_id", Ecto.UUID.generate())
-      end
+      {:ok, args} ->
+        insert_task_feedback(args, agent_id, org)
+    end
+  end
 
+  # Explicit task_id must exist in the current org (tenant isolation).
+  # No task_id → standalone feedback with a fresh UUID.
+  defp resolve_feedback_task_id(%{"task_id" => task_id} = args)
+       when is_binary(task_id) and task_id != "" do
+    case Acs.Acs.get_task(task_id) do
+      nil -> {:error, "Task not found"}
+      _task -> {:ok, args}
+    end
+  end
+
+  defp resolve_feedback_task_id(args) do
+    {:ok, Map.put(args, "task_id", Ecto.UUID.generate())}
+  end
+
+  defp insert_task_feedback(args, agent_id, org) do
     task_id = args["task_id"]
 
     changeset =

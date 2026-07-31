@@ -218,7 +218,7 @@ defmodule Acs.MetaHarness.Generator do
     header <> "| tool | gate | count | hint |\n|---|---|---|---|\n" <> body
   end
 
-  defp format_rate(rate) when is_float(rate), do: "#{(rate * 100) |> Float.round(1)}%"
+  defp format_rate(rate) when is_number(rate), do: "#{Float.round(rate * 100.0, 1)}%"
   defp format_rate(_), do: "N/A"
 
   defp format_tool_table([]), do: "  _No data_"
@@ -229,13 +229,17 @@ defmodule Acs.MetaHarness.Generator do
         if t["total_calls"] && t["total_calls"] > 0 do
           (t["successes"] || 0) / t["total_calls"]
         else
-          0
+          0.0
         end
 
-      "| #{t["tool_name"]} | #{t["total_calls"]} | #{format_rate(rate)} | #{Float.round(t["avg_latency"] || 0.0, 1)}ms |"
+      "| #{t["tool_name"]} | #{t["total_calls"]} | #{format_rate(rate)} | #{format_ms(t["avg_latency"])} |"
     end)
     |> Enum.join("\n")
   end
+
+  defp format_ms(nil), do: "0.0ms"
+  defp format_ms(n) when is_number(n), do: "#{Float.round(n * 1.0, 1)}ms"
+  defp format_ms(_), do: "0.0ms"
 
   defp format_errors([]), do: "  _No errors_"
 
@@ -460,10 +464,10 @@ defmodule Acs.MetaHarness.Generator do
     |> Enum.map(fn t ->
       rate =
         if t["total_calls"] && t["total_calls"] > 0,
-          do: ((t["successes"] || 0) / t["total_calls"]) |> Float.round(2),
-          else: 0
+          do: Float.round((t["successes"] || 0) / t["total_calls"] * 1.0, 2),
+          else: 0.0
 
-      "  - #{t["tool_name"]}: #{format_rate(rate)} success, #{t["failures"] || 0} failures, #{Float.round(t["avg_latency"] || 0.0, 1)}ms avg"
+      "  - #{t["tool_name"]}: #{format_rate(rate)} success, #{t["failures"] || 0} failures, #{format_ms(t["avg_latency"])} avg"
     end)
     |> Enum.join("\n")
   end

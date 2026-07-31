@@ -49,35 +49,48 @@ defmodule Acs.MetaHarness.Analyzer do
       }
     }
 
-    maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster)
+    maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster, opts)
   end
 
   # When Postgres dual-write is empty/broken, roll up from in-memory RecentOps
   # (same events AgentOps already recorded). Ingest-only AXIOM_LOGS cannot query.
-  defp maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster) do
-    if map_size(analysis.tool_reliability) > 0 do
-      analysis
-    else
-      start_ms = DateTime.to_unix(start_time, :millisecond)
-      end_ms = DateTime.to_unix(end_time, :millisecond)
-
-      ets =
-        Acs.MetaHarness.RecentOps.analyze(start_ms, end_ms,
-          min_sample_size: min_sample,
-          min_cluster_size: min_cluster
-        )
-
-      if map_size(ets.tool_reliability) == 0 do
+  defp maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster, opts) do
+    cond do
+      Keyword.get(opts, :ets_fallback, true) == false ->
         analysis
-      else
-        Logger.info(
-          "[Analyzer] Postgres empty — using RecentOps ETS fallback (#{map_size(ets.tool_reliability)} tools)"
-        )
 
+      map_size(analysis.tool_reliability) > 0 ->
         analysis
-        |> Map.merge(Map.take(ets, [:tool_reliability, :latency_analysis, :error_clusters, :intake_friction, :agent_behavior]))
-        |> put_in([:metadata, :source], "ets_fallback")
-      end
+
+      true ->
+        start_ms = DateTime.to_unix(start_time, :millisecond)
+        end_ms = DateTime.to_unix(end_time, :millisecond)
+
+        ets =
+          Acs.MetaHarness.RecentOps.analyze(start_ms, end_ms,
+            min_sample_size: min_sample,
+            min_cluster_size: min_cluster
+          )
+
+        if map_size(ets.tool_reliability) == 0 do
+          analysis
+        else
+          Logger.info(
+            "[Analyzer] Postgres empty — using RecentOps ETS fallback (#{map_size(ets.tool_reliability)} tools)"
+          )
+
+          analysis
+          |> Map.merge(
+            Map.take(ets, [
+              :tool_reliability,
+              :latency_analysis,
+              :error_clusters,
+              :intake_friction,
+              :agent_behavior
+            ])
+          )
+          |> put_in([:metadata, :source], "ets_fallback")
+        end
     end
   end
 

@@ -3,9 +3,17 @@ defmodule Acs.MetaHarness.GeneratorTest do
   Tests for the ACS Meta-Harness Generator module.
   Tests through public API since formatting helpers are private.
   """
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Acs.MetaHarness.Generator
+  alias Acs.MetaHarness.RecentOps
+
+  setup do
+    RecentOps.setup()
+    RecentOps.clear()
+    on_exit(fn -> RecentOps.clear() end)
+    :ok
+  end
 
   describe "generate/0" do
     test "returns a map" do

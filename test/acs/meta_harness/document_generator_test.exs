@@ -3,9 +3,17 @@ defmodule Acs.MetaHarness.DocumentGeneratorTest do
   Tests for the ACS Meta-Harness DocumentGenerator module.
   Tests through public API since formatting helpers are private.
   """
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Acs.MetaHarness.DocumentGenerator
+  alias Acs.MetaHarness.RecentOps
+
+  setup do
+    RecentOps.setup()
+    RecentOps.clear()
+    on_exit(fn -> RecentOps.clear() end)
+    :ok
+  end
 
   describe "generate/1" do
     test "returns a string" do
@@ -26,7 +34,7 @@ defmodule Acs.MetaHarness.DocumentGeneratorTest do
     end
 
     test "shows no data for empty results" do
-      result = DocumentGenerator.generate(timeframe: :last_24_hours)
+      result = DocumentGenerator.generate(timeframe: :last_24_hours, ets_fallback: false)
 
       assert result =~ "_No data available_"
       assert result =~ "0.0%"
@@ -34,7 +42,7 @@ defmodule Acs.MetaHarness.DocumentGeneratorTest do
     end
 
     test "shows no error clusters" do
-      result = DocumentGenerator.generate(timeframe: :last_24_hours)
+      result = DocumentGenerator.generate(timeframe: :last_24_hours, ets_fallback: false)
 
       assert result =~ "_No error clusters detected_"
     end

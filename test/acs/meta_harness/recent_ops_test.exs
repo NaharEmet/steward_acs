@@ -5,6 +5,7 @@ defmodule Acs.MetaHarness.RecentOpsTest do
 
   setup do
     RecentOps.setup()
+    RecentOps.clear()
     :ok
   end
 

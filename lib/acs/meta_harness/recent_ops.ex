@@ -30,6 +30,15 @@ defmodule Acs.MetaHarness.RecentOps do
     :ok
   end
 
+  @doc "Delete all recorded ops (tests)."
+  def clear do
+    setup()
+    :ets.delete_all_objects(@table)
+    :ok
+  rescue
+    _ -> :ok
+  end
+
   @doc "Record one tool operation (fire-and-forget from OperationLogger)."
   def record(entry) when is_map(entry) do
     setup()
@@ -220,10 +229,10 @@ defmodule Acs.MetaHarness.RecentOps do
     end)
   end
 
-  defp avg([]), do: 0
+  defp avg([]), do: 0.0
   defp avg(xs), do: Enum.sum(xs) / length(xs)
 
-  defp percentile([], _), do: 0
+  defp percentile([], _), do: 0.0
 
   defp percentile(sorted, p) do
     n = length(sorted)
