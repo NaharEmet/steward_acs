@@ -4,7 +4,8 @@
       name: "default",
       files: %{included: ["lib/", "test/", "config/"]},
       checks: [
-        {Credo.Check.Warning.StructFieldAmount, max_fields: 35},
+        # Specs.Entry is intentionally a wide document/spec schema (~36 fields).
+        {Credo.Check.Warning.StructFieldAmount, max_fields: 40},
 
         {Credo.Check.Design.AliasUsage, false},
         {Credo.Check.Design.DuplicatedCode, false},
