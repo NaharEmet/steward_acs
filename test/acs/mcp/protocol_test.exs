@@ -106,6 +106,32 @@ defmodule Acs.MCP.ProtocolTest do
       assert String.starts_with?(src, "http") or String.starts_with?(src, "data:image/png;base64,")
     end
 
+    test "chat initialize instructions include authenticated display name" do
+      msg = %{
+        "jsonrpc" => "2.0",
+        "id" => 5,
+        "method" => "initialize",
+        "params" => %{
+          "clientInfo" => %{"name" => "claude.ai", "version" => "1"}
+        }
+      }
+
+      assert {:ok, %{"result" => %{"instructions" => instructions}}} =
+               Protocol.handle_message(
+                 msg,
+                 "collaborator",
+                 "acme",
+                 ["mcp:tools"],
+                 nil,
+                 nil,
+                 "Nahar"
+               )
+
+      assert instructions =~ ~s(Connected ACS user: "Nahar")
+      assert instructions =~ "never invent a nickname"
+      assert instructions =~ "ask(content_query:)"
+    end
+
     test "notifications/initialized has no JSON-RPC response body" do
       msg = %{
         "jsonrpc" => "2.0",

@@ -549,11 +549,12 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
              "A similar memory already exists (cosine similarity: #{Float.round(most_similar.similarity, 4)}): '#{other_title}'. Please review existing memories before creating a new one."}
 
           [] ->
-            :ok
+            # Layer 3 still applies when embeddings are up but nothing is near-duplicate.
+            check_lexical_memory_duplicate(memory.title, memory.scope_path)
         end
 
       {:error, _reason} ->
-        # Layer 3: Ollama unavailable — fall back to lexical comparison
+        # Layer 3: Ollama unavailable — lexical comparison only
         check_lexical_memory_duplicate(memory.title, memory.scope_path)
     end
   end

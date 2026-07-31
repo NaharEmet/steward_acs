@@ -39,7 +39,9 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
     issuer = string_claim(claims, "iss")
     subject = string_claim(claims, "sub")
     email = string_claim(claims, "email")
-    identity = identity_from(email, subject)
+    # Interim roster id before MCPAuth rewrites to User.display_name.
+    # Prefer human claims — never lead with opaque Auth0 `email|…` / `google-oauth2|…` subs.
+    identity = identity_from(claims)
 
     Logger.debug("[MCPAuth] authenticated via Auth0 OAuth: identity=#{identity}")
 
@@ -81,7 +83,22 @@ defmodule Acs.MCP.Plugs.Strategies.OAuthBearer do
     end
   end
 
-  defp identity_from(email, _subject) when is_binary(email) and email != "", do: email
-  defp identity_from(_email, subject) when is_binary(subject) and subject != "", do: subject
-  defp identity_from(_, _), do: "oauth-user"
+  defp identity_from(claims) when is_map(claims) do
+    cond do
+      name = string_claim(claims, "name") ->
+        name
+
+      nick = string_claim(claims, "nickname") ->
+        nick
+
+      email = string_claim(claims, "email") ->
+        email |> String.split("@") |> List.first()
+
+      subject = string_claim(claims, "sub") ->
+        subject
+
+      true ->
+        "oauth-user"
+    end
+  end
 end

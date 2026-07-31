@@ -2,41 +2,61 @@ defmodule Acs.Memory.HybridSearch do
   @moduledoc """
   Hybrid search combining lexical, semantic, scope, and metadata signals.
 
-  Scoring components:
-  - Lexical: text match score (0.0-1.0) based on LIKE matching
-  - Semantic: vector similarity from Ollama embeddings
-  - Scope: exact=1.0, parent=0.7, sibling=0.4
-  - Metadata: importance (0-5) normalized + status (approved=1.0, others lower)
-  - Audience: exact match=1.0, legacy (nil)=0.5, different=0.2
+  Scoring components (each 0.0–1.0):
+  - Lexical: LIKE substring tiers (title/summary/content)
+  - Semantic: cosine similarity of Ollama embeddings
+  - Scope: exact / parent / sibling heuristics
+  - Metadata: importance + status
+  - Audience: exact / legacy / mismatch
 
-  Final score = 0.30*semantic + 0.20*lexical + 0.15*scope + 0.10*metadata + 0.25*audience
+  Default blend (overridable via `config :steward_acs, Acs.Memory.HybridSearch, weights: %{...}`):
+
+      total = 0.25*semantic + 0.15*lexical + 0.30*scope + 0.10*metadata + 0.20*audience
+
+  This total is a ranking score, not a calibrated probability. Impressions are
+  logged via `Acs.Observability.AgentOps.log_search/1` so weights can be refit
+  from later outcome labels (used in guidance, useful feedback, empty→save).
   """
 
   alias Acs.Memory.{Indexer, VectorIndex, Embedding}
 
   @default_limit 20
-  @default_min_score 0.41
+  # Raised with scope-heavy weights so weak content-only LIKE hits stay out.
+  @default_min_score 0.45
+  @weight_version "v2-sem0.25-lex0.15-scope0.30-meta0.10-aud0.20"
+
+  @default_weights %{
+    semantic: 0.25,
+    lexical: 0.15,
+    scope: 0.30,
+    metadata: 0.10,
+    audience: 0.20
+  }
 
   @doc """
   Performs hybrid search across memory corpus.
 
   Options:
   - `:query` - search query string
-  - `:scope` - filter by scope prefix
+  - `:scope` / `:scope_path` - filter by scope prefix
   - `:audience` - requesting audience ("coding" | "chat") for audience-weighted scoring
   - `:limit` - max results (default 20)
-  - `:semantic_weight` - weight for semantic score (default 0.30)
-  - `:lexical_weight` - weight for lexical score (default 0.20)
-  - `:scope_weight` - weight for scope score (default 0.15)
-  - `:metadata_weight` - weight for metadata score (default 0.10)
-  - `:audience_weight` - weight for audience score (default 0.25)
+  - `:min_score` - drop blended totals below this (default 0.45), unless title lexical ≥ 0.7
+  - `:weights` - map override `%{semantic:, lexical:, scope:, metadata:, audience:}`
   - `:embedding` - precomputed query embedding (skips Ollama when provided)
   - `:org` - tenant filter for vector search
+  - `:log_search` - set `false` to skip impression telemetry (tests)
   """
+  # Title match (0.7+) is a strong exact signal; keep it even when weighted total
+  # sits just under min_score (common for proposed/stale or low-importance rows).
+  @title_lexical_floor 0.7
+
   def search(query, opts \\ []) when is_binary(query) do
     limit = Keyword.get(opts, :limit, @default_limit)
     min_score = Keyword.get(opts, :min_score, @default_min_score)
-    scope = Keyword.get(opts, :scope, nil)
+    weights = resolve_weights(opts)
+    # Callers (Search.find_relevant, MCP) pass :scope_path; accept both.
+    scope = Keyword.get(opts, :scope) || Keyword.get(opts, :scope_path)
     audience = Keyword.get(opts, :audience)
     team_filter = Keyword.get(opts, :team_filter)
     project_filter = Keyword.get(opts, :project_filter)
@@ -67,11 +87,11 @@ defmodule Acs.Memory.HybridSearch do
         aud = compute_audience_score(memory.audience, audience)
 
         total =
-          0.30 * semantic +
-            0.20 * lexical +
-            0.15 * scope_score +
-            0.10 * meta +
-            0.25 * aud
+          weights.semantic * semantic +
+            weights.lexical * lexical +
+            weights.scope * scope_score +
+            weights.metadata * meta +
+            weights.audience * aud
 
         %{
           memory_id: memory.id,
@@ -90,11 +110,87 @@ defmodule Acs.Memory.HybridSearch do
           total_score: Float.round(total, 4)
         }
       end)
-      |> Enum.filter(&(&1.total_score >= min_score))
+      |> Enum.filter(&keep_hybrid_result?(&1, min_score))
       |> Enum.sort_by(& &1.total_score, :desc)
       |> Enum.take(limit)
 
-    %{query: query, results: scored_results, total: length(scored_results)}
+    result = %{query: query, results: scored_results, total: length(scored_results)}
+
+    maybe_log_search(result, weights, opts)
+    result
+  end
+
+  @doc "Active blend weights (config + defaults). Sum should be 1.0."
+  def weights(opts \\ []) do
+    resolve_weights(opts)
+  end
+
+  @doc false
+  def weight_version, do: @weight_version
+
+  defp resolve_weights(opts) do
+    configured =
+      case Application.get_env(:steward_acs, __MODULE__, [])[:weights] do
+        %{} = w -> w
+        _ -> %{}
+      end
+
+    override =
+      case Keyword.get(opts, :weights) do
+        %{} = w -> w
+        _ -> %{}
+      end
+
+    @default_weights
+    |> Map.merge(atomize_weight_keys(configured))
+    |> Map.merge(atomize_weight_keys(override))
+  end
+
+  defp atomize_weight_keys(map) do
+    Map.new(map, fn
+      {k, v} when is_atom(k) -> {k, v}
+      {k, v} when is_binary(k) -> {String.to_existing_atom(k), v}
+    end)
+  rescue
+    ArgumentError -> map
+  end
+
+  defp keep_hybrid_result?(result, min_score) do
+    result.total_score >= min_score or result.scores.lexical >= @title_lexical_floor
+  end
+
+  defp maybe_log_search(result, weights, opts) do
+    if Keyword.get(opts, :log_search, true) do
+      top =
+        result.results
+        |> Enum.take(5)
+        |> Enum.map(fn r ->
+          %{
+            "memory_id" => r.memory_id,
+            "total_score" => r.total_score,
+            "semantic" => r.scores.semantic,
+            "lexical" => r.scores.lexical,
+            "scope" => r.scores.scope,
+            "metadata" => r.scores.metadata,
+            "audience" => r.scores.audience
+          }
+        end)
+
+      Acs.Observability.AgentOps.log_search(
+        query: result.query,
+        result_count: result.total,
+        weight_version: @weight_version,
+        weights: weights,
+        top_results: top,
+        org: Keyword.get(opts, :org),
+        audience: Keyword.get(opts, :audience),
+        scope_path: Keyword.get(opts, :scope) || Keyword.get(opts, :scope_path)
+      )
+    end
+
+    :ok
+  rescue
+    _ -> :ok
   end
 
   # Prefer embedding from opts; fall back to embedding the query string.

@@ -129,7 +129,12 @@ Never invent org policy. If ACS has no match, say so and offer to save after the
 """
 
   @chat_identity """
-get_present_status(agent_id: "") returns your agent name. Use it on tool calls that require agent_id.
+OAuth / MCP token chat: ACS already knows who is connected.
+get_started returns connected_user / authenticated_as / your_agent_id
+(OAuth display name, or acs_dev_ developer_name for API-key sessions).
+Include that name in ask(content_query:) when retrieving this person's memories.
+Omit agent_id on tool calls (ACS fills it) or pass exactly that value.
+Never invent a nickname. Do not call get_present_status just to discover identity.
 """
 
   @chat_conventions """

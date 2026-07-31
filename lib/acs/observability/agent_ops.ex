@@ -24,7 +24,8 @@ defmodule Acs.Observability.AgentOps do
     (intake gates set `error_type` like `intake_needs_input` for Analyzer clusters
     without counting as tool failures)
 
-  Also emits `agent.embedding` (Ollama latency) for the agent-usage dashboard.
+  Also emits `agent.embedding` (Ollama latency) and `agent.search` (hybrid
+  impressions with per-signal scores for weight learning) for dashboards.
   """
 
   alias Acs.Observability.AxiomLogExporter
@@ -33,6 +34,7 @@ defmodule Acs.Observability.AgentOps do
   @event_tools_list "agent.tools_list"
   @event_feedback "agent.feedback"
   @event_embedding "agent.embedding"
+  @event_search "agent.search"
 
   @retrieve_tools ~w(ask query_memories query_specs skill_get specs_get generate_guidance_packet get_started)
   @write_tools ~w(save_memory documents_propose specs_propose skill_save set_memory_status specs_approve specs_reject)
@@ -268,6 +270,52 @@ defmodule Acs.Observability.AgentOps do
   rescue
     _ -> :ok
   end
+
+  @doc """
+  Log one hybrid memory search impression (features for weight learning).
+
+  Pair later with outcome labels (`guidance_useful`, memory id used in a packet,
+  empty→save) keyed by `weight_version` + query/time window.
+
+  ## Options
+  - `:query`, `:result_count`, `:weight_version`, `:weights`, `:top_results`
+  - `:org`, `:audience`, `:scope_path`
+  """
+  def log_search(opts) when is_list(opts) do
+    result_count = Keyword.get(opts, :result_count, 0)
+
+    event = %{
+      "_time" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      "message" => @event_search,
+      "event" => @event_search,
+      "severity" => "INFO",
+      "level" => "info",
+      "service" => "steward_acs",
+      "module" => "Acs.Observability.AgentOps",
+      "call_type" => "search",
+      "tool_family" => "retrieve",
+      "signal" => if(result_count == 0, do: "gap_empty", else: "works"),
+      "query" => truncate(Keyword.get(opts, :query), 200),
+      "result_count" => result_count,
+      "weight_version" => Keyword.get(opts, :weight_version),
+      "weights" => stringify_weights(Keyword.get(opts, :weights)),
+      "top_results" => Keyword.get(opts, :top_results) || [],
+      "org" => Keyword.get(opts, :org) || safe_org(),
+      "audience" => normalize_audience(Keyword.get(opts, :audience)),
+      "scope_path" => Keyword.get(opts, :scope_path)
+    }
+
+    enqueue_axiom(event)
+    :ok
+  rescue
+    _ -> :ok
+  end
+
+  defp stringify_weights(%{} = weights) do
+    Map.new(weights, fn {k, v} -> {to_string(k), v} end)
+  end
+
+  defp stringify_weights(_), do: %{}
 
   @doc """
   Log one Ollama embedding call (latency for agent-space dashboards).

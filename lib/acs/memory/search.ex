@@ -76,8 +76,11 @@ defmodule Acs.Memory.Search do
       hybrid_results = Acs.Memory.HybridSearch.search(query, opts)
       memory_ids = Enum.map(hybrid_results.results, & &1.memory_id)
 
+      # Hybrid may drop weak summary/content-only hits under min_score; fall back
+      # so exact LIKE matches (e.g. keyword only in summary) are not lost.
       if memory_ids == [] do
-        []
+        Logger.debug("[Search] Hybrid returned no hits, falling back to keyword search")
+        Acs.Memory.Indexer.search(query, opts)
       else
         memories_map = fetch_memories_by_ids_with_org(memory_ids, opts)
 
@@ -98,7 +101,8 @@ defmodule Acs.Memory.Search do
       memory_ids = Enum.map(hybrid_results.results, & &1.memory_id)
 
       if memory_ids == [] do
-        {[], %{}}
+        Logger.debug("[Search] Hybrid returned no hits, falling back to keyword search")
+        {Acs.Memory.Indexer.search(query, opts), %{}}
       else
         memories_map = fetch_memories_by_ids_with_org(memory_ids, opts)
         scores_map = Map.new(hybrid_results.results, fn r -> {r.memory_id, r.total_score} end)

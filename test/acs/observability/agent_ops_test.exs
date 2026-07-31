@@ -85,6 +85,20 @@ defmodule Acs.Observability.AgentOpsTest do
              )
   end
 
+  test "log_search is fire-and-forget when exporters are down" do
+    assert :ok =
+             AgentOps.log_search(
+               query: "cache release",
+               result_count: 1,
+               weight_version: "v2-test",
+               weights: %{semantic: 0.25, lexical: 0.15, scope: 0.3, metadata: 0.1, audience: 0.2},
+               top_results: [%{"memory_id" => "m1", "total_score" => 0.7}],
+               org: "default",
+               audience: "coding",
+               scope_path: "app/cache"
+             )
+  end
+
   test "log_tool tags write_without_retrieve then surprise_persist on same chain" do
     chain = "test-chain-#{System.unique_integer([:positive])}"
 

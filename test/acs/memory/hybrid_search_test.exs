@@ -52,6 +52,51 @@ defmodule Acs.Memory.HybridSearchTest do
       cleanup_test_memories("test_hybrid_weak")
     end
 
+    test "keeps title matches even when weighted total is under min_score" do
+      attrs = %{
+        "id" => "test_hybrid_title_floor",
+        "kind" => "axiom",
+        "status" => "proposed",
+        "title" => "Minor Cache Note",
+        "summary" => "Low importance proposed note",
+        "content" => "A brief note about cache behavior.",
+        "scope_path" => "app/cache",
+        "importance" => 1,
+        "tags" => ["cache"]
+      }
+
+      memory = Acs.Memory.new(attrs)
+      Acs.Memory.Indexer.upsert_memory(memory)
+
+      result = HybridSearch.search("cache", limit: 10, min_score: 0.45, log_search: false)
+
+      assert Enum.any?(result.results, &(&1.memory_id == "test_hybrid_title_floor"))
+    after
+      Acs.Memory.Indexer.remove_memory("test_hybrid_title_floor")
+    end
+
+    test "default weights favor scope and keep audience ahead of lexical" do
+      weights = HybridSearch.weights()
+
+      assert weights.scope == 0.30
+      assert weights.audience == 0.20
+      assert weights.semantic == 0.25
+      assert_in_delta weights.semantic + weights.lexical + weights.scope + weights.metadata +
+                        weights.audience,
+                      1.0,
+                      0.0001
+    end
+
+    test "honors scope_path as scope alias" do
+      setup_test_memories("test_hybrid_scope_path")
+      via_scope = HybridSearch.search("cache", scope: "agent_coordination_system/cache")
+      via_scope_path = HybridSearch.search("cache", scope_path: "agent_coordination_system/cache")
+
+      assert via_scope.total == via_scope_path.total
+    after
+      cleanup_test_memories("test_hybrid_scope_path")
+    end
+
     test "uses precomputed embedding without calling Ollama" do
       setup_test_memories("test_hybrid_embed")
       # Zero vector: exercises :embedding opts path; Ollama may be down in CI.

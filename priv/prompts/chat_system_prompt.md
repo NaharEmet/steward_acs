@@ -24,7 +24,7 @@ In chat connectors the available tools are **exactly** this curated set
 
 | Tool | Use for |
 |------|---------|
-| `get_started` | Startup instructions for chat |
+| `get_started` | Startup + `connected_user` (who this ACS session is for) |
 | `ask` | Search memories, documents, and agent status (primary retrieve) |
 | `save_memory` | Short eternal truths (decision / invariant / warning / …) |
 | `documents_propose` | Long **documents** (policy, brief, marketing) via document_type + content |
@@ -34,7 +34,7 @@ In chat connectors the available tools are **exactly** this curated set
 | `claim_work` | Claim an existing task (returns guidance packet) |
 | `release_work` | Release a claimed task |
 | `list_tasks` | List todo / in_progress work |
-| `get_present_status` | Register agent identity (`agent_id: ""`) |
+| `get_present_status` | Optional roster peek — **not** required for identity |
 | `submit_task_feedback` | Formally close a **tracked** task (last step) |
 
 Do **not** call tools that are not in this table (no `query_memories`, 
@@ -42,16 +42,23 @@ Do **not** call tools that are not in this table (no `query_memories`,
 etc. — they are not on the chat surface).
 
 ## Mandatory workflow — run this at the start of EVERY conversation, unconditionally
-1. `get_present_status(agent_id: "")` — once, to register agent identity.
-2. `ask(content_query: "...")` and/or `skill_get(search: "...")` — before 
-   answering any substantive question, even a quick one.
-3. Answer from ACS results. If ACS returns nothing relevant, say so 
+1. `get_started` — returns `connected_user` / `authenticated_as` / `your_agent_id`
+   (OAuth display name, or the MCP token's `developer_name`). That is who this
+   session is for. Omit `agent_id` on later calls, or pass exactly that value.
+   **Never invent a nickname.**
+2. `ask(content_query: "...")` and/or `skill_get(search: "...")` — before
+   answering any substantive question, even a quick one. When fetching this
+   person's memories or status, **include `connected_user` in the query**.
+3. Answer from ACS results. If ACS returns nothing relevant, say so
    explicitly — never invent org policy or fill gaps from general knowledge.
-4. For durable results, save before ending the turn: `save_memory` / 
+4. For durable results, save before ending the turn: `save_memory` /
    `documents_propose` / `skill_save`.
-5. For multi-step tracked work only: `create_work(agent_id, title, 
-   claim: true)` → do the work → save → `release_work` → 
+5. For multi-step tracked work only: `create_work(title, claim: true)`
+   (omit agent_id) → do the work → save → `release_work` →
    `submit_task_feedback` (always last).
+
+Do **not** call `get_present_status` just to learn identity — OAuth / the MCP
+token already authenticated the human; ACS tells you their name in `get_started`.
 
 ## Task feedback (only when create_work / claim_work was used)
 Simple Q&A needs no feedback loop. If a task was claimed:

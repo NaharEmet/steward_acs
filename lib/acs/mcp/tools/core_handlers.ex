@@ -227,20 +227,24 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   def acs_get_started(args) do
     case Acs.MCP.Audience.from_args(args) do
-      :chat -> {:ok, chat_get_started()}
-      _ -> {:ok, coding_get_started()}
+      :chat -> {:ok, chat_get_started(args)}
+      _ -> {:ok, coding_get_started(args)}
     end
   end
 
-  defp coding_get_started do
-    identity = coding_identity_guidance()
+  defp coding_get_started(args) when is_map(args) do
+    you = connected_user_from_args(args)
+    identity = coding_identity_guidance(you)
 
     %{
       audience: :coding,
+      connected_user: you,
+      authenticated_as: you,
+      your_agent_id: you,
       general:
         "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings (skills / documents / specs / memories), then release. Scopes may be code paths or business domains (org/domain/topic). Every response includes `_next` with suggested next tools.",
       get_started:
-        "1) `get_present_status(agent_id: \"\")` — register (use returned assigned_agent_id)  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check specs/documents  5) `lock_file` files  6) do work  7) pick one save: `skill_save` (how-to) | `specs_propose` document_type+content (long doc) | `specs_propose` purpose/invariants (code spec) | `save_memory` (short truth)  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last",
+        coding_get_started_steps(you),
       agent_identity: identity,
       org_knowledge_conventions:
         "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=short truths, specs=code module docs via specs_propose, documents=long non-code via specs_propose(document_type,title,content) under documents/<type>/<slug>, skills=procedures via skill_save. End of task pick one primary store.",
@@ -312,7 +316,11 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     }
   end
 
-  defp coding_identity_guidance do
+  defp coding_identity_guidance(you) when is_binary(you) do
+    "Connected as \"#{you}\" (OAuth display name or acs_dev_ developer_name on the MCP token). Use this name in ask/content_query when retrieving that person's memories. Omit agent_id or pass exactly \"#{you}\"."
+  end
+
+  defp coding_identity_guidance(_nil) do
     case Acs.Org.usable_developer_name() do
       name when is_binary(name) ->
         "Using developer name \"#{name}\" (from ACS_DEVELOPER_NAME / signup / Settings). Prod equivalent: acs_dev_ key with that developer_name."
@@ -325,37 +333,75 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     end
   end
 
-  defp chat_get_started do
+  defp coding_get_started_steps(you) when is_binary(you) do
+    "Connected user: \"#{you}\". 1) ask(content_query: \"... #{you} ...\") when you need this person's memories  2) create_work(title, claim: true) — omit agent_id (ACS uses \"#{you}\")  3) skill_get / query_specs  4) lock_file → work → save → unlock  5) release_work → submit_task_feedback last"
+  end
+
+  defp coding_get_started_steps(_nil) do
+    "1) `get_present_status(agent_id: \"\")` — register (use returned assigned_agent_id)  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check specs/documents  5) `lock_file` files  6) do work  7) pick one save: `skill_save` (how-to) | `specs_propose` document_type+content (long doc) | `specs_propose` purpose/invariants (code spec) | `save_memory` (short truth)  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last"
+  end
+
+  defp connected_user_from_args(args) when is_map(args) do
+    case Map.get(args, "_auth_agent_id") do
+      id when is_binary(id) ->
+        trimmed = String.trim(id)
+        if trimmed != "" and trimmed != "unknown", do: trimmed, else: nil
+
+      _ ->
+        nil
+    end
+  end
+
+  defp chat_get_started(args) when is_map(args) do
+    you = connected_user_from_args(args)
+
+    identity_line =
+      if you do
+        "Connected ACS user: \"#{you}\" (OAuth display name or MCP token developer_name). That is who this session is for. Omit agent_id on tool calls (ACS fills it) or pass exactly \"#{you}\". Never invent a nickname. When retrieving their context, ask with their name — e.g. ask(content_query: \"#{you}\") or include \"#{you}\" in the query."
+      else
+        "Connected user unknown on this session — call get_present_status(agent_id: \"\") once, then use assigned_agent_id."
+      end
+
+    started =
+      if you do
+        "Connected user: \"#{you}\". 1) ask(content_query:) — include \"#{you}\" when searching this person's memories/status  2) skill_get(search:) — find procedures  3) answer from ACS  4) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  5) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback last. Simple Q&A: no feedback required. Do not call get_present_status just to learn who you are."
+      else
+        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  6) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback(learned_for_agents:, had_issues:, improvements:, info_needed:) last. Simple Q&A: standalone submit_task_feedback(learned_for_agents:) without task_id."
+      end
+
+    ask_example =
+      if you, do: "#{you}", else: "..."
+
+    person_name = if you, do: you, else: "..."
+
     %{
       audience: :chat,
+      connected_user: you,
+      authenticated_as: you,
+      your_agent_id: you,
       general:
         "ACS chat surface: retrieve with ask; save truths (save_memory), documents (documents_propose), and procedures (skill_save). Prefer business scopes (org/domain/topic). Create tracked work with create_work(claim: true).",
-      get_started:
-        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  6) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback(learned_for_agents:, had_issues:, improvements:, info_needed:) last. Simple Q&A: standalone submit_task_feedback(learned_for_agents:) without task_id.",
+      get_started: started,
+      agent_identity: identity_line,
       org_knowledge_conventions:
         "Business scopes: acme/sales/pricing, acme/support/refunds. memories=truths, documents=long artifacts via documents_propose, skills=procedures via skill_save. Never invent org policy when ask returns nothing. Save knowledge first → release_work → submit_task_feedback. Standalone feedback (learned_for_agents, had_issues, improvements, info_needed) also works without task_id.",
       memory_protocol: Acs.Memory.Guidance.memory_protocol(:chat),
       tools: [
-        %{tool: "get_started", description: "This startup packet", params: %{audience: "chat"}},
-        %{
-          tool: "get_present_status",
-          description: "Register your agent identity",
-          params: %{agent_id: ""}
-        },
+        %{tool: "get_started", description: "Startup packet — returns connected_user / authenticated_as", params: %{audience: "chat"}},
         %{
           tool: "ask",
-          description: "Search memories, documents, and agent status",
-          params: %{content_query: "..."}
+          description: "Search memories, documents, and agent status (include connected_user name for personal context)",
+          params: %{content_query: ask_example}
         },
         %{
           tool: "get_person_status",
           description: "Look up person job status + rank",
-          params: %{email: "...", name: "..."}
+          params: %{name: person_name}
         },
         %{
           tool: "set_person_status",
           description: "Save person status on first encounter",
-          params: %{email: "...", name: "...", status: "CEO", rank: "high"}
+          params: %{name: person_name, status: "CEO", rank: "high"}
         },
         %{
           tool: "skill_get",
@@ -396,8 +442,8 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         },
         %{
           tool: "create_work",
-          description: "Create + claim tracked multi-step work",
-          params: %{agent_id: "your_name", title: "...", claim: true}
+          description: "Create + claim tracked multi-step work (omit agent_id; ACS uses OAuth identity)",
+          params: %{title: "...", claim: true}
         },
         %{
           tool: "list_tasks",
@@ -407,19 +453,18 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         %{
           tool: "claim_work",
           description: "Claim an existing task (returns guidance)",
-          params: %{agent_id: "your_name", task_id: "<slug>"}
+          params: %{task_id: "<slug>"}
         },
         %{
           tool: "release_work",
           description: "Release a claimed task before feedback",
-          params: %{agent_id: "your_name", task_id: "<slug>"}
+          params: %{task_id: "<slug>"}
         },
         %{
           tool: "submit_task_feedback",
           description:
             "Last step after release_work — formally close a claimed task, or standalone feedback without task_id. Categories: learned_for_agents (insights), had_issues (bugs), improvements (feature requests), info_needed (missing docs).",
           params: %{
-            agent_id: "your_name",
             task_id: "<slug or omit for standalone>",
             learned_for_agents: "What future sessions should know",
             had_issues: "What went wrong",

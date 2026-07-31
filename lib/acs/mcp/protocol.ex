@@ -163,7 +163,7 @@ defmodule Acs.MCP.Protocol do
       "protocolVersion" => @mcp_version,
       "capabilities" => server_capabilities(),
       "serverInfo" => server_info(),
-      "instructions" => audience_instructions(audience)
+      "instructions" => audience_instructions(audience, agent_identity)
     }
 
     {:ok, success_response(id, result)}
@@ -462,18 +462,32 @@ defmodule Acs.MCP.Protocol do
     end
   end
 
-  defp audience_instructions(:chat) do
-    """
+  defp audience_instructions(:chat, agent_identity) do
+    base = """
     ACS audience: chat. Curated tools only: get_started, ask, save_memory, set_memory_status, get_person_status, set_person_status, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback. Retrieve with ask (default approved memories; status:\"all\" for every status); save truths with save_memory; mark outdated with set_memory_status(status:\"stale\"); save long docs with documents_propose; save procedures with skill_save. Prefer business scopes (org/domain/topic). Before save_memory, follow memory_protocol from get_started / claim guidance. Claimed tasks: save → release_work → submit_task_feedback(learned_for_agents:) last; simple Q&A needs no feedback. Connect via /mcp/chat/sse.
     """
     |> String.trim()
+
+    if usable_agent_identity?(agent_identity) do
+      base <>
+        " Connected ACS user: \"#{agent_identity}\" (OAuth display name or MCP token developer_name). Call get_started first — it returns connected_user. When asking for this person's memories/status, include \"#{agent_identity}\" in ask(content_query:). Omit agent_id on tool calls or pass exactly that value; never invent a nickname."
+    else
+      base
+    end
   end
 
-  defp audience_instructions(_coding) do
-    """
+  defp audience_instructions(_coding, agent_identity) do
+    base = """
     ACS audience: coding agent. Create/claim tasks, lock files before edits. Save before release: skill_save (how-to procedures), specs_propose for code specs OR documents (document_type + title + content), save_memory (short truths). Scopes may be code paths or business domains (org/domain/topic). Call get_started or generate_guidance_packet(scope_path:) when entering a new area. Connect via /mcp/sse.
     """
     |> String.trim()
+
+    if usable_agent_identity?(agent_identity) do
+      base <>
+        " Connected as \"#{agent_identity}\" (acs_dev_ developer_name or OAuth display name). get_started returns connected_user — use that name when asking for this person's memories."
+    else
+      base
+    end
   end
 
   # Placeholder ACS_DEVELOPER_NAME / missing identity must not block the pool.

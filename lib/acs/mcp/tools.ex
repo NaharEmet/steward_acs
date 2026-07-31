@@ -76,12 +76,12 @@ defmodule Acs.MCP.Tools do
     [
       tool_def(
         "get_started",
-        "Steward startup packet. Call first (or after new instructions) to refresh ACS context — audience-aware coding vs chat instructions, org knowledge conventions, entry-point tools, and next steps. Audience from MCP session (clientInfo) or override with audience=coding|chat.",
+        "Steward startup packet. Call first — returns connected_user (OAuth display name or acs_dev_ developer_name). Include that name in ask when fetching their memories. Omit agent_id on tool calls; never invent a nickname.",
         %{
           "agent_id" => %{
             "type" => "string",
             "description" =>
-              "Optional: your agent name. If provided, returns personalized suggestions."
+              "Optional. Prefer omit — ACS uses the signed-in user / MCP token name."
           },
           "audience" => %{
             "type" => "string",
@@ -472,7 +472,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "ask",
-        "Steward primary retrieve — search org memories, documents, related skills, and agent status in one call. USE WHEN answering questions about org knowledge, status, procedures, or prior decisions. (Chat connectors do not expose separate query_memories / query_specs.)",
+        "Steward primary retrieve — search org memories, documents, related skills, and agent status in one call. USE WHEN answering questions about org knowledge, status, procedures, or prior decisions. Include the connected ACS user name (from get_started.connected_user — OAuth display name or acs_dev_ developer_name) in content_query when fetching that person's memories. (Chat connectors do not expose separate query_memories / query_specs.)",
         %{
           "kind" => %{
             "type" => "string",
@@ -483,7 +483,8 @@ defmodule Acs.MCP.Tools do
           "project" => %{"type" => "string", "description" => "Project scope filter"},
           "content_query" => %{
             "type" => "string",
-            "description" => "Full-text search string for memories, documents, and skills"
+            "description" =>
+              "Full-text search for memories, documents, and skills. Include connected_user name when asking for that person's memories."
           },
           "document_type" => %{
             "type" => "string",
@@ -1031,9 +1032,16 @@ defmodule Acs.MCP.Tools do
   defp coerce_blank_agent_id(args) when is_map(args) do
     requested = Map.get(args, "agent_id")
     auth_identity = Map.get(args, "_auth_agent_id")
+    chat? = Acs.MCP.Audience.normalize(Map.get(args, "_auth_audience")) == :chat
 
     cond do
       blank_agent_id?(requested) and usable_auth_agent_id?(auth_identity) ->
+        Map.put(args, "agent_id", auth_identity)
+
+      # ponytail: chat models invent nicknames (nahar-chat); OAuth identity is authoritative.
+      chat? and usable_auth_agent_id?(auth_identity) and is_binary(requested) and
+          not blank_agent_id?(requested) and
+          normalize_agent_id(requested) != normalize_agent_id(auth_identity) ->
         Map.put(args, "agent_id", auth_identity)
 
       blank_agent_id?(requested) ->
@@ -1257,18 +1265,48 @@ defmodule Acs.MCP.Tools do
 
   defp add_next(_name, _args, result), do: result
 
-  defp next_steps(tool_name, args, result) do
-    agent_id = Map.get(args, "agent_id", "")
-    task_id = Map.get(result, :task_id) || Map.get(args, "task_id", "")
+  defp get_started_next_steps(args, agent_id) do
+    auth_id = Map.get(args, "_auth_agent_id")
+    you = if usable_auth_agent_id?(auth_id), do: auth_id, else: agent_id
 
-    steps =
-      case tool_name do
-      "get_started" ->
+    case chat_audience?(args) do
+      true ->
+        ask_q = if usable_auth_agent_id?(you), do: you, else: "..."
+
+        [
+          %{
+            tool: "ask",
+            prompt:
+              if usable_auth_agent_id?(you) do
+                "Search org knowledge for connected user \"#{you}\". Include their name in content_query when fetching their memories. Omit agent_id; never invent a nickname."
+              else
+                "Search org knowledge. Omit agent_id (ACS fills it); never invent a nickname."
+              end,
+            params: %{content_query: ask_q}
+          },
+          %{
+            tool: "skill_get",
+            prompt: "Find procedures / playbooks",
+            params: %{search: "..."}
+          },
+          %{
+            tool: "create_work",
+            prompt:
+              if usable_auth_agent_id?(you) do
+                "Optional: track multi-step work (omit agent_id or pass exactly \"#{you}\")"
+              else
+                "Optional: track multi-step work"
+              end,
+            params: %{title: "<describe work>", claim: true}
+          }
+        ]
+
+      false ->
         [
           %{
             tool: "get_present_status",
             prompt: "Register yourself to get an agent_id",
-            params: %{agent_id: "your_name"}
+            params: %{agent_id: ""}
           },
           %{
             tool: "create_work",
@@ -1291,6 +1329,22 @@ defmodule Acs.MCP.Tools do
             params: %{level: 1}
           }
         ]
+    end
+  end
+
+  defp chat_audience?(args) do
+    Acs.MCP.Audience.normalize(Map.get(args, "_auth_audience")) == :chat or
+      Acs.MCP.Audience.from_args(args) == :chat
+  end
+
+  defp next_steps(tool_name, args, result) do
+    agent_id = Map.get(args, "agent_id", "")
+    task_id = Map.get(result, :task_id) || Map.get(args, "task_id", "")
+
+    steps =
+      case tool_name do
+      "get_started" ->
+        get_started_next_steps(args, agent_id)
 
       "create_work" ->
         if Map.get(result, :status) == "claimed" do
