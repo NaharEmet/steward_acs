@@ -185,7 +185,25 @@
       "name": "Latency by provider / model",
       "sectionId": "7f2a1c90-a1b2-4a01-8b01-333333333333",
       "query": {
-        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['latency_ms'])\n| summarize calls=count(), ok=countif(['status'] == \"ok\"), avg_ms=avg(todouble(['latency_ms'])), p95_ms=percentile(todouble(['latency_ms']), 95) by provider, model\n| order by calls desc\n| limit 20"
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['latency_ms'])\n| summarize calls=count(), ok=countif(['status'] == \"ok\"), avg_ms=avg(todouble(['latency_ms'])), p95_ms=percentile(todouble(['latency_ms']), 95) by provider, model, call_type\n| order by calls desc\n| limit 20"
+      }
+    },
+    {
+      "id": "llm_latency_by_call_type",
+      "type": "Table",
+      "name": "Latency by call_type",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-333333333333",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['latency_ms'])\n| summarize calls=count(), ok=countif(['status'] == \"ok\"), avg_ms=avg(todouble(['latency_ms'])), p50_ms=percentile(todouble(['latency_ms']), 50), p95_ms=percentile(todouble(['latency_ms']), 95) by call_type\n| order by calls desc\n| limit 20"
+      }
+    },
+    {
+      "id": "llm_latency_over_time_by_call_type",
+      "type": "TimeSeries",
+      "name": "Latency p95 by call_type (ms)",
+      "sectionId": "7f2a1c90-a1b2-4a01-8b01-333333333333",
+      "query": {
+        "apl": "['__LOGS_DATASET__']\n| where ['action'] == \"llm_call\" and isnotnull(['latency_ms'])\n| summarize p95=percentile(todouble(['latency_ms']), 95) by bin(_time, 15m), call_type"
       }
     },
     {
@@ -259,12 +277,14 @@
     {"i": "llm_avg_latency", "x": 0, "y": 12, "w": 3, "h": 2},
     {"i": "llm_p95_latency", "x": 3, "y": 12, "w": 3, "h": 2},
     {"i": "llm_latency_over_time", "x": 6, "y": 12, "w": 6, "h": 3},
-    {"i": "llm_latency_by_provider", "x": 0, "y": 15, "w": 12, "h": 3},
-    {"i": "llm_by_call_type", "x": 0, "y": 18, "w": 6, "h": 3},
-    {"i": "llm_recommendations", "x": 6, "y": 18, "w": 6, "h": 4},
-    {"i": "llm_provider_mix", "x": 0, "y": 21, "w": 12, "h": 4},
-    {"i": "llm_errors_by_type", "x": 0, "y": 25, "w": 12, "h": 3},
-    {"i": "llm_error_table", "x": 0, "y": 28, "w": 6, "h": 4},
-    {"i": "llm_recent_errors", "x": 6, "y": 28, "w": 6, "h": 4}
+    {"i": "llm_latency_by_call_type", "x": 0, "y": 15, "w": 6, "h": 3},
+    {"i": "llm_latency_over_time_by_call_type", "x": 6, "y": 15, "w": 6, "h": 3},
+    {"i": "llm_latency_by_provider", "x": 0, "y": 18, "w": 12, "h": 3},
+    {"i": "llm_by_call_type", "x": 0, "y": 21, "w": 6, "h": 3},
+    {"i": "llm_recommendations", "x": 6, "y": 21, "w": 6, "h": 4},
+    {"i": "llm_provider_mix", "x": 0, "y": 25, "w": 12, "h": 4},
+    {"i": "llm_errors_by_type", "x": 0, "y": 29, "w": 12, "h": 3},
+    {"i": "llm_error_table", "x": 0, "y": 32, "w": 6, "h": 4},
+    {"i": "llm_recent_errors", "x": 6, "y": 32, "w": 6, "h": 4}
   ]
 }

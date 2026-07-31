@@ -201,6 +201,9 @@ defmodule AcsWeb.AcsLive.Index do
             Two steps each: copy the connector URL, then paste the instructions into
             <code>AGENTS.md</code> (coding) or Claude system prompt (chat).
             OAuth API identifier stays <code>/mcp/sse</code>.
+            Chat: core Steward tools are eager — do <strong>not</strong> start with
+            find tools / <code>tool_search("steward")</code>; search only if a needed
+            tool is missing from the list.
           </p>
 
           <div class="mcp-connectors-list">
@@ -316,7 +319,10 @@ defmodule AcsWeb.AcsLive.Index do
             </div>
             <div class="card-elevated" style="padding: 16px;">
               <strong>2. Verify tools</strong>
-              <p class="text-dim" style="font-size: 0.8rem; margin-top: 6px;">Confirm the tools your agent can use before it starts work.</p>
+              <p class="text-dim" style="font-size: 0.8rem; margin-top: 6px;">
+                Confirm the tools your agent can use. Chat agents should call core tools
+                directly (no find-tools warmup). Coding agents claim a task before editing.
+              </p>
               <.link navigate="/tools" class="text-accent" style="display: inline-block; font-size: 0.8rem; margin-top: 8px;">View tools →</.link>
             </div>
             <div class="card-elevated" style="padding: 16px;">

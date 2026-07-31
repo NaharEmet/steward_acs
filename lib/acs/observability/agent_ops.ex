@@ -23,12 +23,15 @@ defmodule Acs.Observability.AgentOps do
   - `acs_tool_operations` via MetaHarness when `META_HARNESS_ENABLED=true`
     (intake gates set `error_type` like `intake_needs_input` for Analyzer clusters
     without counting as tool failures)
+
+  Also emits `agent.embedding` (Ollama latency) for the agent-usage dashboard.
   """
 
   alias Acs.Observability.AxiomLogExporter
 
   @event_tool "agent.tool"
   @event_feedback "agent.feedback"
+  @event_embedding "agent.embedding"
 
   @retrieve_tools ~w(ask query_memories query_specs skill_get specs_get generate_guidance_packet get_started)
   @write_tools ~w(save_memory documents_propose specs_propose skill_save set_memory_status specs_approve specs_reject)
@@ -186,6 +189,47 @@ defmodule Acs.Observability.AgentOps do
     :ok
   rescue
     _ -> :ok
+  end
+
+  @doc """
+  Log one Ollama embedding call (latency for agent-space dashboards).
+
+  ## Options
+  - `:latency_ms` (required for useful charts)
+  - `:status` — `"ok"` | `"error"`
+  - `:model`, `:prompt_chars`, `:error_type`, `:org`
+  """
+  def log_embedding(opts) when is_list(opts) do
+    event = %{
+      "_time" => DateTime.utc_now() |> DateTime.to_iso8601(),
+      "message" => @event_embedding,
+      "event" => @event_embedding,
+      "severity" => "INFO",
+      "level" => "info",
+      "service" => "steward_acs",
+      "module" => "Acs.Observability.AgentOps",
+      "call_type" => "embedding",
+      "tool_family" => "embedding",
+      "status" => Keyword.get(opts, :status, "ok"),
+      "latency_ms" => Keyword.get(opts, :latency_ms),
+      "model" => Keyword.get(opts, :model),
+      "provider" => "ollama",
+      "prompt_chars" => Keyword.get(opts, :prompt_chars),
+      "error_type" => Keyword.get(opts, :error_type),
+      "org" => Keyword.get(opts, :org) || safe_org(),
+      "audience" => "system"
+    }
+
+    enqueue_axiom(event)
+    :ok
+  rescue
+    _ -> :ok
+  end
+
+  defp safe_org do
+    Acs.Org.current()
+  rescue
+    _ -> nil
   end
 
   @doc false

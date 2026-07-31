@@ -75,6 +75,16 @@ defmodule Acs.Observability.AgentOpsTest do
              )
   end
 
+  test "log_embedding is fire-and-forget when exporters are down" do
+    assert :ok =
+             AgentOps.log_embedding(
+               status: "ok",
+               latency_ms: 42,
+               model: "nomic-embed-text",
+               prompt_chars: 120
+             )
+  end
+
   test "log_tool tags write_without_retrieve then surprise_persist on same chain" do
     chain = "test-chain-#{System.unique_integer([:positive])}"
 

@@ -60,35 +60,87 @@ defmodule Acs.Memory.Embedding do
   def embed_text(text) when is_binary(text) do
     url = ollama_url()
     model_name = model()
+    prompt_chars = byte_size(text)
+    started = System.monotonic_time(:millisecond)
 
     body = %{
       "model" => model_name,
       "prompt" => text
     }
 
-    case Req.post("#{url}/api/embeddings", json: body, receive_timeout: 30_000, retry: false) do
-      {:ok, %{status: 200, body: %{"embedding" => embedding}}} when is_list(embedding) ->
-        {:ok, embedding}
+    result =
+      case Req.post("#{url}/api/embeddings", json: body, receive_timeout: 30_000, retry: false) do
+        {:ok, %{status: 200, body: %{"embedding" => embedding}}} when is_list(embedding) ->
+          {:ok, embedding}
 
-      {:ok, %{status: 200, body: %{"embedding" => []}}} ->
-        {:error, "Empty embedding returned"}
+        {:ok, %{status: 200, body: %{"embedding" => []}}} ->
+          {:error, "Empty embedding returned"}
 
-      {:ok, %{status: status, body: body}} ->
-        {:error, "Ollama returned status #{status}: #{inspect(body)}"}
+        {:ok, %{status: status, body: body}} ->
+          {:error, "Ollama returned status #{status}: #{inspect(body)}"}
 
-      {:error, %{reason: :econnrefused}} ->
-        Logger.warning("[Embedding] Ollama connection refused at #{url}")
-        {:error, "Ollama unavailable at #{url}"}
+        {:error, %{reason: :econnrefused}} ->
+          Logger.warning("[Embedding] Ollama connection refused at #{url}")
+          {:error, "Ollama unavailable at #{url}"}
 
-      {:error, %{reason: reason}} ->
-        Logger.warning("[Embedding] Ollama request failed: #{inspect(reason)}")
-        {:error, "Embedding request failed: #{inspect(reason)}"}
-    end
+        {:error, %{reason: reason}} ->
+          Logger.warning("[Embedding] Ollama request failed: #{inspect(reason)}")
+          {:error, "Embedding request failed: #{inspect(reason)}"}
+      end
+
+    latency_ms = System.monotonic_time(:millisecond) - started
+    log_embedding_call(result, model_name, latency_ms, prompt_chars)
+    result
   rescue
     e ->
       Logger.error("[Embedding] Exception during embed_text: #{inspect(e)}")
       {:error, "Embedding failed: #{inspect(e)}"}
   end
+
+  defp log_embedding_call(result, model_name, latency_ms, prompt_chars) do
+    {status, error_type} =
+      case result do
+        {:ok, _} -> {"ok", nil}
+        {:error, reason} -> {"error", embedding_error_type(reason)}
+      end
+
+    Logger.info("[Embedding] #{status}",
+      action: "embedding_call",
+      call_type: "embedding",
+      status: status,
+      latency_ms: latency_ms,
+      model: model_name,
+      provider: "ollama",
+      audience: "system",
+      prompt_chars: prompt_chars,
+      error_type: error_type
+    )
+
+    Acs.Observability.AgentOps.log_embedding(
+      status: status,
+      latency_ms: latency_ms,
+      model: model_name,
+      prompt_chars: prompt_chars,
+      error_type: error_type
+    )
+  rescue
+    _ -> :ok
+  end
+
+  defp embedding_error_type(reason) when is_binary(reason) do
+    cond do
+      String.contains?(reason, "unavailable") or String.contains?(reason, "connection refused") ->
+        "unavailable"
+
+      String.contains?(reason, "Empty embedding") ->
+        "empty"
+
+      true ->
+        "request_failed"
+    end
+  end
+
+  defp embedding_error_type(_), do: "request_failed"
 
   @doc """
   Generates embeddings for multiple texts in a single batch request.

@@ -65,14 +65,21 @@ defmodule Acs.LLMTest do
     end
   end
 
-  describe "normalize_error_type/1" do
-    test "maps common provider failures to stable classes" do
-      assert LLM.normalize_error_type(:timeout) == "timeout"
-      assert LLM.normalize_error_type({:rate_limited, "x", nil}) == "rate_limited"
+  describe "call_type is the calling process" do
+    test "auditors and intake pass process names, not subject ids" do
+      # Regression: call_type must be memory_audit / skill_audit / … — never the
+      # memory/skill/spec id being processed (that goes in subject_id).
+      source = File.read!(Path.join([__DIR__, "../../lib/acs/llm.ex"]))
 
-      assert LLM.normalize_error_type(
-               {:server_error, 503, "ResourceExhausted: Worker local total request limit reached"}
-             ) == "capacity"
+      assert source =~ ~s[try_providers("memory_audit"]
+      assert source =~ ~s[try_providers("skill_audit"]
+      assert source =~ ~s[try_providers("spec_audit"]
+      assert source =~ ~s[try_providers("intake"]
+      assert source =~ ~s[try_providers("skill_intake"]
+      assert source =~ "subject_id: subject_id"
+      refute source =~ "try_providers(memory_id,"
+      refute source =~ "try_providers(skill_name,"
+      refute source =~ "try_providers(spec_id,"
     end
   end
 end

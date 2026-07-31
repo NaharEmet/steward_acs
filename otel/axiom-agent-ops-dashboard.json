@@ -1,6 +1,6 @@
 {
   "name": "Steward ACS — agent usage",
-  "description": "Claude/chat vs coding + Meta-Harness rollups. Filter message agent.* / meta.* and signal. Dataset: steward_meta_analytics.",
+  "description": "Claude/chat vs coding + Meta-Harness rollups + embedding latency. Filter message agent.* / meta.* / agent.embedding. Dataset: steward_meta_analytics.",
   "owner": "X-AXIOM-EVERYONE",
   "refreshTime": 60,
   "schemaVersion": 2,
@@ -131,6 +131,49 @@
       "query": {
         "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"meta.error_cluster\"\n| project _time, tool_name, error_type, occurrence_count, sample_message\n| order by occurrence_count desc\n| limit 30"
       }
+    },
+    {
+      "id": "embed_avg_latency",
+      "type": "Statistic",
+      "name": "Embedding avg latency (ms)",
+      "colorScheme": "Purple",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.embedding\" and isnotnull(['latency_ms'])\n| summarize t=avg(todouble(['latency_ms']))\n| project t"
+      }
+    },
+    {
+      "id": "embed_p95_latency",
+      "type": "Statistic",
+      "name": "Embedding p95 latency (ms)",
+      "colorScheme": "Orange",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.embedding\" and isnotnull(['latency_ms'])\n| summarize t=percentile(todouble(['latency_ms']), 95)\n| project t"
+      }
+    },
+    {
+      "id": "embed_calls",
+      "type": "Statistic",
+      "name": "Embedding calls",
+      "colorScheme": "Blue",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.embedding\"\n| count"
+      }
+    },
+    {
+      "id": "embed_latency_over_time",
+      "type": "TimeSeries",
+      "name": "Embedding latency p50 / p95 (ms)",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.embedding\" and isnotnull(['latency_ms'])\n| summarize p50=percentile(todouble(['latency_ms']), 50), p95=percentile(todouble(['latency_ms']), 95) by bin(_time, 15m)"
+      }
+    },
+    {
+      "id": "tool_latency",
+      "type": "Table",
+      "name": "Tool latency (p50 / p95)",
+      "query": {
+        "apl": "['__AGENT_OPS_DATASET__']\n| where ['message'] == \"agent.tool\" and isnotnull(['latency_ms'])\n| summarize calls=count(), avg_ms=avg(todouble(['latency_ms'])), p50_ms=percentile(todouble(['latency_ms']), 50), p95_ms=percentile(todouble(['latency_ms']), 95) by tool_name, audience\n| order by calls desc\n| limit 25"
+      }
     }
   ],
   "layout": [
@@ -146,8 +189,13 @@
     {"i": "surprise_persist", "x": 0, "y": 9, "w": 6, "h": 4},
     {"i": "feedback_signals", "x": 6, "y": 9, "w": 6, "h": 4},
     {"i": "top_tools", "x": 0, "y": 13, "w": 12, "h": 4},
-    {"i": "meta_success", "x": 0, "y": 17, "w": 12, "h": 3},
-    {"i": "meta_tools", "x": 0, "y": 20, "w": 6, "h": 4},
-    {"i": "meta_errors", "x": 6, "y": 20, "w": 6, "h": 4}
+    {"i": "embed_calls", "x": 0, "y": 17, "w": 2, "h": 2},
+    {"i": "embed_avg_latency", "x": 2, "y": 17, "w": 3, "h": 2},
+    {"i": "embed_p95_latency", "x": 5, "y": 17, "w": 3, "h": 2},
+    {"i": "embed_latency_over_time", "x": 8, "y": 17, "w": 4, "h": 3},
+    {"i": "tool_latency", "x": 0, "y": 20, "w": 12, "h": 4},
+    {"i": "meta_success", "x": 0, "y": 24, "w": 12, "h": 3},
+    {"i": "meta_tools", "x": 0, "y": 27, "w": 6, "h": 4},
+    {"i": "meta_errors", "x": 6, "y": 27, "w": 6, "h": 4}
   ]
 }

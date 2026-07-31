@@ -101,7 +101,7 @@ defmodule Acs.LLM do
     if providers == [] do
       {:error, :no_providers_enabled}
     else
-      try_providers("intake", providers, prompt)
+      try_providers("intake", providers, prompt, nil)
     end
   end
 
@@ -122,7 +122,7 @@ defmodule Acs.LLM do
     if providers == [] do
       {:error, :no_providers_enabled}
     else
-      try_providers("skill_intake", providers, prompt)
+      try_providers("skill_intake", providers, prompt, nil)
     end
   end
 
@@ -178,7 +178,8 @@ defmodule Acs.LLM do
     if providers == [] do
       {:error, :no_providers_enabled}
     else
-      try_providers(memory_id, providers, prompt)
+      # call_type = process (auditor), subject_id = memory being evaluated
+      try_providers("memory_audit", providers, prompt, memory_id)
     end
   end
 
@@ -190,7 +191,7 @@ defmodule Acs.LLM do
     if providers == [] do
       {:error, :no_providers_enabled}
     else
-      try_providers(skill_name, providers, prompt)
+      try_providers("skill_audit", providers, prompt, skill_name)
     end
   end
 
@@ -241,44 +242,53 @@ defmodule Acs.LLM do
     if providers == [] do
       {:error, :no_providers_enabled}
     else
-      try_providers(spec_id, providers, prompt)
+      try_providers("spec_audit", providers, prompt, spec_id)
     end
   end
 
   # ── Provider iteration ──────────────────────────────────────────────
   # Tries providers in priority order until one succeeds.
   # Uses LLMUtils.Client for the actual HTTP call.
+  # call_type = calling process (memory_audit, skill_audit, …); subject_id = entity.
 
-  defp try_providers(memory_id, providers, prompt) do
-    try_providers(memory_id, providers, prompt, [], byte_size(prompt))
+  defp try_providers(call_type, providers, prompt, subject_id) do
+    try_providers(call_type, providers, prompt, subject_id, [], byte_size(prompt))
   end
 
-  defp try_providers(_memory_id, [], _prompt, errors, _prompt_chars) do
+  defp try_providers(_call_type, [], _prompt, _subject_id, errors, _prompt_chars) do
     {:error, {:all_providers_failed, errors |> Enum.reverse() |> Enum.take(3)}}
   end
 
-  defp try_providers(memory_id, [provider_id | rest], prompt, errors, prompt_chars) do
+  defp try_providers(call_type, [provider_id | rest], prompt, subject_id, errors, prompt_chars) do
     # Start is debug-only — do not tag action: "llm_call" (dashboard counts those).
     Logger.debug("[Acs.LLM] Trying provider: #{provider_id}",
       provider: provider_id,
       llm_event: "chat",
-      status: "start"
+      status: "start",
+      call_type: call_type
     )
 
-    case call_provider(provider_id, prompt, memory_id, prompt_chars) do
+    case call_provider(provider_id, prompt, call_type, prompt_chars, subject_id) do
       {:ok, evaluation} ->
         {:ok, evaluation}
 
       {:error, reason} ->
         # call_provider already logged the failure with model/latency — don't double-count.
-        try_providers(memory_id, rest, prompt, [{provider_id, reason} | errors], prompt_chars)
+        try_providers(
+          call_type,
+          rest,
+          prompt,
+          subject_id,
+          [{provider_id, reason} | errors],
+          prompt_chars
+        )
     end
   end
 
   # ── Provider call ────────────────────────────────────────────────────
   # Uses LLMUtils.Client with options for metrics, rate limiting, logging.
 
-  defp call_provider(provider_id, prompt, call_type, prompt_chars) do
+  defp call_provider(provider_id, prompt, call_type, prompt_chars, subject_id) do
     config = LLMUtils.Providers.get(provider_id)
 
     if is_nil(config) do
@@ -324,6 +334,7 @@ defmodule Acs.LLM do
             status: "ok",
             action: "llm_call",
             call_type: call_type,
+            subject_id: subject_id,
             audience: "system",
             prompt_chars: prompt_chars,
             tokens_in: llm_usage(response, :input),
@@ -344,6 +355,7 @@ defmodule Acs.LLM do
             status: "error",
             action: "llm_call",
             call_type: call_type,
+            subject_id: subject_id,
             audience: "system",
             error_type: "unexpected_response_format"
           )
@@ -361,6 +373,7 @@ defmodule Acs.LLM do
             status: "error",
             action: "llm_call",
             call_type: call_type,
+            subject_id: subject_id,
             audience: "system",
             error_type: normalize_error_type(reason)
           )
