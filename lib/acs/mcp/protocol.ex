@@ -186,6 +186,18 @@ defmodule Acs.MCP.Protocol do
       tools =
         ToolRegistry.list_tools_mcp(agent_role, agent_org_id, agent_permissions, audience)
 
+      Acs.Observability.AgentOps.log_tools_list(
+        tools: tools,
+        audience: audience,
+        audience_source: Acs.MCP.ClientSession.resolve_audience_source(agent_identity),
+        client_name: Acs.MCP.ClientSession.resolve_client_name(agent_identity),
+        client_version: Acs.MCP.ClientSession.resolve_client_version(agent_identity),
+        mcp_endpoint: Acs.MCP.ClientSession.resolve_mcp_endpoint(agent_identity),
+        role: agent_role,
+        org: agent_org_id,
+        agent_id: agent_identity
+      )
+
       {:ok, success_response(id, %{"tools" => tools})}
     else
       {:error, reason} ->
@@ -331,6 +343,8 @@ defmodule Acs.MCP.Protocol do
       agent_id: agent_id,
       attribution_id: attribution_id,
       audience: Acs.MCP.ClientSession.resolve_audience(agent_identity),
+      audience_source: Acs.MCP.ClientSession.resolve_audience_source(agent_identity),
+      client_name: Acs.MCP.ClientSession.resolve_client_name(agent_identity),
       mcp_endpoint: Acs.MCP.ClientSession.resolve_mcp_endpoint(agent_identity)
     }
 

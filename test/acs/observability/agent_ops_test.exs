@@ -138,4 +138,61 @@ defmodule Acs.Observability.AgentOpsTest do
                info_needed: "pricing scope"
              )
   end
+
+  test "tool_names_from_list sorts and extracts names" do
+    assert AgentOps.tool_names_from_list([
+             %{"name" => "save_memory"},
+             %{"name" => "ask"},
+             %{name: "get_started"},
+             "submit_task_feedback",
+             %{"name" => ""},
+             %{}
+           ]) == ["ask", "get_started", "save_memory", "submit_task_feedback"]
+  end
+
+  test "tools_hash is stable for same set regardless of input order" do
+    a = AgentOps.tools_hash(["ask", "get_started", "save_memory"])
+    b = AgentOps.tools_hash(["save_memory", "ask", "get_started"])
+    assert a == b
+    assert byte_size(a) == 64
+  end
+
+  test "tools_list_fields builds inventory shape for chat surface" do
+    names = Enum.sort(Acs.MCP.CoreToolRoles.chat_surface())
+
+    fields =
+      AgentOps.tools_list_fields(names,
+        audience: :chat,
+        audience_source: :url,
+        client_name: "claude.ai",
+        client_version: "1.0",
+        mcp_endpoint: "/mcp/chat/sse",
+        role: "collaborator",
+        org: "acme",
+        agent_id: "Ada"
+      )
+
+    assert fields["audience"] == "chat"
+    assert fields["audience_source"] == "url"
+    assert fields["client_name"] == "claude.ai"
+    assert fields["mcp_endpoint"] == "/mcp/chat/sse"
+    assert fields["tool_count"] == length(names)
+    assert fields["tool_names"] == names
+    assert fields["tools_hash"] == AgentOps.tools_hash(names)
+    assert "ask" in fields["tool_names"]
+    assert "help" not in fields["tool_names"]
+  end
+
+  test "log_tools_list is fire-and-forget when exporters are down" do
+    assert :ok =
+             AgentOps.log_tools_list(
+               tools: [%{"name" => "ask"}, %{"name" => "get_started"}],
+               audience: "chat",
+               audience_source: "url",
+               client_name: "deploy-smoke-chat",
+               mcp_endpoint: "/mcp/chat/sse",
+               role: "collaborator",
+               org: "default"
+             )
+  end
 end

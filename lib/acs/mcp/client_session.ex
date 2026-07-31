@@ -132,6 +132,21 @@ defmodule Acs.MCP.ClientSession do
     end
   end
 
+  @doc "MCP clientInfo.name for the current session (e.g. Claude vs GPT)."
+  def resolve_client_name(agent_identity \\ nil) do
+    resolve_session_field(agent_identity, :client_name)
+  end
+
+  @doc "MCP clientInfo.version for the current session."
+  def resolve_client_version(agent_identity \\ nil) do
+    resolve_session_field(agent_identity, :client_version)
+  end
+
+  @doc "How audience was chosen (`url` | `client_info`)."
+  def resolve_audience_source(agent_identity \\ nil) do
+    resolve_session_field(agent_identity, :audience_source)
+  end
+
   def remember_initialize(params, agent_identity) when is_map(params) do
     client_info = params["clientInfo"] || params[:clientInfo] || %{}
     client_name = client_info["name"] || client_info[:name]
@@ -188,6 +203,31 @@ defmodule Acs.MCP.ClientSession do
     case fetch(key) do
       {:ok, %{mcp_endpoint: endpoint}} when is_binary(endpoint) and endpoint != "" ->
         {:ok, endpoint}
+
+      _ ->
+        {:error, :not_found}
+    end
+  end
+
+  defp resolve_session_field(agent_identity, field) when is_atom(field) do
+    with {:error, _} <- fetch_session_field(current_id(), field),
+         {:error, _} <- fetch_session_field(agent_key(agent_identity), field) do
+      nil
+    else
+      {:ok, value} -> value
+    end
+  end
+
+  defp fetch_session_field(nil, _field), do: {:error, :not_found}
+
+  defp fetch_session_field(key, field) do
+    case fetch(key) do
+      {:ok, data} when is_map(data) ->
+        case Map.get(data, field) do
+          value when is_binary(value) and value != "" -> {:ok, value}
+          value when is_atom(value) and not is_nil(value) -> {:ok, value}
+          _ -> {:error, :not_found}
+        end
 
       _ ->
         {:error, :not_found}

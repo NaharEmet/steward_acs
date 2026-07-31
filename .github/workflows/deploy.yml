@@ -11,6 +11,7 @@ name: Deploy
 #   DOCKERHUB_TOKEN
 # Optional secrets:
 #   PUBLIC_URL           smoke base URL
+#   SMOKE_API_KEY        optional developer key for chat tools/list smoke
 #   REMOTE_DIR           default /home/ubuntu/steward_acs
 # Optional variable:
 #   REGISTRY             default naharemete/steward_acs
@@ -139,6 +140,7 @@ jobs:
           SERVER: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
           ACS_IMAGE_TAG: ${{ needs.build-push.outputs.image_tag }}
           PUBLIC_URL: ${{ secrets.PUBLIC_URL }}
+          SMOKE_API_KEY: ${{ secrets.SMOKE_API_KEY }}
         run: |
           if [[ -n "${{ secrets.REMOTE_DIR }}" ]]; then
             export REMOTE_DIR="${{ secrets.REMOTE_DIR }}"

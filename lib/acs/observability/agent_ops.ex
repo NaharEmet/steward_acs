@@ -2,9 +2,9 @@ defmodule Acs.Observability.AgentOps do
   @moduledoc """
   Agent-facing usage telemetry for Steward.
 
-  Emits flat, APL-friendly `agent.tool` / `agent.feedback` events so coding
-  agents (and Axiom dashboards) can analyze Claude/chat vs coding usage without
-  parsing free-text logs.
+  Emits flat, APL-friendly `agent.tool` / `agent.tools_list` / `agent.feedback`
+  events so coding agents (and Axiom dashboards) can analyze Claude/chat vs
+  coding usage without parsing free-text logs.
 
   Learning signals (filter on `signal`):
   - `works` — successful retrieve with hits, or useful guidance feedback
@@ -30,6 +30,7 @@ defmodule Acs.Observability.AgentOps do
   alias Acs.Observability.AxiomLogExporter
 
   @event_tool "agent.tool"
+  @event_tools_list "agent.tools_list"
   @event_feedback "agent.feedback"
   @event_embedding "agent.embedding"
 
@@ -49,6 +50,7 @@ defmodule Acs.Observability.AgentOps do
   - `:scope_path`, `:kind` — knowledge context when present on the call
   - `:discovery` — true when the tool name was unknown
   - `:args` — original tool args (used to detect intake_confirmed bypass)
+  - `:client_name`, `:mcp_endpoint`, `:audience_source` — MCP session tags
   """
   def log_tool(opts) when is_list(opts) do
     tool_name = Keyword.fetch!(opts, :tool_name)
@@ -111,6 +113,9 @@ defmodule Acs.Observability.AgentOps do
       "agent_id" => Keyword.get(opts, :agent_id),
       "org" => Keyword.get(opts, :org),
       "audience" => audience,
+      "audience_source" => audience_source(Keyword.get(opts, :audience_source)),
+      "client_name" => truncate(Keyword.get(opts, :client_name), 120),
+      "mcp_endpoint" => truncate(Keyword.get(opts, :mcp_endpoint), 200),
       "role" => Keyword.get(opts, :role),
       "execution_id" => Keyword.get(opts, :execution_id),
       "task_id" => Keyword.get(opts, :task_id),
@@ -147,6 +152,79 @@ defmodule Acs.Observability.AgentOps do
     :ok
   rescue
     _ -> :ok
+  end
+
+  @doc """
+  Log one MCP `tools/list` inventory (what schemas were advertised).
+
+  ## Options
+  - `:tools` — list of MCP tool maps (`%{"name" => ...}`) or name strings
+  - `:audience`, `:audience_source`, `:client_name`, `:client_version`
+  - `:mcp_endpoint`, `:role`, `:org`, `:agent_id`
+  """
+  def log_tools_list(opts) when is_list(opts) do
+    names = tool_names_from_list(Keyword.get(opts, :tools) || [])
+    fields = tools_list_fields(names, opts)
+
+    event =
+      Map.merge(
+        %{
+          "_time" => DateTime.utc_now() |> DateTime.to_iso8601(),
+          "message" => @event_tools_list,
+          "event" => @event_tools_list,
+          "severity" => "INFO",
+          "level" => "info",
+          "service" => "steward_acs",
+          "module" => "Acs.Observability.AgentOps"
+        },
+        fields
+      )
+
+    enqueue_axiom(event)
+    :ok
+  rescue
+    _ -> :ok
+  end
+
+  @doc false
+  def tool_names_from_list(tools) when is_list(tools) do
+    tools
+    |> Enum.map(fn
+      %{"name" => name} when is_binary(name) -> name
+      %{name: name} when is_binary(name) -> name
+      name when is_binary(name) -> name
+      _ -> nil
+    end)
+    |> Enum.reject(&(is_nil(&1) or &1 == ""))
+    |> Enum.sort()
+  end
+
+  def tool_names_from_list(_), do: []
+
+  @doc false
+  def tools_hash(names) when is_list(names) do
+    names
+    |> Enum.sort()
+    |> Enum.join("\n")
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
+
+  @doc false
+  def tools_list_fields(names, opts) when is_list(names) and is_list(opts) do
+    %{
+      "audience" => normalize_audience(Keyword.get(opts, :audience)),
+      "audience_source" => audience_source(Keyword.get(opts, :audience_source)),
+      "client_name" => truncate(Keyword.get(opts, :client_name), 120),
+      "client_version" => truncate(Keyword.get(opts, :client_version), 64),
+      "mcp_endpoint" => truncate(Keyword.get(opts, :mcp_endpoint), 200),
+      "role" => Keyword.get(opts, :role),
+      "org" => Keyword.get(opts, :org),
+      "agent_id" => Keyword.get(opts, :agent_id),
+      "tool_count" => length(names),
+      "tool_names" => names,
+      "tools_hash" => tools_hash(names)
+    }
   end
 
   @doc "Log structured task feedback for agent/dashboard analysis."
@@ -541,6 +619,11 @@ defmodule Acs.Observability.AgentOps do
   defp normalize_audience(a) when a in [:chat, "chat", :knowledge, "knowledge"], do: "chat"
   defp normalize_audience(a) when a in [:coding, "coding", :mcp, "mcp"], do: "coding"
   defp normalize_audience(a), do: to_string(a)
+
+  defp audience_source(nil), do: nil
+  defp audience_source(a) when is_atom(a), do: Atom.to_string(a)
+  defp audience_source(a) when is_binary(a), do: a
+  defp audience_source(_), do: nil
 
   defp present?(v) when is_binary(v), do: String.trim(v) != ""
   defp present?(_), do: false

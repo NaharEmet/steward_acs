@@ -9,9 +9,12 @@
 #
 # Env:
 #   ALLOW_DIRTY=1   allow dirty tree (forces unique tag + --no-cache)
-#   SKIP_SMOKE=1    skip public health / optional DCR smoke
+#   SKIP_SMOKE=1    skip public health / optional DCR / chat tools smoke
 #   PUBLIC_URL=     override smoke base URL (default: MCP_PUBLIC_URL from remote .env)
+#   SMOKE_API_KEY=  developer key for chat tools/list smoke (skipped if unset)
 set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 REGISTRY="${REGISTRY:-naharemete/steward_acs}"
 SERVER="${SERVER:-}"
@@ -33,7 +36,7 @@ for arg in "$@"; do
     --resume) MODE="resume" ;;
     --rollback) MODE="rollback" ;;
     -h|--help)
-      sed -n '2,14p' "$0"
+      sed -n '2,15p' "$0"
       exit 0
       ;;
     *)
@@ -369,6 +372,22 @@ else
     info "DCR smoke ok (fixed client)"
   else
     info "OAUTH_FIXED_DCR_CLIENT_ID unset on server — skipping DCR smoke"
+  fi
+
+  if [[ -n "${SMOKE_API_KEY:-}" && -n "${REMOTE_ACTIVE_CONTAINER:-}" ]]; then
+    info "fetch chat_surface from ${REMOTE_ACTIVE_CONTAINER}"
+    EXPECTED_CHAT_TOOLS=$(
+      ssh "$SERVER" \
+        "docker exec ${REMOTE_ACTIVE_CONTAINER} /app/bin/steward_acs eval 'IO.puts(Enum.join(Acs.MCP.CoreToolRoles.chat_surface(), \",\"))'" \
+        | tr -d '\r' | tail -n 1
+    )
+    [[ -n "$EXPECTED_CHAT_TOOLS" ]] || die "empty chat_surface from release eval"
+    PUBLIC_URL="$PUBLIC_URL" SMOKE_API_KEY="$SMOKE_API_KEY" \
+      EXPECTED_CHAT_TOOLS="$EXPECTED_CHAT_TOOLS" ALLOW_SKIP=0 \
+      "$ROOT/scripts/smoke-chat-tools.sh" \
+      || die "chat tools/list smoke failed"
+  else
+    info "SMOKE_API_KEY or active container unset — skipping chat tools/list smoke"
   fi
 fi
 

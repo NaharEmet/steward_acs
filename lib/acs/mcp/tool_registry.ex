@@ -692,6 +692,8 @@ defmodule Acs.MCP.ToolRegistry do
         agent_id: context[:agent_id] || context["agent_id"],
         attribution_id: context[:attribution_id] || context["attribution_id"],
         audience: context[:audience] || context["audience"],
+        audience_source: context[:audience_source] || context["audience_source"],
+        client_name: context[:client_name] || context["client_name"],
         mcp_endpoint: context[:mcp_endpoint] || context["mcp_endpoint"]
        }}
     else
@@ -715,6 +717,13 @@ defmodule Acs.MCP.ToolRegistry do
       "_auth_agent_id" => auth.agent_id,
       "_auth_attribution" => auth.attribution_id,
       "_auth_audience" => auth[:audience] && to_string(auth[:audience]),
+      "_auth_audience_source" =>
+        case auth[:audience_source] do
+          nil -> nil
+          src when is_atom(src) -> Atom.to_string(src)
+          src -> to_string(src)
+        end,
+      "_auth_client_name" => auth[:client_name],
       "_auth_mcp_endpoint" => auth[:mcp_endpoint]
     })
     |> Map.reject(fn {_k, v} -> is_nil(v) end)
@@ -742,6 +751,9 @@ defmodule Acs.MCP.ToolRegistry do
       agent_id: args["agent_id"] || args["_auth_agent_id"],
       org: args["_auth_org_id"],
       audience: args["_auth_audience"],
+      audience_source: args["_auth_audience_source"],
+      client_name: args["_auth_client_name"],
+      mcp_endpoint: args["_auth_mcp_endpoint"],
       role: args["_auth_role"],
       execution_id: args["execution_id"],
       task_id: args["task_id"],
@@ -763,6 +775,9 @@ defmodule Acs.MCP.ToolRegistry do
       agent_id: args["agent_id"] || args["_auth_agent_id"],
       org: args["_auth_org_id"],
       audience: args["_auth_audience"],
+      audience_source: args["_auth_audience_source"],
+      client_name: args["_auth_client_name"],
+      mcp_endpoint: args["_auth_mcp_endpoint"],
       role: args["_auth_role"],
       execution_id: args["execution_id"],
       task_id: args["task_id"],

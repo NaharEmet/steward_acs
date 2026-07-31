@@ -44,8 +44,11 @@ Create Environment **prod** (optional **staging**) with:
 | `SSH_PRIVATE_KEY` | Deploy key for that host |
 | `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` | Image push/pull |
 | `PUBLIC_URL` (optional) | Smoke base URL |
+| `SMOKE_API_KEY` (optional) | Developer/API key for post-deploy chat `tools/list` smoke (`scripts/smoke-chat-tools.sh`); skipped if unset |
 | `REMOTE_DIR` (optional) | Default `/home/ubuntu/steward_acs` |
 | `REGISTRY` (optional var) | Default `naharemete/steward_acs` |
+
+After `/mcp/health` (+ optional DCR), deploy runs chat inventory smoke when `SMOKE_API_KEY` is set: opens `/mcp/chat/sse`, calls `tools/list`, asserts names equal `CoreToolRoles.chat_surface/0` from the live container, then checks `/mcp/coding/sse` returns at least one extra tool. Create a collaborator+ developer key in prod and store it only as the GitHub Environment secret (or export locally for break-glass deploys).
 
 Host still needs thin `.env` (from `.env.multitenant`) and `.infisical.env` (machine identity). Secrets stay in Infisical `steward_prod` / `prod` — see [`guides/secrets.md`](secrets.md). Compose on the host always runs through `scripts/infisical-compose.sh`.
 

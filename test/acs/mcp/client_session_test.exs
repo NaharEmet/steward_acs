@@ -61,6 +61,22 @@ defmodule Acs.MCP.ClientSessionTest do
     end)
   end
 
+  test "resolve_client_name and audience_source after initialize" do
+    ClientSession.bind("sess_client_meta", fn ->
+      :ok = ClientSession.seed_mcp_connect("sess_client_meta", "/mcp/chat/sse", :chat)
+
+      assert ClientSession.remember_initialize(
+               %{"clientInfo" => %{"name" => "claude.ai", "version" => "1.2.3"}},
+               "agent-c"
+             ) == :chat
+
+      assert ClientSession.resolve_client_name("agent-c") == "claude.ai"
+      assert ClientSession.resolve_client_version("agent-c") == "1.2.3"
+      assert ClientSession.resolve_audience_source("agent-c") == :url
+      assert ClientSession.resolve_mcp_endpoint("agent-c") == "/mcp/chat/sse"
+    end)
+  end
+
   test "get_or_assign_agent_name sticks a pool name to the session" do
     session_id = "sess_pool_#{System.unique_integer([:positive])}"
 
