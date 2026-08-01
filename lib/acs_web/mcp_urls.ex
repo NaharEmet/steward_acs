@@ -28,8 +28,8 @@ defmodule AcsWeb.McpUrls do
   @doc """
   Paste into Claude.ai / ChatGPT connector custom instructions.
 
-  Loaded from `priv/prompts/chat_system_prompt.md` (includes when to use
-  find tools / tool_search — core Steward tools are eager).
+  Loaded from `priv/prompts/chat_system_prompt.md`; the three consolidated chat
+  tools are always loaded and must be called directly without tool_search.
   """
   @spec chat_system_prompt() :: String.t()
   def chat_system_prompt do

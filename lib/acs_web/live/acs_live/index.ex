@@ -201,9 +201,10 @@ defmodule AcsWeb.AcsLive.Index do
             Two steps each: copy the connector URL, then paste the instructions into
             <code>AGENTS.md</code> (coding) or Claude system prompt (chat).
             OAuth API identifier stays <code>/mcp/sse</code>.
-            Chat: core Steward tools are eager — do <strong>not</strong> start with
-            find tools / <code>tool_search("steward")</code>; search only if a needed
-            tool is missing from the list.
+            Chat: <code>steward_ask</code>, <code>steward_write</code>, and
+            <code>steward_work</code> are always loaded. Call them directly; never use find tools /
+            <code>tool_search</code>. Reconnect after deploy to refresh the cached list. Coding keeps
+            the fine-grained tool names.
           </p>
 
           <div class="mcp-connectors-list">

@@ -1,3 +1,3 @@
-documents_propose saves long non-code artifacts (policy, brief, marketing, knowledge, process) via document_type + title + content. Prefer path documents/<type>/<slug>.
+`steward_write(kind: "document")` saves long non-code artifacts via app + path + document_type + title + content. Prefer paths under documents/<type>/<slug>.
 
-USE WHEN user pastes/uploads a doc or you produce long shareable text. Not for short truths (save_memory) or how-tos (skill_save). Prefer skill_get(name: ingest-document) first. Save before release_work.
+Use when the user pastes/uploads a document or you produce long shareable text. Not for short truths (`kind: "memory"`) or procedures (`kind: "skill"`). Load `steward_ask(action: "skill", name: "ingest-document")` first. Save before release.

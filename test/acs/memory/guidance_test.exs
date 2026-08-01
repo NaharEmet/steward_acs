@@ -28,7 +28,10 @@ defmodule Acs.Memory.GuidanceTest do
       assert packet.critical_axioms == []
       assert packet.warnings == []
       assert Map.get(packet, :relevant_patterns, []) == []
-      assert is_binary(Map.get(packet, :maintenance_instructions) || Map.get(packet, :maintenance) || "")
+
+      assert is_binary(
+               Map.get(packet, :maintenance_instructions) || Map.get(packet, :maintenance) || ""
+             )
     end
 
     test "includes critical axioms from approved memories" do
@@ -166,11 +169,10 @@ defmodule Acs.Memory.GuidanceTest do
 
       assert packet.audience == :chat
       assert packet.mode == :knowledge
-      assert packet.workflow =~ "ask"
-      assert packet.workflow =~ "skill_save"
-      assert packet.workflow =~ "create_work"
-      assert packet.workflow =~ "documents_propose"
-      assert packet.workflow =~ "submit_task_feedback"
+      assert packet.workflow =~ "steward_ask"
+      assert packet.workflow =~ "steward_write"
+      assert packet.workflow =~ "steward_work"
+      assert packet.workflow =~ "kind:\"feedback\""
       refute packet.workflow =~ "specs_propose"
       refute packet.workflow =~ "query_memories"
       refute Map.has_key?(packet, :file_locking_protocol)
@@ -210,9 +212,9 @@ defmodule Acs.Memory.GuidanceTest do
       assert coding.workflow =~ ~r/save.*release_work/s
 
       assert chat.tier == :claim
-      assert chat.skills_instructions =~ "skill_save"
-      assert chat.skills_instructions =~ "documents_propose"
-      assert chat.specs_instructions =~ "documents_propose"
+      assert chat.skills_instructions =~ "steward_ask"
+      assert chat.skills_instructions =~ "steward_write"
+      assert chat.specs_instructions =~ "steward_write"
       assert chat.specs_instructions =~ "document_type"
     end
   end
@@ -233,7 +235,11 @@ defmodule Acs.Memory.GuidanceTest do
     test "refund titles get support context" do
       {:ok, task} =
         Acs.create_task(
-          %{"title" => "Clarify refund policy for tickets", "description" => "", "file_paths" => []},
+          %{
+            "title" => "Clarify refund policy for tickets",
+            "description" => "",
+            "file_paths" => []
+          },
           "test_agent"
         )
 

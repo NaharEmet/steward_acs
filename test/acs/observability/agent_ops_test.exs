@@ -11,12 +11,17 @@ defmodule Acs.Observability.AgentOpsTest do
   end
 
   test "tool_signal maps learning quadrants" do
-    assert AgentOps.tool_signal(true, "other", false, nil, false, false, nil) == "misuse_discovery"
+    assert AgentOps.tool_signal(true, "other", false, nil, false, false, nil) ==
+             "misuse_discovery"
+
     assert AgentOps.tool_signal(false, "retrieve", true, 0, false, false, nil) == "gap_empty"
     assert AgentOps.tool_signal(false, "retrieve", false, 3, false, false, nil) == "works"
     assert AgentOps.tool_signal(false, "retrieve", false, nil, false, false, nil) == nil
     assert AgentOps.tool_signal(false, "write", false, nil, true, false, nil) == "misuse_write"
-    assert AgentOps.tool_signal(false, "write", false, nil, false, true, nil) == "surprise_persist"
+
+    assert AgentOps.tool_signal(false, "write", false, nil, false, true, nil) ==
+             "surprise_persist"
+
     assert AgentOps.tool_signal(false, "write", false, nil, false, false, nil) == "works"
 
     assert AgentOps.tool_signal(false, "write", false, nil, false, false, "needs_input") ==
@@ -193,7 +198,7 @@ defmodule Acs.Observability.AgentOpsTest do
     assert fields["tool_count"] == length(names)
     assert fields["tool_names"] == names
     assert fields["tools_hash"] == AgentOps.tools_hash(names)
-    assert "ask" in fields["tool_names"]
+    assert fields["tool_names"] == ~w(steward_ask steward_work steward_write)
     assert "help" not in fields["tool_names"]
   end
 

@@ -3,102 +3,70 @@ defmodule Acs.MCP.CoreToolRolesTest do
 
   alias Acs.MCP.CoreToolRoles
 
-  test "collaborators may use coordination and skill tools" do
-    assert CoreToolRoles.authorized?("claim_work", "collaborator")
-    assert CoreToolRoles.authorized?("save_memory", "collaborator")
-    assert CoreToolRoles.authorized?("set_memory_status", "collaborator")
-    assert CoreToolRoles.authorized?("create_work", "collaborator")
-    assert CoreToolRoles.authorized?("skill_get", "collaborator")
-    assert CoreToolRoles.authorized?("skill_save", "collaborator")
-    assert CoreToolRoles.authorized?("get_started", "collaborator")
+  test "collaborators may use consolidated and fine-grained tools for their audiences" do
+    for tool <- ~w(steward_ask steward_write steward_work) do
+      assert CoreToolRoles.authorized?(tool, "collaborator", :chat)
+      refute CoreToolRoles.authorized?(tool, "collaborator", :coding)
+    end
+
+    for tool <- ~w(ask get_started save_memory create_work skill_get lock_file) do
+      assert CoreToolRoles.authorized?(tool, "collaborator", :coding)
+      refute CoreToolRoles.authorized?(tool, "collaborator", :chat)
+    end
   end
 
   test "collaborators cannot use admin-only tools" do
-    refute CoreToolRoles.authorized?("query", "collaborator")
-    refute CoreToolRoles.authorized?("read_file", "collaborator")
-    refute CoreToolRoles.authorized?("read_dir", "collaborator")
-    refute CoreToolRoles.authorized?("write_file", "collaborator")
-    refute CoreToolRoles.authorized?("get_logs", "collaborator")
-    refute CoreToolRoles.authorized?("skill_audit_status", "collaborator")
+    for tool <- ~w(query read_file read_dir write_file get_logs skill_audit_status) do
+      refute CoreToolRoles.authorized?(tool, "collaborator")
+    end
   end
 
-  test "chat audience is limited to chat_surface" do
-    assert CoreToolRoles.authorized?("ask", "collaborator", :chat)
-    assert CoreToolRoles.authorized?("documents_propose", "collaborator", :chat)
-    assert CoreToolRoles.authorized?("skill_save", "collaborator", :chat)
-    assert CoreToolRoles.authorized?("create_work", "collaborator", :chat)
-    assert CoreToolRoles.authorized?("resolve_user_task", "collaborator", :chat)
-    refute CoreToolRoles.eager_tool?("resolve_user_task")
-    assert CoreToolRoles.authorized?("get_person_status", "collaborator", :chat)
-    assert CoreToolRoles.authorized?("set_person_status", "collaborator", :chat)
-    assert CoreToolRoles.authorized?("set_memory_status", "collaborator", :chat)
-    refute CoreToolRoles.authorized?("specs_propose", "collaborator", :chat)
-    refute CoreToolRoles.authorized?("lock_file", "collaborator", :chat)
-    refute CoreToolRoles.authorized?("query_memories", "collaborator", :chat)
-    refute CoreToolRoles.authorized?("generate_guidance_packet", "collaborator", :chat)
+  test "chat surface is exactly the three consolidated tools" do
+    assert MapSet.new(CoreToolRoles.chat_surface()) ==
+             MapSet.new(~w(steward_ask steward_write steward_work))
   end
 
-  test "coding audience keeps lock_file for collaborators" do
-    assert CoreToolRoles.authorized?("lock_file", "collaborator", :coding)
-    assert CoreToolRoles.authorized?("query_memories", "collaborator", :coding)
+  test "tool definitions produce exact chat surface and preserve coding names" do
+    definitions = Acs.MCP.Tools.list_tools()
+
+    chat_names =
+      definitions
+      |> Enum.filter(&CoreToolRoles.authorized?(&1["name"], "collaborator", :chat))
+      |> Enum.map(& &1["name"])
+      |> MapSet.new()
+
+    coding_names =
+      definitions
+      |> Enum.filter(&CoreToolRoles.authorized?(&1["name"], "collaborator", :coding))
+      |> Enum.map(& &1["name"])
+      |> MapSet.new()
+
+    assert chat_names == MapSet.new(~w(steward_ask steward_write steward_work))
+    assert MapSet.subset?(MapSet.new(~w(ask get_started save_memory lock_file)), coding_names)
+    refute "steward_ask" in coding_names
   end
 
-  test "service role may read time but not arbitrary SQL" do
-    assert CoreToolRoles.authorized?("time", "service")
-    refute CoreToolRoles.authorized?("query", "service")
+  test "all chat tools are always loaded without search hints" do
+    assert CoreToolRoles.eager_priority() == ~w(steward_ask steward_write steward_work)
+
+    for tool <- CoreToolRoles.chat_surface() do
+      definition = CoreToolRoles.with_eager_meta(%{"name" => tool, "description" => "x"})
+      assert definition["_meta"]["anthropic/alwaysLoad"] == true
+      refute Map.has_key?(definition["_meta"], "anthropic/searchHint")
+    end
   end
 
-  test "chat_surface includes documents_propose not specs_propose" do
-    surface = MapSet.new(CoreToolRoles.chat_surface())
-    assert "skill_get" in surface
-    assert "skill_save" in surface
-    assert "create_work" in surface
-    assert "resolve_user_task" in surface
-    assert "ask" in surface
-    assert "set_memory_status" in surface
-    assert "documents_propose" in surface
-    assert "get_person_status" in surface
-    assert "set_person_status" in surface
-    refute "specs_propose" in surface
-  end
-
-  test "eager tools prioritize ask and get_started; admin stays deferred" do
-    assert CoreToolRoles.eager_tool?("ask")
-    assert CoreToolRoles.eager_tool?("get_started")
-    assert CoreToolRoles.eager_tool?("get_present_status")
-    assert CoreToolRoles.eager_tool?("save_memory")
-    assert CoreToolRoles.eager_tool?("lock_file")
-    # Deferred chat tools — discover via searchHint, not alwaysLoad budget.
-    refute CoreToolRoles.eager_tool?("documents_propose")
-    refute CoreToolRoles.eager_tool?("list_tasks")
-    refute CoreToolRoles.eager_tool?("query")
-    refute CoreToolRoles.eager_tool?("get_logs")
-    assert hd(CoreToolRoles.eager_priority()) == "ask"
-    assert Enum.at(CoreToolRoles.eager_priority(), 1) == "get_started"
-  end
-
-  test "with_eager_meta sets alwaysLoad and searchHint for ask" do
-    tool = CoreToolRoles.with_eager_meta(%{"name" => "ask", "description" => "x"})
-    assert tool["_meta"]["anthropic/alwaysLoad"] == true
-    assert tool["_meta"]["anthropic/searchHint"] =~ "steward ask"
-
-    deferred = CoreToolRoles.with_eager_meta(%{"name" => "documents_propose", "description" => "x"})
-    refute Map.has_key?(deferred["_meta"] || %{}, "anthropic/alwaysLoad")
-    assert deferred["_meta"]["anthropic/searchHint"] =~ "steward"
-
-    admin = CoreToolRoles.with_eager_meta(%{"name" => "query", "description" => "x"})
-    refute Map.has_key?(admin, "_meta")
-  end
-
-  test "list_sort_key puts ask before other tools" do
+  test "chat tools sort before coding tools" do
     tools = [
       %{"name" => "save_memory"},
-      %{"name" => "ask"},
-      %{"name" => "get_started"},
-      %{"name" => "zzz"}
+      %{"name" => "steward_work"},
+      %{"name" => "steward_ask"},
+      %{"name" => "steward_write"}
     ]
 
     sorted = Enum.sort_by(tools, &CoreToolRoles.list_sort_key/1)
-    assert Enum.map(sorted, & &1["name"]) == ["ask", "get_started", "save_memory", "zzz"]
+
+    assert Enum.map(sorted, & &1["name"]) ==
+             ["steward_ask", "steward_write", "steward_work", "save_memory"]
   end
 end

@@ -22,131 +22,129 @@ defmodule Acs.Memory.Guidance do
   # ── Coding packet copy ──────────────────────────────────────────────
 
   @coding_workflow """
-Start: create or claim a task. Then: lock_file → work → unlock_file → save (skill_save / specs_propose for specs or documents / save_memory) → release_work → submit_task_feedback last.
-No tasks? list_tasks or wait for the next user request. Scopes: code paths OR business domains (org/domain/topic).
-"""
+  Start: create or claim a task. Then: lock_file → work → unlock_file → save (skill_save / specs_propose for specs or documents / save_memory) → release_work → submit_task_feedback last.
+  No tasks? list_tasks or wait for the next user request. Scopes: code paths OR business domains (org/domain/topic).
+  """
 
   @coding_file_locking """
-lock_file before edit; unlock_file when done (by path or task_id). 10-min auto-release. get_locked_files() to check.
-"""
+  lock_file before edit; unlock_file when done (by path or task_id). 10-min auto-release. get_locked_files() to check.
+  """
 
   @coding_memory """
-save_memory(kind, title, content, scope_path) — eternal truths only. Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom.
+  save_memory(kind, title, content, scope_path) — eternal truths only. Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom.
 
-Entity vs scope:
-- about_type person|company + about_name/about_email = who the fact is ABOUT, not who may read it
-- visibility org|team|project/personal = collaboration label / personal wall (confidential: true ⇒ personal)
-- data clearance: memories are stamped with the **writer's** authority level; readers see their level and lower (list_authority_levels). Unranked memories stay open. MCP role (admin/service) does not bypass clearance.
+  Entity vs scope:
+  - about_type person|company + about_name/about_email = who the fact is ABOUT, not who may read it
+  - visibility org|team|project/personal = collaboration label / personal wall (confidential: true ⇒ personal)
+  - data clearance: memories are stamped with the **writer's** authority level; readers see their level and lower (list_authority_levels). Unranked memories stay open. MCP role (admin/service) does not bypass clearance.
 
-Intake (LLM + heuristics) runs on every save:
-- about entity without visibility → needs_scope_choice (ask user, retry with visibility)
-- quality issues → needs_input (ask user, retry with intake_confirmed: true)
-- looks sensitive → still saves, returns suggested_sensitive note (ask if personal)
+  Intake (LLM + heuristics) runs on every save:
+  - about entity without visibility → needs_scope_choice (ask user, retry with visibility)
+  - quality issues → needs_input (ask user, retry with intake_confirmed: true)
+  - looks sensitive → still saves, returns suggested_sensitive note (ask if personal)
 
-Person directory: get_person_status / set_person_status for job title (optional directory rank). Member clearance is set on Members / set_member_authority_level.
-"""
+  Person directory: get_person_status / set_person_status for job title (optional directory rank). Member clearance is set on Members / set_member_authority_level.
+  """
 
   @chat_memory """
-save_memory — short eternal truths only.
+  steward_write(kind:"memory") saves short eternal truths; memory_kind is the truth classification.
 
-Entity vs scope:
-- about_type person|company + about_name/about_email = who the fact is ABOUT
-- visibility = who may read it (confidential: true ⇒ personal)
+  Entity vs scope:
+  - about_type person|company + about_name/about_email = who the fact is ABOUT
+  - visibility = who may read it (confidential: true ⇒ personal)
 
-Intake asks before save when scope is missing or quality is unclear. Sensitive content saves with a note asking whether to make it personal.
-Person status: get_person_status → ask once → set_person_status.
-Outdated? set_memory_status(id, "stale", notes) → save_memory corrected version.
-"""
+  Intake asks before save when scope is missing or quality is unclear. needs_scope_choice includes allowed_teams; retry team visibility with one of those names.
+  Person status: steward_ask(action:"person_status") → ask once → steward_write(kind:"person_status").
+  Outdated? steward_write(kind:"memory_status", status:"stale") → save a corrected memory.
+  """
 
   @coding_error """
-1) list_error_traces()  2) ack_error_trace(id)  3) fix → resolve_error_trace(id)  4) get_logs(level:"error") → connection_diagnostic()
-"""
+  1) list_error_traces()  2) ack_error_trace(id)  3) fix → resolve_error_trace(id)  4) get_logs(level:"error") → connection_diagnostic()
+  """
 
   @coding_tools """
-All tools callable by name. help(category, level) to list. get_logs(level: "error") when stuck.
-"""
+  All tools callable by name. help(category, level) to list. get_logs(level: "error") when stuck.
+  """
 
   @coding_specs_mismatch """
-Code differs from its module spec? Pause → identify diff → ask user which to update. Never assume one is wrong.
-"""
+  Code differs from its module spec? Pause → identify diff → ask user which to update. Never assume one is wrong.
+  """
 
   @coding_finish """
-Before release_work: pick one — skill_save (how-to) | specs_propose document_type+content (long doc) | specs_propose purpose/invariants (code spec) | save_memory (short truth). Then release_work → submit_task_feedback last. Feedback is a system review: (1) report stale/noisy memories/specs, (2) suggest improvements, (3) flag missing guidance.
-"""
+  Before release_work: pick one — skill_save (how-to) | specs_propose document_type+content (long doc) | specs_propose purpose/invariants (code spec) | save_memory (short truth). Then release_work → submit_task_feedback last. Feedback is a system review: (1) report stale/noisy memories/specs, (2) suggest improvements, (3) flag missing guidance.
+  """
 
   @coding_maintenance """
-Outdated? set_memory_status(id, "stale", notes) → save_memory corrected version → specs_propose for outdated specs/documents.
-"""
+  Outdated? set_memory_status(id, "stale", notes) → save_memory corrected version → specs_propose for outdated specs/documents.
+  """
 
   @coding_identity """
-get_present_status(agent_id: "") → assigned_agent_id. Use that name in all tool calls.
-"""
+  get_present_status(agent_id: "") → assigned_agent_id. Use that name in all tool calls.
+  """
 
   @coding_conventions """
-## Knowledge structure (coding)
-Scopes: code paths OR org/domain/topic.
-- memories — short eternal truths (save_memory)
-- specs — code module docs via specs_propose (purpose, invariants, workflows)
-- documents — long non-code artifacts via specs_propose(document_type, title, content) under documents/<type>/<slug>
-- skills — step-by-step procedures (skill_get / skill_save)
-End of task pick one primary store (how-to / long doc / code spec / short truth).
-"""
+  ## Knowledge structure (coding)
+  Scopes: code paths OR org/domain/topic.
+  - memories — short eternal truths (save_memory)
+  - specs — code module docs via specs_propose (purpose, invariants, workflows)
+  - documents — long non-code artifacts via specs_propose(document_type, title, content) under documents/<type>/<slug>
+  - skills — step-by-step procedures (skill_get / skill_save)
+  End of task pick one primary store (how-to / long doc / code spec / short truth).
+  """
 
   @specs_instructions_short """
-specs_propose: code SPEC (purpose/invariants) when module intent changed; DOCUMENT (document_type+title+content) for policy/brief/research/marketing. Not truths or how-tos. query_specs finds both.
-"""
+  specs_propose: code SPEC (purpose/invariants) when module intent changed; DOCUMENT (document_type+title+content) for policy/brief/research/marketing. Not truths or how-tos. query_specs finds both.
+  """
 
   @specs_instructions """
-specs_propose saves specs (code) and documents (non-code). Spec: purpose, invariants, workflows. Document: document_type + title + content. query_specs searches both. query_specs(undocumented: true) finds code modules missing specs only.
-"""
+  specs_propose saves specs (code) and documents (non-code). Spec: purpose, invariants, workflows. Document: document_type + title + content. query_specs searches both. query_specs(undocumented: true) finds code modules missing specs only.
+  """
 
   @skills_instructions_short """
-Skills = step-by-step how-tos. skill_get before procedural work; skill_save for repeatable workflows (deploy, MCP/debug playbook, ingest, review) — not one-off notes. Else use specs_propose or save_memory.
-"""
+  Skills = step-by-step how-tos. skill_get before procedural work; skill_save for repeatable workflows (deploy, MCP/debug playbook, ingest, review) — not one-off notes. Else use specs_propose or save_memory.
+  """
 
   @specs_instructions_chat """
-documents_propose saves long non-code artifacts (policy, brief, marketing, knowledge) via document_type + title + content. Not for truths (save_memory) or how-tos (skill_save). Prefer ingest-document skill first.
-"""
+  steward_write(kind:"document") saves long non-code artifacts via document_type + title + content. Not for short truths or how-to skills. Load the ingest-document skill first.
+  """
 
   @skills_instructions_chat """
-Skills = step-by-step playbooks. skill_get before multi-step work; skill_save after discovering a reusable procedure. Need: prerequisites, numbered steps, verification, failure recovery.
-"""
+  Skills are step-by-step playbooks. Load with steward_ask(action:"skill"); save with steward_write(kind:"skill"). Include prerequisites, numbered steps, verification, and recovery.
+  """
 
   # ── Chat packet copy ────────────────────────────────────────────────
 
   @chat_workflow """
-Retrieve with ask (memories + documents + status; default approved — pass status:"all" to include stale/proposed/etc.). Load procedures with skill_get. Optionally create_work(claim: true) for multi-step tracked work.
-Answer from ACS; if nothing matches, say so. Save: save_memory (truths), documents_propose (long documents), skill_save (how-to procedures). Mark outdated truths with set_memory_status(status:"stale").
-Feedback is a system review — not a task close. Use submit_task_feedback to: (1) report stale/wrong knowledge you found, (2) suggest improvements for Steward, (3) flag missing guidance or information gaps. No task_id needed for standalone feedback.
-"""
+  Retrieve with steward_ask(action:"search"); load procedures with action:"skill". Optionally use steward_work(action:"create", claim:true) for tracked work.
+  Answer from ACS; if nothing matches, say so. Save truths/documents/skills and status changes with the matching steward_write kind.
+  Feedback is steward_write(kind:"feedback"): report stale/wrong knowledge, improvements, and information gaps. task_id is optional for standalone feedback.
+  """
 
   @chat_store """
-ask = search · save_memory = short truths · set_memory_status = stale/deprecated · documents_propose = long documents · skill_get/skill_save = procedures.
-Prefer business scopes: org/domain/topic (e.g. acme/support/refunds).
-"""
+  steward_ask = bootstrap/retrieve · steward_write = persist/status/feedback · steward_work = reminders/coordination.
+  Prefer business scopes: org/domain/topic (e.g. acme/support/refunds).
+  """
 
   @chat_honesty """
-Never invent org policy. If ACS has no match, say so and offer to save after the user confirms.
-"""
+  Never invent org policy. If ACS has no match, say so and offer to save after the user confirms.
+  """
 
   @chat_identity """
-OAuth / MCP token chat: ACS already knows who is connected.
-get_started returns connected_user / authenticated_as / your_agent_id
-(OAuth display name, or acs_dev_ developer_name for API-key sessions).
-Include that name in ask(content_query:) when retrieving this person's memories.
-Omit agent_id on tool calls (ACS fills it) or pass exactly that value.
-Never invent a nickname. Do not call get_present_status just to discover identity.
-"""
+  OAuth / MCP token chat: ACS already knows who is connected.
+  steward_ask() returns connected_user / authenticated_as / your_agent_id.
+  Include that name in steward_ask(action:"search", content_query:) for personal context.
+  Omit agent_id on tool calls. Never invent a nickname; present_status is not needed for identity.
+  """
 
   @chat_conventions """
-## Knowledge structure (chat)
-Business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy.
-- memories — short eternal truths (save_memory)
-- documents — policies, briefs, marketing (documents_propose + document_type)
-- skills — step-by-step playbooks (skill_get / skill_save)
-Chat tools: get_started, ask, save_memory, set_memory_status, get_person_status, set_person_status, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, get_present_status, submit_task_feedback.
-Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded document.
-"""
+  ## Knowledge structure (chat)
+  Business scopes: acme/sales/pricing, acme/support/refunds, acme/policy/privacy.
+  - steward_write kind=memory — short eternal truths
+  - steward_write kind=document — policies, briefs, marketing
+  - steward_write kind=skill — step-by-step playbooks
+  Chat tools are exactly steward_ask, steward_write, steward_work; all are always loaded and called by name. Never use tool_search.
+  Ingest: steward_ask(action:\"skill\", name:\"ingest-document\") before saving a pasted/uploaded document.
+  """
 
   @doc """
   Memory save protocol for guidance packets / `_next` hints.
@@ -457,10 +455,15 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
   defp compress_knowledge(memories) do
     axioms = memories |> Enum.filter(fn m -> m.kind in ["axiom", "invariant", "decision"] end)
     warnings = memories |> Enum.filter(fn m -> m.kind == "warning" end)
-    patterns = memories |> Enum.filter(fn m -> m.kind in ["pattern", "learning", "observation"] end)
 
-    [maybe_section("Axioms", axioms), maybe_section("Warnings", warnings),
-     maybe_section("Patterns & Learnings", patterns)]
+    patterns =
+      memories |> Enum.filter(fn m -> m.kind in ["pattern", "learning", "observation"] end)
+
+    [
+      maybe_section("Axioms", axioms),
+      maybe_section("Warnings", warnings),
+      maybe_section("Patterns & Learnings", patterns)
+    ]
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n\n")
     |> String.slice(0, @knowledge_max_chars)

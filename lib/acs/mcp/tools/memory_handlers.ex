@@ -385,6 +385,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       saved: false,
       question:
         "This memory is about #{who}. At what level should it be scoped? Ask the user, then retry with visibility (or confidential: true for personal).",
+      allowed_teams: List.wrap(args["_auth_allowed_teams"]),
       options: [
         %{
           visibility: "org",
@@ -396,7 +397,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
         },
         %{
           visibility: "project",
-          label: "Project — collaboration label for a project (also pass project:); not a hard wall"
+          label:
+            "Project — collaboration label for a project (also pass project:); not a hard wall"
         },
         %{visibility: "personal", label: "Personal — only the saver can see it"}
       ],

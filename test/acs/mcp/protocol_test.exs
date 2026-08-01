@@ -103,7 +103,9 @@ defmodule Acs.MCP.ProtocolTest do
 
       assert info["name"] == "Acs MCP Server"
       assert [%{"src" => src, "mimeType" => "image/png"} | _] = info["icons"]
-      assert String.starts_with?(src, "http") or String.starts_with?(src, "data:image/png;base64,")
+
+      assert String.starts_with?(src, "http") or
+               String.starts_with?(src, "data:image/png;base64,")
     end
 
     test "chat initialize instructions include authenticated display name" do
@@ -129,7 +131,56 @@ defmodule Acs.MCP.ProtocolTest do
 
       assert instructions =~ ~s(Connected ACS user: "Nahar")
       assert instructions =~ "never invent a nickname"
-      assert instructions =~ "ask(content_query:)"
+      assert instructions =~ "steward_ask(action:\"search\", content_query:)"
+      assert instructions =~ "never use tool_search"
+    end
+
+    test "chat lists only consolidated tools and accepts a hidden legacy alias" do
+      initialize = %{
+        "jsonrpc" => "2.0",
+        "id" => 20,
+        "method" => "initialize",
+        "params" => %{"clientInfo" => %{"name" => "claude.ai", "version" => "1"}}
+      }
+
+      assert {:ok, %{"result" => _}} =
+               Protocol.handle_message(
+                 initialize,
+                 "collaborator",
+                 "acme",
+                 [],
+                 nil,
+                 nil,
+                 "Alias User"
+               )
+
+      list = %{"jsonrpc" => "2.0", "id" => 21, "method" => "tools/list", "params" => %{}}
+
+      assert {:ok, %{"result" => %{"tools" => tools}}} =
+               Protocol.handle_message(list, "collaborator", "acme", [], nil, nil, "Alias User")
+
+      assert Enum.map(tools, & &1["name"]) == ~w(steward_ask steward_write steward_work)
+      assert Enum.all?(tools, &(&1["_meta"]["anthropic/alwaysLoad"] == true))
+
+      legacy_call = %{
+        "jsonrpc" => "2.0",
+        "id" => 22,
+        "method" => "tools/call",
+        "params" => %{"name" => "get_started", "arguments" => %{}}
+      }
+
+      assert {:ok, %{"result" => %{"content" => [%{"text" => text}]}}} =
+               Protocol.handle_message(
+                 legacy_call,
+                 "collaborator",
+                 "acme",
+                 [],
+                 nil,
+                 nil,
+                 "Alias User"
+               )
+
+      assert Jason.decode!(text)["connected_user"] == "Alias User"
     end
 
     test "notifications/initialized has no JSON-RPC response body" do

@@ -36,10 +36,10 @@ defmodule Acs.Observability.AgentOps do
   @event_embedding "agent.embedding"
   @event_search "agent.search"
 
-  @retrieve_tools ~w(ask query_memories query_specs skill_get specs_get generate_guidance_packet get_started)
-  @write_tools ~w(save_memory documents_propose specs_propose skill_save set_memory_status specs_approve specs_reject)
-  @intake_tools ~w(save_memory skill_save)
-  @task_tools ~w(create_work claim_work release_work submit_task_feedback list_tasks lock_file unlock_file get_present_status)
+  @retrieve_tools ~w(steward_ask ask query_memories query_specs skill_get specs_get generate_guidance_packet get_started)
+  @write_tools ~w(steward_write save_memory documents_propose specs_propose skill_save set_memory_status specs_approve specs_reject)
+  @intake_tools ~w(steward_write save_memory skill_save)
+  @task_tools ~w(steward_work create_work claim_work release_work submit_task_feedback list_tasks lock_file unlock_file get_present_status)
 
   @doc """
   Log one MCP tool invocation.
@@ -410,8 +410,9 @@ defmodule Acs.Observability.AgentOps do
       Map.get(payload, :suggested_sensitive) || Map.get(payload, "suggested_sensitive") ||
         Map.get(intake, :suggested_sensitive) || Map.get(intake, "suggested_sensitive")
 
-    notes = Map.get(payload, :question) || Map.get(payload, "question") ||
-      Map.get(intake, :notes) || Map.get(intake, "notes")
+    notes =
+      Map.get(payload, :question) || Map.get(payload, "question") ||
+        Map.get(intake, :notes) || Map.get(intake, "notes")
 
     confirmed? = truthy?(Map.get(args, "intake_confirmed") || Map.get(args, :intake_confirmed))
 
@@ -542,10 +543,12 @@ defmodule Acs.Observability.AgentOps do
   defp result_status(other),
     do: {"unknown", "unexpected_result", inspect(other)}
 
+  defp result_count("steward_ask", {:ok, %{summary: summary}}) when is_map(summary) do
+    sum_counts(summary)
+  end
+
   defp result_count("ask", {:ok, %{summary: summary}}) when is_map(summary) do
-    (Map.get(summary, :memory_count) || Map.get(summary, "memory_count") || 0) +
-      (Map.get(summary, :document_count) || Map.get(summary, "document_count") || 0) +
-      (Map.get(summary, :skill_count) || Map.get(summary, "skill_count") || 0)
+    sum_counts(summary)
   end
 
   defp result_count("query_memories", {:ok, payload}) when is_map(payload) do
@@ -571,7 +574,9 @@ defmodule Acs.Observability.AgentOps do
   end
 
   defp result_count("generate_guidance_packet", {:ok, payload}) when is_map(payload) do
-    memories = list_len(payload, [:relevant_memories, "relevant_memories", :memories, "memories"]) || 0
+    memories =
+      list_len(payload, [:relevant_memories, "relevant_memories", :memories, "memories"]) || 0
+
     skills = list_len(payload, [:relevant_skills, "relevant_skills"]) || 0
     specs = list_len(payload, [:relevant_specs, "relevant_specs"]) || 0
     memories + skills + specs
@@ -582,6 +587,12 @@ defmodule Acs.Observability.AgentOps do
   end
 
   defp result_count(_, _), do: nil
+
+  defp sum_counts(summary) do
+    (Map.get(summary, :memory_count) || Map.get(summary, "memory_count") || 0) +
+      (Map.get(summary, :document_count) || Map.get(summary, "document_count") || 0) +
+      (Map.get(summary, :skill_count) || Map.get(summary, "skill_count") || 0)
+  end
 
   defp list_len(payload, keys) do
     Enum.find_value(keys, fn key ->

@@ -42,6 +42,9 @@ defmodule Acs.MCP.CoreToolRoles do
   )
 
   @admin_collaborator ~w(
+    steward_ask
+    steward_write
+    steward_work
     get_started
     claim_work
     release_work
@@ -75,44 +78,21 @@ defmodule Acs.MCP.CoreToolRoles do
     app_list
   )
 
-  # Curated tools for chat connectors — must match chat system prompt / guidance.
-  # Chat says "documents", not "specs" — use documents_propose (alias of specs_propose).
-  # set_memory_status on chat is limited to stale/deprecated in MemoryHandlers.
+  # Consolidated chat-only façade. Fine-grained names remain available to coding
+  # clients and are accepted as non-advertised chat aliases for one release.
   @chat_surface ~w(
-    get_started
-    ask
-    save_memory
-    set_memory_status
-    get_person_status
-    set_person_status
-    documents_propose
-    skill_get
-    skill_save
-    create_work
-    claim_work
-    release_work
-    list_tasks
-    resolve_user_task
-    get_present_status
-    submit_task_feedback
+    steward_ask
+    steward_write
+    steward_work
   )
 
-  # Ordered alwaysLoad list. Claude truncates large alwaysLoad budgets — put
-  # ask + get_started first so they survive. Keep this ~10 tools max.
-  # Remaining chat_surface tools stay discoverable via searchHint.
+  @chat_only @chat_surface
+
+  # The complete chat surface is always loaded; chat does not use Tool Search.
   @eager_priority ~w(
-    ask
-    get_started
-    get_present_status
-    save_memory
-    skill_get
-    create_work
-    claim_work
-    release_work
-    submit_task_feedback
-    lock_file
-    unlock_file
-    help
+    steward_ask
+    steward_write
+    steward_work
   )
 
   @search_hints %{
@@ -214,8 +194,10 @@ defmodule Acs.MCP.CoreToolRoles do
 
   def authorized?(_, _, _), do: false
 
-  defp audience_allows?(_name, audience) when audience in [nil, :coding, "coding", :mcp, "mcp"],
-    do: true
+  defp audience_allows?(_name, nil), do: true
+
+  defp audience_allows?(name, audience) when audience in [:coding, "coding", :mcp, "mcp"],
+    do: name not in @chat_only
 
   defp audience_allows?(name, audience) when audience in [:chat, "chat", :knowledge, "knowledge"],
     do: chat_tool?(name)
