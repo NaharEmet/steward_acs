@@ -82,9 +82,9 @@ defmodule Acs.MCP.Tools.UserTasksHandlersTest do
 
     assert is_list(packet.pending_reminders)
     assert Enum.any?(packet.pending_reminders, &(&1.id == task_id))
-    assert packet.pending_reminders_guidance =~ "resolve_user_task"
+    assert packet.pending_reminders_guidance =~ "steward_work"
     assert packet.user_task_protocol =~ "remind_later"
-    assert packet.get_started =~ "pending_reminders"
+    assert packet.get_started =~ "Pending reminders"
 
     assert {:error, snooze_msg} =
              Tools.call_tool(

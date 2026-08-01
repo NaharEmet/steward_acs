@@ -1,5 +1,5 @@
-Skills = step-by-step playbooks other agents can follow.
+Skills are reusable step-by-step playbooks.
 
-USE WHEN a repeatable procedure (support flow, onboarding, ingest, review). skill_get before multi-step work; skill_save after discovering one.
+Load before multi-step work with `steward_ask(action: "skill", ...)`; save a discovered procedure with `steward_write(kind: "skill", name:, content:)`.
 
-Pick one: skill_save (how-to) | documents_propose (long docs) | save_memory (short truths). Save before release_work.
+Pick one write kind: `skill` (how-to) | `document` (long artifact) | `memory` (short truth). Save before `steward_work(action: "release")`.

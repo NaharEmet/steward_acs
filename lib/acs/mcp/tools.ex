@@ -1,5 +1,6 @@
 defmodule Acs.MCP.Tools do
   @moduledoc "MCP Tool definitions and implementations for Acs."
+  alias Acs.MCP.Tools.ChatSurface
   alias Acs.MCP.Tools.CoreHandlers
   alias Acs.MCP.Tools.DynamicTools
   alias Acs.MCP.Tools.MemoryHandlers
@@ -13,6 +14,10 @@ defmodule Acs.MCP.Tools do
   require Logger
 
   @tool_categories %{
+    # Consolidated chat-only façade tools
+    "steward_ask" => "knowledge",
+    "steward_write" => "knowledge",
+    "steward_work" => "acs_core",
     # ACS Core (workflow) tools
     "claim_work" => "acs_core",
     "release_work" => "acs_core",
@@ -80,6 +85,9 @@ defmodule Acs.MCP.Tools do
 
   def list_tools do
     [
+      ChatSurface.steward_ask_def(),
+      ChatSurface.steward_write_def(),
+      ChatSurface.steward_work_def(),
       tool_def(
         "get_started",
         "Steward startup packet. Call first — returns connected_user (OAuth display name or acs_dev_ developer_name). Include that name in ask when fetching their memories. Omit agent_id on tool calls; never invent a nickname.",
@@ -149,7 +157,8 @@ defmodule Acs.MCP.Tools do
           },
           "kind" => %{
             "type" => "string",
-            "description" => "\"user\" for timed reminders, or omit/\"coordination\" for agent work"
+            "description" =>
+              "\"user\" for timed reminders, or omit/\"coordination\" for agent work"
           },
           "assignee" => %{
             "type" => "string",
@@ -158,7 +167,8 @@ defmodule Acs.MCP.Tools do
           },
           "due_at" => %{
             "type" => "string",
-            "description" => "User tasks: when the work is for (ISO-8601). Required with kind=user."
+            "description" =>
+              "User tasks: when the work is for (ISO-8601). Required with kind=user."
           },
           "remind_at" => %{
             "type" => "string",
@@ -387,7 +397,10 @@ defmodule Acs.MCP.Tools do
               "org (default) | team | project | personal. personal = only the creator can read it."
           },
           "team" => %{"type" => "string", "description" => "Required when visibility=team"},
-          "project" => %{"type" => "string", "description" => "Required when visibility=project"},
+          "project" => %{
+            "type" => "string",
+            "description" => "Required when visibility=project"
+          },
           "confidential" => %{
             "type" => "boolean",
             "description" => "Shortcut for visibility=personal (creator-only)."
@@ -732,7 +745,8 @@ defmodule Acs.MCP.Tools do
         %{
           "task_id" => %{
             "type" => "string",
-            "description" => "Optional task slug (e.g. fix-login-bug). Omit for standalone feedback without a task."
+            "description" =>
+              "Optional task slug (e.g. fix-login-bug). Omit for standalone feedback without a task."
           },
           "agent_id" => %{
             "type" => "string",
@@ -746,11 +760,13 @@ defmodule Acs.MCP.Tools do
           },
           "had_issues" => %{
             "type" => "string",
-            "description" => "What issues or obstacles did you encounter? Use this for: bugs, confusing guidance, things that wasted your time."
+            "description" =>
+              "What issues or obstacles did you encounter? Use this for: bugs, confusing guidance, things that wasted your time."
           },
           "improvements" => %{
             "type" => "string",
-            "description" => "What could Steward do better? Use this for: feature requests, workflow improvements, missing capabilities."
+            "description" =>
+              "What could Steward do better? Use this for: feature requests, workflow improvements, missing capabilities."
           },
           "tools_wish_list" => %{
             "type" => "string",
@@ -758,7 +774,8 @@ defmodule Acs.MCP.Tools do
           },
           "info_needed" => %{
             "type" => "string",
-            "description" => "What information was hard to find? Use this for: missing docs, poor search results, knowledge gaps."
+            "description" =>
+              "What information was hard to find? Use this for: missing docs, poor search results, knowledge gaps."
           },
           "guidance_useful" => %{
             "type" => "boolean",
@@ -1033,6 +1050,9 @@ defmodule Acs.MCP.Tools do
   end
 
   @simple_dispatch %{
+    "steward_ask" => &ChatSurface.steward_ask/1,
+    "steward_write" => &ChatSurface.steward_write/1,
+    "steward_work" => &ChatSurface.steward_work/1,
     "claim_work" => &CoreHandlers.acs_claim_work/1,
     "release_work" => &CoreHandlers.acs_release_work/1,
     "create_work" => &CoreHandlers.acs_create_work/1,
@@ -1128,7 +1148,9 @@ defmodule Acs.MCP.Tools do
             end
         end
 
-      decorated = add_next(name, args, result)
+      next_name = ChatSurface.routed_tool(name, args) || name
+      next_args = ChatSurface.canonical_args(name, args)
+      decorated = add_next(next_name, next_args, result)
       Logger.info("MCP tool response: #{name} - #{tool_response_summary(name, decorated)}")
       decorated
     end
@@ -1158,6 +1180,7 @@ defmodule Acs.MCP.Tools do
   end
 
   defp blank_agent_id?(nil), do: true
+
   defp blank_agent_id?(id) when is_binary(id) do
     trimmed = String.trim(id)
     trimmed == "" or trimmed == "unknown"
@@ -1508,7 +1531,8 @@ defmodule Acs.MCP.Tools do
         [
           %{
             tool: "skill_save",
-            prompt: "Followed a step-by-step workflow with the user? Save it now before feedback",
+              prompt:
+                "Followed a step-by-step workflow with the user? Save it now before feedback",
             params: %{
               name: "<kebab-case-name>",
               content: "# Steps\n1. ...\n2. ...",
@@ -1522,8 +1546,15 @@ defmodule Acs.MCP.Tools do
             tool: "save_memory",
             prompt:
               "Save eternal truths (principles/invariants) discovered during this task — read memory_protocol first",
-            params: %{kind: "learning", title: "...", content: "...", scope_path: "<scope_path>"},
-            guidance: %{memory_protocol: Acs.Memory.Guidance.memory_protocol(args["_auth_audience"])}
+              params: %{
+                kind: "learning",
+                title: "...",
+                content: "...",
+                scope_path: "<scope_path>"
+              },
+              guidance: %{
+                memory_protocol: Acs.Memory.Guidance.memory_protocol(args["_auth_audience"])
+              }
           },
           %{
             tool: "specs_propose",
@@ -1735,7 +1766,10 @@ defmodule Acs.MCP.Tools do
               tool: "submit_task_feedback",
               prompt:
                 "Results not quite right? Flag stale or noisy memories in feedback so Steward improves",
-              params: %{agent_id: agent_id, info_needed: "Search for '<query>' returned poor results"}
+                params: %{
+                  agent_id: agent_id,
+                  info_needed: "Search for '<query>' returned poor results"
+                }
             }
           ]
         end
@@ -1916,7 +1950,10 @@ defmodule Acs.MCP.Tools do
             tool: "submit_task_feedback",
             prompt:
               "Found outdated or missing specs? Flag them in feedback to improve the knowledge base",
-            params: %{agent_id: agent_id, info_needed: "Spec search results were incomplete or outdated"}
+              params: %{
+                agent_id: agent_id,
+                info_needed: "Spec search results were incomplete or outdated"
+              }
           }
         ]
 
@@ -1935,8 +1972,7 @@ defmodule Acs.MCP.Tools do
           [
             %{
               tool: "save_memory",
-              prompt:
-                "No results — document your knowledge so others find it",
+                prompt: "No results — document your knowledge so others find it",
               params: %{
                 kind: "learning",
                 title: "...",
@@ -2158,10 +2194,13 @@ defmodule Acs.MCP.Tools do
 
   defp maybe_attach_memory_guidance(step, _args), do: step
 
-  defp rewrite_chat_next_tool(%{tool: "specs_propose"} = step),
-    do: %{step | tool: "documents_propose"}
+  defp rewrite_chat_next_tool(%{tool: "specs_propose"} = step) do
+    step
+    |> Map.put(:tool, "documents_propose")
+    |> ChatSurface.consolidate_step()
+  end
 
-  defp rewrite_chat_next_tool(step), do: step
+  defp rewrite_chat_next_tool(step), do: ChatSurface.consolidate_step(step)
 
   defp relevant_skill_steps(guidance, fallback_title) do
     skills = Map.get(guidance, :relevant_skills) || []

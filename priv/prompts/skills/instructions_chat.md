@@ -1,48 +1,11 @@
-Skills are step-by-step guides for repeatable tasks. Load them before multi-step work and save them when you discover a useful procedure (support flows, onboarding, ingest, review — not one-off notes).
+Skills are step-by-step guides for repeatable tasks. Load them before multi-step work and save them when you discover a reusable procedure.
 
-## Loading skills
+## Loading
 
-- `skill_get(name: "deployment")` — load one skill by name
-- `skill_get(scope_path: "acme/support")` — list skills for a domain
-- `skill_get(search: "deploy database")` — keyword search
-- `skill_get()` — full catalog of all skills
+Use `steward_ask(action: "skill", name: ...)`, `search: ...`, `tag: ...`, or `scope_path: ...`. Omit selectors for the catalog.
 
-## Saving skills
+## Saving
 
-Call `skill_save` when you walk through a repeatable procedure:
+Use `steward_write(kind: "skill", name:, content:)`. A strong skill includes prerequisites, numbered steps, verification, failure recovery, and concrete examples. Add `description`, `when_to_use`, `tags`, and `scope_paths` when useful.
 
-```
-skill_save(
-  name: "my-workflow",
-  description: "What this covers (one sentence, differs from name)",
-  tags: ["deployment", "ops"],
-  scope_paths: ["acme/ops"],
-  content: "## When to use\n…\n## Prerequisites\n…\n## Steps\n1. …\n## Verification\n…\n## Failure recovery\n…"
-)
-```
-
-## What to store where
-
-- **skill_save** — step-by-step procedures (must have numbered steps)
-- **save_memory** — short eternal truths (principles, decisions, invariants)
-- **documents_propose** — long documents (policies, briefs, research, reports)
-
-Save before `release_work`.
-
-## What makes a good skill
-
-- Numbered steps — the agent needs an order to follow
-- Exact question/response templates for conversational flows
-- Prerequisites listed upfront
-- Failure recovery: "If X happens, do Y instead"
-- Verification: how to confirm the task completed
-- Concrete examples, not placeholders
-
-## What to avoid
-
-- One-liners or "ask the user" — not actionable
-- Single-conversation notes (not reusable)
-- Vague content without specific examples
-- No numbered steps
-- Missing failure recovery
-- Description that repeats the name or first content line
+Choose one write kind: `skill` for procedures, `memory` for short durable truths, or `document` for long artifacts. Save before `steward_work(action: "release")` on tracked work.

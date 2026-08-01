@@ -36,10 +36,9 @@ defmodule Acs.MCP.Tools.AgentIdentityTest do
     assert Map.get(result, :agent_id) == "Nahar" or Map.get(result, :assigned_agent_id) == "Nahar"
   end
 
-  test "chat get_started returns authenticated_as from OAuth" do
+  test "chat steward_ask bootstrap returns authenticated identity and three-tool packet" do
     assert {:ok, packet} =
-             Tools.call_tool("get_started", %{
-               "audience" => "chat",
+             Tools.call_tool("steward_ask", %{
                "_auth_agent_id" => "Nahar",
                "_auth_role" => "member",
                "_auth_audience" => "chat"
@@ -49,11 +48,12 @@ defmodule Acs.MCP.Tools.AgentIdentityTest do
     assert packet.authenticated_as == "Nahar"
     assert packet.your_agent_id == "Nahar"
     assert packet.agent_identity =~ "Nahar"
-    assert packet.get_started =~ "Connected user: \"Nahar\""
-    assert packet.get_started =~ "Do not call get_present_status just to learn who you are"
+    assert packet.get_started =~ "steward_ask"
     assert packet.pending_reminders == []
     assert is_binary(packet.user_task_protocol)
-    assert packet.pending_reminders_guidance =~ "list_tasks"
+    assert packet.pending_reminders_guidance =~ "steward_work"
+    assert Enum.map(packet.tools, & &1.tool) == ~w(steward_ask steward_write steward_work)
+    assert Enum.all?(packet._next, &(&1.tool in ~w(steward_ask steward_write steward_work)))
   end
 
   test "coding get_started returns connected_user from MCP token developer_name" do

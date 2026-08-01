@@ -350,8 +350,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       your_agent_id: you,
       general:
         "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings (skills / documents / specs / memories), then release. Scopes may be code paths or business domains (org/domain/topic). Every response includes `_next` with suggested next tools.",
-      get_started:
-        coding_get_started_steps(you),
+      get_started: coding_get_started_steps(you),
       agent_identity: identity,
       org_knowledge_conventions:
         "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=short truths, specs=code module docs via specs_propose, documents=long non-code via specs_propose(document_type,title,content) under documents/<type>/<slug>, skills=procedures via skill_save. End of task pick one primary store.",
@@ -464,37 +463,21 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     org = authenticated_org(args)
 
     pending =
-      if is_binary(you) do
-        Acs.UserTasks.pending_reminders(you, org)
-      else
-        []
-      end
+      if is_binary(you), do: Acs.UserTasks.pending_reminders(you, org), else: []
 
     identity_line =
       if you do
-        "Connected ACS user: \"#{you}\" (OAuth display name or MCP token developer_name). That is who this session is for. Omit agent_id on tool calls (ACS fills it) or pass exactly \"#{you}\". Never invent a nickname. When retrieving their context, ask with their name — e.g. ask(content_query: \"#{you}\") or include \"#{you}\" in the query."
+        "Connected ACS user: \"#{you}\". Start with steward_ask() and include this name in personal searches. Omit agent_id; never invent a nickname."
       else
-        "Connected user unknown on this session — call get_present_status(agent_id: \"\") once, then use assigned_agent_id."
+        "Connected user unknown on this session. steward_ask() still returns the startup packet; do not invent an identity."
       end
 
     reminder_step =
-      if pending != [] do
-        " 0) pending_reminders are due — briefly surface them and offer resolve_user_task (done / dismiss / remind_later with a new remind_at)"
-      else
+      if pending == [] do
         ""
-      end
-
-    started =
-      if you do
-        "Connected user: \"#{you}\".#{reminder_step} 1) ask(content_query:) — include \"#{you}\" when searching this person's memories/status  2) skill_get(search:) — find procedures  3) answer from ACS  4) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  5) timed reminders: create_work(kind:\"user\", due_at, remind_at) — NOT claim/lock  6) optional multi-step tracked work: create_work(claim: true) → save → release_work → submit_task_feedback last. Simple Q&A: no feedback required. Do not call list_tasks unless the user asks about tasks. Do not call get_present_status just to learn who you are."
       else
-        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  6) timed reminders: create_work(kind:\"user\", due_at, remind_at)  7) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback last. Simple Q&A: standalone submit_task_feedback without task_id. Do not call list_tasks unless asked."
+        " Pending reminders are due: surface them and offer steward_work(action:\"resolve_reminder\", outcome: done|dismiss|remind_later)."
       end
-
-    ask_example =
-      if you, do: "#{you}", else: "..."
-
-    person_name = if you, do: you, else: "..."
 
     %{
       audience: :chat,
@@ -503,112 +486,37 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       your_agent_id: you,
       pending_reminders: pending,
       pending_reminders_guidance:
-        "If pending_reminders is non-empty, tell the user about each item (title, due_at). Resolve with resolve_user_task(outcome: done|dismiss|remind_later). remind_later REQUIRES a new remind_at — if the user does not give a time, ask them for one before calling. Do NOT call list_tasks for these — they are already here. Only call list_tasks(kind:\"user\") when the user explicitly asks to see tasks / someone else's tasks.",
+        "If non-empty, tell the user about each reminder. Resolve with steward_work(action:\"resolve_reminder\"). remind_later requires a new remind_at. Do not list tasks for reminders already present here.",
       general:
-        "ACS chat surface: retrieve with ask; save truths (save_memory), documents (documents_propose), and procedures (skill_save). Prefer business scopes (org/domain/topic). Timed personal reminders: create_work(kind:\"user\", due_at, remind_at). Multi-step agent work: create_work(claim: true).",
-      get_started: started,
+        "ACS chat has exactly three always-loaded tools: steward_ask (bootstrap/retrieve), steward_write (persist/status/feedback), and steward_work (reminders/coordination). Never use tool_search.",
+      get_started:
+        "1) steward_ask(action:\"search\", content_query:) and/or action:\"skill\"  2) answer from ACS  3) steward_write as needed  4) reminders/coordination via steward_work.#{reminder_step}",
       agent_identity: identity_line,
       org_knowledge_conventions:
-        "Business scopes: acme/sales/pricing, acme/support/refunds. memories=truths, documents=long artifacts via documents_propose, skills=procedures via skill_save. Never invent org policy when ask returns nothing. Save knowledge first → release_work → submit_task_feedback. Standalone feedback (learned_for_agents, had_issues, improvements, info_needed) also works without task_id.",
+        "Business scopes use org/domain/topic. steward_write kind=memory stores short truths, kind=document stores long artifacts, kind=skill stores procedures. Save before release; feedback is last for tracked work.",
       memory_protocol: Acs.Memory.Guidance.memory_protocol(:chat),
       user_task_protocol: user_task_protocol(),
       tools: [
-        %{tool: "get_started", description: "Startup packet — returns connected_user + pending_reminders", params: %{audience: "chat"}},
         %{
-          tool: "ask",
-          description: "Search memories, documents, and agent status (include connected_user name for personal context)",
-          params: %{content_query: ask_example}
+          tool: "steward_ask",
+          description: "Bootstrap and retrieve",
+          params: %{action: "search", content_query: you || "..."}
         },
         %{
-          tool: "get_person_status",
-          description: "Look up person job status + rank",
-          params: %{name: person_name}
-        },
-        %{
-          tool: "set_person_status",
-          description: "Save person status on first encounter",
-          params: %{name: person_name, status: "CEO", rank: "high"}
-        },
-        %{
-          tool: "skill_get",
-          description: "Find or load a procedure (how-to). Try name: ingest-document",
-          params: %{search: "ingest"}
-        },
-        %{
-          tool: "save_memory",
-          description: "Store a durable org truth (see memory_protocol before calling)",
+          tool: "steward_write",
+          description: "Persist knowledge, status, or feedback",
           params: %{
-            kind: "decision",
+            kind: "memory",
+            memory_kind: "decision",
             title: "...",
             content: "...",
             scope_path: "org/domain/topic"
           }
         },
         %{
-          tool: "documents_propose",
-          description: "Save a long document (policy, brief, marketing)",
-          params: %{
-            app: "<org>",
-            path: "documents/policy/<slug>",
-            document_type: "policy",
-            title: "...",
-            content: "..."
-          }
-        },
-        %{
-          tool: "skill_save",
-          description: "Save a reusable step-by-step procedure",
-          params: %{
-            name: "...",
-            description: "...",
-            content: "...",
-            tags: ["..."],
-            scope_paths: ["org/domain"]
-          }
-        },
-        %{
-          tool: "create_work",
-          description:
-            "Timed reminder: kind=user + due_at + remind_at (ISO-8601). Multi-step agent work: claim=true (no times).",
-          params: %{
-            title: "...",
-            kind: "user",
-            due_at: "2026-08-02T15:00:00Z",
-            remind_at: "2026-08-02T09:00:00Z"
-          }
-        },
-        %{
-          tool: "list_tasks",
-          description:
-            "ONLY when user asks about tasks. kind=user for reminders (optional for_user). Omit kind for coordination todos.",
-          params: %{kind: "user", status_filter: "todo"}
-        },
-        %{
-          tool: "resolve_user_task",
-          description:
-            "Close or snooze a user reminder. outcome: done | dismiss | remind_later. remind_later REQUIRES remind_at.",
-          params: %{task_id: "<id>", outcome: "done"}
-        },
-        %{
-          tool: "claim_work",
-          description: "Claim an existing coordination task (returns guidance)",
-          params: %{task_id: "<slug>"}
-        },
-        %{
-          tool: "release_work",
-          description: "Release a claimed coordination task before feedback",
-          params: %{task_id: "<slug>"}
-        },
-        %{
-          tool: "submit_task_feedback",
-          description:
-            "Last step after release_work — formally close a claimed task, or standalone feedback without task_id. Categories: learned_for_agents (insights), had_issues (bugs), improvements (feature requests), info_needed (missing docs).",
-          params: %{
-            task_id: "<slug or omit for standalone>",
-            learned_for_agents: "What future sessions should know",
-            had_issues: "What went wrong",
-            improvements: "Suggestions for Steward"
-          }
+          tool: "steward_work",
+          description: "Create reminders or coordinate tracked work",
+          params: %{action: "create", kind: "user", title: "...", due_at: "...", remind_at: "..."}
         }
       ]
     }
@@ -621,16 +529,16 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     USE WHEN the human wants a timed todo/reminder (meeting prep, follow-up, deadline).
     Do NOT use claim_work / release_work / file locks for these.
 
-    Create: create_work(kind: "user", title, due_at, remind_at) — both times required (ISO-8601).
+    Create: steward_work(action: "create", kind: "user", title, due_at, remind_at) — both times required (ISO-8601).
     Assignee defaults to connected_user. Assigning someone else requires strictly higher clearance.
-    After remind_at, every get_started for that user includes the task in pending_reminders until resolved.
+    After remind_at, every steward_ask() startup packet includes the task until resolved.
 
-    Resolve: resolve_user_task(task_id, outcome):
+    Resolve: steward_work(action: "resolve_reminder", task_id, outcome):
     - done — completed
     - dismiss — cancelled
     - remind_later — MUST pass remind_at; if the user gave no time, ask them before calling
 
-    List: list_tasks(kind: "user") only when the user asks to see tasks. Optional for_user for managers (same/higher clearance). Never dump org tasks unprompted.
+    List: steward_ask(action: "list_tasks", kind: "user") only when the user asks. Optional for_user requires clearance. Never dump tasks unprompted.
     """
     |> String.trim()
   end
@@ -719,7 +627,9 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         [org: org, for_user: args["for_user"], status: args["status_filter"]]
         |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
         |> then(fn o ->
-          if is_integer(viewer_order), do: Keyword.put(o, :viewer_sort_order, viewer_order), else: o
+          if is_integer(viewer_order),
+            do: Keyword.put(o, :viewer_sort_order, viewer_order),
+            else: o
         end)
 
       case Acs.UserTasks.list(viewer, opts) do

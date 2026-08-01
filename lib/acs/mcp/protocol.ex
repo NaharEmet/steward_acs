@@ -312,9 +312,20 @@ defmodule Acs.MCP.Protocol do
          agent_allowed_projects,
          agent_identity
        ) do
-    name = params["name"]
-
+    requested_name = params["name"]
     requested_arguments = params["arguments"] || %{}
+    audience = Acs.MCP.ClientSession.resolve_audience(agent_identity)
+
+    {name, requested_arguments} =
+      if is_map(requested_arguments) do
+        Acs.MCP.Tools.ChatSurface.normalize_legacy_call(
+          requested_name,
+          requested_arguments,
+          audience
+        )
+      else
+        {requested_name, requested_arguments}
+      end
 
     resource_org =
       if is_map(requested_arguments),
@@ -342,7 +353,7 @@ defmodule Acs.MCP.Protocol do
       allowed_projects: agent_allowed_projects,
       agent_id: agent_id,
       attribution_id: attribution_id,
-      audience: Acs.MCP.ClientSession.resolve_audience(agent_identity),
+      audience: audience,
       audience_source: Acs.MCP.ClientSession.resolve_audience_source(agent_identity),
       client_name: Acs.MCP.ClientSession.resolve_client_name(agent_identity),
       mcp_endpoint: Acs.MCP.ClientSession.resolve_mcp_endpoint(agent_identity)
@@ -463,24 +474,26 @@ defmodule Acs.MCP.Protocol do
   end
 
   defp audience_instructions(:chat, agent_identity) do
-    base = """
-    ACS audience: chat. Curated tools only: get_started, ask, save_memory, set_memory_status, get_person_status, set_person_status, documents_propose, skill_get, skill_save, create_work, claim_work, release_work, list_tasks, resolve_user_task, get_present_status, submit_task_feedback. Retrieve with ask (default approved memories; status:\"all\" for every status); save truths with save_memory; mark outdated with set_memory_status(status:\"stale\"); save long docs with documents_propose; save procedures with skill_save. Timed reminders: create_work(kind:\"user\", due_at, remind_at) — get_started returns pending_reminders after remind_at; resolve with resolve_user_task(done|dismiss|remind_later). remind_later needs remind_at. list_tasks only when the user asks about tasks. Prefer business scopes (org/domain/topic). Before save_memory, follow memory_protocol from get_started / claim guidance. Claimed coordination tasks: save → release_work → submit_task_feedback(learned_for_agents:) last; simple Q&A needs no feedback. Connect via /mcp/chat/sse.
-    """
-    |> String.trim()
+    base =
+      """
+        ACS audience: chat. Exactly three tools are available and always loaded: steward_ask (bootstrap/retrieve), steward_write (persist/status/feedback), and steward_work (reminders/coordination). Call them directly; never use tool_search. Start with steward_ask() to get connected_user and pending_reminders. Retrieve with steward_ask(action:\"search\", content_query:); load procedures with action:\"skill\". Save truths/documents/skills or feedback with steward_write(kind:...). Timed reminders use steward_work(action:\"create\", kind:\"user\", due_at:, remind_at:); resolve with action:\"resolve_reminder\". List tasks only when asked via steward_ask(action:\"list_tasks\"). Prefer business scopes (org/domain/topic). Claimed work: save → steward_work(action:\"release\") → steward_write(kind:\"feedback\") last. Connect via /mcp/chat/sse.
+      """
+      |> String.trim()
 
     if usable_agent_identity?(agent_identity) do
       base <>
-        " Connected ACS user: \"#{agent_identity}\" (OAuth display name or MCP token developer_name). Call get_started first — it returns connected_user. When asking for this person's memories/status, include \"#{agent_identity}\" in ask(content_query:). Omit agent_id on tool calls or pass exactly that value; never invent a nickname."
+        " Connected ACS user: \"#{agent_identity}\" (OAuth display name or MCP token developer_name). Call steward_ask() first — it returns connected_user. When searching this person's context, include \"#{agent_identity}\" in steward_ask(action:\"search\", content_query:). Omit agent_id on tool calls; never invent a nickname."
     else
       base
     end
   end
 
   defp audience_instructions(_coding, agent_identity) do
-    base = """
-    ACS audience: coding agent. Create/claim tasks, lock files before edits. Save before release: skill_save (how-to procedures), specs_propose for code specs OR documents (document_type + title + content), save_memory (short truths). Scopes may be code paths or business domains (org/domain/topic). Call get_started or generate_guidance_packet(scope_path:) when entering a new area. Connect via /mcp/sse.
-    """
-    |> String.trim()
+    base =
+      """
+      ACS audience: coding agent. Create/claim tasks, lock files before edits. Save before release: skill_save (how-to procedures), specs_propose for code specs OR documents (document_type + title + content), save_memory (short truths). Scopes may be code paths or business domains (org/domain/topic). Call get_started or generate_guidance_packet(scope_path:) when entering a new area. Connect via /mcp/sse.
+      """
+      |> String.trim()
 
     if usable_agent_identity?(agent_identity) do
       base <>

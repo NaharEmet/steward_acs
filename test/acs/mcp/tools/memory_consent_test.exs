@@ -21,7 +21,13 @@ defmodule Acs.MCP.Tools.MemoryConsentTest do
   end
 
   test "about entity without visibility returns scope question" do
-    assert {:ok, %{status: "needs_scope_choice", saved: false, question: question}} =
+    assert {:ok,
+            %{
+              status: "needs_scope_choice",
+              saved: false,
+              question: question,
+              allowed_teams: ["sales", "leadership"]
+            }} =
              MemoryHandlers.save_memory(%{
                "kind" => "learning",
                "title" => "CEO preference unique #{System.unique_integer([:positive])}",
@@ -30,7 +36,8 @@ defmodule Acs.MCP.Tools.MemoryConsentTest do
                "about_type" => "person",
                "about_email" => "ceo@acme.com",
                "_auth_agent_id" => "alice@acme.com",
-               "_auth_role" => "collaborator"
+               "_auth_role" => "collaborator",
+               "_auth_allowed_teams" => ["sales", "leadership"]
              })
 
     assert question =~ "scoped"
