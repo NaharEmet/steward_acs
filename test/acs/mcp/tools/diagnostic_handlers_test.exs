@@ -47,6 +47,32 @@ defmodule Acs.MCP.Tools.DiagnosticHandlersTest do
   end
 
   describe "config_lookup/1" do
+    setup do
+      original_paths = Application.get_env(:steward_acs, :opencode_config_paths)
+      dir = Path.join(System.tmp_dir!(), "acs_config_lookup_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+
+      project = Path.join(dir, "opencode.json")
+      global = Path.join(dir, "global.json")
+
+      File.write!(project, Jason.encode!(%{"plugin" => ["./.opencode/plugins/ponytail.mjs"]}))
+      File.write!(global, Jason.encode!(%{"mcp" => %{"acs" => %{"url" => "http://x", "x-api-key" => "secret-abc"}}}))
+
+      Application.put_env(:steward_acs, :opencode_config_paths, [project, global])
+
+      on_exit(fn ->
+        if original_paths do
+          Application.put_env(:steward_acs, :opencode_config_paths, original_paths)
+        else
+          Application.delete_env(:steward_acs, :opencode_config_paths)
+        end
+
+        File.rm_rf!(dir)
+      end)
+
+      :ok
+    end
+
     test "returns merged project + global opencode config for all" do
       assert {:ok, config} = DiagnosticHandlers.config_lookup(%{"path" => "all"})
 
@@ -64,6 +90,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlersTest do
       assert {:ok, config} = DiagnosticHandlers.config_lookup(%{"path" => "all"})
 
       assert Jason.encode!(config) =~ "***redacted***"
+      refute Jason.encode!(config) =~ "secret-abc"
     end
   end
 

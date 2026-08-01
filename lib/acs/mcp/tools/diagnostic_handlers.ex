@@ -119,11 +119,19 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   defp redact_config(value), do: value
 
   defp load_opencode_config do
-    project_path = Path.join(File.cwd!(), "opencode.json")
-    global_path = Path.join([System.user_home!(), ".config", "opencode", "opencode.json"])
+    paths =
+      case Application.get_env(:steward_acs, :opencode_config_paths) do
+        paths when is_list(paths) and paths != [] ->
+          paths
+
+        _ ->
+          project_path = Path.join(File.cwd!(), "opencode.json")
+          global_path = Path.join([System.user_home!(), ".config", "opencode", "opencode.json"])
+          [project_path, global_path]
+      end
 
     configs =
-      [project_path, global_path]
+      paths
       |> Enum.filter(&File.exists?/1)
       |> Enum.map(fn p -> {p, File.read!(p) |> Jason.decode()} end)
 
