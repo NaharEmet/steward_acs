@@ -49,20 +49,25 @@ trap cleanup EXIT
 
 auth_hdr=(-H "Authorization: Bearer ${SMOKE_API_KEY}" -H "Accept: application/json, text/event-stream")
 
+# Sets globals SSE_FILE/SSE_PID and writes session id into nameref $2.
+# Must not run under command substitution — that would lose the SSE curl child.
 open_sse() {
   local path="$1"
+  local -n _session_out="$2"
   SSE_FILE=$(mktemp)
   curl -NsS --max-time 90 "${auth_hdr[@]}" "${PUBLIC_URL}${path}" >"$SSE_FILE" &
   SSE_PID=$!
 
-  local session=""
+  # Do not name this local "session" — nameref $2 is often also "session"
+  # and bash circular namerefs silently break the hand-off.
+  local found=""
   for _ in $(seq 1 50); do
     if ! kill -0 "$SSE_PID" 2>/dev/null; then
       die "SSE ${path} exited early: $(head -c 400 "$SSE_FILE" 2>/dev/null || true)"
     fi
-    session=$(grep -oE 'session_id=[A-Za-z0-9_.:-]+' "$SSE_FILE" 2>/dev/null | head -1 | cut -d= -f2 || true)
-    if [[ -n "$session" ]]; then
-      echo "$session"
+    found=$(grep -oE 'session_id=[A-Za-z0-9_.:-]+' "$SSE_FILE" 2>/dev/null | head -1 | cut -d= -f2 || true)
+    if [[ -n "$found" ]]; then
+      _session_out="$found"
       return 0
     fi
     sleep 0.2
@@ -95,8 +100,10 @@ post_rpc() {
 wait_rpc_result() {
   local rpc_id="$1"
   local deadline=$((SECONDS + 20))
+  local rc
   while (( SECONDS < deadline )); do
-    if python3 - "$SSE_FILE" "$rpc_id" <<'PY'
+    set +e
+    python3 - "$SSE_FILE" "$rpc_id" <<'PY'
 import json, re, sys
 path, want_id = sys.argv[1], int(sys.argv[2])
 text = open(path, "r", errors="replace").read()
@@ -116,10 +123,11 @@ for raw in re.findall(r"(?m)^data:\s*(.+)$", text):
         sys.exit(2)
 sys.exit(1)
 PY
-    then
+    rc=$?
+    set -e
+    if [[ $rc -eq 0 ]]; then
       return 0
     fi
-    local rc=$?
     if [[ $rc -eq 2 ]]; then
       die "JSON-RPC id=${rpc_id} returned error"
     fi
@@ -131,8 +139,8 @@ PY
 list_tools_via_sse() {
   local path="$1"
   local client_name="$2"
-  local session
-  session=$(open_sse "$path")
+  local session=""
+  open_sse "$path" session
 
   post_rpc "$session" "$(python3 - <<PY
 import json
