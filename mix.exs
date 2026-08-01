@@ -56,6 +56,7 @@ defmodule Acs.MixProject do
       {:phoenix, "~> 1.8.3"},
       {:phoenix_pubsub, "~> 2.2"},
       {:phoenix_live_view, "~> 1.1"},
+      {:lazy_html, ">= 0.1.0", only: :test},
       {:phoenix_html, "~> 4.1"},
       {:file_system, "~> 1.0", override: true},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
