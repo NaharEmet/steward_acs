@@ -100,6 +100,32 @@ defmodule Acs.MCP.Tools.MemoryConsentTest do
     assert memory.visibility == "personal"
   end
 
+  test "stamps authority from the writer, not the about-person" do
+    org = Acs.Org.current()
+    Acs.AuthorityLevels.ensure_defaults!(org)
+    title = "Writer stamp unique #{System.unique_integer([:positive])}"
+
+    assert {:ok, %{id: id}} =
+             MemoryHandlers.save_memory(%{
+               "kind" => "learning",
+               "title" => title,
+               "content" => "Fact about the CEO written by a standard-clearance member",
+               "scope_path" => "acme/exec",
+               "about_type" => "person",
+               "about_email" => "ceo@acme.com",
+               "visibility" => "org",
+               "intake_confirmed" => true,
+               "_auth_agent_id" => "alice@acme.com",
+               "_auth_role" => "collaborator",
+               "_auth_authority_level" => "standard",
+               "_auth_authority_sort_order" => 3
+             })
+
+    memory = Acs.Memory.Indexer.get_memory(id, org)
+    # CEO person rank is high (1); writer clearance is standard (3).
+    assert memory.authority_sort_order == 3
+  end
+
   defp decode_tags(%{tags_json: json}) when is_binary(json) do
     case Jason.decode(json) do
       {:ok, list} when is_list(list) -> list

@@ -31,5 +31,18 @@ defmodule Acs.MCP.HTTPServerStreamableTest do
     assert get_resp_header(conn, "content-type") |> List.first() =~ "application/json"
   end
 
+  test "GET /mcp/v1/messages returns 405 so clients do not treat it as a dead session" do
+    {:ok, %{key: raw_key}} =
+      Developers.generate_key("streamable-get-test", role: "admin", org: "dev")
+
+    conn =
+      Plug.Test.conn(:get, "/mcp/v1/messages")
+      |> Plug.Conn.put_req_header("x-api-key", raw_key)
+      |> HTTPServer.call([])
+
+    assert conn.status == 405
+    assert get_resp_header(conn, "allow") == ["POST"]
+  end
+
   defp get_resp_header(conn, key), do: Plug.Conn.get_resp_header(conn, key)
 end

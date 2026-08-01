@@ -10,6 +10,8 @@ Supported setups (only these three):
 
 Agent-facing detail lives in [`priv/skills/deployment.md`](../priv/skills/deployment.md). Keep that skill current; this guide is the human index.
 
+**Testing the running system** (CI on `dev`, local boot, post-deploy smoke, extending for new features): [`guides/deployment-testing.md`](deployment-testing.md) and [`priv/skills/deployment-testing.md`](../priv/skills/deployment-testing.md).
+
 ## Local development
 
 ```bash

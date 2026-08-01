@@ -169,14 +169,14 @@ defmodule Acs.MCP.Plugs.MCPAuth do
              slug when is_binary(slug) and slug == request_org <- Map.get(org, :slug),
              {:ok, role} <- oidc_role(Map.get(user, :org_role), result.permissions) do
           # Prefer human name over Auth0 sub (email|…) / raw email for agent roster.
+          # Merge, not update syntax: strategies may omit :authority_level_slug entirely.
           {:ok,
-           %{
-             result
-             | role: role,
-               org_id: slug,
-               agent_identity: Acs.Accounts.User.display_name(user),
-               authority_level_slug: Map.get(user, :authority_level_slug)
-           }}
+           Map.merge(result, %{
+             role: role,
+             org_id: slug,
+             agent_identity: Acs.Accounts.User.display_name(user),
+             authority_level_slug: Map.get(user, :authority_level_slug)
+           })}
         else
           {:error, reason} when is_binary(reason) ->
             {:error, reason}

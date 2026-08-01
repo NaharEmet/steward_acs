@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "acs": {
+      "type": "http",
       "url": "http://localhost:4001/mcp/v1/messages",
       "headers": {
         "x-api-key": "<local-acs-api-key>"

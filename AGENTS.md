@@ -13,4 +13,6 @@ Project-specific workflows live in `guides/`. Check them before starting work:
 - [`guides/secrets.md`](guides/secrets.md) — local `.env` vs Infisical for multi-tenant prod
 - [`guides/steward-installer.md`](guides/steward-installer.md) — installing ACS for new users
 - [`guides/deployment.md`](guides/deployment.md) — local + multi-tenant prod (+ Postgres override)
+- [`guides/deployment-testing.md`](guides/deployment-testing.md) — CI + local system + post-deploy smoke (setup, extend for features, update infra)
 - [`priv/skills/steward-installer.md`](priv/skills/steward-installer.md) — installer walkthrough (`bin/setup.sh`)
+- [`priv/skills/deployment-testing.md`](priv/skills/deployment-testing.md) — agent procedure for the testing stack above

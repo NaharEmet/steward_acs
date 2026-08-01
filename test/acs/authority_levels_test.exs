@@ -31,6 +31,19 @@ defmodule Acs.AuthorityLevelsTest do
     refute AuthorityLevels.can_read?(nil, 1)
   end
 
+  test "viewer_sort_order never crashes on missing org context", %{org: org} do
+    AuthorityLevels.list(org)
+
+    assert is_integer(AuthorityLevels.viewer_sort_order(org, nil))
+    assert is_integer(AuthorityLevels.viewer_sort_order(org, "standard"))
+    assert is_integer(AuthorityLevels.viewer_sort_order(org, "not-a-level"))
+    # Cross-org auditor scans pass :all — must fail closed, not raise.
+    assert is_integer(AuthorityLevels.viewer_sort_order(:all, nil))
+
+    assert AuthorityLevels.viewer_sort_order(:all, nil) >=
+             AuthorityLevels.viewer_sort_order(org, nil)
+  end
+
   test "upsert enforces max 20 levels", %{org: org} do
     AuthorityLevels.list(org)
 

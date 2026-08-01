@@ -77,6 +77,16 @@ defmodule Acs.MCP.HTTPServer do
     handle_json_rpc_http(conn)
   end
 
+  # Streamable HTTP clients GET the endpoint to open the server→client notification
+  # stream. We only reply to POSTs, and the spec requires 405 here — a 404 is read as
+  # a terminated session, which makes clients (e.g. Cursor) tombstone the transport.
+  get "/mcp/v1/messages" do
+    conn
+    |> put_resp_header("allow", "POST")
+    |> put_resp_content_type("application/json")
+    |> send_resp(405, Jason.encode!(%{error: "Method not allowed"}))
+  end
+
   # Log ingestion from external services
   post "/api/logs/ingest" do
     body = conn.body_params
@@ -587,7 +597,11 @@ defmodule Acs.MCP.HTTPServer do
 
     case Acs.MCP.Audience.from_request(conn.request_path, conn.query_params) do
       audience when audience in [:chat, :coding] ->
-        Acs.MCP.ClientSession.seed_mcp_connect(session_id, endpoint || conn.request_path, audience)
+        Acs.MCP.ClientSession.seed_mcp_connect(
+          session_id,
+          endpoint || conn.request_path,
+          audience
+        )
 
       _ ->
         if endpoint do
@@ -603,7 +617,11 @@ defmodule Acs.MCP.HTTPServer do
 
     case Acs.MCP.Audience.from_request(conn.request_path, conn.query_params) do
       audience when audience in [:chat, :coding] ->
-        Acs.MCP.ClientSession.seed_mcp_connect(session_id, endpoint || conn.request_path, audience)
+        Acs.MCP.ClientSession.seed_mcp_connect(
+          session_id,
+          endpoint || conn.request_path,
+          audience
+        )
 
       _ ->
         # Still record the connect path for provenance when URL does not force audience.

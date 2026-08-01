@@ -113,6 +113,10 @@ Entrypoint runs `Acs.Release.migrate` on start. Manual:
 
 No `mix ecto.migrate` against the release image.
 
+## Testing stack (CI / local / smoke)
+
+Setup, how to extend for new features (especially `chat_surface`), and how to update CI/smoke infra: [`guides/deployment-testing.md`](../../guides/deployment-testing.md) and skill [`deployment-testing`](deployment-testing.md). Chat inventory smoke needs GitHub Environment `SMOKE_API_KEY`; without it health/DCR still run but chat `tools/list` is skipped.
+
 ## Smoke checks after deploy
 
 Actions/`deploy.sh` already check container health + public `/mcp/health` (and fixed DCR when configured). Still verify:

@@ -171,11 +171,15 @@ if config_env() == :prod do
 end
 
 # Empty DATABASE_PATH (postgres override) must not force SQLite.
-if (db_path = System.get_env("DATABASE_PATH")) not in [nil, ""] do
+# Never in :test — a sourced .env would point mix test at the live dev database.
+runtime_db_path =
+  if config_env() == :test, do: nil, else: System.get_env("DATABASE_PATH")
+
+if runtime_db_path not in [nil, ""] do
   config :steward_acs, :repo_adapter, Ecto.Adapters.SQLite3
 
   config :steward_acs, Acs.Repo,
-    database: db_path,
+    database: runtime_db_path,
     pool_size: String.to_integer(System.get_env("POOL_SIZE", "5"))
 end
 

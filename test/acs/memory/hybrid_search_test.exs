@@ -3,10 +3,26 @@ defmodule Acs.Memory.HybridSearchTest do
 
   alias Acs.Memory.HybridSearch
 
+  # Isolate every case in its own org so polluted default-tenant rows cannot
+  # leak into assertions that expect empty / exact memory_id sets.
+  setup do
+    org = "hybrid-#{System.unique_integer([:positive])}"
+    Acs.Org.put_request_org(org)
+    on_exit(fn -> Acs.Org.clear_request_org() end)
+    %{org: org, zero_embedding: List.duplicate(0.0, Acs.Memory.Embedding.dimensions())}
+  end
+
   describe "search/2" do
-    test "returns results from hybrid search" do
+    test "returns results from hybrid search", %{org: org, zero_embedding: embedding} do
       setup_test_memories("test_hybrid_1")
-      result = HybridSearch.search("cache release", scope: "agent_coordination_system/cache")
+
+      result =
+        HybridSearch.search("cache release",
+          scope: "agent_coordination_system/cache",
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
 
       assert is_map(result)
       assert result.query == "cache release"
@@ -16,18 +32,27 @@ defmodule Acs.Memory.HybridSearchTest do
       cleanup_test_memories("test_hybrid_1")
     end
 
-    test "respects limit parameter" do
+    test "respects limit parameter", %{org: org, zero_embedding: embedding} do
       setup_test_memories("test_hybrid_2")
-      result = HybridSearch.search("test", limit: 5)
+
+      result =
+        HybridSearch.search("test", limit: 5, org: org, embedding: embedding, log_search: false)
 
       assert length(result.results) <= 5
     after
       cleanup_test_memories("test_hybrid_2")
     end
 
-    test "filters by scope when provided" do
+    test "filters by scope when provided", %{org: org, zero_embedding: embedding} do
       setup_test_memories("test_hybrid_1")
-      result = HybridSearch.search("test", scope: "agent_coordination_system/cache")
+
+      result =
+        HybridSearch.search("test",
+          scope: "agent_coordination_system/cache",
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
 
       assert is_map(result)
       assert result.query == "test"
@@ -35,16 +60,29 @@ defmodule Acs.Memory.HybridSearchTest do
       cleanup_test_memories("test_hybrid_1")
     end
 
-    test "returns empty results for no matches" do
-      result = HybridSearch.search("xyzzy_nonexistent_query_12345", limit: 10)
+    test "returns empty results for no matches", %{org: org, zero_embedding: embedding} do
+      result =
+        HybridSearch.search("xyzzy_nonexistent_query_12345",
+          limit: 10,
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
 
       assert is_map(result)
       assert result.results == []
     end
 
-    test "drops weak content-only matches by default" do
+    test "drops weak content-only matches by default", %{org: org, zero_embedding: embedding} do
       setup_test_memories("test_hybrid_weak")
-      result = HybridSearch.search("deleting cache entries", limit: 10)
+
+      result =
+        HybridSearch.search("deleting cache entries",
+          limit: 10,
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
 
       assert is_map(result)
       assert result.results == []
@@ -52,7 +90,10 @@ defmodule Acs.Memory.HybridSearchTest do
       cleanup_test_memories("test_hybrid_weak")
     end
 
-    test "keeps title matches even when weighted total is under min_score" do
+    test "keeps title matches even when weighted total is under min_score", %{
+      org: org,
+      zero_embedding: embedding
+    } do
       attrs = %{
         "id" => "test_hybrid_title_floor",
         "kind" => "axiom",
@@ -68,9 +109,19 @@ defmodule Acs.Memory.HybridSearchTest do
       memory = Acs.Memory.new(attrs)
       Acs.Memory.Indexer.upsert_memory(memory)
 
-      result = HybridSearch.search("cache", limit: 10, min_score: 0.45, log_search: false)
+      result =
+        HybridSearch.search("cache",
+          limit: 10,
+          min_score: 0.45,
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
 
-      assert Enum.any?(result.results, &(&1.memory_id == "test_hybrid_title_floor"))
+      assert Enum.any?(
+               result.results,
+               &memory_id_matches?(&1.memory_id, "test_hybrid_title_floor")
+             )
     after
       Acs.Memory.Indexer.remove_memory("test_hybrid_title_floor")
     end
@@ -81,27 +132,50 @@ defmodule Acs.Memory.HybridSearchTest do
       assert weights.scope == 0.30
       assert weights.audience == 0.20
       assert weights.semantic == 0.25
+
       assert_in_delta weights.semantic + weights.lexical + weights.scope + weights.metadata +
                         weights.audience,
                       1.0,
                       0.0001
     end
 
-    test "honors scope_path as scope alias" do
+    test "honors scope_path as scope alias", %{org: org, zero_embedding: embedding} do
       setup_test_memories("test_hybrid_scope_path")
-      via_scope = HybridSearch.search("cache", scope: "agent_coordination_system/cache")
-      via_scope_path = HybridSearch.search("cache", scope_path: "agent_coordination_system/cache")
+
+      via_scope =
+        HybridSearch.search("cache",
+          scope: "agent_coordination_system/cache",
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
+
+      via_scope_path =
+        HybridSearch.search("cache",
+          scope_path: "agent_coordination_system/cache",
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
 
       assert via_scope.total == via_scope_path.total
     after
       cleanup_test_memories("test_hybrid_scope_path")
     end
 
-    test "uses precomputed embedding without calling Ollama" do
+    test "uses precomputed embedding without calling Ollama", %{
+      org: org,
+      zero_embedding: embedding
+    } do
       setup_test_memories("test_hybrid_embed")
-      # Zero vector: exercises :embedding opts path; Ollama may be down in CI.
-      fake = List.duplicate(0.0, Acs.Memory.Embedding.dimensions())
-      result = HybridSearch.search("cache release", embedding: fake, limit: 5, org: Acs.Org.current())
+
+      result =
+        HybridSearch.search("cache release",
+          embedding: embedding,
+          limit: 5,
+          org: org,
+          log_search: false
+        )
 
       assert is_map(result)
       assert result.query == "cache release"
@@ -112,19 +186,41 @@ defmodule Acs.Memory.HybridSearchTest do
   end
 
   describe "scoring functions" do
-    test "compute_lexical_score gives higher score for title match" do
+    test "compute_lexical_score gives higher score for title match", %{
+      org: org,
+      zero_embedding: embedding
+    } do
       setup_test_memories("test_hybrid_1")
-      result = HybridSearch.search("cache", limit: 10)
+
+      result =
+        HybridSearch.search("cache", limit: 10, org: org, embedding: embedding, log_search: false)
 
       assert is_map(result)
     after
       cleanup_test_memories("test_hybrid_1")
     end
 
-    test "compute_scope_score gives higher score for matching scope" do
+    test "compute_scope_score gives higher score for matching scope", %{
+      org: org,
+      zero_embedding: embedding
+    } do
       setup_test_memories("test_hybrid_1")
-      result1 = HybridSearch.search("test", scope: "agent_coordination_system/cache")
-      result2 = HybridSearch.search("test", scope: "other_app")
+
+      result1 =
+        HybridSearch.search("test",
+          scope: "agent_coordination_system/cache",
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
+
+      result2 =
+        HybridSearch.search("test",
+          scope: "other_app",
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
 
       assert is_map(result1)
       assert is_map(result2)
@@ -132,9 +228,19 @@ defmodule Acs.Memory.HybridSearchTest do
       cleanup_test_memories("test_hybrid_1")
     end
 
-    test "compute_metadata_score considers importance and status" do
+    test "compute_metadata_score considers importance and status", %{
+      org: org,
+      zero_embedding: embedding
+    } do
       setup_test_memories("test_hybrid_1")
-      result = HybridSearch.search("release", limit: 10)
+
+      result =
+        HybridSearch.search("release",
+          limit: 10,
+          org: org,
+          embedding: embedding,
+          log_search: false
+        )
 
       assert is_map(result)
     after
@@ -143,9 +249,11 @@ defmodule Acs.Memory.HybridSearchTest do
   end
 
   describe "combined scoring" do
-    test "handles empty query gracefully" do
+    test "handles empty query gracefully", %{org: org, zero_embedding: embedding} do
       setup_test_memories("test_hybrid_1")
-      result = HybridSearch.search("", limit: 10)
+
+      result =
+        HybridSearch.search("", limit: 10, org: org, embedding: embedding, log_search: false)
 
       assert is_map(result)
       assert is_list(result.results)
@@ -153,8 +261,6 @@ defmodule Acs.Memory.HybridSearchTest do
       cleanup_test_memories("test_hybrid_1")
     end
   end
-
-  # Helper functions
 
   defp setup_test_memories(id) do
     attrs = %{
@@ -184,5 +290,9 @@ defmodule Acs.Memory.HybridSearchTest do
         Acs.Memory.Indexer.remove_memory(id)
         Acs.Memory.Loader.delete(Acs.Memory.new(Map.from_struct(schema)))
     end
+  end
+
+  defp memory_id_matches?(memory_id, expected) do
+    memory_id == expected or String.ends_with?(memory_id, ":" <> expected)
   end
 end

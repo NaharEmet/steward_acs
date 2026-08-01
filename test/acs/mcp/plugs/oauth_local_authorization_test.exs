@@ -134,6 +134,35 @@ defmodule Acs.MCP.Plugs.OAuthLocalAuthorizationTest do
     assert result.assigns.agent_identity == "Casey Member"
   end
 
+  test "carries the local user's data authority into the request assigns" do
+    organization = organization!()
+    Acs.AuthorityLevels.ensure_defaults!(organization.slug)
+
+    {:ok, user} =
+      Accounts.register_user(%{
+        email: "oidc-member@example.test",
+        name: "Cleared Member",
+        org: organization.slug,
+        organization_id: organization.id,
+        org_role: "member",
+        oidc_issuer: "https://issuer.example.test/",
+        oidc_subject: "oidc-member-subject"
+      })
+
+    user
+    |> Acs.Accounts.User.changeset(%{authority_level_slug: "elevated"})
+    |> Repo.update!()
+
+    result =
+      Plug.Test.conn(:get, "/mcp/v1/messages")
+      |> Plug.Conn.assign(:current_org, organization.slug)
+      |> MCPAuth.call([])
+
+    assert result.assigns.agent_authority_level == "elevated"
+    # Executive=1, Senior=2, Standard=3 — clearance, not org role.
+    assert result.assigns.agent_authority_sort_order == 2
+  end
+
   test "falls back to email local-part when user has no name fields" do
     organization = organization!()
 

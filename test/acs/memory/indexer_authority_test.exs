@@ -65,6 +65,33 @@ defmodule Acs.Memory.IndexerAuthorityTest do
     assert "job-visible" in titles
   end
 
+  test "cross-org scan without system: true does not crash and hides high rank", %{org: org} do
+    insert!(org, "hidden-high", 1)
+    insert!(org, "visible-unranked", nil)
+
+    # No principal + org: :all used to raise FunctionClauseError in viewer_sort_order.
+    listed =
+      Indexer.list_memories(status: "approved", org: :all, limit: 500)
+
+    titles = Enum.map(listed, & &1.title)
+    assert "visible-unranked" in titles
+    refute "hidden-high" in titles
+  end
+
+  test "system: false still enforces clearance for an agent viewer", %{org: org} do
+    insert!(org, "exec-only", 1)
+
+    listed =
+      Indexer.list_memories(
+        org: org,
+        status: "approved",
+        authority_level_slug: "standard",
+        agent_id: "member@acme.com"
+      )
+
+    refute Enum.any?(listed, &(&1.title == "exec-only"))
+  end
+
   defp insert!(org, title, order, opts \\ []) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
