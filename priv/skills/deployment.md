@@ -27,14 +27,15 @@ Shipping code to multi-tenant prod, checking deploy health, or bringing up a new
 Workflow: [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)
 
 1. Merge/push to `prod` (or **Actions → Deploy → Run workflow**).
-2. Wait for `build-push` (DockerHub tag = short git SHA) and `cutover` (`deploy.sh --resume` **blue/green** on the Environment host).
-3. Confirm Actions green, then smoke (below).
+2. Wait for **CI gate** (reusable CI: test + release + credo). Build/cutover only run if CI succeeds.
+3. Wait for `build-push` (DockerHub tag = short git SHA) and `cutover` (`deploy.sh --resume` **blue/green** on the Environment host).
+4. Confirm Actions green, then smoke (below).
 
 Cutover keeps the live slot serving until the idle slot is healthy, then reloads Caddy upstream and stops the old slot. Caddy is force-recreated only when `Caddyfile.multitenant` / TLS certs change (hash in `CADDY_BUNDLE_HASH`). Claude SSE sessions on the old process still drop at stop — reconnect should hit the already-healthy new slot.
 
-Path filters on `push` to `prod`: `lib/`, `config/`, `priv/`, `assets/`, `mix.*`, `Dockerfile`, multitenant compose/Caddy, `caddy/`, `scripts/deploy.sh`, `scripts/lib/`, `scripts/bootstrap-server.sh`, `scripts/infisical-compose.sh`, the workflow file.
+Path filters on `push` to `prod`: `lib/`, `config/`, `priv/`, `assets/`, `mix.*`, `Dockerfile`, multitenant compose/Caddy, `caddy/`, `scripts/deploy.sh`, `scripts/lib/`, `scripts/bootstrap-server.sh`, `scripts/infisical-compose.sh`, `ci.yml` / `deploy.yml`.
 
-`workflow_dispatch` inputs: `environment`, `cutover` (default true), optional `image_tag`.
+`workflow_dispatch` inputs: `environment`, `cutover` (default true), optional `image_tag`, `skip_ci` (default false — break-glass only).
 
 Do **not** default to laptop `ALLOW_DIRTY=1` / full `deploy.sh` when Actions can ship a clean SHA.
 

@@ -32,8 +32,9 @@ docker compose up -d
 Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
 
 1. Merge/push to `prod` (paths under `lib/`, `config/`, `priv/`, `assets/`, `Dockerfile`, compose/Caddy, deploy scripts, or the workflow itself), **or** run **Actions → Deploy → Run workflow**.
-2. Job `build-push` builds the Postgres release image and pushes `naharemete/steward_acs:<git-sha>` (+ `:multitenant`).
-3. Job `cutover` SSHs to the Environment host and runs `./scripts/deploy.sh --resume` (**blue/green**): pull idle slot → wait healthy → rewrite `caddy/acs_upstream.caddyfile` + `caddy reload` (recreate Caddy only if Caddyfile/certs changed) → stop previous slot.
+2. Job **CI gate** runs the reusable CI workflow (`mix test` + prod release compile + Credo). **Build and cutover do not start if CI fails.** Manual dispatch can set `skip_ci` only for break-glass.
+3. Job `build-push` builds the Postgres release image and pushes `naharemete/steward_acs:<git-sha>` (+ `:multitenant`).
+4. Job `cutover` SSHs to the Environment host and runs `./scripts/deploy.sh --resume` (**blue/green**): pull idle slot → wait healthy → rewrite `caddy/acs_upstream.caddyfile` + `caddy reload` (recreate Caddy only if Caddyfile/certs changed) → stop previous slot.
 
 ### GitHub Environment secrets
 
@@ -59,6 +60,7 @@ Host still needs thin `.env` (from `.env.multitenant`) and `.infisical.env` (mac
 - **environment**: `prod` or `staging`
 - **cutover**: `true` (default) to pull + recreate; `false` to build/push only
 - **image_tag**: override (empty = short git SHA)
+- **skip_ci**: `false` (default). Set `true` only for emergency cutover without the CI gate.
 
 ### New server (once)
 

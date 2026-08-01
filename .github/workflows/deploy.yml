@@ -1,6 +1,7 @@
 name: Deploy
 
 # Build + push the release image, then cut over a target host via scripts/deploy.sh.
+# Cutover is gated on CI (test + release compile + credo) unless skip_ci on dispatch.
 # New hosts: run scripts/bootstrap-server.sh once, then use this workflow.
 #
 # Create GitHub Environments "prod" (and optional "staging") with secrets:
@@ -37,6 +38,11 @@ on:
         required: false
         type: string
         default: ""
+      skip_ci:
+        description: Break-glass — build/cutover without CI (emergency only)
+        required: true
+        type: boolean
+        default: false
 
   push:
     branches: [prod]
@@ -58,6 +64,7 @@ on:
       - "scripts/lib/**"
       - "scripts/status.sh"
       - ".github/workflows/deploy.yml"
+      - ".github/workflows/ci.yml"
 
 concurrency:
   group: deploy-${{ github.event.inputs.environment || 'prod' }}
@@ -67,7 +74,20 @@ env:
   REGISTRY: naharemete/steward_acs
 
 jobs:
+  ci:
+    name: CI gate
+    if: ${{ github.event_name != 'workflow_dispatch' || !fromJSON(github.event.inputs.skip_ci) }}
+    uses: ./.github/workflows/ci.yml
+
   build-push:
+    needs: [ci]
+    if: >-
+      always() && (
+        needs.ci.result == 'success' ||
+        (needs.ci.result == 'skipped' &&
+          github.event_name == 'workflow_dispatch' &&
+          fromJSON(github.event.inputs.skip_ci))
+      )
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'prod' }}
     outputs:
@@ -114,8 +134,17 @@ jobs:
           cache-to: type=gha,mode=max
 
   cutover:
-    needs: build-push
-    if: ${{ github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.cutover) }}
+    needs: [ci, build-push]
+    if: >-
+      always() &&
+      needs.build-push.result == 'success' &&
+      (github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.cutover)) &&
+      (
+        needs.ci.result == 'success' ||
+        (needs.ci.result == 'skipped' &&
+          github.event_name == 'workflow_dispatch' &&
+          fromJSON(github.event.inputs.skip_ci))
+      )
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'prod' }}
     steps:

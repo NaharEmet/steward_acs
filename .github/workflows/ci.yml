@@ -2,9 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [dev, prod]
+    branches: [dev]
   pull_request:
     branches: [prod]
+  # Deploy calls this before build/cutover on prod.
+  workflow_call:
 
 jobs:
   test:
