@@ -7,13 +7,12 @@ defmodule Acs.MCP.CoreToolRoles do
 
   ## Chat surface
 
-  Chat assistants (Claude.ai / ChatGPT connectors) get a **curated** tool list
-  via `chat_surface/0` when session audience is `:chat`. Keep that list in sync
-  with `priv/prompts/chat_system_prompt.md` and chat guidance packets.
+  Chat assistants (Claude.ai / ChatGPT connectors) get exactly three tools via
+  `chat_surface/0` (`steward_ask`, `steward_write`, `steward_work`). Keep that
+  list in sync with `priv/prompts/chat_system_prompt.md` and chat guidance.
 
-  Session-critical tools get `_meta["anthropic/alwaysLoad"]` via a short
-  ordered `eager_priority/0` list (`ask` and `get_started` first). Claude may
-  truncate large alwaysLoad budgets — keep that list small.
+  All three are marked `_meta["anthropic/alwaysLoad"]` via `eager_priority/0` —
+  chat does not rely on Tool Search.
   """
 
   @admin_only ~w(
@@ -95,22 +94,6 @@ defmodule Acs.MCP.CoreToolRoles do
     steward_work
   )
 
-  @search_hints %{
-    "ask" => "steward ask retrieve search memories documents knowledge status",
-    "get_started" => "steward get started startup instructions guidance onboard",
-    "get_present_status" => "steward register agent identity status",
-    "save_memory" => "steward save memory truth decision invariant",
-    "skill_get" => "steward skill procedure how-to",
-    "skill_save" => "steward skill save procedure",
-    "documents_propose" => "steward document policy brief propose",
-    "list_tasks" => "steward list tasks todo reminders user",
-    "create_work" => "steward create claim task reminder due",
-    "resolve_user_task" => "steward resolve reminder done dismiss snooze",
-    "claim_work" => "steward claim task",
-    "release_work" => "steward release task",
-    "submit_task_feedback" => "steward feedback close task"
-  }
-
   @admin_service ~w(time)
 
   @roles Map.new(@admin_only, &{&1, ["admin"]})
@@ -131,18 +114,18 @@ defmodule Acs.MCP.CoreToolRoles do
   @doc """
   Tools that must stay in the model context under Anthropic Tool Search.
 
-  Ordered via `eager_priority/0` — `ask` and `get_started` come first so they
-  survive Claude's alwaysLoad budget. Emits `_meta["anthropic/alwaysLoad"]`.
+  Chat marks the entire `chat_surface/0` always-loaded. Emits
+  `_meta["anthropic/alwaysLoad"]`.
   """
   @spec eager_tool?(String.t()) :: boolean()
   def eager_tool?(name) when is_binary(name), do: name in @eager_priority
   def eager_tool?(_), do: false
 
-  @doc "Priority order for alwaysLoad tools (`ask` / `get_started` first)."
+  @doc "Priority order for alwaysLoad tools (chat façade)."
   @spec eager_priority() :: [String.t()]
   def eager_priority, do: @eager_priority
 
-  @doc "Sort key so eager tools lead tools/list (ask/get_started first)."
+  @doc "Sort key so eager chat tools lead tools/list."
   @spec list_sort_key(map()) :: {integer(), integer() | String.t()}
   def list_sort_key(%{"name" => name}) do
     case Enum.find_index(@eager_priority, &(&1 == name)) do
@@ -153,22 +136,17 @@ defmodule Acs.MCP.CoreToolRoles do
 
   def list_sort_key(_), do: {1, ""}
 
-  @doc "Attach Anthropic alwaysLoad / searchHint `_meta`."
+  @doc "Attach Anthropic alwaysLoad `_meta` for chat façade tools."
   @spec with_eager_meta(map()) :: map()
   def with_eager_meta(%{"name" => name} = tool) do
-    meta =
-      %{}
-      |> maybe_put_meta("anthropic/alwaysLoad", eager_tool?(name) && true)
-      |> maybe_put_meta("anthropic/searchHint", Map.get(@search_hints, name))
-
-    if meta == %{}, do: tool, else: Map.put(tool, "_meta", meta)
+    if eager_tool?(name) do
+      Map.put(tool, "_meta", %{"anthropic/alwaysLoad" => true})
+    else
+      tool
+    end
   end
 
   def with_eager_meta(tool), do: tool
-
-  defp maybe_put_meta(meta, _key, false), do: meta
-  defp maybe_put_meta(meta, _key, nil), do: meta
-  defp maybe_put_meta(meta, key, value), do: Map.put(meta, key, value)
 
   @doc "Returns the roles allowed to call a core tool."
   @spec roles_for(String.t()) :: [String.t()]

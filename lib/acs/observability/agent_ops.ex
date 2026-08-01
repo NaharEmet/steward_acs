@@ -36,10 +36,10 @@ defmodule Acs.Observability.AgentOps do
   @event_embedding "agent.embedding"
   @event_search "agent.search"
 
-  @retrieve_tools ~w(steward_ask ask query_memories query_specs skill_get specs_get generate_guidance_packet get_started)
-  @write_tools ~w(steward_write save_memory documents_propose specs_propose skill_save set_memory_status specs_approve specs_reject)
-  @intake_tools ~w(steward_write save_memory skill_save)
-  @task_tools ~w(steward_work create_work claim_work release_work submit_task_feedback list_tasks lock_file unlock_file get_present_status)
+  @retrieve_tools ~w(ask query_memories query_specs skill_get specs_get generate_guidance_packet get_started)
+  @write_tools ~w(save_memory documents_propose specs_propose skill_save set_memory_status specs_approve specs_reject)
+  @intake_tools ~w(save_memory skill_save)
+  @task_tools ~w(create_work claim_work release_work submit_task_feedback list_tasks lock_file unlock_file get_present_status)
 
   @doc """
   Log one MCP tool invocation.
@@ -59,11 +59,12 @@ defmodule Acs.Observability.AgentOps do
     result = Keyword.get(opts, :result)
     discovery? = Keyword.get(opts, :discovery, false)
     args = Keyword.get(opts, :args) || %{}
+    routed = effective_tool_name(tool_name, args)
 
     {status, error_type, error_message} =
       if discovery?, do: {"discovery", nil, nil}, else: result_status(result)
 
-    intake = if discovery?, do: %{}, else: intake_meta(tool_name, result, args)
+    intake = if discovery?, do: %{}, else: intake_meta(routed, result, args)
 
     {error_type, error_message} =
       case intake do
@@ -77,11 +78,11 @@ defmodule Acs.Observability.AgentOps do
           {error_type, error_message}
       end
 
-    result_count = result_count(tool_name, result)
+    result_count = result_count(routed, result)
     empty_result = is_integer(result_count) and result_count == 0 and status == "success"
     chain_id = chain_id(opts)
     sequence = next_sequence(chain_id)
-    family = tool_family(tool_name)
+    family = tool_family(tool_name, args)
     audience = normalize_audience(Keyword.get(opts, :audience))
     chain = note_chain(chain_id, family, empty_result)
 
@@ -108,6 +109,7 @@ defmodule Acs.Observability.AgentOps do
       "service" => "steward_acs",
       "module" => "Acs.Observability.AgentOps",
       "tool_name" => tool_name,
+      "routed_tool" => if(routed != tool_name, do: routed),
       "tool_family" => family,
       "status" => status,
       "signal" => signal,
@@ -359,10 +361,27 @@ defmodule Acs.Observability.AgentOps do
   end
 
   @doc false
-  def tool_family(name) when name in @retrieve_tools, do: "retrieve"
-  def tool_family(name) when name in @write_tools, do: "write"
-  def tool_family(name) when name in @task_tools, do: "task"
-  def tool_family(_), do: "other"
+  def tool_family(name, args \\ %{})
+
+  def tool_family(name, args) when is_binary(name) do
+    case effective_tool_name(name, args) do
+      routed when routed in @retrieve_tools -> "retrieve"
+      routed when routed in @write_tools -> "write"
+      routed when routed in @task_tools -> "task"
+      "steward_ask" -> "retrieve"
+      "steward_write" -> "write"
+      "steward_work" -> "task"
+      _ -> "other"
+    end
+  end
+
+  def tool_family(_, _), do: "other"
+
+  defp effective_tool_name(name, args) when is_map(args) do
+    Acs.MCP.Tools.ChatSurface.routed_tool(name, args) || name
+  end
+
+  defp effective_tool_name(name, _), do: name
 
   @doc false
   def tool_signal(true, _, _, _, _, _, _), do: "misuse_discovery"
@@ -542,10 +561,6 @@ defmodule Acs.Observability.AgentOps do
 
   defp result_status(other),
     do: {"unknown", "unexpected_result", inspect(other)}
-
-  defp result_count("steward_ask", {:ok, %{summary: summary}}) when is_map(summary) do
-    sum_counts(summary)
-  end
 
   defp result_count("ask", {:ok, %{summary: summary}}) when is_map(summary) do
     sum_counts(summary)

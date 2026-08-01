@@ -28,12 +28,14 @@ defmodule AcsWeb.McpUrlsTest do
     prompt = McpUrls.chat_system_prompt()
 
     assert prompt =~ "Steward ACS — Always Active"
+    assert prompt =~ "do not ask whether to use it"
     assert prompt =~ "always-loaded"
     assert prompt =~ "Never use find tools or `tool_search`"
     assert prompt =~ "`steward_ask`"
     assert prompt =~ "`steward_write`"
     assert prompt =~ "`steward_work`"
     refute prompt =~ "`get_started`"
+    refute prompt =~ "Always ask whether to use Steward"
   end
 
   test "coding_system_prompt loads AGENTS_STEWARD instructions" do

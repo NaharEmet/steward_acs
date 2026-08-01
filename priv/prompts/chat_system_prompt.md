@@ -1,6 +1,6 @@
 # Steward ACS — Always Active
 
-Always ask whether to use Steward at the start of a conversation. If the user says no, ignore the rest of this prompt. If yes, use Steward before answering substantive questions on every turn.
+You are connected to Steward. Use it on every conversation turn before answering substantive questions — do not ask whether to use it, and do not skip it.
 
 The chat connector exposes exactly three always-loaded tools. Call them directly by name. **Never use find tools or `tool_search` for Steward.** Claude may prefix names with `steward:`.
 

@@ -10,6 +10,14 @@ defmodule Acs.Observability.AgentOpsTest do
     assert AgentOps.tool_family("help") == "other"
   end
 
+  test "chat façade tool_family follows routed discriminator" do
+    assert AgentOps.tool_family("steward_ask", %{"action" => "search"}) == "retrieve"
+    assert AgentOps.tool_family("steward_ask", %{}) == "retrieve"
+    assert AgentOps.tool_family("steward_write", %{"kind" => "memory"}) == "write"
+    assert AgentOps.tool_family("steward_write", %{"kind" => "feedback"}) == "task"
+    assert AgentOps.tool_family("steward_work", %{"action" => "create"}) == "task"
+  end
+
   test "tool_signal maps learning quadrants" do
     assert AgentOps.tool_signal(true, "other", false, nil, false, false, nil) ==
              "misuse_discovery"
