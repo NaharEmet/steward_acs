@@ -25,6 +25,8 @@ defmodule Acs.MCP.Tools.QueryAgent do
 
   alias Acs.Skills.Store
 
+  import Ecto.Query, only: [from: 2]
+
   @default_limit 10
   @max_limit 50
   @default_skill_min_score 0.45
@@ -219,13 +221,31 @@ defmodule Acs.MCP.Tools.QueryAgent do
     else
       all_status = Acs.Acs.get_present_status()
 
+      task_ids =
+        all_status
+        |> Enum.map(&Map.get(&1, :current_task_id))
+        |> Enum.reject(&is_nil/1)
+
+      slug_by_id =
+        if task_ids == [] do
+          %{}
+        else
+          Acs.Repo.all(
+            from(t in Acs.Acs.Task,
+              where: t.id in ^task_ids,
+              select: {t.id, t.slug}
+            )
+          )
+          |> Map.new()
+        end
+
       agents =
         all_status
-        |> Enum.map(fn {agent_id, s} ->
+        |> Enum.map(fn s ->
           %{
-            agent_id: agent_id,
+            agent_id: Map.get(s, :agent_id),
             purpose: if(is_map(s), do: Map.get(s, :purpose), else: "unknown"),
-            current_task: if(is_map(s), do: Map.get(s, :current_task_id))
+            current_task: Map.get(slug_by_id, Map.get(s, :current_task_id))
           }
         end)
 

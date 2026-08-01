@@ -103,17 +103,4 @@ defmodule Acs.MetaHarness.Scheduler do
   def trigger_analysis do
     run_analysis_cycle()
   end
-
-  @doc """
-  Get scheduler status.
-  """
-  @spec status() :: map()
-  def status do
-    GenServer.call(__MODULE__, :get_status)
-  end
-
-  @impl true
-  def handle_call(:get_status, _from, state) do
-    {:reply, %{interval: state.interval, last_run: state.last_run}, state}
-  end
 end

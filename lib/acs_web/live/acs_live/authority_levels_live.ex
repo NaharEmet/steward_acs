@@ -5,8 +5,6 @@ defmodule AcsWeb.AcsLive.AuthorityLevelsLive do
 
   use AcsWeb, :live_view
 
-  on_mount {AcsWeb.UserAuth, :ensure_org_admin}
-
   alias Acs.AuthorityLevels
 
   @impl true

@@ -15,6 +15,7 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   alias Acs.Specs.Entry
   alias Acs.Specs.Loader
   alias Acs.Specs.Search
+  alias Acs.Abac
 
   def on_mount(_params, _session, socket) do
     {:cont, assign(socket, current_path: socket.assigns[:current_path] || "/")}
@@ -84,22 +85,26 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   def handle_event("approve-spec", %{"app" => app, "id" => id}, socket) do
     case Loader.load(app, id) do
       {:ok, entry} ->
-        now = DateTime.utc_now() |> DateTime.to_iso8601()
-        updated = %{entry | status: "approved", approved_by: "human", updated_at: now}
-        updated = %{updated | spec_hash: Entry.compute_spec_hash(updated)}
+        if Abac.can_edit?(viewer_abac(socket), entry) do
+          now = DateTime.utc_now() |> DateTime.to_iso8601()
+          updated = %{entry | status: "approved", approved_by: "human", updated_at: now}
+          updated = %{updated | spec_hash: Entry.compute_spec_hash(updated)}
 
-        case Loader.save(updated) do
-          :ok ->
-            socket =
-              socket
-              |> put_flash(:info, "Spec '#{app}/#{id}' approved ✓")
-              |> assign(selected_spec: nil)
-              |> load_data()
+          case Loader.save(updated) do
+            :ok ->
+              socket =
+                socket
+                |> put_flash(:info, "Spec '#{app}/#{id}' approved ✓")
+                |> assign(selected_spec: nil)
+                |> load_data()
 
-            {:noreply, socket}
+              {:noreply, socket}
 
-          {:error, reason} ->
-            {:noreply, put_flash(socket, :error, "Failed to approve: #{inspect(reason)}")}
+            {:error, reason} ->
+              {:noreply, put_flash(socket, :error, "Failed to approve: #{inspect(reason)}")}
+          end
+        else
+          {:noreply, put_flash(socket, :error, "Access denied: cannot edit specs at or above your clearance")}
         end
 
       {:error, reason} ->
@@ -111,21 +116,25 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   def handle_event("reject-spec", %{"app" => app, "id" => id}, socket) do
     case Loader.load(app, id) do
       {:ok, entry} ->
-        now = DateTime.utc_now() |> DateTime.to_iso8601()
-        updated = %{entry | status: "under_review", updated_at: now}
+        if Abac.can_edit?(viewer_abac(socket), entry) do
+          now = DateTime.utc_now() |> DateTime.to_iso8601()
+          updated = %{entry | status: "under_review", updated_at: now}
 
-        case Loader.save(updated) do
-          :ok ->
-            socket =
-              socket
-              |> put_flash(:info, "Spec '#{app}/#{id}' rejected (moved to under_review) ✗")
-              |> assign(selected_spec: nil)
-              |> load_data()
+          case Loader.save(updated) do
+            :ok ->
+              socket =
+                socket
+                |> put_flash(:info, "Spec '#{app}/#{id}' rejected (moved to under_review) ✗")
+                |> assign(selected_spec: nil)
+                |> load_data()
 
-            {:noreply, socket}
+              {:noreply, socket}
 
-          {:error, reason} ->
-            {:noreply, put_flash(socket, :error, "Failed to reject: #{inspect(reason)}")}
+            {:error, reason} ->
+              {:noreply, put_flash(socket, :error, "Failed to reject: #{inspect(reason)}")}
+          end
+        else
+          {:noreply, put_flash(socket, :error, "Access denied: cannot edit specs at or above your clearance")}
         end
 
       {:error, reason} ->
@@ -137,21 +146,25 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   def handle_event("deprecate-spec", %{"app" => app, "id" => id}, socket) do
     case Loader.load(app, id) do
       {:ok, entry} ->
-        now = DateTime.utc_now() |> DateTime.to_iso8601()
-        updated = %{entry | status: "deprecated", updated_at: now}
+        if Abac.can_edit?(viewer_abac(socket), entry) do
+          now = DateTime.utc_now() |> DateTime.to_iso8601()
+          updated = %{entry | status: "deprecated", updated_at: now}
 
-        case Loader.save(updated) do
-          :ok ->
-            socket =
-              socket
-              |> put_flash(:info, "Spec '#{app}/#{id}' marked deprecated ⟳")
-              |> assign(selected_spec: nil)
-              |> load_data()
+          case Loader.save(updated) do
+            :ok ->
+              socket =
+                socket
+                |> put_flash(:info, "Spec '#{app}/#{id}' marked deprecated ⟳")
+                |> assign(selected_spec: nil)
+                |> load_data()
 
-            {:noreply, socket}
+              {:noreply, socket}
 
-          {:error, reason} ->
-            {:noreply, put_flash(socket, :error, "Failed to deprecate: #{inspect(reason)}")}
+            {:error, reason} ->
+              {:noreply, put_flash(socket, :error, "Failed to deprecate: #{inspect(reason)}")}
+          end
+        else
+          {:noreply, put_flash(socket, :error, "Access denied: cannot edit specs at or above your clearance")}
         end
 
       {:error, reason} ->
@@ -182,10 +195,14 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   @impl true
   def handle_event("approve-all-proposed", _, socket) do
     now = DateTime.utc_now() |> DateTime.to_iso8601()
+    ctx = viewer_abac(socket)
 
     case Loader.load_all() do
       {:ok, all_specs} ->
-        proposed = Enum.filter(all_specs, fn s -> s.status == "proposed" end)
+        proposed =
+          all_specs
+          |> Enum.filter(fn s -> s.status == "proposed" end)
+          |> Enum.filter(&Abac.can_edit?(ctx, &1))
 
         results =
           Enum.map(proposed, fn entry ->
@@ -236,19 +253,41 @@ defmodule AcsWeb.AcsLive.SpecsLive do
     {:noreply, socket}
   end
 
+  # Same clearance rule as MCP: viewer's own authority level + role.
+  defp viewer_abac(socket) do
+    case socket.assigns[:current_user] do
+      %{org_role: role, authority_level_slug: slug} ->
+        Abac.from_keyword(
+          agent_role: role,
+          authority_level_slug: slug
+        )
+
+      %{org_role: role} ->
+        Abac.from_keyword(agent_role: role)
+
+      %{authority_level_slug: slug} ->
+        Abac.from_keyword(authority_level_slug: slug)
+
+      _ ->
+        Abac.from_keyword([])
+    end
+  end
+
   defp load_data(socket) do
     search_query = socket.assigns.search_query
+    ctx = viewer_abac(socket)
 
     specs =
       if search_query && search_query != "" do
         case Search.search(search_query, status: socket.assigns.status_filter) do
-          {:ok, entries} -> entries
+          {:ok, entries} -> Abac.filter(entries, ctx)
           _ -> []
         end
       else
         case Loader.load_all(app: nil) do
           {:ok, entries} ->
             entries
+            |> Abac.filter(ctx)
             |> maybe_filter_by_status_in_view(socket.assigns.status_filter)
 
           _ ->

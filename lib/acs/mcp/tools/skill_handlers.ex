@@ -2,6 +2,7 @@ defmodule Acs.MCP.Tools.SkillHandlers do
   @moduledoc """
   Handles skill discovery and governance MCP tools.
   """
+  alias Acs.Abac
   alias Acs.Skills.Store
 
   def skill_audit_status(_args) do
@@ -17,28 +18,30 @@ defmodule Acs.MCP.Tools.SkillHandlers do
   end
 
   def skill_get(args) do
+    ctx = Abac.from_args(args)
+
     cond do
       name = args["name"] ->
         case Store.get_skill(name) do
           nil -> {:ok, %{skills: [], total: 0, error: "skill '#{name}' not found"}}
-          skill -> {:ok, %{skills: [skill], total: 1}}
+          skill -> {:ok, %{skills: visible_skills([skill], ctx), total: 1}}
         end
 
       search = args["search"] ->
         results = Store.search_skills(search)
-        {:ok, %{skills: results, total: length(results)}}
+        {:ok, %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
 
       tag = args["tag"] ->
         results = Store.list_skills(tag)
-        {:ok, %{skills: results, total: length(results)}}
+        {:ok, %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
 
       scope_path = args["scope_path"] ->
         results = Store.list_skills_by_scope(scope_path)
-        {:ok, %{skills: results, total: length(results)}}
+        {:ok, %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
 
       true ->
         results = Store.list_skills()
-        {:ok, %{skills: results, total: length(results)}}
+        {:ok, %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
     end
   end
 
@@ -65,42 +68,63 @@ defmodule Acs.MCP.Tools.SkillHandlers do
   end
 
   defp do_save(args, name, content, intake) do
+    ctx = Abac.from_args(args)
     description = blank_to_nil(args["description"]) || intake.suggested_description
     when_to_use = blank_to_nil(args["when_to_use"]) || intake.suggested_when_to_use
     tags = args["tags"] || []
     scope_paths = args["scope_paths"] || []
 
-    case Store.save_skill(name, content,
-           description: description,
-           when_to_use: when_to_use,
-           tags: tags,
-           scope_paths: scope_paths,
-           status: "proposed",
-           proposed_by: blank_to_nil(args["_auth_attribution"]) || blank_to_nil(args["_auth_agent_id"]) || blank_to_nil(args["agent_id"])
-         ) do
-      {:ok, saved} ->
-        # Post-save LLM quality audit (evaluate.md) — feeds governance UI + meta loops
-        Acs.Skills.Auditor.audit_soon(saved.name)
+    with :ok <- ensure_editable(ctx, name) do
+      case Store.save_skill(name, content,
+             description: description,
+             when_to_use: when_to_use,
+             tags: tags,
+             scope_paths: scope_paths,
+             status: "proposed",
+             authority_sort_order: ctx.authority_sort_order,
+             proposed_by:
+               blank_to_nil(args["_auth_attribution"]) ||
+                 blank_to_nil(args["_auth_agent_id"]) ||
+                 blank_to_nil(args["agent_id"])
+           ) do
+        {:ok, saved} ->
+          # Post-save LLM quality audit (evaluate.md) — feeds governance UI + meta loops
+          Acs.Skills.Auditor.audit_soon(saved.name)
 
-        {:ok,
-         %{
-           status: "saved",
-           saved: true,
-           name: saved.name,
-           id: saved.id,
-           skill_status: saved.status,
-           intake: intake_summary(intake),
-           note:
-             if(intake.suggested_sensitive,
-               do: "Saved as proposed, but content looked sensitive — prefer vault/env refs.",
-               else: nil
-             )
-         }
-         |> reject_nil_values()}
+          {:ok,
+           %{
+             status: "saved",
+             saved: true,
+             name: saved.name,
+             id: saved.id,
+             skill_status: saved.status,
+             intake: intake_summary(intake),
+             note:
+               if(intake.suggested_sensitive,
+                 do: "Saved as proposed, but content looked sensitive — prefer vault/env refs.",
+                 else: nil
+               )
+           }
+           |> reject_nil_values()}
 
-      {:error, reason} ->
-        {:error, "Failed to save skill: #{inspect(reason)}"}
+        {:error, reason} ->
+          {:error, "Failed to save skill: #{inspect(reason)}"}
+      end
     end
+  end
+
+  # New skills may be created by anyone (they land as proposed). Updating an
+  # existing skill requires edit clearance: admin/owner, or a rank strictly
+  # below the skill's stamped rank.
+  defp ensure_editable(ctx, name) do
+    case Store.get_skill(name) do
+      nil -> :ok
+      skill -> if Abac.can_edit?(ctx, skill), do: :ok, else: {:error, "Access denied: cannot edit skills at or above your clearance"}
+    end
+  end
+
+  defp visible_skills(skills, ctx) do
+    Abac.filter(skills, ctx)
   end
 
   # Single-pass gate: block only when intake has a question (or allow=false).

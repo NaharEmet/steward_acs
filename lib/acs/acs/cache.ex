@@ -278,12 +278,6 @@ defmodule Acs.Acs.Cache do
     get_all_tasks(org) |> Enum.filter(fn t -> t.status == status end)
   end
 
-  def invalidate_task(task_id, org \\ Acs.Org.current()) do
-    ensure_table(@tasks_table)
-    :ets.delete(@tasks_table, {org, task_id})
-    :ok
-  end
-
   # File lock operations
   def get_file_lock(file_path, org \\ Acs.Org.current()) do
     ensure_table(@file_locks_table)
@@ -329,17 +323,6 @@ defmodule Acs.Acs.Cache do
     get_all_file_locks(org) |> Enum.filter(fn l -> l.task_id == task_id end)
   end
 
-  def get_file_locks_for_agent(agent_id, org \\ Acs.Org.current()) do
-    ensure_table(@file_locks_table)
-    get_all_file_locks(org) |> Enum.filter(fn l -> l.locked_by_agent == agent_id end)
-  end
-
-  def invalidate_file_lock(file_path, org \\ Acs.Org.current()) do
-    :ets.delete(@file_locks_table, {org, file_path})
-    :ok
-  end
-
-  # Agent status operations
   def get_agent_status(agent_id, org \\ Acs.Org.current()) do
     key = {org, agent_id}
 
@@ -453,12 +436,6 @@ defmodule Acs.Acs.Cache do
     # Ensure priv directory exists
     Path.dirname(@agent_index_file) |> File.mkdir_p!()
     File.write(@agent_index_file, Integer.to_string(n))
-  end
-
-  def invalidate_agent_status(agent_id, org \\ Acs.Org.current()) do
-    ensure_table(@agent_status_table)
-    :ets.delete(@agent_status_table, {org, agent_id})
-    :ok
   end
 
   # Time offset operations

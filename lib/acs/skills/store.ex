@@ -112,7 +112,8 @@ defmodule Acs.Skills.Store do
         "tags" => opts["tags"] || [],
         "scope_paths" => opts["scope_paths"] || [],
         "status" => opts["status"] || "proposed",
-        "proposed_by" => opts["proposed_by"]
+        "proposed_by" => opts["proposed_by"],
+        "authority_sort_order" => opts["authority_sort_order"]
       }
 
       frontmatter =
@@ -206,6 +207,7 @@ defmodule Acs.Skills.Store do
         scope_paths: string_list(metadata["scope_paths"]),
         content: String.trim(body),
         status: normalize_status(metadata["status"]),
+        authority_sort_order: int_value(metadata["authority_sort_order"]),
         group: group_for(id),
         file: path,
         metadata: metadata
@@ -381,6 +383,9 @@ defmodule Acs.Skills.Store do
 
   defp string_list(value) when is_list(value), do: Enum.filter(value, &is_binary/1)
   defp string_list(_value), do: []
+
+  defp int_value(value) when is_integer(value), do: value
+  defp int_value(_value), do: nil
 
   defp group_for(id) do
     case Path.dirname(id) do

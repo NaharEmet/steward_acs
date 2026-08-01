@@ -43,7 +43,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
        when is_binary(task_id) and task_id != "" do
     case Acs.Acs.get_task(task_id) do
       nil -> {:error, "Task not found"}
-      _task -> {:ok, args}
+      task -> {:ok, Map.put(args, "task_id", task.id)}
     end
   end
 
@@ -215,13 +215,13 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
           case Acs.create_task(attrs, agent_id) do
             {:ok, task} ->
               Acs.MCP.ErrorTrace.mark_tasked(trace_id, task.id)
-              {:ok, %{task_id: task.id, trace_id: trace_id, status: "tasked"}}
+              {:ok, %{task_id: task.slug, trace_id: trace_id, status: "tasked"}}
 
             {:warn, task, similar} ->
               Acs.MCP.ErrorTrace.mark_tasked(trace_id, task.id)
 
               {:ok,
-               %{task_id: task.id, trace_id: trace_id, status: "tasked", similar_tasks: similar}}
+               %{task_id: task.slug, trace_id: trace_id, status: "tasked", similar_tasks: similar}}
 
             {:error, reason} ->
               Acs.MCP.ErrorTrace.mark_failed(trace_id, inspect(reason))

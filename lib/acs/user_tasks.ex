@@ -56,6 +56,7 @@ defmodule Acs.UserTasks do
 
       task_attrs = %{
         "title" => attrs["title"] || attrs[:title],
+        "slug" => Acs.unique_slug(attrs["title"] || attrs[:title] || "", org),
         "description" => attrs["description"] || attrs[:description] || "",
         "kind" => "user",
         "status" => "todo",
@@ -125,7 +126,7 @@ defmodule Acs.UserTasks do
     actor = String.trim(actor)
     outcome = String.trim(outcome) |> String.downcase()
 
-    case Repo.one(from(t in AcsTask, where: t.id == ^task_id and t.org == ^org)) do
+    case find_user_task(task_id, org) do
       nil ->
         {:error, "task not found"}
 
@@ -150,6 +151,21 @@ defmodule Acs.UserTasks do
   end
 
   def user_task_args?(_), do: false
+
+  # --- resolution ---
+
+  defp find_user_task(task_ref, org) when is_binary(task_ref) do
+    if uuid?(task_ref) do
+      Repo.one(from(t in AcsTask, where: t.id == ^task_ref and t.org == ^org))
+    else
+      Repo.one(from(t in AcsTask, where: t.slug == ^task_ref and t.org == ^org))
+    end
+  end
+
+  @uuid_re ~r/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+
+  defp uuid?(ref) when is_binary(ref), do: Regex.match?(@uuid_re, ref)
+  defp uuid?(_), do: false
 
   # --- auth ---
 
@@ -299,6 +315,7 @@ defmodule Acs.UserTasks do
   def to_map(%AcsTask{} = t) do
     %{
       id: t.id,
+      slug: t.slug,
       title: t.title,
       description: t.description,
       status: t.status,

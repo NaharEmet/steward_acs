@@ -25,16 +25,8 @@ defmodule AcsWeb.Router do
     plug :require_tenant_user
   end
 
-  pipeline :org_admin do
-    plug :require_org_admin
-  end
-
   pipeline :login_rate_limit do
     plug AcsWeb.Plugs.LoginRateLimit
-  end
-
-  pipeline :localhost_only do
-    plug AcsWeb.Plugs.LocalhostOnly
   end
 
   scope "/", AcsWeb do
@@ -113,7 +105,8 @@ defmodule AcsWeb.Router do
       on_mount: [
         {AcsWeb.UserAuth, :assign_org},
         {AcsWeb.UserAuth, :ensure_authenticated},
-        {AcsWeb.UserAuth, :ensure_tenant_member}
+        {AcsWeb.UserAuth, :ensure_tenant_member},
+        {AcsWeb.UserAuth, :ensure_org_admin}
       ] do
       live "/settings", AcsLive.SettingsLive, :index
       live "/settings/members", AcsLive.MembersLive, :index

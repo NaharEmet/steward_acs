@@ -104,18 +104,6 @@ defmodule Acs.Memory.Embedding do
         {:error, reason} -> {"error", embedding_error_type(reason)}
       end
 
-    Logger.info("[Embedding] #{status}",
-      action: "embedding_call",
-      call_type: "embedding",
-      status: status,
-      latency_ms: latency_ms,
-      model: model_name,
-      provider: "ollama",
-      audience: "system",
-      prompt_chars: prompt_chars,
-      error_type: error_type
-    )
-
     Acs.Observability.AgentOps.log_embedding(
       status: status,
       latency_ms: latency_ms,
@@ -230,10 +218,6 @@ defmodule Acs.Memory.Embedding do
       len1 == 0 or len2 == 0 ->
         0.0
 
-      len1 != len2 ->
-        Logger.warning("[Embedding] Vector length mismatch: #{len1} vs #{len2}")
-        0.0
-
       true ->
         dot_product =
           Enum.zip(vector1, vector2) |> Enum.reduce(0.0, fn {a, b}, acc -> a * b + acc end)
@@ -316,10 +300,6 @@ defmodule Acs.Memory.Embedding do
         false
 
       {:error, %{reason: reason}} ->
-        Logger.debug("[Embedding] Ollama check failed: #{inspect(reason)}")
-        false
-
-      {:error, reason} ->
         Logger.debug("[Embedding] Ollama check failed: #{inspect(reason)}")
         false
     end

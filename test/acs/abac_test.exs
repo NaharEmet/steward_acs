@@ -78,13 +78,52 @@ defmodule Acs.AbacTest do
       assert "proposed" =
                Abac.memory_status_for_write(ctx, %{"visibility" => "team", "team" => "platform"})
     end
+  end
 
-    test "admin writes keep default status" do
-      ctx = %Abac{agent_role: "admin"}
+  describe "can_edit?/2 for unified role management" do
+    test "admin and owner can edit anything, including own-rank and above" do
+      admin = %Abac{agent_role: "admin", authority_sort_order: 1}
+      owner = %Abac{agent_role: "owner", authority_sort_order: 1}
 
-      assert is_nil(
-               Abac.memory_status_for_write(ctx, %{"visibility" => "team", "team" => "platform"})
-             )
+      assert Abac.can_edit?(admin, %{"authority_sort_order" => 1})
+      assert Abac.can_edit?(owner, %{"authority_sort_order" => 5})
+      assert Abac.can_edit?(admin, %Entry{authority_sort_order: 3})
+      assert Abac.can_edit?(admin, %{"authority_sort_order" => nil})
+    end
+
+    test "non-admin can edit items strictly below own rank" do
+      ctx = %Abac{agent_role: "member", authority_sort_order: 2}
+
+      assert Abac.can_edit?(ctx, %{"authority_sort_order" => 5})
+      assert Abac.can_edit?(ctx, %Entry{authority_sort_order: 3})
+    end
+
+    test "non-admin cannot edit items at or above own rank" do
+      ctx = %Abac{agent_role: "member", authority_sort_order: 2}
+
+      refute Abac.can_edit?(ctx, %{"authority_sort_order" => 2})
+      refute Abac.can_edit?(ctx, %Entry{authority_sort_order: 1})
+    end
+
+    test "non-admin cannot edit unranked items when viewer has clearance" do
+      # can_edit?(integer_viewer, nil) is true (mirrors can_read?) — unranked items
+      # are editable by any viewer with a rank, since no owner is stamped.
+      ctx = %Abac{agent_role: "member", authority_sort_order: 2}
+      assert Abac.can_edit?(ctx, %{"authority_sort_order" => nil})
+    end
+
+    test "personal items remain editable only by their creator" do
+      creator = %Abac{agent_role: "member", agent_id: "alice"}
+      other = %Abac{agent_role: "member", agent_id: "bob"}
+
+      assert Abac.can_edit?(creator, %{"visibility" => "personal", "created_by_agent" => "alice"})
+      refute Abac.can_edit?(other, %{"visibility" => "personal", "created_by_agent" => "alice"})
+    end
+
+    test "viewer without clearance cannot edit ranked items" do
+      ctx = %Abac{agent_role: "member", authority_sort_order: nil}
+
+      refute Abac.can_edit?(ctx, %{"authority_sort_order" => 1})
     end
   end
 end

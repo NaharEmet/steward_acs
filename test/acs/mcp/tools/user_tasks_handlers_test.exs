@@ -81,7 +81,7 @@ defmodule Acs.MCP.Tools.UserTasksHandlersTest do
              )
 
     assert is_list(packet.pending_reminders)
-    assert Enum.any?(packet.pending_reminders, &(&1.id == task_id))
+    assert Enum.any?(packet.pending_reminders, &(&1.slug == task_id))
     assert packet.pending_reminders_guidance =~ "steward_work"
     assert packet.user_task_protocol =~ "remind_later"
     assert packet.get_started =~ "Pending reminders"
@@ -203,7 +203,7 @@ defmodule Acs.MCP.Tools.UserTasksHandlersTest do
                })
              )
 
-    assert Enum.any?(UserTasks.pending_reminders("Nahar", org), &(&1.id == task_id))
+    assert Enum.any?(UserTasks.pending_reminders("Nahar", org), &(&1.slug == task_id))
 
     assert {:ok, %{outcome: "dismiss", task_status: "dismissed"}} =
              Tools.call_tool(
@@ -212,9 +212,9 @@ defmodule Acs.MCP.Tools.UserTasksHandlersTest do
                  "task_id" => task_id,
                  "outcome" => "dismiss"
                })
-             )
+              )
 
-    refute Enum.any?(UserTasks.pending_reminders("Nahar", org), &(&1.id == task_id))
+    refute Enum.any?(UserTasks.pending_reminders("Nahar", org), &(&1.slug == task_id))
   end
 
   test "default list_tasks excludes user reminders", %{auth: auth} do

@@ -88,10 +88,9 @@ config :logger, :console,
     :audience,
     :prompt_chars,
     :recommendation,
-    :quality_score
+    :quality_score,
+    :error
   ]
-
-config :tailwind, :version, "3.4.3"
 
 # Configure esbuild
 config :esbuild,

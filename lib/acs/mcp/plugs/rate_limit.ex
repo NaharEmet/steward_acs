@@ -71,13 +71,4 @@ defmodule Acs.MCP.Plugs.RateLimit do
     |> Base.encode16(case: :lower)
     |> String.slice(0, 16)
   end
-
-  @doc """
-  Removes entries for buckets older than the given window.
-
-  Pass `window_ms` matching the rate limit window (default 60_000).
-  """
-  def cleanup(window_ms \\ @default_window_ms) do
-    RateLimitStore.cleanup(window_ms)
-  end
 end

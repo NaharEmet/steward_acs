@@ -446,9 +446,6 @@ defmodule Acs.Memory.Loader do
 
     Path.dirname(file_path) |> File.mkdir_p!()
 
-    unless Acs.Org.safe_path?(target_root, file_path),
-      do: raise(ArgumentError, "unsafe memory path")
-
     ext = Path.extname(file_path)
     yaml_map = Acs.Memory.to_yaml_map(memory)
 

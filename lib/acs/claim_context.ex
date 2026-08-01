@@ -168,4 +168,14 @@ defmodule Acs.ClaimContext do
     }
   end
 
+  defp spec_summary(%{__rag_chunk: true} = chunk) do
+    %{
+      app: Map.get(chunk, :app),
+      path: Map.get(chunk, :path),
+      title: Map.get(chunk, :path) || Map.get(chunk, :context),
+      purpose: Map.get(chunk, :context),
+      status: "chunk"
+    }
+  end
+
 end

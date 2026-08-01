@@ -8,11 +8,7 @@ defmodule Acs.MetaHarness.OperationLogger do
 
   ## Usage
 
-      # Async (preferred - fire and forget)
       Acs.MetaHarness.OperationLogger.log_async("lock_file", :success, 12, nil, nil, "Alice", nil)
-
-      # Sync (use only when you must wait)
-      Acs.MetaHarness.OperationLogger.log("create_work", :failure, 8, "task_exists", "Task already exists", "Bob", nil)
   """
 
   use GenServer
@@ -88,119 +84,6 @@ defmodule Acs.MetaHarness.OperationLogger do
     end
 
     :ok
-  end
-
-  @doc """
-  Logs a tool operation synchronously.
-
-  Use `log_async/8` in the hot path. This version waits for the
-  database write and should only be used when you must ensure
-  the log is persisted before continuing.
-  """
-  @spec log(
-          String.t(),
-          atom(),
-          integer() | nil,
-          String.t() | nil,
-          String.t() | nil,
-          String.t() | nil,
-          String.t() | nil,
-          keyword()
-        ) :: :ok
-  def log(
-        tool_name,
-        status,
-        latency_ms,
-        error_type \\ nil,
-        error_message \\ nil,
-        agent_id \\ nil,
-        execution_id \\ nil,
-        opts \\ []
-      ) do
-    attrs = %{
-      "tool_name" => tool_name,
-      "status" => Atom.to_string(status),
-      "latency_ms" => latency_ms,
-      "error_type" => error_type,
-      "error_message" => error_message && String.slice(error_message, 0, 1000),
-      "agent_id" => agent_id,
-      "execution_id" => execution_id,
-      "execution_chain_id" => Keyword.get(opts, :execution_chain_id),
-      "sequence_order" => Keyword.get(opts, :sequence_order, 0),
-      "attempt" => Keyword.get(opts, :attempt, 1),
-      "tool_discovered" => Keyword.get(opts, :tool_discovered, false),
-      "error_burst" => Keyword.get(opts, :error_burst, false),
-      "params_hash" => Keyword.get(opts, :params_hash)
-    }
-
-    if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
-      try do
-        entry = %{
-          tool_name: attrs["tool_name"],
-          status: attrs["status"],
-          latency_ms: attrs["latency_ms"],
-          error_type: attrs["error_type"],
-          error_message: attrs["error_message"],
-          agent_id: attrs["agent_id"],
-          execution_id: attrs["execution_id"],
-          execution_chain_id: attrs["execution_chain_id"],
-          sequence_order: attrs["sequence_order"],
-          attempt: attrs["attempt"],
-          tool_discovered: attrs["tool_discovered"],
-          error_burst: attrs["error_burst"],
-          params_hash: attrs["params_hash"],
-          inserted_at: DateTime.utc_now() |> DateTime.truncate(:second)
-        }
-
-        case insert_operation(entry) do
-          {:ok, _} ->
-            :ok
-
-          {:error, reason} ->
-            Logger.warning("[OperationLogger] Failed to log operation: #{inspect(reason)}")
-            :ok
-        end
-      rescue
-        e ->
-          Logger.warning("[OperationLogger] Failed to log operation: #{inspect(e)}")
-          :ok
-      end
-    else
-      :ok
-    end
-  end
-
-  @doc """
-  Logs a tool call result by extracting status from the result tuple.
-  """
-  @spec log_tool_result_async(
-          String.t(),
-          term(),
-          integer() | nil,
-          String.t() | nil,
-          String.t() | nil,
-          keyword()
-        ) :: :ok
-  def log_tool_result_async(
-        tool_name,
-        result,
-        latency_ms,
-        agent_id \\ nil,
-        execution_id \\ nil,
-        opts \\ []
-      ) do
-    {status, error_type, error_message} = extract_result_info(result)
-
-    log_async(
-      tool_name,
-      status,
-      latency_ms,
-      error_type,
-      error_message,
-      agent_id,
-      execution_id,
-      opts
-    )
   end
 
   @doc """
@@ -369,36 +252,5 @@ defmodule Acs.MetaHarness.OperationLogger do
         entry.inserted_at
       ]
     )
-  end
-
-  defp extract_result_info({:ok, _}) do
-    {:success, nil, nil}
-  end
-
-  defp extract_result_info(:ok) do
-    {:success, nil, nil}
-  end
-
-  defp extract_result_info({:sleep, _, _}) do
-    {:success, nil, nil}
-  end
-
-  defp extract_result_info({:error, reason}) when is_binary(reason) do
-    error_type = String.slice(reason, 0, 50)
-    {:failure, error_type, reason}
-  end
-
-  defp extract_result_info({:error, %{reason: reason}}) do
-    error_type = String.slice(reason, 0, 50)
-    {:failure, error_type, reason}
-  end
-
-  defp extract_result_info({:error, reason}) do
-    error_type = inspect(reason) |> String.slice(0, 50)
-    {:failure, error_type, inspect(reason)}
-  end
-
-  defp extract_result_info(other) do
-    {:unknown, "unexpected_result", inspect(other)}
   end
 end

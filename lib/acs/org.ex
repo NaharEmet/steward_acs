@@ -285,7 +285,6 @@ defmodule Acs.Org do
   def legacy_skills_dir(org \\ current()), do: legacy_skills_dirs(org) |> List.first()
   def legacy_specs_dir(org \\ current()), do: legacy_specs_dirs(org) |> List.first()
   def legacy_prompts_dir(org \\ current()), do: legacy_prompts_dirs(org) |> List.first()
-  def legacy_tools_dir(_org \\ current()), do: nil
 
   def legacy_memory_dirs(org \\ current()), do: List.wrap(legacy_memory_dir(org))
 
@@ -306,8 +305,6 @@ defmodule Acs.Org do
       []
     end
   end
-
-  def legacy_tools_dirs(_org \\ current()), do: []
 
   @doc """
   Returns the vault base when configured, or the active memory directory otherwise.

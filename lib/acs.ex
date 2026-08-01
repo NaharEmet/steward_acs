@@ -59,6 +59,8 @@ defmodule Acs do
             task_attrs
           end
 
+        task_attrs = Map.put(task_attrs, "slug", unique_slug(title, org))
+
         case Retry.with_busy_retry(fn ->
                %AcsTask{} |> AcsTask.changeset(task_attrs) |> Repo.insert()
              end) do
@@ -78,7 +80,7 @@ defmodule Acs do
   Returns `{:ok, updated_task}` or `{:error, reason}`.
   """
   def bump_task(task_id, updates) when is_binary(task_id) do
-    case Repo.one(from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())) do
+    case resolve_task(task_id) do
       nil ->
         {:error, :task_not_found}
 
@@ -108,6 +110,8 @@ defmodule Acs do
   Claims a task for an agent.
   """
   def claim_task(task_id, agent_id, opts \\ []) when is_binary(task_id) and is_binary(agent_id) do
+    task_id = resolve_task_id(task_id)
+
     result =
       Retry.with_busy_retry(fn ->
         Repo.transaction(fn ->
@@ -168,6 +172,8 @@ defmodule Acs do
   Releases a task lock.
   """
   def release_task(task_id, agent_id) when is_binary(task_id) and is_binary(agent_id) do
+    task_id = resolve_task_id(task_id)
+
     result =
       Retry.with_busy_retry(fn ->
         Repo.transaction(fn ->
@@ -221,6 +227,8 @@ defmodule Acs do
   """
   def set_task_status(task_id, agent_id, new_status)
       when is_binary(task_id) and is_binary(agent_id) do
+    task_id = resolve_task_id(task_id)
+
     result =
       Repo.transaction(fn ->
         query = from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current())
@@ -273,10 +281,34 @@ defmodule Acs do
   end
 
   @doc """
-  Gets a single task by ID.
+  Gets a single task by UUID ID or kebab-case slug.
   """
-  def get_task(task_id) when is_binary(task_id) do
-    Repo.one(from(t in AcsTask, where: t.id == ^task_id and t.org == ^Org.current()))
+  def get_task(task_ref) when is_binary(task_ref) do
+    resolve_task(task_ref)
+  end
+
+  @doc """
+  Resolves a task reference (UUID ID or kebab-case slug) to a task struct.
+  """
+  def resolve_task(task_ref) when is_binary(task_ref) do
+    org = Org.current()
+
+    if uuid?(task_ref) do
+      Repo.one(from(t in AcsTask, where: t.id == ^task_ref and t.org == ^org))
+    else
+      Repo.one(from(t in AcsTask, where: t.slug == ^task_ref and t.org == ^org))
+    end
+  end
+
+  defp resolve_task_id(task_ref) do
+    case resolve_task(task_ref) do
+      %AcsTask{} = task -> task.id
+      nil -> nil
+    end
+  end
+
+  defp uuid?(ref) when is_binary(ref) do
+    Regex.match?(~r/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i, ref)
   end
 
   @doc """
@@ -306,6 +338,7 @@ defmodule Acs do
   def lock_file(file_path, agent_id, task_id)
       when is_binary(file_path) and is_binary(agent_id) and is_binary(task_id) do
     task = get_task(task_id)
+    task_id = if is_nil(task), do: task_id, else: task.id
 
     # Idempotent: already locked by this agent for this file = success
     case Repo.get_by(FileLock,
@@ -413,14 +446,14 @@ defmodule Acs do
       {:error, :not_owner}
     else
       org = Org.current()
-      locks = Repo.all(from(f in FileLock, where: f.task_id == ^task_id and f.org == ^org))
+      locks = Repo.all(from(f in FileLock, where: f.task_id == ^task.id and f.org == ^org))
 
       Enum.each(locks, fn lock ->
         Repo.delete(lock)
         Cache.delete_file_lock(lock.file_path, org)
       end)
 
-      broadcast(:file_unlocked, %{task_id: task_id})
+      broadcast(:file_unlocked, %{task_id: task.id})
       :ok
     end
   end
@@ -433,13 +466,6 @@ defmodule Acs do
     Repo.all(from(f in FileLock, where: f.org == ^org)) |> Enum.map(&to_file_lock_map/1)
   end
 
-  @doc """
-  Checks if a specific file is locked.
-  """
-  def check_file_lock(file_path) do
-    {:ok, Repo.get_by(FileLock, file_path: file_path, org: Org.current())}
-  end
-
   # ============================================================================
   # Present Status Operations
   # ============================================================================
@@ -447,7 +473,7 @@ defmodule Acs do
   @doc """
   Gets the present status of all agents.
   """
-  def get_present_status(_cluster \\ nil) do
+  def get_present_status do
     statuses = Acs.Acs.get_present_status()
 
     task_ids = statuses |> Enum.map(& &1.current_task_id) |> Enum.reject(&is_nil/1)
@@ -489,36 +515,6 @@ defmodule Acs do
        }}
     end)
     |> Enum.into(%{})
-  end
-
-  @doc """
-  Gets the present status of a specific agent.
-  """
-  def get_agent_present_status(agent_id) do
-    status = Repo.get_by(AgentStatus, agent_id: agent_id, org: Org.current())
-
-    if status && status.current_task_id do
-      task = get_task(status.current_task_id) |> to_task_map()
-
-      locks =
-        Repo.all(
-          from(f in FileLock,
-            where: f.task_id == ^status.current_task_id and f.org == ^Org.current()
-          )
-        )
-
-      locked_files = Enum.map(locks, fn l -> l.file_path end)
-
-      %{
-        task: task,
-        purpose: status.purpose,
-        application: status.application,
-        component: status.component,
-        locked_files: locked_files
-      }
-    else
-      nil
-    end
   end
 
   defdelegate find_similar_tasks(title, file_paths), to: Similarity
@@ -629,6 +625,7 @@ defmodule Acs do
   defp to_task_map(%AcsTask{} = t) do
     %{
       id: t.id,
+      slug: t.slug,
       title: t.title,
       description: t.description,
       status: t.status,
@@ -704,6 +701,47 @@ defmodule Acs do
         _ -> o
       end
     end)
+  end
+
+  @doc """
+  Generates a unique, URL-safe slug for a task title within an org.
+  Matches the backfill logic in the add_slug_to_acs_tasks migration.
+  """
+  def unique_slug(title, org) when is_binary(title) do
+    base = slugify(title)
+
+    existing =
+      Repo.all(
+        from t in AcsTask,
+          where: t.org == ^org,
+          select: t.slug
+      )
+
+    unique_slug_for(base, existing)
+  end
+
+  defp slugify(title) do
+    title
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/, "-")
+    |> String.trim("-")
+    |> String.slice(0, 60)
+    |> case do
+      "" -> "task"
+      slug -> slug
+    end
+  end
+
+  defp unique_slug_for(base, existing) do
+    if base in existing, do: unique_slug_for(base, existing, 2), else: base
+  end
+
+  defp unique_slug_for(base, existing, n) do
+    candidate = "#{base}-#{n}"
+
+    if candidate in existing,
+      do: unique_slug_for(base, existing, n + 1),
+      else: candidate
   end
 
   @doc """

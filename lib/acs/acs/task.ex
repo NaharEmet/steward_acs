@@ -5,6 +5,7 @@ defmodule Acs.Acs.Task do
   @derive {Jason.Encoder,
            only: [
              :id,
+             :slug,
              :title,
              :description,
              :status,
@@ -27,6 +28,7 @@ defmodule Acs.Acs.Task do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "acs_tasks" do
+    field(:slug, :string)
     field(:title, :string)
     field(:description, :string)
     field(:status, :string, default: "todo")
@@ -52,6 +54,7 @@ defmodule Acs.Acs.Task do
   def changeset(task, attrs) do
     task
     |> cast(attrs, [
+      :slug,
       :title,
       :description,
       :status,

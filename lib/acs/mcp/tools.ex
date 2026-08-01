@@ -189,7 +189,7 @@ defmodule Acs.MCP.Tools do
           "agent_id" => %{"type" => "string"},
           "task_id" => %{
             "type" => "string",
-            "description" => "User task id from pending_reminders or list_tasks"
+            "description" => "Task slug (kebab-case from title, e.g. fix-login-bug)"
           },
           "outcome" => %{
             "type" => "string",
@@ -1117,7 +1117,6 @@ defmodule Acs.MCP.Tools do
     # Chat OAuth: agents often pass agent_id "" (coding get_started habit). Blank means
     # "use authenticated identity" — don't require a separate agent name.
     args = coerce_blank_agent_id(args)
-    Logger.info("MCP tool: #{name} - #{tool_action_summary(name, args)}")
 
     with :ok <- validate_agent_identity(args) do
       if agent_id = Map.get(args, "agent_id") do
@@ -1151,7 +1150,7 @@ defmodule Acs.MCP.Tools do
       next_name = ChatSurface.routed_tool(name, args) || name
       next_args = ChatSurface.canonical_args(name, args)
       decorated = add_next(next_name, next_args, result)
-      Logger.info("MCP tool response: #{name} - #{tool_response_summary(name, decorated)}")
+      Logger.debug("MCP tool response: #{name} - #{tool_response_summary(name, decorated)}")
       decorated
     end
   end
@@ -1237,153 +1236,6 @@ defmodule Acs.MCP.Tools do
   defp tool_response_summary(_name, {:ok, result}), do: "ok: #{inspect(result)}"
   defp tool_response_summary(_name, {:error, reason}), do: "error: #{inspect(reason)}"
   defp tool_response_summary(_name, :ok), do: "ok"
-
-  defp tool_action_summary("get_started", args),
-    do: "get started (agent_id=#{Map.get(args, "agent_id", "none")})"
-
-  defp tool_action_summary("claim_work", %{"task_id" => task_id, "agent_id" => agent_id}),
-    do: "claim task=#{task_id} for agent=#{agent_id}"
-
-  defp tool_action_summary("release_work", %{"task_id" => task_id, "agent_id" => agent_id}),
-    do: "release task=#{task_id} for agent=#{agent_id}"
-
-  defp tool_action_summary("create_work", %{"title" => title, "agent_id" => agent_id}),
-    do: "create task '#{title}' for agent=#{agent_id}"
-
-  defp tool_action_summary("lock_file", %{"file_path" => path, "agent_id" => agent_id}),
-    do: "lock file=#{path} for agent=#{agent_id}"
-
-  defp tool_action_summary("unlock_file", %{"file_path" => path, "agent_id" => agent_id}),
-    do: "unlock file=#{path} for agent=#{agent_id}"
-
-  defp tool_action_summary("unlock_file", %{"task_id" => task_id, "agent_id" => agent_id}),
-    do: "unlock all files for task=#{task_id} agent=#{agent_id}"
-
-  defp tool_action_summary("get_present_status", %{"agent_id" => agent_id}),
-    do: "get status for agent=#{agent_id}"
-
-  defp tool_action_summary("get_present_status", %{"status_filter" => "sleeping"}),
-    do: "list sleeping agents"
-
-  defp tool_action_summary("get_locked_files", _),
-    do: "get all locked files"
-
-  defp tool_action_summary("list_tasks", %{"agent_id" => agent_id, "status_filter" => status}),
-    do: "list tasks for agent=#{agent_id} filter=#{status}"
-
-  defp tool_action_summary("get_logs", args),
-    do: "get logs (mode=#{Map.get(args, "mode", "list")}, filters: #{map_size(args)} params)"
-
-  defp tool_action_summary("list_orgs", args),
-    do: "list orgs for app=#{Map.get(args, "app_name", "default")}"
-
-  defp tool_action_summary("app_list", _args),
-    do: "list configured apps"
-
-  defp tool_action_summary("app_configure", %{"name" => name}),
-    do: "configure app: #{name}"
-
-  defp tool_action_summary("app_remove", %{"name" => name}),
-    do: "remove app: #{name}"
-
-  defp tool_action_summary("skill_get", %{"name" => name}),
-    do: "get skill: #{name}"
-
-  defp tool_action_summary("skill_get", %{"search" => query}),
-    do: "search skills: #{query}"
-
-  defp tool_action_summary("skill_get", %{"tag" => tag}),
-    do: "list skills (tag=#{tag})"
-
-  defp tool_action_summary("skill_get", _),
-    do: "list all skills"
-
-  defp tool_action_summary("skill_save", %{"name" => name}),
-    do: "save skill: #{name}"
-
-  defp tool_action_summary("skill_audit_status", _),
-    do: "audit skills"
-
-  defp tool_action_summary("time", %{"action" => "get"}),
-    do: "get time info"
-
-  defp tool_action_summary("time", %{"action" => "set", "seconds" => secs}),
-    do: "set time offset=#{secs}s"
-
-  defp tool_action_summary("time", args),
-    do: "time: #{inspect(args)}"
-
-  defp tool_action_summary("save_memory", %{"title" => title}),
-    do: "save memory: #{title}"
-
-  defp tool_action_summary("query_memories", %{"query" => query}),
-    do: "search memories: #{query}"
-
-  defp tool_action_summary("query_memories", %{"scope_path" => scope}),
-    do: "list memories for scope=#{scope}"
-
-  defp tool_action_summary("query_memories", args),
-    do: "query memories: #{inspect(args)}"
-
-  defp tool_action_summary("set_memory_status", %{"memory_id" => id, "status" => status}),
-    do: "set memory #{id} status=#{status}"
-
-  defp tool_action_summary("generate_guidance_packet", %{"scope_path" => scope}),
-    do: "generate guidance for scope=#{scope}"
-
-  defp tool_action_summary("generate_guidance_packet", %{"task_id" => task_id}),
-    do: "generate guidance for task=#{task_id}"
-
-  defp tool_action_summary("generate_guidance_packet", args),
-    do: "generate guidance: #{inspect(args)}"
-
-  defp tool_action_summary("write_tool", %{"name" => name}),
-    do: "write tool: #{name}"
-
-  defp tool_action_summary("write_tool", _),
-    do: "write tool"
-
-  defp tool_action_summary("list_error_traces", args),
-    do: "list error traces: #{inspect(args)}"
-
-  defp tool_action_summary("ack_error_trace", %{"trace_id" => id}),
-    do: "ack error trace: #{id}"
-
-  defp tool_action_summary("resolve_error_trace", %{"trace_id" => id}),
-    do: "resolve error trace: #{id}"
-
-  defp tool_action_summary("create_task_from_error_trace", %{"trace_id" => id}),
-    do: "create task from error trace: #{id}"
-
-  defp tool_action_summary("submit_task_feedback", %{"task_id" => task_id}),
-    do: "submit feedback for task=#{task_id}"
-
-  # Specs tools
-  defp tool_action_summary("specs_get", %{"app" => app, "path" => path}),
-    do: "specs_get: #{app}/#{path}"
-
-  defp tool_action_summary("query_specs", %{"query" => query}),
-    do: "query_specs search: #{query}"
-
-  defp tool_action_summary("query_specs", %{"undocumented" => true}),
-    do: "query_specs: find undocumented"
-
-  defp tool_action_summary("query_specs", args),
-    do: "query_specs list: #{inspect(args)}"
-
-  defp tool_action_summary("specs_propose", %{"app" => app, "path" => path}),
-    do: "specs_propose: #{app}/#{path}"
-
-  defp tool_action_summary("documents_propose", %{"app" => app, "path" => path}),
-    do: "documents_propose: #{app}/#{path}"
-
-  defp tool_action_summary("specs_approve", %{"app" => app, "path" => path}),
-    do: "specs_approve: #{app}/#{path}"
-
-  defp tool_action_summary("specs_reject", %{"app" => app, "path" => path}),
-    do: "specs_reject: #{app}/#{path}"
-
-  defp tool_action_summary(_name, _args), do: "called"
 
   # ── _next system: injects next-step suggestions into every tool response ──
 

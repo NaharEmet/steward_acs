@@ -109,12 +109,16 @@ defmodule Acs.Specs.Tools do
       result =
         case Loader.load(args["app"], args["path"]) do
           {:ok, existing_entry} ->
-            result = propose_update(existing_entry, attrs)
-            maybe_generate_embeddings_async(args["app"], args["path"])
-            result
+            if Abac.can_edit?(ctx, existing_entry) do
+              result = propose_update(existing_entry, attrs)
+              maybe_generate_embeddings_async(args["app"], args["path"])
+              result
+            else
+              {:error, "Access denied: cannot edit entries at or above your clearance"}
+            end
 
           {:error, :not_found} ->
-            result = propose_new(args["app"], args["path"], attrs)
+            result = propose_new(args["app"], args["path"], attrs, ctx.authority_sort_order)
             maybe_generate_embeddings_async(args["app"], args["path"])
             result
 
@@ -272,10 +276,11 @@ defmodule Acs.Specs.Tools do
     end
   end
 
-  defp propose_new(app, path, attrs) do
+  defp propose_new(app, path, attrs, writer_order) do
     new_args =
       %{"app" => app, "id" => path, "status" => "proposed"}
       |> Map.merge(attrs)
+      |> maybe_stamp_authority(writer_order)
       |> Map.drop(["audit_verdict", "audited_at", "audit_reasoning", "quality_score", "approved_by"])
 
     entry = Entry.from_map(new_args)
@@ -291,6 +296,11 @@ defmodule Acs.Specs.Tools do
     end
   end
 
+  defp maybe_stamp_authority(map, order) when is_integer(order),
+    do: Map.put(map, "authority_sort_order", order)
+
+  defp maybe_stamp_authority(map, _), do: map
+
   # ── specs_approve ──
 
   defp specs_approve(args) do
@@ -299,7 +309,7 @@ defmodule Acs.Specs.Tools do
     with :ok <- require_params!(args, ~w(app path reviewer)) do
       case Loader.load(args["app"], args["path"]) do
         {:ok, entry} ->
-          if Abac.visible?(ctx, entry) do
+          if Abac.can_edit?(ctx, entry) do
             approve_entry(entry, args["reviewer"])
           else
             {:error, "Access denied"}
@@ -341,7 +351,7 @@ defmodule Acs.Specs.Tools do
     with :ok <- require_params!(args, ~w(app path)) do
       case Loader.load(args["app"], args["path"]) do
         {:ok, entry} ->
-          if Abac.visible?(ctx, entry) do
+          if Abac.can_edit?(ctx, entry) do
             reject_entry(entry)
           else
             {:error, "Access denied"}

@@ -5,8 +5,6 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
   use AcsWeb, :live_view
 
-  on_mount {AcsWeb.UserAuth, :ensure_org_admin}
-
   alias Acs.Accounts
   alias Acs.Accounts.InvitationNotifier
   alias Acs.AuthorityLevels

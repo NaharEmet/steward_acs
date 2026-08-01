@@ -221,27 +221,49 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
         {:error, "Only organization admins can approve or reject company memories."}
 
       true ->
-        actor_id = args["_auth_attribution"] || args["_auth_agent_id"] || "unknown"
+        ctx = Acs.Abac.from_args(args)
 
-        actor_type =
-          if is_binary(actor_id) and String.contains?(actor_id, "@"),
-            do: "user",
-            else: "developer_key"
+        case Acs.Memory.Indexer.get_memory(memory_id, Acs.Org.current()) do
+          nil ->
+            {:error, "Memory not found"}
 
-        case Acs.Memory.Store.transition(memory_id, status,
-               org: Acs.Org.current(),
-               actor: %{type: actor_type, id: actor_id},
-               source: "mcp",
-               reason: args["notes"],
-               message: args["notes"] || "Transition memory #{memory_id} to #{status}"
-             ) do
-          {:ok, _result} ->
-            {:ok, %{status: status, memory_id: memory_id, message: "Memory #{status}"}}
+          existing ->
+            if Acs.Abac.can_edit?(ctx, existing) do
+              actor_id = args["_auth_attribution"] || args["_auth_agent_id"] || "unknown"
 
-          {:error, reason} ->
-            {:error, "Failed to update memory status: #{inspect(reason)}"}
+              actor_type =
+                if is_binary(actor_id) and String.contains?(actor_id, "@"),
+                  do: "user",
+                  else: "developer_key"
+
+              transition_memory_status(
+                args,
+                memory_id,
+                status,
+                actor_type,
+                actor_id
+              )
+            else
+              {:error, "Access denied: cannot edit memories at or above your clearance"}
+            end
         end
     end
+  end
+
+  defp transition_memory_status(args, memory_id, status, actor_type, actor_id) do
+    case Acs.Memory.Store.transition(memory_id, status,
+           org: Acs.Org.current(),
+           actor: %{type: actor_type, id: actor_id},
+           source: "mcp",
+           reason: args["notes"],
+           message: args["notes"] || "Transition memory #{memory_id} to #{status}"
+         ) do
+        {:ok, _result} ->
+          {:ok, %{status: status, memory_id: memory_id, message: "Memory #{status}"}}
+
+        {:error, reason} ->
+          {:error, "Failed to update memory status: #{inspect(reason)}"}
+      end
   end
 
   def generate_guidance_packet(args) do

@@ -88,9 +88,9 @@ defmodule Acs.Skills.VectorSearch do
 
   def search(query, opts \\ []) when is_binary(query) do
     limit = Keyword.get(opts, :limit, 20)
-    org = org_filter(opts)
+    org = Pgvector.org_filter(opts)
 
-    with {:ok, embedding} <- resolve_embedding(query, opts) do
+    with {:ok, embedding} <- Pgvector.resolve_embedding(query, opts) do
       if Pgvector.enabled?() do
         search_pg(embedding, org, limit)
       else
@@ -100,13 +100,6 @@ defmodule Acs.Skills.VectorSearch do
       {:error, reason} ->
         Logger.warning("[Skills.VectorSearch] Embedding failed: #{reason}")
         {:error, reason}
-    end
-  end
-
-  defp resolve_embedding(query, opts) do
-    case Keyword.get(opts, :embedding) do
-      emb when is_list(emb) and emb != [] -> {:ok, emb}
-      _ -> Acs.Memory.Embedding.embed_text(query)
     end
   end
 
@@ -247,13 +240,6 @@ defmodule Acs.Skills.VectorSearch do
 
       {:error, _} ->
         MapSet.new()
-    end
-  end
-
-  defp org_filter(opts) do
-    case Keyword.get(opts, :org) do
-      org when is_binary(org) and org != "" -> org
-      _ -> if Acs.Org.multi_tenant?(), do: Acs.Org.current(), else: nil
     end
   end
 end

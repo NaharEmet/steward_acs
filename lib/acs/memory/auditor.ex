@@ -127,11 +127,7 @@ defmodule Acs.Memory.Auditor do
   end
 
   @impl true
-  def terminate(_reason, _state) do
-    Logger.warning("[Acs.Memory.Auditor] Terminating, resetting audit_in_progress flag")
-    # Reset any stale audit_in_progress state in DB if needed
-    :ok
-  end
+  def terminate(_reason, _state), do: :ok
 
   # Schedules the next audit cycle
   defp schedule_audit(interval) do
@@ -350,19 +346,11 @@ defmodule Acs.Memory.Auditor do
         # Step 2: Build memory attrs for LLM
         memory_attrs = build_memory_attrs(memory)
 
-        # Step 3: LLM evaluation with timing
-        {elapsed_us, result} =
-          :timer.tc(fn -> LLM.evaluate_memory(memory_id, memory_attrs) end)
-
-        elapsed_ms = div(elapsed_us, 1000)
-        Logger.info("[Acs.Memory.Auditor] LLM evaluation for #{memory_id} took #{elapsed_ms}ms")
-
-        case result do
+        # Step 3: LLM evaluation
+        case LLM.evaluate_memory(memory_id, memory_attrs) do
           {:ok, evaluation} ->
             # Step 4: Apply decision
-            decision = apply_audit_decision(memory_id, evaluation)
-            Logger.info("[Acs.Memory.Auditor] Memory #{memory_id} evaluated: #{decision}")
-            decision
+            apply_audit_decision(memory_id, evaluation)
 
           {:error, reason} ->
             {:error, reason}
@@ -596,17 +584,6 @@ defmodule Acs.Memory.Auditor do
           # human_review or any other value
           mark_needs_human_review_with_flags(memory_id, auditor_flags)
       end
-
-    # Log the result (both success and failure)
-    case result do
-      :ok ->
-        Logger.info("[Acs.Memory.Auditor] Memory #{memory_id} evaluated: #{recommendation}")
-
-      {:error, reason} ->
-        Logger.error(
-          "[Acs.Memory.Auditor] Memory #{memory_id} evaluation failed: #{inspect(reason)}"
-        )
-    end
 
     result
   end

@@ -1,0 +1,10 @@
+---
+description: When a bug report's environment (local vs prod) is unclear, ask before investigating
+alwaysApply: true
+---
+
+# Bug reports: always confirm the environment
+
+When the user gives a bug report and it is not clear whether it came from **local** or **prod**, ask which environment before investigating or fixing. Do not assume.
+
+This also applies to logs, error traces, and screenshots: if the source environment is ambiguous, ask first.

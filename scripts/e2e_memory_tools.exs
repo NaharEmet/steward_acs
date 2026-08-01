@@ -1,12 +1,12 @@
-# test/e2e_memory_tools.exs
+# scripts/e2e_memory_tools.exs
 #
 # End-to-end test for ALL ACS Memory System MCP tools via Acs.MCP.Tools.call_tool/2.
 #
 # Usage:
 #   cd ..
-#   MIX_ENV=test mix run test/e2e_memory_tools.exs
+#   MIX_ENV=test mix run scripts/e2e_memory_tools.exs
 
-Code.require_file("test_helper.exs", __DIR__)
+Code.require_file("../test/test_helper.exs", __DIR__)
 
 alias Acs.Repo
 alias Acs.Memory.Loader
@@ -54,6 +54,8 @@ end
 # ─── Test 1: save_memory (first) ───
 ph.("Test 1: save_memory - create first memory (axiom)")
 
+auth = %{"_auth_role" => "admin", "_auth_authority_sort_order" => 100}
+
 result1 =
   Acs.MCP.Tools.call_tool("save_memory", %{
     "kind" => "axiom",
@@ -63,7 +65,7 @@ result1 =
     "scope_path" => scope_path,
     "tags" => ["debounce", "file_watcher", "race-condition", "filesystem"],
     "importance" => 4
-  })
+  } |> Map.merge(auth))
 
 {state, mem1_id} =
   case result1 do
@@ -91,7 +93,7 @@ state =
       Acs.MCP.Tools.call_tool("set_memory_status", %{
         "memory_id" => mem1_id,
         "status" => "approved"
-      })
+      } |> Map.merge(auth))
 
     case result2 do
       {:ok, %{status: "approved", memory_id: id}} when id == mem1_id ->
@@ -121,13 +123,13 @@ ph.("Test 3: save_memory - create second memory with overlapping tags")
 result3 =
   Acs.MCP.Tools.call_tool("save_memory", %{
     "kind" => "learning",
-    "title" => "E2E Test: Debounce interval of 100ms minimum",
+    "title" => "E2E Test: Renaming an approved memory keeps its audit trail",
     "content" =>
-      "When implementing file watchers, the debounce interval should never be below 100ms to avoid race conditions on rapid file changes.",
+      "When a memory is approved and later needs a better title, update the title via an upsert rather than deleting and re-creating, so provenance, ledger entries, and downstream references are preserved.",
     "scope_path" => scope_path,
     "tags" => ["debounce", "file_watcher", "race-condition", "filesystem"],
     "importance" => 3
-  })
+  } |> Map.merge(auth))
 
 {state, mem2_id} =
   case result3 do
@@ -156,61 +158,62 @@ result3 =
 
 IO.puts("")
 
-# ─── Test 4: list_memories ───
-ph.("Test 4: list_memories - filter by scope_path")
+# ─── Test 4: query_memories (list, no query) ───
+ph.("Test 4: query_memories - filter by scope_path (no query)")
 
 result4 =
-  Acs.MCP.Tools.call_tool("list_memories", %{
-    "scope_path" => scope_path
-  })
+  Acs.MCP.Tools.call_tool("query_memories", %{
+    "scope_path" => scope_path,
+    "status" => "all"
+  } |> Map.merge(auth))
 
 state =
   case result4 do
     {:ok, %{memories: mems, count: count}} when count >= 2 ->
       ids = Enum.map(mems, & &1.id)
-      record_pass.("list_memories found #{count} memories at scope: #{inspect(ids)}")
+      record_pass.("query_memories found #{count} memories at scope: #{inspect(ids)}")
       %{state | pass: state.pass + 1}
 
     {:ok, %{memories: mems, count: count}} ->
-      record_fail.("list_memories expected >= 2 memories, got #{count}: #{inspect(mems)}")
+      record_fail.("query_memories expected >= 2 memories, got #{count}: #{inspect(mems)}")
       %{state | fail: state.fail + 1}
 
     {:ok, data} ->
-      record_fail.("list_memories unexpected format: #{inspect(data)}")
+      record_fail.("query_memories unexpected format: #{inspect(data)}")
       %{state | fail: state.fail + 1}
 
     {:error, reason} ->
-      record_fail.("list_memories error: #{inspect(reason)}")
+      record_fail.("query_memories error: #{inspect(reason)}")
       %{state | fail: state.fail + 1}
   end
 
 IO.puts("")
 
-# ─── Test 5: search_memories ───
-ph.("Test 5: search_memories - full-text search by query")
+# ─── Test 5: query_memories (search, with query) ───
+ph.("Test 5: query_memories - full-text search by query")
 
 result5 =
-  Acs.MCP.Tools.call_tool("search_memories", %{
+  Acs.MCP.Tools.call_tool("query_memories", %{
     "query" => "debounce"
-  })
+  } |> Map.merge(auth))
 
 state =
   case result5 do
     {:ok, %{memories: mems, count: count}} when count >= 1 ->
       titles = Enum.map(mems, & &1.title)
-      record_pass.("search_memories for 'debounce' found #{count} result(s): #{inspect(titles)}")
+      record_pass.("query_memories for 'debounce' found #{count} result(s): #{inspect(titles)}")
       %{state | pass: state.pass + 1}
 
     {:ok, %{memories: [], count: 0}} ->
-      record_fail.("search_memories found 0 results for 'debounce'")
+      record_fail.("query_memories found 0 results for 'debounce'")
       %{state | fail: state.fail + 1}
 
     {:ok, data} ->
-      record_fail.("search_memories unexpected format: #{inspect(data)}")
+      record_fail.("query_memories unexpected format: #{inspect(data)}")
       %{state | fail: state.fail + 1}
 
     {:error, reason} ->
-      record_fail.("search_memories error: #{inspect(reason)}")
+      record_fail.("query_memories error: #{inspect(reason)}")
       %{state | fail: state.fail + 1}
   end
 
@@ -225,7 +228,7 @@ state =
       Acs.MCP.Tools.call_tool("set_memory_status", %{
         "memory_id" => mem2_id,
         "status" => "rejected"
-      })
+      } |> Map.merge(auth))
 
     case result6 do
       {:ok, %{status: "rejected", memory_id: id}} when id == mem2_id ->
@@ -256,7 +259,7 @@ state =
       Acs.MCP.Tools.call_tool("set_memory_status", %{
         "memory_id" => mem1_id,
         "status" => "stale"
-      })
+      } |> Map.merge(auth))
 
     case result7 do
       {:ok, %{status: "stale", memory_id: id}} when id == mem1_id ->

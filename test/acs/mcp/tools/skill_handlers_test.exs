@@ -55,4 +55,69 @@ defmodule Acs.MCP.Tools.SkillHandlersTest do
                "intake_confirmed" => true
              })
   end
+
+  describe "rank-gated edits (unified role management)" do
+    test "member cannot edit an existing skill at or above own rank" do
+      # Stamped as rank 1 by an admin (admin can edit anything).
+      assert {:ok, %{saved: true}} =
+               SkillHandlers.skill_save(%{
+                 "name" => "ranked-proc",
+                 "content" => "## Steps\n1. Do the thing\n2. Verify\n",
+                 "intake_confirmed" => true,
+                 "_auth_role" => "admin",
+                 "_auth_authority_sort_order" => 1
+               })
+
+      # Same-rank member tries to edit -> denied.
+      assert {:error, msg} =
+               SkillHandlers.skill_save(%{
+                 "name" => "ranked-proc",
+                 "content" => "## Steps\n1. Changed\n",
+                 "intake_confirmed" => true,
+                 "_auth_role" => "member",
+                 "_auth_authority_sort_order" => 1
+               })
+
+      assert msg =~ "Access denied"
+    end
+
+    test "member can edit a skill strictly below own rank" do
+      assert {:ok, %{saved: true}} =
+               SkillHandlers.skill_save(%{
+                 "name" => "low-rank-proc",
+                 "content" => "## Steps\n1. Do it\n2. Check\n",
+                 "intake_confirmed" => true,
+                 "_auth_role" => "admin",
+                 "_auth_authority_sort_order" => 5
+               })
+
+      # Member at rank 2 can edit rank-5 content (strictly below).
+      assert {:ok, %{saved: true}} =
+               SkillHandlers.skill_save(%{
+                 "name" => "low-rank-proc",
+                 "content" => "## Steps\n1. Done\n2. Verify\n",
+                 "intake_confirmed" => true,
+                 "_auth_role" => "member",
+                 "_auth_authority_sort_order" => 2
+               })
+    end
+
+    test "unranked skill is editable by a ranked member" do
+      assert {:ok, %{saved: true}} =
+               SkillHandlers.skill_save(%{
+                 "name" => "unranked-proc",
+                 "content" => "## Steps\n1. Do\n2. Verify\n",
+                 "intake_confirmed" => true
+               })
+
+      assert {:ok, %{saved: true}} =
+               SkillHandlers.skill_save(%{
+                 "name" => "unranked-proc",
+                 "content" => "## Steps\n1. Updated\n2. Verify\n",
+                 "intake_confirmed" => true,
+                 "_auth_role" => "member",
+                 "_auth_authority_sort_order" => 2
+               })
+    end
+  end
 end

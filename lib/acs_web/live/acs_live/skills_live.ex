@@ -9,6 +9,7 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   use AcsWeb, :live_view
 
   alias Acs.Skills.Store
+  alias Acs.Abac
 
   def on_mount(_params, _session, socket) do
     {:cont, assign(socket, current_path: socket.assigns[:current_path] || "/")}
@@ -71,23 +72,60 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   def handle_info(:load_data, socket), do: {:noreply, load_data(socket)}
 
   defp update_status(socket, id, status) do
-    case Store.update_status(id, status, "human") do
-      :ok ->
-        verb = if status == "approved", do: "approved", else: "rejected"
+    ctx = viewer_abac(socket)
 
-        {:noreply,
-         socket
-         |> assign(selected_skill: nil)
-         |> put_flash(:info, "Skill '#{id}' #{verb}")
-         |> load_data()}
+    case Store.get_skill(id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Skill '#{id}' not found")}
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to update skill: #{inspect(reason)}")}
+      skill ->
+        if Abac.can_edit?(ctx, skill) do
+          case Store.update_status(id, status, "human") do
+            :ok ->
+              verb = if status == "approved", do: "approved", else: "rejected"
+
+              {:noreply,
+               socket
+               |> assign(selected_skill: nil)
+               |> put_flash(:info, "Skill '#{id}' #{verb}")
+               |> load_data()}
+
+            {:error, reason} ->
+              {:noreply, put_flash(socket, :error, "Failed to update skill: #{inspect(reason)}")}
+          end
+        else
+          {:noreply,
+           put_flash(socket, :error, "Access denied: cannot edit skills at or above your clearance")}
+        end
+    end
+  end
+
+  # Same clearance rule as MCP: viewer's own authority level + role.
+  defp viewer_abac(socket) do
+    case socket.assigns[:current_user] do
+      %{org_role: role, authority_level_slug: slug} ->
+        Abac.from_keyword(
+          agent_role: role,
+          authority_level_slug: slug
+        )
+
+      %{org_role: role} ->
+        Abac.from_keyword(agent_role: role)
+
+      %{authority_level_slug: slug} ->
+        Abac.from_keyword(authority_level_slug: slug)
+
+      _ ->
+        Abac.from_keyword([])
     end
   end
 
   defp load_data(socket) do
-    all_skills = Store.all_skills()
+    ctx = viewer_abac(socket)
+
+    all_skills =
+      Store.all_skills()
+      |> Abac.filter(ctx)
 
     skills =
       all_skills

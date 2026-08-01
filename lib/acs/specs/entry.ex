@@ -80,6 +80,9 @@ defmodule Acs.Specs.Entry do
     :project,
     # string — "team"|"project"|"org" (ABAC, default "org")
     :visibility,
+    # integer — data authority clearance stamped from the writer (1 = highest);
+    # nil = ungated. Read: item_order >= viewer_order. Edit: item_order > viewer_order.
+    :authority_sort_order,
     # string — origin of the document (file path, URL, etc.)
     :source,
     # string — agent currently editing (presence signal, not a lock)
@@ -127,6 +130,7 @@ defmodule Acs.Specs.Entry do
           team: String.t() | nil,
           project: String.t() | nil,
           visibility: String.t() | nil,
+          authority_sort_order: integer() | nil,
           source: String.t() | nil,
           editing_by: String.t() | nil,
           editing_since: String.t() | nil,
@@ -179,6 +183,7 @@ defmodule Acs.Specs.Entry do
       team: map["team"],
       project: map["project"],
       visibility: map["visibility"] || "org",
+      authority_sort_order: map["authority_sort_order"],
       source: map["source"],
       editing_by: map["editing_by"],
       editing_since: map["editing_since"],
@@ -224,6 +229,7 @@ defmodule Acs.Specs.Entry do
       "team" => entry.team,
       "project" => entry.project,
       "visibility" => entry.visibility,
+      "authority_sort_order" => entry.authority_sort_order,
       "source" => entry.source,
       "editing_by" => entry.editing_by,
       "editing_since" => entry.editing_since,

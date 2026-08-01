@@ -32,7 +32,7 @@ defmodule Acs.Application do
     :ok = Acs.Org.load_persisted_developer_name()
 
     meta_harness_children =
-      if meta_harness_enabled?() do
+      if meta_harness_enabled?() and Application.get_env(:steward_acs, :start_background_workers, true) do
         _ = Acs.MetaHarness.RecentOps.setup()
         [Acs.MetaHarness.OperationLogger, Acs.MetaHarness.Scheduler]
       else
@@ -56,7 +56,6 @@ defmodule Acs.Application do
           Acs.Acs.Sweeper,
           Acs.Acs.SleepRegistry,
           Acs.MCP.RateLimitStore,
-          Acs.MCP.HealthCheckCache,
           Acs.MCP.BridgeSessionStore,
           Acs.MCP.ClientSession,
           Acs.MCP.ToolRegistry,

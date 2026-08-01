@@ -91,45 +91,93 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
 
   def config_lookup(args) do
     path = args["path"] || "all"
-    _key = args["key"]
+    key = args["key"]
 
-    config_data = %{
-      "agents" => %{
-        description: "Agent configuration from opencode.json",
-        path: ".opencode/agents.json"
-      },
-      "skills" => %{
-        description: "Available skills from .opencode/skills/",
-        path: ".opencode/skills/"
-      },
-      "plugins" => %{
-        description: "Plugin configuration from .opencode/plugins.yaml",
-        path: ".opencode/plugins.yaml"
-      },
-      "mcp" => %{
-        description: "MCP server configuration",
-        path: "config/"
-      }
-    }
+    case load_opencode_config() do
+      {:ok, config} ->
+        result = filter_config(redact_config(config), path, key)
+        {:ok, result}
 
-    result =
-      if path == "all" do
-        config_data
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  @secret_key_pattern ~r/(key|token|secret|password|authorization|credential)/i
+
+  defp redact_config(%{__struct__: _} = value), do: value
+  defp redact_config(value) when is_map(value) do
+    Map.new(value, fn {k, v} ->
+      if is_binary(k) and k =~ @secret_key_pattern do
+        {k, "***redacted***"}
       else
-        case Map.get(config_data, path) do
+        {k, redact_config(v)}
+      end
+    end)
+  end
+  defp redact_config(value) when is_list(value), do: Enum.map(value, &redact_config/1)
+  defp redact_config(value), do: value
+
+  defp load_opencode_config do
+    project_path = Path.join(File.cwd!(), "opencode.json")
+    global_path = Path.join([System.user_home!(), ".config", "opencode", "opencode.json"])
+
+    configs =
+      [project_path, global_path]
+      |> Enum.filter(&File.exists?/1)
+      |> Enum.map(fn p -> {p, File.read!(p) |> Jason.decode()} end)
+
+    merged =
+      Enum.reduce(configs, %{}, fn {_p, {:ok, decoded}}, acc ->
+        deep_merge(acc, decoded)
+      end)
+
+    case merged do
+      %{} = m when map_size(m) > 0 -> {:ok, m}
+      _ -> {:error, %{error: "No opencode configuration file found"}}
+    end
+  end
+
+  defp deep_merge(%{} = a, %{} = b) do
+    Map.merge(a, b, fn _k, av, bv -> deep_merge(av, bv) end)
+  end
+  defp deep_merge(_a, b), do: b
+
+  defp filter_config(config, path, key) do
+    filtered =
+      if path == "all" do
+        config
+      else
+        case Map.get(config, path) do
           nil ->
-            %{
-              error:
-                "Unknown config path: #{path}. Valid paths: agents, skills, plugins, mcp, all"
-            }
+            %{error: "Unknown config path: #{path}. Valid paths: agents, skills, plugins, mcp, all"}
 
           data ->
             %{path => data}
         end
       end
 
-    {:ok, result}
+    case key do
+      nil ->
+        filtered
+
+      k when is_binary(k) and k != "" ->
+        case find_key(filtered, k) do
+          {:ok, value} -> %{k => value}
+          :error -> %{error: "Key #{k} not found under #{path}"}
+        end
+    end
   end
+
+  defp find_key(map, key) when is_map(map) do
+    case Map.get(map, key) do
+      nil -> Enum.find_value(map, :error, fn {_, v} -> find_key(v, key) end)
+      value -> {:ok, value}
+    end
+  end
+  defp find_key(values, key) when is_list(values),
+    do: Enum.find_value(values, :error, &find_key(&1, key))
+  defp find_key(_value, _key), do: :error
 
   def connection_diagnostic(args) do
     service = args["service"] || "all"

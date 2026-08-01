@@ -128,7 +128,7 @@ defmodule Acs.Memory.Search do
 
   defp search_semantic(query, opts) do
     if embedding_ready?(opts) do
-      case resolve_embedding(query, opts) do
+      case Acs.Repo.Pgvector.resolve_embedding(query, opts) do
         {:ok, embedding} ->
           limit = Keyword.get(opts, :limit, 20)
           similar = tenant_similar(embedding, opts, limit)
@@ -156,7 +156,7 @@ defmodule Acs.Memory.Search do
 
   defp search_semantic_with_scores(query, opts) do
     if embedding_ready?(opts) do
-      case resolve_embedding(query, opts) do
+      case Acs.Repo.Pgvector.resolve_embedding(query, opts) do
         {:ok, embedding} ->
           limit = Keyword.get(opts, :limit, 20)
           similar = tenant_similar(embedding, opts, limit)
@@ -192,13 +192,6 @@ defmodule Acs.Memory.Search do
     case Keyword.get(opts, :embedding) do
       emb when is_list(emb) and emb != [] -> true
       _ -> Acs.Memory.Embedding.available?()
-    end
-  end
-
-  defp resolve_embedding(query, opts) do
-    case Keyword.get(opts, :embedding) do
-      emb when is_list(emb) and emb != [] -> {:ok, emb}
-      _ -> Acs.Memory.Embedding.embed_text(query)
     end
   end
 

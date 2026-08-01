@@ -81,6 +81,26 @@ defmodule Acs.Abac do
   end
 
   @doc """
+  Returns true when the item is editable under the given context.
+
+  Admin/owner may edit anything. Everyone else may only edit items stamped at
+  a rank strictly below their own clearance (`AuthorityLevels.can_edit?/2`).
+  Personal items remain editable only by their creator.
+  """
+  def can_edit?(%__MODULE__{agent_role: role} = _ctx, _item)
+      when role in ~w(admin owner),
+      do: true
+
+  def can_edit?(%__MODULE__{} = ctx, item) do
+    visibility = field(item, "visibility", "org")
+
+    cond do
+      visibility == "personal" -> personal_owner?(ctx, item)
+      true -> Acs.AuthorityLevels.can_edit?(resolved_viewer_order(ctx), field(item, "authority_sort_order"))
+    end
+  end
+
+  @doc """
   Validates write attributes (`visibility`, `team`, `project`).
 
   Checks shape only — every role may write every scope. Authority is applied by

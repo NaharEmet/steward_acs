@@ -4,42 +4,16 @@ defmodule Acs.LogAnalyzer do
   errors by component and message pattern, and generates actionable insights.
 
   Runs every 60 seconds and stores analysis results in state.
-  Can also call back to the main app's LLM for AI-powered optimization suggestions.
   """
 
   use GenServer
   require Logger
   alias Acs.MCP.ErrorTrace
 
-  # Main app endpoint for AI analysis
-  @main_app_url "http://localhost:4000"
-
   # ── Client API ──
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
-  @doc """
-  Returns the latest analysis results.
-  """
-  def get_analysis do
-    GenServer.call(__MODULE__, :get_analysis, 5_000)
-  end
-
-  @doc """
-  Returns a formatted error report as a string.
-  """
-  def get_error_report do
-    GenServer.call(__MODULE__, :get_error_report, 5_000)
-  end
-
-  @doc """
-  Requests AI-powered optimization suggestions by sending error patterns
-  to the main app for LLM analysis. Returns the AI response or error message.
-  """
-  def request_ai_optimization do
-    GenServer.call(__MODULE__, :request_ai_optimization, 30_000)
   end
 
   # ── Callbacks ──
@@ -57,7 +31,6 @@ defmodule Acs.LogAnalyzer do
        total_errors: 0,
        top_components: [],
        recent_alerts: [],
-       ai_suggestions: nil,
        summary: "No analysis yet"
      }}
   end
@@ -67,24 +40,6 @@ defmodule Acs.LogAnalyzer do
     new_state = perform_analysis(state)
     schedule_analysis()
     {:noreply, new_state}
-  end
-
-  @impl true
-  def handle_call(:get_analysis, _from, state) do
-    {:reply, state, state}
-  end
-
-  @impl true
-  def handle_call(:get_error_report, _from, state) do
-    report = format_report(state)
-    {:reply, report, state}
-  end
-
-  @impl true
-  def handle_call(:request_ai_optimization, _from, state) do
-    result = do_request_ai_optimization(state)
-    new_state = %{state | ai_suggestions: result}
-    {:reply, result, new_state}
   end
 
   # ── Analysis ──
@@ -99,8 +54,6 @@ defmodule Acs.LogAnalyzer do
 
       # Guard clause: if no errors, return state as-is
       if recent_errors == [] do
-        Logger.info("[LogAnalyzer] No errors found in last 5 minutes")
-
         %{
           state
           | last_analysis: DateTime.utc_now(),
@@ -160,27 +113,23 @@ defmodule Acs.LogAnalyzer do
                  g.pattern,
                  metadata
                ) do
-            {:ok, action, trace} when is_map(trace) and action in [:created, :updated] ->
-              Logger.info(
-                "[LogAnalyzer] ErrorTrace #{action} #{g.service}/#{g.component} count=#{trace.count}",
-                action: "error_trace",
-                status: Atom.to_string(action),
-                org: Map.get(trace, :org),
-                service: g.service,
-                component: g.component,
-                count: trace.count
-              )
+            {:ok, action, trace} when is_map(trace) ->
+              if action in [:created, :updated] do
+                Logger.info(
+                  "[LogAnalyzer] ErrorTrace #{action} #{g.service}/#{g.component} count=#{trace.count}",
+                  action: "error_trace",
+                  status: Atom.to_string(action),
+                  org: Map.get(trace, :org),
+                  service: g.service,
+                  component: g.component,
+                  count: trace.count
+                )
+              end
 
               # Only create task if:
               # 1. Pattern count >= 8 (severe)
               # 2. Trace status is :new (not already tasked)
               # 3. Component is not in the ignored list
-              if trace.count >= 8 and trace.status == :new and
-                   g.component not in ignored_components do
-                create_task_for_trace(g, trace)
-              end
-
-            {:ok, _action, trace} when is_map(trace) ->
               if trace.count >= 8 and trace.status == :new and
                    g.component not in ignored_components do
                 create_task_for_trace(g, trace)
@@ -220,10 +169,6 @@ defmodule Acs.LogAnalyzer do
           alerts: alerts
         }
 
-        Logger.info(
-          "[LogAnalyzer] Analysis complete: #{length(recent_errors)} errors, #{length(by_pattern)} patterns, #{length(alerts)} alerts"
-        )
-
         %{
           state
           | last_analysis: DateTime.utc_now(),
@@ -236,8 +181,7 @@ defmodule Acs.LogAnalyzer do
       end
     rescue
       e ->
-        Logger.error("[LogAnalyzer] Crash during analysis: #{inspect(e)}")
-        Logger.error(Exception.format_stacktrace(__STACKTRACE__))
+        Logger.error("[LogAnalyzer] Crash during analysis: #{inspect(e)}", error: Exception.format_stacktrace(__STACKTRACE__))
         state
     end
   end
@@ -248,81 +192,6 @@ defmodule Acs.LogAnalyzer do
     result = Acs.MCP.LogStore.get_logs([level: :error, limit: 500], "list")
 
     Map.get(result, :logs, [])
-  end
-
-  # ── AI Optimization ──
-
-  defp do_request_ai_optimization(state) do
-    if state.total_errors == 0 do
-      "No errors to analyze. AI optimization skipped."
-    else
-      prompt = build_ai_prompt(state)
-
-      case call_main_app_ai(prompt) do
-        {:ok, response} ->
-          response
-
-        {:error, reason} ->
-          "AI analysis unavailable: #{inspect(reason)}.\n\nTo use AI optimization, ensure the main app is running on #{@main_app_url}."
-      end
-    end
-  end
-
-  defp build_ai_prompt(state) do
-    """
-    I am a system operations AI analyzing error logs from a multi-service application.
-
-    ERROR ANALYSIS REPORT:
-    - Total errors in last 5 minutes: #{state.total_errors}
-    - Unique error patterns: #{length(state.error_groups)}
-
-    TOP ERROR COMPONENTS:
-    #{Enum.map_join(Enum.take(state.top_components, 5), "\n", fn g -> "  - #{g.component}: #{g.count} errors" end)}
-
-    ERROR PATTERNS:
-    #{Enum.map_join(Enum.take(state.error_groups, 5), "\n---\n", fn g -> "  Service: #{g.service}\n  Component: #{g.component}\n  Count: #{g.count}\n  Pattern: #{g.pattern}" end)}
-
-    ALERTS:
-    #{if state.recent_alerts == [], do: "  None\n", else: Enum.map_join(state.recent_alerts, "\n", &"  - #{&1}") <> "\n"}
-
-    Based on this error data, please provide:
-    1. Root cause analysis - what is the most likely root cause
-    2. Optimization suggestions - how to fix or mitigate each pattern
-    3. Priority order - which issues to address first
-    4. Monitoring recommendations - what to watch for
-
-    Format as a structured response with clear sections.
-    """
-  end
-
-  defp call_main_app_ai(prompt) do
-    url = "#{@main_app_url}/api/ai/analyze"
-
-    body = %{
-      prompt: prompt,
-      context: "log_analysis",
-      source: "steward_acs_log_analyzer"
-    }
-
-    request =
-      Req.new(
-        url: url,
-        method: :post,
-        json: body,
-        receive_timeout: 15_000,
-        retry: false
-      )
-
-    case Req.request(request) do
-      {:ok, %{status: 200, body: response_body}} ->
-        {:ok, response_body}
-
-      {:ok, %{status: status, body: body}} ->
-        {:error, "HTTP #{status}: #{inspect(body)}"}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
   end
 
   # Parse ISO8601 timestamp string back to DateTime for comparison
@@ -338,70 +207,6 @@ defmodule Acs.LogAnalyzer do
   end
 
   defp parse_ts(_), do: DateTime.from_unix!(0)
-
-  # ── Reporting ──
-
-  defp format_report(state) do
-    timestamp = DateTime.utc_now() |> DateTime.to_iso8601()
-
-    lines = [
-      "╔══════════════════════════════════════╗",
-      "║     ACS Log Analyzer Report          ║",
-      "╚══════════════════════════════════════╝",
-      "",
-      "Generated: #{timestamp}",
-      "Last Analysis: #{format_datetime(state.last_analysis)}",
-      "",
-      "── Error Summary ──",
-      "Total Errors (last 5 min): #{state.total_errors}",
-      "Unique Patterns: #{length(state.error_groups)}",
-      ""
-    ]
-
-    lines = lines ++ ["── Top Components ──"]
-
-    lines =
-      lines ++
-        Enum.map(state.top_components, fn g ->
-          "  #{g.component}: #{g.count} errors"
-        end)
-
-    lines = lines ++ ["", "── Alerts ──"]
-
-    lines =
-      lines ++
-        if state.recent_alerts == [] do
-          ["  ✅ No significant error patterns detected"]
-        else
-          state.recent_alerts
-        end
-
-    lines = lines ++ ["", "── Top Error Patterns ──"]
-
-    lines =
-      lines ++
-        if state.error_groups == [] do
-          ["  No errors recorded"]
-        else
-          Enum.map(Enum.take(state.error_groups, 10), fn g ->
-            "  [x#{g.count}] #{g.service}/#{g.component}: #{String.slice(g.pattern, 0, 120)}"
-          end)
-        end
-
-    lines = lines ++ ["", "── AI Optimization Suggestions ──"]
-
-    lines =
-      if state.ai_suggestions do
-        lines ++ [state.ai_suggestions]
-      else
-        lines ++
-          [
-            "  No AI analysis requested yet. Call request_ai_optimization() to generate suggestions."
-          ]
-      end
-
-    Enum.join(lines, "\n")
-  end
 
   defp format_datetime(nil), do: "never"
   defp format_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)

@@ -35,10 +35,6 @@ config :steward_acs, AcsWeb.Endpoint,
   cache_static_manifest: "priv/static/cache_manifest.json",
   force_ssl: [rewrite_on: [:x_forwarded_proto], hsts: true]
 
-config :steward_acs, :admin_emails, []
-
-config :steward_acs, :allowed_paths, ["/tmp", "/app"]
-config :steward_acs, :allowed_commands, ~w(echo ls cat)
 config :steward_acs, :mcp_auth_local_fallback, false
 config :steward_acs, :secure_session_cookie, true
 config :steward_acs, :hsts, true

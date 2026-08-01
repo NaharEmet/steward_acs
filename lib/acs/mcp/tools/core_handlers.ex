@@ -48,7 +48,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     opts = abac ++ if(scope_path, do: [skip_guidance: true], else: [])
 
     case Acs.claim_task(task_id, agent_id, opts) do
-      {:ok, _task, guidance} ->
+      {:ok, task, guidance} ->
         application = args["application"]
         component = args["component"]
 
@@ -69,7 +69,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         {:ok,
          %{
            status: "claimed",
-           task_id: task_id,
+           task_id: task.slug,
            agent_id: agent_id,
            audience: Acs.MCP.Audience.from_args(args),
            guidance: final_guidance
@@ -82,11 +82,11 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   def acs_release_work(%{"agent_id" => agent_id, "task_id" => task_id}) do
     case Acs.release_task(task_id, agent_id) do
-      {:ok, _task} ->
+      {:ok, task} ->
         {:ok,
          %{
            status: "done",
-           task_id: task_id,
+           task_id: task.slug,
            agent_id: agent_id,
            message: "Task released. Now call submit_task_feedback to formally close it."
          }}
@@ -134,7 +134,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
          %{
            status: "ok",
            kind: "user",
-           task_id: task.id,
+           task_id: task.slug,
            title: task.title,
            assignee: task.assignee,
            due_at: task.due_at,
@@ -166,15 +166,15 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         if claim do
           case Acs.claim_task(task.id, agent_id, claim_guidance_opts(args, mode)) do
             {:ok, _task, guidance} ->
-              {:ok, %{status: "claimed", task_id: task.id, title: task.title, guidance: guidance}}
+              {:ok, %{status: "claimed", task_id: task.slug, title: task.title, guidance: guidance}}
 
             {:error, reason} ->
               {:ok,
-               %{status: "created", task_id: task.id, title: task.title, claim_error: reason}}
+               %{status: "created", task_id: task.slug, title: task.title, claim_error: reason}}
           end
         else
           SleepRegistry.try_dispatch(task.id)
-          {:ok, %{status: "ok", task_id: task.id, title: task.title}}
+          {:ok, %{status: "ok", task_id: task.slug, title: task.title}}
         end
 
       {:warn, task, similar} ->
@@ -184,7 +184,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
               {:ok,
                %{
                  status: "claimed",
-                 task_id: task.id,
+                 task_id: task.slug,
                  title: task.title,
                  guidance: guidance,
                  similar_tasks: similar
@@ -194,7 +194,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
               {:ok,
                %{
                  status: "created",
-                 task_id: task.id,
+                 task_id: task.slug,
                  title: task.title,
                  similar_tasks: similar,
                  claim_error: reason
@@ -202,7 +202,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
           end
         else
           SleepRegistry.try_dispatch(task.id)
-          {:ok, %{status: "warning", task_id: task.id, title: task.title, similar_tasks: similar}}
+          {:ok, %{status: "warning", task_id: task.slug, title: task.title, similar_tasks: similar}}
         end
 
       {:error, reason} ->
@@ -236,7 +236,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
             {:ok,
              %{
                status: "ok",
-               task_id: task.id,
+               task_id: task.slug,
                outcome: outcome,
                task_status: task.status,
                remind_at: task.remind_at,
@@ -374,7 +374,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         %{
           tool: "claim_work",
           description: "Claim an existing task",
-          params: %{agent_id: "your_name", task_id: "<id>"}
+          params: %{agent_id: "your_name", task_id: "<slug>"}
         },
         %{
           tool: "generate_guidance_packet",
@@ -550,13 +550,13 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   def acs_get_present_status(%{"agent_id" => agent_id})
       when is_binary(agent_id) and agent_id != "" and agent_id != "unknown" do
-    statuses = Acs.Acs.get_present_status()
+    statuses = with_task_slugs(Acs.Acs.get_present_status())
     my_status = Enum.find(statuses, %{}, fn s -> s.agent_id == agent_id end)
     {:ok, %{agents: statuses, agent: my_status, agent_id: agent_id}}
   end
 
   def acs_get_present_status(%{"status_filter" => _filter}) do
-    {:ok, Acs.Acs.get_present_status()}
+    {:ok, with_task_slugs(Acs.Acs.get_present_status())}
   end
 
   def acs_get_present_status(args) do
@@ -571,11 +571,25 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       _ -> :ok
     end
 
-    {:ok, %{agents: Acs.Acs.get_present_status(), assigned_agent_id: agent_name}}
+    {:ok, %{agents: with_task_slugs(Acs.Acs.get_present_status()), assigned_agent_id: agent_name}}
   end
 
   def acs_get_locked_files(_) do
     locks = Acs.Acs.get_locked_files()
+
+    task_ids = Enum.map(locks, & &1.task_id) |> Enum.reject(&is_nil/1)
+
+    slug_by_id =
+      if task_ids == [] do
+        %{}
+      else
+        Acs.Repo.all(
+          from t in Acs.Acs.Task,
+            where: t.id in ^task_ids and t.org == ^Acs.Org.current(),
+            select: {t.id, t.slug}
+        )
+        |> Map.new()
+      end
 
     {:ok,
      Enum.map(locks, fn l ->
@@ -585,9 +599,31 @@ defmodule Acs.MCP.Tools.CoreHandlers do
          locked_by_agent: l.locked_by_agent,
          locked_at: l.locked_at,
          auto_release_at: l.auto_release_at,
-         task_id: l.task_id
+         task_id: Map.get(slug_by_id, l.task_id, l.task_id)
        }
-     end)}
+      end)}
+  end
+
+  defp with_task_slugs(statuses) when is_list(statuses) do
+    task_ids = Enum.map(statuses, & &1.current_task_id) |> Enum.reject(&is_nil/1)
+
+    slug_by_id =
+      if task_ids == [] do
+        %{}
+      else
+        Acs.Repo.all(
+          from t in Acs.Acs.Task,
+            where: t.id in ^task_ids and t.org == ^Acs.Org.current(),
+            select: {t.id, t.slug}
+        )
+        |> Map.new()
+      end
+
+    Enum.map(statuses, fn s ->
+      s
+      |> Map.put(:current_task_slug, Map.get(slug_by_id, s.current_task_id))
+      |> Map.drop([:current_task_id])
+    end)
   end
 
   def acs_list_tasks(args) when is_map(args) do
@@ -604,7 +640,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       formatted =
         Enum.map(tasks, fn t ->
           %{
-            id: t.id,
+            slug: t.slug,
             title: t.title,
             description: t.description,
             status: t.status,
@@ -637,7 +673,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
           formatted =
             Enum.map(tasks, fn t ->
               %{
-                id: t.id,
+                slug: t.slug,
                 title: t.title,
                 description: t.description,
                 status: t.status,
@@ -873,7 +909,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     with :ok <- authorize_time_read(args) do
       offset = Acs.Acs.get_time_offset()
       system_time = DateTime.utc_now()
-      adjusted_time = Acs.Acs.adjusted_now()
+      adjusted_time = Acs.Acs.get_time_offset()
 
       {:ok,
        %{

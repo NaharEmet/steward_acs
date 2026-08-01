@@ -1,2 +1,0 @@
-# Deprecated — superseded by Caddyfile.multitenant
-# Production: docker compose -f docker-compose.multitenant.yml up -d

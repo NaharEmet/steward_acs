@@ -1,8 +1,6 @@
 defmodule AcsWeb.AcsLive.PromptsLive do
   use AcsWeb, :live_view
 
-  on_mount {AcsWeb.UserAuth, :ensure_org_admin}
-
   alias Acs.Org
 
   @known_prompts [

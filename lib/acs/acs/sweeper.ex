@@ -87,97 +87,91 @@ defmodule Acs.Acs.Sweeper do
   defp release_task_lock(task) do
     original_agent = task.locked_by_agent
 
-    # Guard: Skip if task is already released or already done.
-    if is_nil(task.locked_by_agent) or task.status == "done" do
-      Logger.info("[Acs.Sweeper] Task #{task.id} already released/done, skipping")
-      :skip
-    else
-      result =
-        Repo.transaction(fn ->
-          # Re-read with FOR UPDATE lock to prevent race with agent release
-          locked_task = Repo.get!(AcsTask, task.id, lock: "FOR UPDATE")
+    result =
+      Repo.transaction(fn ->
+        # Re-read with FOR UPDATE lock to prevent race with agent release
+        locked_task = Repo.get!(AcsTask, task.id, lock: "FOR UPDATE")
 
-          if is_nil(locked_task.locked_by_agent) or locked_task.status == "done" do
-            Repo.rollback(:skip)
-          end
+        if is_nil(locked_task.locked_by_agent) or locked_task.status == "done" do
+          Repo.rollback(:skip)
+        end
 
-          {:ok, updated} =
-            locked_task
-            |> AcsTask.changeset(%{
-              "locked_by_agent" => nil,
-              "locked_at" => nil,
-              "auto_release_at" => nil,
-              "status" => "todo"
-            })
-            |> Repo.update()
-
-          Cache.put_task(updated.id, %{
-            id: updated.id,
-            title: updated.title,
-            description: updated.description,
-            status: updated.status,
-            created_by_agent: updated.created_by_agent,
-            locked_by_agent: nil,
-            locked_at: nil,
-            auto_release_at: nil,
-            file_paths: updated.file_paths || [],
-            org: updated.org
+        {:ok, updated} =
+          locked_task
+          |> AcsTask.changeset(%{
+            "locked_by_agent" => nil,
+            "locked_at" => nil,
+            "auto_release_at" => nil,
+            "status" => "todo"
           })
+          |> Repo.update()
 
-          # Cascade release all file locks for this task
-          locks =
-            Repo.all(from f in FileLock, where: f.task_id == ^task.id and f.org == ^task.org)
+        Cache.put_task(updated.id, %{
+          id: updated.id,
+          title: updated.title,
+          description: updated.description,
+          status: updated.status,
+          created_by_agent: updated.created_by_agent,
+          locked_by_agent: nil,
+          locked_at: nil,
+          auto_release_at: nil,
+          file_paths: updated.file_paths || [],
+          org: updated.org
+        })
 
-          Enum.each(locks, fn lock ->
-            Repo.delete(lock)
-            Cache.delete_file_lock(lock.file_path, lock.org)
-          end)
+        # Cascade release all file locks for this task
+        locks =
+          Repo.all(from f in FileLock, where: f.task_id == ^task.id and f.org == ^task.org)
 
-          # Clear agent status if it was set
-          if original_agent do
-            case Repo.get_by(AgentStatus, agent_id: original_agent, org: task.org) do
-              nil ->
-                :ok
-
-              status ->
-                case Repo.delete(status) do
-                  {:ok, _} ->
-                    Cache.delete_agent_status(original_agent, task.org)
-
-                  {:error, _} ->
-                    Logger.warning(
-                      "[Acs.Sweeper] Failed to delete agent status for #{original_agent}"
-                    )
-
-                    Cache.delete_agent_status(original_agent, task.org)
-                end
-            end
-          end
-
-          {:ok, updated}
+        Enum.each(locks, fn lock ->
+          Repo.delete(lock)
+          Cache.delete_file_lock(lock.file_path, lock.org)
         end)
 
-      case result do
-        {:ok, {:ok, updated}} ->
-          Acs.broadcast(:task_released, %{task_id: updated.id, agent_id: original_agent})
-          Acs.broadcast(:file_unlocked, %{task_id: updated.id})
+        # Clear agent status if it was set
+        if original_agent do
+          case Repo.get_by(AgentStatus, agent_id: original_agent, org: task.org) do
+            nil ->
+              :ok
 
-          if original_agent do
-            Acs.broadcast(:agent_removed, %{agent_id: original_agent})
+            status ->
+              case Repo.delete(status) do
+                {:ok, _} ->
+                  Cache.delete_agent_status(original_agent, task.org)
+
+                {:error, _} ->
+                  Logger.warning(
+                    "[Acs.Sweeper] Failed to delete agent status for #{original_agent}"
+                  )
+
+                  Cache.delete_agent_status(original_agent, task.org)
+              end
           end
+        end
 
-          :ok
+        {:ok, updated}
+      end)
 
-        {:error, :skip} ->
-          :skip
+    case result do
+      {:ok, {:ok, updated}} ->
+        Acs.broadcast(:task_released, %{task_id: updated.id, agent_id: original_agent})
+        Acs.broadcast(:file_unlocked, %{task_id: updated.id})
 
-        {:error, reason} ->
-          Logger.warning(
-            "[Acs.Sweeper] Transaction failed for task #{task.id}: #{inspect(reason)}"
-          )
+        if original_agent do
+          Acs.broadcast(:agent_removed, %{agent_id: original_agent})
+        end
 
-          :error
-      end
+        :ok
+
+      {:error, :skip} ->
+        :skip
+
+      {:error, reason} ->
+        Logger.warning(
+          "[Acs.Sweeper] Transaction failed for task #{task.id}: #{inspect(reason)}"
+        )
+
+        :error
     end
   end
 end

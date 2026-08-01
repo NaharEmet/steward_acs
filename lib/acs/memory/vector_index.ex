@@ -103,7 +103,7 @@ defmodule Acs.Memory.VectorIndex do
   def search_similar(embedding, options \\ [], repo \\ Acs.Repo)
       when is_list(embedding) and is_list(options) do
     limit = Keyword.get(options, :limit, 10)
-    org = org_filter(options)
+    org = Pgvector.org_filter(options)
 
     if Pgvector.enabled?(repo) do
       search_similar_pg(embedding, org, limit, repo)
@@ -215,13 +215,6 @@ defmodule Acs.Memory.VectorIndex do
 
       _ ->
         []
-    end
-  end
-
-  defp org_filter(options) do
-    case Keyword.get(options, :org) do
-      org when is_binary(org) and org != "" -> org
-      _ -> if Acs.Org.multi_tenant?(), do: Acs.Org.current(), else: nil
     end
   end
 end

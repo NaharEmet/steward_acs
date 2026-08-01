@@ -314,8 +314,7 @@ defmodule Acs.LLM do
         temperature: 0.0,
         enable_rate_limiter: true,
         enable_circuit_breaker: false,
-        enable_metrics: true,
-        enable_logging: true
+        enable_metrics: true
       ]
 
       opts = if base_url, do: Keyword.put(opts, :base_url, base_url), else: opts

@@ -1,8 +1,6 @@
 defmodule Acs.MetaHarness.OperationLoggerTest do
   @moduledoc """
   Tests for the ACS Meta-Harness OperationLogger module.
-  Tests public API - extract_result_info is tested through
-  log_tool_result_async which delegates to it internally.
   """
   use ExUnit.Case, async: true
 
@@ -57,77 +55,6 @@ defmodule Acs.MetaHarness.OperationLoggerTest do
 
     test "returns :ok with nil latency" do
       assert :ok = OperationLogger.log_async("ping", :success, nil, nil, nil, "agent-1")
-    end
-  end
-
-  describe "log/8" do
-    test "returns :ok" do
-      assert :ok = OperationLogger.log("test_tool", :success, 10, nil, nil, "agent-1")
-    end
-
-    test "returns :ok for failure case" do
-      assert :ok =
-               OperationLogger.log(
-                 "test_tool",
-                 :failure,
-                 5,
-                 "err",
-                 "something broke",
-                 "agent-1",
-                 "exec-1"
-               )
-    end
-  end
-
-  describe "log_tool_result_async/6" do
-    test "handles {:ok, _} result" do
-      assert :ok =
-               OperationLogger.log_tool_result_async(
-                 "test_tool",
-                 {:ok, %{result: "data"}},
-                 15,
-                 "agent-1",
-                 "exec-1"
-               )
-    end
-
-    test "handles :ok result" do
-      assert :ok = OperationLogger.log_tool_result_async("test_tool", :ok, nil)
-    end
-
-    test "handles {:sleep, _, _} result" do
-      assert :ok = OperationLogger.log_tool_result_async("test_tool", {:sleep, 1000, :timer}, 5)
-    end
-
-    test "handles {:error, binary} result" do
-      assert :ok =
-               OperationLogger.log_tool_result_async(
-                 "test_tool",
-                 {:error, "task_not_found: no such task"},
-                 8,
-                 "agent-1"
-               )
-    end
-
-    test "handles {:error, map_with_reason} result" do
-      assert :ok =
-               OperationLogger.log_tool_result_async(
-                 "test_tool",
-                 {:error, %{reason: "timeout occurred"}},
-                 3
-               )
-    end
-
-    test "handles {:error, atom} result" do
-      assert :ok = OperationLogger.log_tool_result_async("test_tool", {:error, :badarg}, nil)
-    end
-
-    test "handles unexpected result type" do
-      assert :ok = OperationLogger.log_tool_result_async("test_tool", %{unexpected: "value"}, nil)
-    end
-
-    test "handles minimal arguments" do
-      assert :ok = OperationLogger.log_tool_result_async("ping", :ok, nil)
     end
   end
 

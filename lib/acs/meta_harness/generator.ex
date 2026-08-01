@@ -34,20 +34,6 @@ defmodule Acs.MetaHarness.Generator do
     end
   end
 
-  @doc "Direct SQL query for Opencode"
-  def query(sql) do
-    try do
-      {:ok, result} = Ecto.Adapters.SQL.query(Acs.Repo, Acs.MetaHarness.SQL.adapt(sql), [], log: false)
-
-      {:ok,
-       Enum.map(result.rows, fn row ->
-         Enum.zip(result.columns, row) |> Enum.into(%{})
-       end)}
-    rescue
-      e -> {:error, inspect(e)}
-    end
-  end
-
   # ── Data Gathering ───────────────────────────────────────────────────────────
 
   defp gather_all_data(analysis) do

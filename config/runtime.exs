@@ -267,31 +267,6 @@ if System.get_env("HTTP_SLEEP_MAX_MS") do
   config :steward_acs, :http_sleep_max_ms, String.to_integer(System.get_env("HTTP_SLEEP_MAX_MS"))
 end
 
-if admin_emails_env = System.get_env("ACS_ADMIN_EMAILS") do
-  admin_emails =
-    admin_emails_env
-    |> String.split(",", trim: true)
-    |> Enum.map(&String.trim/1)
-
-  config :steward_acs, :admin_emails, admin_emails
-end
-
-if System.get_env("ALLOWED_PATHS") do
-  config :steward_acs,
-         :allowed_paths,
-         System.get_env("ALLOWED_PATHS")
-         |> String.split(",", trim: true)
-         |> Enum.map(&String.trim/1)
-end
-
-if System.get_env("ALLOWED_COMMANDS") do
-  config :steward_acs,
-         :allowed_commands,
-         System.get_env("ALLOWED_COMMANDS")
-         |> String.split(",", trim: true)
-         |> Enum.map(&String.trim/1)
-end
-
 config :steward_acs, :nim_api_key, System.get_env("NIM_API_KEY", "")
 config :steward_acs, :mimo_api_key, System.get_env("MIMO_API_KEY", "")
 config :steward_acs, :minimax_api_key, System.get_env("MINIMAX_API_KEY", "")

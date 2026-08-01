@@ -123,6 +123,25 @@ defmodule Acs.AuthorityLevels do
 
   def can_read?(_, _), do: false
 
+  @doc """
+  True when a viewer may EDIT a memory/spec/skill with the given stamped order.
+
+  Editing is stricter than reading: a viewer may only edit items stamped at a
+  rank strictly below their own (`memory_order > viewer_order`, since 1 is
+  highest). Unranked items (nil) follow the same fallbacks as `can_read?/2` for
+  backwards compatibility. Admin/owner bypass lives at the call sites.
+  """
+  def can_edit?(nil, nil), do: true
+  def can_edit?(nil, item_order) when is_integer(item_order), do: false
+  def can_edit?(viewer_order, nil) when is_integer(viewer_order), do: true
+
+  def can_edit?(viewer_order, item_order)
+      when is_integer(viewer_order) and is_integer(item_order) do
+    item_order > viewer_order
+  end
+
+  def can_edit?(_, _), do: false
+
   def upsert(org, attrs) when is_binary(org) and is_map(attrs) do
     org = normalize_org(org)
     ensure_defaults!(org)
