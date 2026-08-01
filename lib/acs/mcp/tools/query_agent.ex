@@ -352,6 +352,8 @@ defmodule Acs.MCP.Tools.QueryAgent do
     |> maybe_put(:agent_role, args["_auth_role"])
     |> maybe_put(:agent_id, args["_auth_agent_id"])
     |> maybe_put(:audience, args["_auth_audience"])
+    |> maybe_put(:authority_sort_order, args["_auth_authority_sort_order"])
+    |> maybe_put(:authority_level_slug, args["_auth_authority_level"])
   end
 
   defp clamp_limit(nil), do: @default_limit

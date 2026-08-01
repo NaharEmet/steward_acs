@@ -164,6 +164,7 @@ defmodule Acs.Memory.Indexer do
       project: memory.project,
       visibility: memory.visibility,
       org: memory.org,
+      authority_sort_order: memory.authority_sort_order,
       company_memory_id: Keyword.get(opts, :company_memory_id),
       head_revision_id: Keyword.get(opts, :head_revision_id)
     }
@@ -393,7 +394,9 @@ defmodule Acs.Memory.Indexer do
 
     # Fetch proposed memories (the ones the auditor processes)
     proposed =
-      list_memories(status: "proposed", limit: limit * 2, org: opts[:org] || Acs.Org.current())
+      opts
+      |> Keyword.merge(status: "proposed", limit: limit * 2, org: opts[:org] || Acs.Org.current())
+      |> list_memories()
 
     # Filter to only those with audit error flags
     proposed
@@ -421,8 +424,9 @@ defmodule Acs.Memory.Indexer do
   @doc """
   Count memories needing review (have audit error count > 0).
   """
-  def count_memories_needing_review(org \\ Acs.Org.current()) do
-    proposed = list_memories(status: "proposed", limit: 500, org: org)
+  def count_memories_needing_review(org \\ Acs.Org.current(), opts \\ []) do
+    proposed =
+      opts |> Keyword.merge(status: "proposed", limit: 500, org: org) |> list_memories()
 
     proposed
     |> Enum.count(fn m ->
@@ -522,6 +526,10 @@ defmodule Acs.Memory.Indexer do
       "revalidation" => decode_json_field(schema.revalidation_json),
       "org" => schema.org,
       "created_by" => decode_json_field(schema.created_by_json),
+      "team" => schema.team,
+      "project" => schema.project,
+      "visibility" => schema.visibility,
+      "authority_sort_order" => schema.authority_sort_order,
       "created_at" => format_datetime(schema.created_at),
       "updated_at" => format_datetime(schema.updated_at)
     }
@@ -590,92 +598,54 @@ defmodule Acs.Memory.Indexer do
 
   defp apply_audience_order(query, _), do: query
 
+  # Personal = creator-only (no rank gate). Shared ranked memories require
+  # viewer clearance (memory.authority_sort_order >= viewer order). Unranked stay open.
+  # Role never bypasses clearance — admin/service keys use their authority_level_slug.
   defp build_abac_filter(query, opts) do
     import Ecto.Query
 
-    allowed_teams = opts[:allowed_teams] || []
-    allowed_projects = opts[:allowed_projects] || []
-    role = opts[:agent_role]
-    agent_id = opts[:agent_id]
-
-    has_teams = is_list(allowed_teams) and allowed_teams != []
-    has_projects = is_list(allowed_projects) and allowed_projects != []
-    restricted_role? = role in ~w(collaborator reader)
-
-    cond do
-      has_teams and has_projects ->
-        query
-        |> where_org_team_project_or_own_personal(allowed_teams, allowed_projects, agent_id)
-
-      has_teams ->
-        from m in query,
-          where:
-            fragment(
-              "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?)) OR (? = 'personal' AND ? = ?)",
-              m.visibility,
-              m.visibility,
-              m.team,
-              ^allowed_teams,
-              m.visibility,
-              m.created_by_agent,
-              ^agent_id_or_sentinel(agent_id)
-            )
-
-      has_projects ->
-        from m in query,
-          where:
-            fragment(
-              "COALESCE(?, 'org') = 'org' OR (? = 'project' AND ? IN (?)) OR (? = 'personal' AND ? = ?)",
-              m.visibility,
-              m.visibility,
-              m.project,
-              ^allowed_projects,
-              m.visibility,
-              m.created_by_agent,
-              ^agent_id_or_sentinel(agent_id)
-            )
-
-      restricted_role? ->
-        from m in query,
-          where:
-            fragment(
-              "COALESCE(?, 'org') = 'org' OR (? = 'personal' AND ? = ?)",
-              m.visibility,
-              m.visibility,
-              m.created_by_agent,
-              ^agent_id_or_sentinel(agent_id)
-            )
-
-      true ->
-        # Unrestricted roles see org/team/project plus only their own personal memories.
-        from m in query,
-          where:
-            fragment(
-              "COALESCE(?, 'org') != 'personal' OR ? = ?",
-              m.visibility,
-              m.created_by_agent,
-              ^agent_id_or_sentinel(agent_id)
-            )
+    # ponytail: background jobs (auditor, dedupe scans) act for no principal and must see
+    # every memory to process it. Never set :system on a request/MCP path.
+    if opts[:system] do
+      query
+    else
+      apply_abac_filter(query, opts)
     end
   end
 
-  defp where_org_team_project_or_own_personal(query, allowed_teams, allowed_projects, agent_id) do
+  defp apply_abac_filter(query, opts) do
     import Ecto.Query
 
+    agent_id = agent_id_or_sentinel(opts[:agent_id])
+
+    viewer_order =
+      cond do
+        is_integer(opts[:authority_sort_order]) ->
+          opts[:authority_sort_order]
+
+        true ->
+          org = opts[:org] || Acs.Org.current()
+          Acs.AuthorityLevels.viewer_sort_order(org, opts[:authority_level_slug])
+      end
+
+    # personal → owner only; shared → unranked OR M >= V
     from m in query,
       where:
         fragment(
-          "COALESCE(?, 'org') = 'org' OR (? = 'team' AND ? IN (?)) OR (? = 'project' AND ? IN (?)) OR (? = 'personal' AND ? = ?)",
-          m.visibility,
-          m.visibility,
-          m.team,
-          ^allowed_teams,
-          m.visibility,
-          m.project,
-          ^allowed_projects,
+          """
+          (COALESCE(?, 'org') = 'personal' AND ? = ?)
+          OR (
+            COALESCE(?, 'org') != 'personal'
+            AND (? IS NULL OR ? >= ?)
+          )
+          """,
           m.visibility,
           m.created_by_agent,
-          ^agent_id_or_sentinel(agent_id)
+          ^agent_id,
+          m.visibility,
+          m.authority_sort_order,
+          m.authority_sort_order,
+          ^viewer_order
         )
   end
 

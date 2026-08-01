@@ -1841,16 +1841,22 @@
 
       .management-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.75fr);
-        gap: 24px;
-        margin-bottom: 0;
-        align-items: start;
+        grid-template-columns: 1fr;
+        gap: 18px;
+        margin-top: 22px;
       }
 
-      .role-guide dl { display: grid; gap: 0; margin: 22px 0 16px; }
-      .role-guide dl > div { display: grid; grid-template-columns: 78px 1fr; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+      .role-guide dl { display: grid; gap: 0; margin: 14px 0 12px; }
+      .role-guide dl > div { display: grid; grid-template-columns: 90px 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); }
       .role-guide dl > div:first-child { border-top: 1px solid var(--border); }
       .role-guide dd { color: var(--text-dim); font-size: 0.76rem; line-height: 1.45; }
+      .role-guide .guide-section + .guide-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+      .role-guide .guide-section h3 {
+        margin: 0 0 6px;
+        color: var(--text);
+        font-family: var(--font-display);
+        font-size: 0.92rem;
+      }
 
       .invite-delivery-note {
         margin-top: 18px;

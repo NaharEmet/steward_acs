@@ -67,6 +67,9 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
     {visibility, tags} = resolve_visibility_and_tags(args, person, tags)
 
+    # Stamp from the writer’s clearance, not the about-person’s directory rank.
+    authority_sort_order = writer_authority_sort_order(args, org)
+
     memory_map =
       %{
         "id" => Acs.Memory.generate_id(%{"kind" => kind, "title" => title}),
@@ -88,7 +91,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
         "org" => org,
         "team" => team,
         "project" => project,
-        "visibility" => visibility
+        "visibility" => visibility,
+        "authority_sort_order" => authority_sort_order
       }
       |> Acs.MCP.MemoryProvenance.enrich_memory_map(args)
 
@@ -137,7 +141,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       allowed_projects: args["_auth_allowed_projects"],
       agent_role: args["_auth_role"],
       agent_id: args["_auth_agent_id"],
-      audience: args["_auth_audience"]
+      audience: args["_auth_audience"],
+      authority_sort_order: args["_auth_authority_sort_order"]
     ]
 
     if query && query != "" do
@@ -246,12 +251,22 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     allowed_projects = args["_auth_allowed_projects"]
     agent_role = args["_auth_role"]
     agent_id = args["_auth_agent_id"]
+    authority_sort_order = args["_auth_authority_sort_order"]
 
     with {:ok, mode} <- resolve_guidance_mode(args) do
       packet =
         cond do
           task_id && task_id != "" ->
-            Acs.Memory.Guidance.for_task(task_id, tier: :full, mode: mode)
+            Acs.Memory.Guidance.for_task(task_id,
+              tier: :full,
+              mode: mode,
+              allowed_teams: allowed_teams,
+              allowed_projects: allowed_projects,
+              agent_role: agent_role,
+              agent_id: agent_id,
+              authority_sort_order: authority_sort_order,
+              authority_level_slug: args["_auth_authority_level"]
+            )
 
           scope_path && scope_path != "" ->
             Acs.Memory.Guidance.generate(scope_path,
@@ -260,7 +275,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
               allowed_teams: allowed_teams,
               allowed_projects: allowed_projects,
               agent_role: agent_role,
-              agent_id: agent_id
+              agent_id: agent_id,
+              authority_sort_order: authority_sort_order
             )
 
           true ->
@@ -270,7 +286,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
               allowed_teams: allowed_teams,
               allowed_projects: allowed_projects,
               agent_role: agent_role,
-              agent_id: agent_id
+              agent_id: agent_id,
+              authority_sort_order: authority_sort_order
             )
         end
 
@@ -369,9 +386,18 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       question:
         "This memory is about #{who}. At what level should it be scoped? Ask the user, then retry with visibility (or confidential: true for personal).",
       options: [
-        %{visibility: "org", label: "Org — visible to everyone in the organization"},
-        %{visibility: "team", label: "Team — only a specific team (also pass team:)"},
-        %{visibility: "project", label: "Project — only a specific project (also pass project:)"},
+        %{
+          visibility: "org",
+          label: "Org — organization-wide label (clearance still applies)"
+        },
+        %{
+          visibility: "team",
+          label: "Team — collaboration label for a team (also pass team:); not a hard wall"
+        },
+        %{
+          visibility: "project",
+          label: "Project — collaboration label for a project (also pass project:); not a hard wall"
+        },
         %{visibility: "personal", label: "Personal — only the saver can see it"}
       ],
       about: %{
@@ -432,6 +458,16 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       suggested_kind: intake.suggested_kind,
       notes: intake.notes
     }
+  end
+
+  defp writer_authority_sort_order(args, org) do
+    cond do
+      is_integer(args["_auth_authority_sort_order"]) ->
+        args["_auth_authority_sort_order"]
+
+      true ->
+        Acs.AuthorityLevels.viewer_sort_order(org, args["_auth_authority_level"])
+    end
   end
 
   defp resolve_visibility_and_tags(args, person, tags) do

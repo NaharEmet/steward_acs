@@ -24,18 +24,19 @@ In chat connectors the available tools are **exactly** this curated set
 
 | Tool | Use for |
 |------|---------|
-| `get_started` | Startup + `connected_user` (who this ACS session is for) |
+| `get_started` | Startup + `connected_user` + `pending_reminders` |
 | `ask` | Search memories, documents, and agent status (primary retrieve) |
 | `save_memory` | Short eternal truths (decision / invariant / warning / …) |
 | `documents_propose` | Long **documents** (policy, brief, marketing) via document_type + content |
 | `skill_get` | Find / load a **procedure** (how-to) |
 | `skill_save` | Create / update a reusable procedure |
-| `create_work` | Create + claim tracked multi-step work (`claim: true`) |
-| `claim_work` | Claim an existing task (returns guidance packet) |
-| `release_work` | Release a claimed task |
-| `list_tasks` | List todo / in_progress work |
+| `create_work` | Timed reminder (`kind: user` + `due_at` + `remind_at`) **or** multi-step claim (`claim: true`) |
+| `resolve_user_task` | Finish/snooze a reminder: `done` / `dismiss` / `remind_later` (+ `remind_at`) |
+| `claim_work` | Claim an existing **coordination** task (returns guidance packet) |
+| `release_work` | Release a claimed coordination task |
+| `list_tasks` | **Only when asked** — `kind: user` for reminders; omit kind for agent todos |
 | `get_present_status` | Optional roster peek — **not** required for identity |
-| `submit_task_feedback` | Close a tracked task **or** report knowledge gaps anytime |
+| `submit_task_feedback` | Close a tracked coordination task **or** report knowledge gaps anytime |
 
 Do **not** call tools that are not in this table (no `query_memories`, 
 `query_specs`, `specs_propose`, `generate_guidance_packet`, `lock_file`, 
@@ -43,29 +44,44 @@ etc. — they are not on the chat surface).
 
 ## Mandatory workflow — run this at the start of EVERY conversation, unconditionally
 1. `get_started` — returns `connected_user` / `authenticated_as` / `your_agent_id`
-   (OAuth display name, or the MCP token's `developer_name`). That is who this
+   and `pending_reminders` (due reminders for this user). That is who this
    session is for. Omit `agent_id` on later calls, or pass exactly that value.
    **Never invent a nickname.**
-2. `ask(content_query: "...")` and/or `skill_get(search: "...")` — before
+2. If `pending_reminders` is non-empty — briefly tell the user, then offer
+   `resolve_user_task` (`done` / `dismiss` / `remind_later`). For
+   `remind_later`, you **must** have a new `remind_at`; if the user did not
+   give a time, ask them before calling the tool.
+3. `ask(content_query: "...")` and/or `skill_get(search: "...")` — before
    answering any substantive question, even a quick one. When fetching this
    person's memories or status, **include `connected_user` in the query**.
-3. Answer from ACS results. If ACS returns nothing relevant, say so
+4. Answer from ACS results. If ACS returns nothing relevant, say so
    explicitly — never invent org policy or fill gaps from general knowledge.
-4. For durable results, save before ending the turn: `save_memory` /
+5. For durable results, save before ending the turn: `save_memory` /
    `documents_propose` / `skill_save`.
-5. For multi-step tracked work only: `create_work(title, claim: true)`
+6. Timed personal reminders: `create_work(kind: "user", title, due_at, remind_at)`
+   (both times required ISO-8601). Do **not** claim/lock these.
+7. Multi-step tracked agent work only: `create_work(title, claim: true)`
    (omit agent_id) → do the work → save → `release_work` →
    `submit_task_feedback` (always last).
 
+Do **not** call `list_tasks` unless the user explicitly asks about tasks /
+someone else's tasks. Pending reminders are already in `get_started`.
+
 Do **not** call `get_present_status` just to learn identity — OAuth / the MCP
 token already authenticated the human; ACS tells you their name in `get_started`.
+
+## User reminders — when to use
+- **create_work(kind: user)** — human wants a timed todo / deadline / follow-up
+- **resolve_user_task** — they complete, cancel, or snooze a pending reminder
+- **list_tasks(kind: user)** — they ask to see their (or a subordinate's) task list
+- Never invent `due_at` / `remind_at` / snooze times — ask the human if missing
 
 ## Feedback — when to call `submit_task_feedback`
 
 Feedback is how Steward learns what is stale, missing, or painful. Claude
 almost never files it today — fix that.
 
-**Always (tracked tasks):** after `release_work`, call
+**Always (tracked coordination tasks):** after `release_work`, call
 `submit_task_feedback(task_id, learned_for_agents: "...")` before telling the
 user you are done. Optional: `had_issues`, `improvements`, `info_needed`.
 

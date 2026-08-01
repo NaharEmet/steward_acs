@@ -256,7 +256,7 @@ defmodule Acs.Specs.ToolsTest do
   end
 
   describe "ABAC enforcement" do
-    test "collaborator cannot read team-scoped spec" do
+    test "collaborator can read a team-scoped spec for another team" do
       propose_spec(%{
         "visibility" => "team",
         "team" => "platform",
@@ -268,7 +268,7 @@ defmodule Acs.Specs.ToolsTest do
         "_auth_allowed_teams" => ["sales"]
       }
 
-      assert {:ok, nil} =
+      assert {:ok, entry} =
                Acs.Specs.Tools.call_tool(
                  "specs_get",
                  %{
@@ -277,38 +277,38 @@ defmodule Acs.Specs.ToolsTest do
                  }
                  |> Map.merge(auth)
                )
-    end
-
-    test "collaborator with matching team can read team-scoped spec" do
-      propose_spec(%{
-        "visibility" => "team",
-        "team" => "platform",
-        "path" => "scoped/readable"
-      })
-
-      auth = %{
-        "_auth_role" => "collaborator",
-        "_auth_allowed_teams" => ["platform"]
-      }
-
-      assert {:ok, entry} =
-               Acs.Specs.Tools.call_tool(
-                 "specs_get",
-                 %{
-                   "app" => "test",
-                   "path" => "scoped/readable"
-                 }
-                 |> Map.merge(auth)
-               )
 
       assert entry["team"] == "platform"
     end
 
-    test "collaborator cannot propose team-scoped spec for another team" do
+    test "collaborator can propose a team-scoped spec for another team" do
       auth = %{
         "_auth_role" => "collaborator",
         "_auth_allowed_teams" => ["platform"]
       }
+
+      assert {:ok, _} =
+               Acs.Specs.Tools.call_tool(
+                 "specs_propose",
+                 Map.merge(
+                   %{
+                     "app" => "test",
+                     "path" => "scoped/other_team",
+                     "title" => "Cross-team Spec",
+                     "purpose" => "Team labels are scopes, not access gates",
+                     "invariants" => ["Team labels never gate access"],
+                     "workflows" => ["Write a spec labelled for another team"],
+                     "failure_modes" => ["Team label mistaken for an access gate"],
+                     "visibility" => "team",
+                     "team" => "sales"
+                   },
+                   auth
+                 )
+               )
+    end
+
+    test "team visibility still requires a team label" do
+      auth = %{"_auth_role" => "collaborator"}
 
       assert {:error, reason} =
                Acs.Specs.Tools.call_tool(
@@ -316,20 +316,19 @@ defmodule Acs.Specs.ToolsTest do
                  Map.merge(
                    %{
                      "app" => "test",
-                     "path" => "scoped/forbidden",
-                     "title" => "Forbidden Spec",
-                     "purpose" => "Should not be writable by this collaborator",
-                     "invariants" => ["one"],
-                     "workflows" => ["one"],
-                     "failure_modes" => ["one"],
-                     "visibility" => "team",
-                     "team" => "sales"
+                     "path" => "scoped/no_team",
+                     "title" => "Missing Team",
+                     "purpose" => "Should be rejected for shape, not authority",
+                     "invariants" => ["Team visibility needs a label"],
+                     "workflows" => ["Omit the team field on a team spec"],
+                     "failure_modes" => ["Team-visible row with no team label"],
+                     "visibility" => "team"
                    },
                    auth
                  )
                )
 
-      assert reason =~ "Not authorized"
+      assert reason =~ "team"
     end
   end
 

@@ -256,7 +256,8 @@ defmodule Acs.Accounts do
     with {:ok, actor} <- admin_actor(actor),
          {:ok, email} <- invitation_email(attrs),
          {:ok, role} <- invitation_role(attrs),
-         :ok <- can_assign_role(actor, role) do
+         :ok <- can_assign_role(actor, role),
+         {:ok, authority_level_slug} <- invitation_authority_level(actor, attrs) do
       Repo.transaction(fn ->
         expire_invitations(actor.organization_id)
 
@@ -267,7 +268,9 @@ defmodule Acs.Accounts do
           %User{organization_id: organization_id} = existing when is_integer(organization_id) ->
             case pending_invitation(actor.organization_id, email) do
               nil ->
-                {invitation, token} = create_invitation!(actor, email, role)
+                {invitation, token} =
+                  create_invitation!(actor, email, role, authority_level_slug)
+
                 {invitation, token, org_move_warning(existing)}
 
               _ ->
@@ -276,7 +279,7 @@ defmodule Acs.Accounts do
 
           _ ->
             case pending_invitation(actor.organization_id, email) do
-              nil -> create_invitation!(actor, email, role)
+              nil -> create_invitation!(actor, email, role, authority_level_slug)
               _ -> Repo.rollback(:already_invited)
             end
         end
@@ -441,6 +444,7 @@ defmodule Acs.Accounts do
         organization_id: invitation.organization_id,
         org_role: invitation.role,
         org: invitation.organization.slug,
+        authority_level_slug: invitation.authority_level_slug || "standard",
         updated_at: current
       ]
     )
@@ -510,6 +514,51 @@ defmodule Acs.Accounts do
   end
 
   def change_role(_actor, _target_id, _role), do: {:error, :invalid_role}
+
+  @doc "Set a member's data authority level slug (org catalog)."
+  def change_authority_level(actor, target_id, slug) when is_binary(slug) do
+    with {:ok, actor} <- admin_actor(actor) do
+      org = org_slug(actor)
+
+      case Acs.AuthorityLevels.resolve(org, slug) do
+        nil ->
+          {:error, :invalid_authority_level}
+
+        level ->
+          Repo.transaction(fn ->
+            lock_organization!(actor.organization_id)
+            target = Repo.get(User, target_id)
+
+            with :ok <- authority_manageable_member(actor, target),
+                 {:ok, target} <-
+                   target
+                   |> User.changeset(%{authority_level_slug: level.slug})
+                   |> Repo.update() do
+              audit!(%{
+                actor_id: actor.id,
+                target_user_id: target.id,
+                organization_id: actor.organization_id,
+                event: "member.authority_level_changed",
+                metadata: %{"authority_level_slug" => level.slug}
+              })
+
+              target
+            else
+              {:error, reason} -> Repo.rollback(reason)
+            end
+          end)
+      end
+    end
+  end
+
+  def change_authority_level(_actor, _target_id, _), do: {:error, :invalid_authority_level}
+
+  defp org_slug(%User{} = user) do
+    case organization_for_user(user) do
+      %{slug: slug} when is_binary(slug) -> slug
+      _ -> user.org || Acs.Org.current()
+    end
+  end
 
   def remove_member(actor, target_id) do
     with {:ok, actor} <- admin_actor(actor) do
@@ -662,7 +711,7 @@ defmodule Acs.Accounts do
   defp accept_result({:ok, {user, invitation}}), do: {:ok, user, invitation}
   defp accept_result({:error, reason}), do: {:error, reason}
 
-  defp create_invitation!(actor, email, role) do
+  defp create_invitation!(actor, email, role, authority_level_slug) do
     token = raw_token()
     current = now()
 
@@ -671,6 +720,7 @@ defmodule Acs.Accounts do
            organization_id: actor.organization_id,
            email: email,
            role: role,
+           authority_level_slug: authority_level_slug,
            inviter_id: actor.id,
            token_hash: hash_token(token),
            expires_at: DateTime.add(current, @invitation_lifetime, :second),
@@ -683,7 +733,11 @@ defmodule Acs.Accounts do
           actor_id: actor.id,
           organization_id: actor.organization_id,
           event: "invitation.created",
-          metadata: %{"invitation_id" => invitation.id, "role" => role}
+          metadata: %{
+            "invitation_id" => invitation.id,
+            "role" => role,
+            "authority_level_slug" => authority_level_slug
+          }
         })
 
         {invitation, encode_token(token)}
@@ -713,6 +767,21 @@ defmodule Acs.Accounts do
     case value(attrs, :role) do
       role when role in ~w(owner admin member) -> {:ok, role}
       _ -> {:error, :invalid_role}
+    end
+  end
+
+  defp invitation_authority_level(actor, attrs) do
+    org = org_slug(actor)
+    Acs.AuthorityLevels.ensure_defaults!(org)
+
+    raw =
+      value(attrs, :authority_level_slug) ||
+        value(attrs, :authority_level) ||
+        "standard"
+
+    case Acs.AuthorityLevels.resolve(org, to_string(raw)) do
+      %{slug: slug} -> {:ok, slug}
+      nil -> {:error, :invalid_authority_level}
     end
   end
 
@@ -783,6 +852,25 @@ defmodule Acs.Accounts do
       actor.org_role == "owner" -> :ok
       actor.org_role == "admin" and target.org_role == "member" -> :ok
       true -> {:error, :unauthorized}
+    end
+  end
+
+  # Data authority is clearance, not org role — only owners may set their own level.
+  defp authority_manageable_member(_actor, nil), do: {:error, :not_found}
+
+  defp authority_manageable_member(actor, target) do
+    cond do
+      target.organization_id != actor.organization_id ->
+        {:error, :unauthorized}
+
+      actor.org_role == "owner" ->
+        :ok
+
+      actor.org_role == "admin" and target.id != actor.id and target.org_role == "member" ->
+        :ok
+
+      true ->
+        {:error, :unauthorized}
     end
   end
 

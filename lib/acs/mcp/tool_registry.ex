@@ -716,6 +716,10 @@ defmodule Acs.MCP.ToolRegistry do
       "_auth_allowed_projects" => auth.allowed_projects,
       "_auth_agent_id" => auth.agent_id,
       "_auth_attribution" => auth.attribution_id,
+      "_auth_authority_level" =>
+        auth[:authority_level] || Process.get(:acs_mcp_authority_level),
+      "_auth_authority_sort_order" =>
+        auth[:authority_sort_order] || Process.get(:acs_mcp_authority_sort_order),
       "_auth_audience" => auth[:audience] && to_string(auth[:audience]),
       "_auth_audience_source" =>
         case auth[:audience_source] do

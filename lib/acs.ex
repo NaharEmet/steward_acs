@@ -150,7 +150,11 @@ defmodule Acs do
         guidance =
           unless opts[:skip_guidance] do
             mode = Keyword.get(opts, :mode, :mcp)
-            Acs.Memory.Guidance.for_task(task.id, tier: :claim, mode: mode)
+
+            Acs.Memory.Guidance.for_task(
+              task.id,
+              guidance_abac_opts(opts, agent_id, tier: :claim, mode: mode)
+            )
           end
 
         {:ok, task, guidance}
@@ -262,6 +266,7 @@ defmodule Acs do
       AcsTask
       |> order_by(desc: :inserted_at)
       |> where([t], t.org == ^org)
+      |> where([t], t.kind != "user" or is_nil(t.kind))
 
     query = if status_filter, do: where(query, [t], t.status == ^status_filter), else: query
     Repo.all(query) |> Enum.map(&to_task_map/1)
@@ -627,6 +632,11 @@ defmodule Acs do
       title: t.title,
       description: t.description,
       status: t.status,
+      kind: t.kind || "coordination",
+      assignee: t.assignee,
+      due_at: t.due_at,
+      remind_at: t.remind_at,
+      authority_sort_order: t.authority_sort_order,
       created_by_agent: t.created_by_agent,
       locked_by_agent: t.locked_by_agent,
       locked_at: t.locked_at,
@@ -659,6 +669,41 @@ defmodule Acs do
       component: s.component,
       org: s.org
     }
+  end
+
+  defp guidance_abac_opts(opts, agent_id, base) when is_list(opts) and is_list(base) do
+    base
+    |> Keyword.put(:agent_id, agent_id)
+    |> then(fn o ->
+      case Keyword.get(opts, :agent_role) do
+        role when is_binary(role) and role != "" -> Keyword.put(o, :agent_role, role)
+        _ -> o
+      end
+    end)
+    |> then(fn o ->
+      case Keyword.get(opts, :authority_sort_order) do
+        order when is_integer(order) -> Keyword.put(o, :authority_sort_order, order)
+        _ -> o
+      end
+    end)
+    |> then(fn o ->
+      case Keyword.get(opts, :authority_level_slug) do
+        slug when is_binary(slug) and slug != "" -> Keyword.put(o, :authority_level_slug, slug)
+        _ -> o
+      end
+    end)
+    |> then(fn o ->
+      case Keyword.get(opts, :allowed_teams) do
+        teams when is_list(teams) -> Keyword.put(o, :allowed_teams, teams)
+        _ -> o
+      end
+    end)
+    |> then(fn o ->
+      case Keyword.get(opts, :allowed_projects) do
+        projects when is_list(projects) -> Keyword.put(o, :allowed_projects, projects)
+        _ -> o
+      end
+    end)
   end
 
   @doc """

@@ -39,6 +39,7 @@ defmodule Acs.Memory do
     :project,
     :visibility,
     :org,
+    :authority_sort_order,
     :created_at,
     :updated_at
   ]
@@ -65,6 +66,7 @@ defmodule Acs.Memory do
           project: String.t() | nil,
           visibility: String.t(),
           org: String.t() | nil,
+          authority_sort_order: integer() | nil,
           created_at: String.t(),
           updated_at: String.t()
         }
@@ -113,6 +115,7 @@ defmodule Acs.Memory do
       project: attrs["project"],
       visibility: attrs["visibility"] || "org",
       org: attrs["org"] || Acs.Org.current(),
+      authority_sort_order: attrs["authority_sort_order"],
       created_at:
         attrs["created_at"] || get_in(attrs, ["timestamps", "created_at"]) ||
           DateTime.utc_now() |> DateTime.to_iso8601(),
@@ -237,6 +240,7 @@ defmodule Acs.Memory do
       "project" => memory.project,
       "visibility" => memory.visibility,
       "org" => memory.org,
+      "authority_sort_order" => memory.authority_sort_order,
       "created_at" => memory.created_at,
       "updated_at" => memory.updated_at
     }

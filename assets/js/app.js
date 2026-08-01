@@ -4,6 +4,7 @@ import {LiveSocket} from "phoenix_live_view"
 
 const GETTING_STARTED_DISMISSED_KEY = "acs.getting_started_dismissed"
 const DASHBOARD_SEEN_KEY = "acs.dashboard_seen"
+const MEMBERS_ACCESS_GUIDE_DISMISSED_KEY = "acs.members_access_guide_dismissed"
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
@@ -13,7 +14,9 @@ let liveSocket = new LiveSocket("/live", Socket, {
       (localStorage.getItem(GETTING_STARTED_DISMISSED_KEY) === "1" ||
         localStorage.getItem(DASHBOARD_SEEN_KEY) === "1")
         ? "1"
-        : "0"
+        : "0",
+    members_access_guide_dismissed:
+      localStorage.getItem(MEMBERS_ACCESS_GUIDE_DISMISSED_KEY) === "1" ? "1" : "0"
   }
 })
 liveSocket.connect()

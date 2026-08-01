@@ -211,8 +211,27 @@ defmodule Acs.AccountsOrganizationTest do
       assert accepted_user.organization_id == destination.id
       assert accepted_user.org_role == "admin"
       assert accepted_user.org == destination.slug
+      assert accepted_user.authority_level_slug == "standard"
       assert accepted_invitation.accepted_at
       refute Repo.get!(User, invitee.id).organization_id == source.id
+    end
+
+    test "accepting an invitation applies the invited data authority level" do
+      organization = organization!()
+      owner = member!(organization, "owner")
+      invitee = orgless_user!()
+
+      assert {:ok, invitation, token} =
+               Accounts.invite_user(owner, %{
+                 email: invitee.email,
+                 role: "member",
+                 authority_level_slug: "elevated"
+               })
+
+      assert invitation.authority_level_slug == "elevated"
+
+      assert {:ok, accepted_user, _accepted} = Accounts.accept_invitation(invitee, token)
+      assert accepted_user.authority_level_slug == "elevated"
     end
 
     test "rejects org move when the invitee is the sole owner of their current organization" do

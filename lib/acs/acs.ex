@@ -104,9 +104,11 @@ defmodule Acs.Acs do
     org = org || Acs.Org.current()
     import Ecto.Query
 
+    # Default list is coordination work — user reminders use list_tasks(kind: "user").
     query =
       from(t in Task,
         where: t.org == ^org,
+        where: t.kind != "user" or is_nil(t.kind),
         order_by: [desc: t.inserted_at]
       )
 

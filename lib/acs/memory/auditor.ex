@@ -187,7 +187,8 @@ defmodule Acs.Memory.Auditor do
       status: "proposed",
       order_by: [asc: :created_at],
       limit: 200,
-      org: :all
+      org: :all,
+      system: true
     )
     |> Enum.reject(fn m -> !(m.kind in auditable_kinds()) end)
     |> Enum.reject(fn m -> m.parse_error && m.parse_error != "" end)
@@ -513,7 +514,8 @@ defmodule Acs.Memory.Auditor do
         scope_path: memory.scope_path,
         status: "approved",
         limit: 20,
-        org: memory.org || Acs.Org.current()
+        org: memory.org || Acs.Org.current(),
+        system: true
       )
 
     memory_title = String.downcase(memory.title || "")

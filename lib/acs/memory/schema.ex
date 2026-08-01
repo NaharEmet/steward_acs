@@ -37,6 +37,7 @@ defmodule Acs.Memory.Schema do
     field :project, :string
     field :visibility, :string, default: "org"
     field :org, :string, default: "default"
+    field :authority_sort_order, :integer
     field :company_memory_id, :string
     field :head_revision_id, :string
     timestamps(type: :utc_datetime, inserted_at: :created_at)
@@ -69,6 +70,7 @@ defmodule Acs.Memory.Schema do
       :project,
       :visibility,
       :org,
+      :authority_sort_order,
       :company_memory_id,
       :head_revision_id
     ])

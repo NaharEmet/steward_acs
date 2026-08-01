@@ -33,6 +33,9 @@ defmodule Acs.MCP.CoreToolRoles do
     list_developer_keys
     revoke_developer_key
     create_org
+    upsert_authority_level
+    delete_authority_level
+    set_member_authority_level
     specs_approve
     specs_reject
     skill_audit_status
@@ -48,6 +51,7 @@ defmodule Acs.MCP.CoreToolRoles do
     get_present_status
     get_locked_files
     list_tasks
+    resolve_user_task
     sleep
     wake
     submit_task_feedback
@@ -57,6 +61,7 @@ defmodule Acs.MCP.CoreToolRoles do
     set_memory_status
     get_person_status
     set_person_status
+    list_authority_levels
     generate_guidance_packet
     ask
     specs_get
@@ -87,6 +92,7 @@ defmodule Acs.MCP.CoreToolRoles do
     claim_work
     release_work
     list_tasks
+    resolve_user_task
     get_present_status
     submit_task_feedback
   )
@@ -117,8 +123,9 @@ defmodule Acs.MCP.CoreToolRoles do
     "skill_get" => "steward skill procedure how-to",
     "skill_save" => "steward skill save procedure",
     "documents_propose" => "steward document policy brief propose",
-    "list_tasks" => "steward list tasks todo",
-    "create_work" => "steward create claim task",
+    "list_tasks" => "steward list tasks todo reminders user",
+    "create_work" => "steward create claim task reminder due",
+    "resolve_user_task" => "steward resolve reminder done dismiss snooze",
     "claim_work" => "steward claim task",
     "release_work" => "steward release task",
     "submit_task_feedback" => "steward feedback close task"

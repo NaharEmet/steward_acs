@@ -10,6 +10,7 @@ defmodule Acs.MixProject do
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
       aliases: aliases(),
+      listeners: [Phoenix.CodeReloader],
       test_coverage: [tool: ExCoveralls],
       releases: [
         steward_acs: [

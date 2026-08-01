@@ -44,7 +44,8 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   def acs_claim_work(%{"agent_id" => agent_id, "task_id" => task_id} = args) do
     scope_path = args["scope_path"]
     mode = Acs.MCP.Audience.to_guidance_mode(Acs.MCP.Audience.from_args(args))
-    opts = [mode: mode] ++ if(scope_path, do: [skip_guidance: true], else: [])
+    abac = claim_guidance_opts(args, mode)
+    opts = abac ++ if(scope_path, do: [skip_guidance: true], else: [])
 
     case Acs.claim_task(task_id, agent_id, opts) do
       {:ok, _task, guidance} ->
@@ -57,7 +58,10 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
         final_guidance =
           if scope_path do
-            Acs.Memory.Guidance.generate(scope_path, tier: :claim, mode: mode)
+            Acs.Memory.Guidance.generate(
+              scope_path,
+              Keyword.merge([tier: :claim, mode: mode], abac)
+            )
           else
             guidance
           end
@@ -99,6 +103,55 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   end
 
   def acs_create_work(%{"agent_id" => agent_id, "title" => title} = args) do
+    if Acs.UserTasks.user_task_args?(args) do
+      create_user_task(args, agent_id, title)
+    else
+      create_coordination_task(args, agent_id, title)
+    end
+  end
+
+  defp create_user_task(args, agent_id, title) do
+    org = authenticated_org(args)
+    viewer_order = args["_auth_authority_sort_order"]
+
+    attrs = %{
+      "title" => title,
+      "description" => args["description"] || "",
+      "assignee" => args["assignee"],
+      "due_at" => args["due_at"],
+      "remind_at" => args["remind_at"]
+    }
+
+    opts =
+      [org: org]
+      |> then(fn o ->
+        if is_integer(viewer_order), do: Keyword.put(o, :viewer_sort_order, viewer_order), else: o
+      end)
+
+    case Acs.UserTasks.create(attrs, agent_id, opts) do
+      {:ok, task} ->
+        {:ok,
+         %{
+           status: "ok",
+           kind: "user",
+           task_id: task.id,
+           title: task.title,
+           assignee: task.assignee,
+           due_at: task.due_at,
+           remind_at: task.remind_at,
+           message:
+             "User task created. It will appear in get_started.pending_reminders for the assignee once remind_at has passed."
+         }}
+
+      {:error, reason} when is_binary(reason) ->
+        {:error, reason}
+
+      {:error, reason} ->
+        {:error, inspect(reason)}
+    end
+  end
+
+  defp create_coordination_task(args, agent_id, title) do
     claim = args["claim"] || false
     mode = Acs.MCP.Audience.to_guidance_mode(Acs.MCP.Audience.from_args(args))
 
@@ -111,7 +164,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     case Acs.create_task(attrs, agent_id) do
       {:ok, task} ->
         if claim do
-          case Acs.claim_task(task.id, agent_id, mode: mode) do
+          case Acs.claim_task(task.id, agent_id, claim_guidance_opts(args, mode)) do
             {:ok, _task, guidance} ->
               {:ok, %{status: "claimed", task_id: task.id, title: task.title, guidance: guidance}}
 
@@ -126,7 +179,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
       {:warn, task, similar} ->
         if claim do
-          case Acs.claim_task(task.id, agent_id, mode: mode) do
+          case Acs.claim_task(task.id, agent_id, claim_guidance_opts(args, mode)) do
             {:ok, _task, guidance} ->
               {:ok,
                %{
@@ -156,6 +209,60 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         {:error, reason}
     end
   end
+
+  def acs_resolve_user_task(%{"agent_id" => agent_id, "task_id" => task_id} = args) do
+    case Map.get(args, "outcome") do
+      outcome when is_binary(outcome) and outcome != "" ->
+        org = authenticated_org(args)
+        viewer_order = args["_auth_authority_sort_order"]
+
+        opts =
+          [org: org]
+          |> then(fn o ->
+            if is_integer(viewer_order),
+              do: Keyword.put(o, :viewer_sort_order, viewer_order),
+              else: o
+          end)
+          |> then(fn o ->
+            case args["remind_at"] do
+              nil -> o
+              "" -> o
+              remind_at -> Keyword.put(o, :remind_at, remind_at)
+            end
+          end)
+
+        case Acs.UserTasks.resolve(task_id, agent_id, outcome, opts) do
+          {:ok, task} ->
+            {:ok,
+             %{
+               status: "ok",
+               task_id: task.id,
+               outcome: outcome,
+               task_status: task.status,
+               remind_at: task.remind_at,
+               message: resolve_outcome_message(outcome)
+             }}
+
+          {:error, reason} when is_binary(reason) ->
+            {:error, reason}
+
+          {:error, reason} ->
+            {:error, inspect(reason)}
+        end
+
+      _ ->
+        {:error,
+         "outcome is required: done, dismiss, or remind_later (remind_later also needs remind_at)"}
+    end
+  end
+
+  defp resolve_outcome_message("done"), do: "User task marked done."
+  defp resolve_outcome_message("dismiss"), do: "User task dismissed."
+
+  defp resolve_outcome_message("remind_later"),
+    do: "Reminder rescheduled. It will surface again after the new remind_at."
+
+  defp resolve_outcome_message(_), do: "User task updated."
 
   def acs_lock_file(%{"agent_id" => agent_id, "task_id" => task_id, "file_path" => file_path}) do
     case Acs.lock_file(file_path, agent_id, task_id) do
@@ -354,6 +461,14 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   defp chat_get_started(args) when is_map(args) do
     you = connected_user_from_args(args)
+    org = authenticated_org(args)
+
+    pending =
+      if is_binary(you) do
+        Acs.UserTasks.pending_reminders(you, org)
+      else
+        []
+      end
 
     identity_line =
       if you do
@@ -362,11 +477,18 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         "Connected user unknown on this session — call get_present_status(agent_id: \"\") once, then use assigned_agent_id."
       end
 
+    reminder_step =
+      if pending != [] do
+        " 0) pending_reminders are due — briefly surface them and offer resolve_user_task (done / dismiss / remind_later with a new remind_at)"
+      else
+        ""
+      end
+
     started =
       if you do
-        "Connected user: \"#{you}\". 1) ask(content_query:) — include \"#{you}\" when searching this person's memories/status  2) skill_get(search:) — find procedures  3) answer from ACS  4) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  5) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback last. Simple Q&A: no feedback required. Do not call get_present_status just to learn who you are."
+        "Connected user: \"#{you}\".#{reminder_step} 1) ask(content_query:) — include \"#{you}\" when searching this person's memories/status  2) skill_get(search:) — find procedures  3) answer from ACS  4) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  5) timed reminders: create_work(kind:\"user\", due_at, remind_at) — NOT claim/lock  6) optional multi-step tracked work: create_work(claim: true) → save → release_work → submit_task_feedback last. Simple Q&A: no feedback required. Do not call list_tasks unless the user asks about tasks. Do not call get_present_status just to learn who you are."
       else
-        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  6) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback(learned_for_agents:, had_issues:, improvements:, info_needed:) last. Simple Q&A: standalone submit_task_feedback(learned_for_agents:) without task_id."
+        "1) get_present_status(agent_id: \"\") — register  2) ask(content_query:) — search memories/documents  3) skill_get(search:) — find procedures  4) answer from ACS  5) save_memory / documents_propose / skill_save as needed (read memory_protocol first)  6) timed reminders: create_work(kind:\"user\", due_at, remind_at)  7) optional tracked work: create_work(claim: true) → save → release_work → submit_task_feedback last. Simple Q&A: standalone submit_task_feedback without task_id. Do not call list_tasks unless asked."
       end
 
     ask_example =
@@ -379,15 +501,19 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       connected_user: you,
       authenticated_as: you,
       your_agent_id: you,
+      pending_reminders: pending,
+      pending_reminders_guidance:
+        "If pending_reminders is non-empty, tell the user about each item (title, due_at). Resolve with resolve_user_task(outcome: done|dismiss|remind_later). remind_later REQUIRES a new remind_at — if the user does not give a time, ask them for one before calling. Do NOT call list_tasks for these — they are already here. Only call list_tasks(kind:\"user\") when the user explicitly asks to see tasks / someone else's tasks.",
       general:
-        "ACS chat surface: retrieve with ask; save truths (save_memory), documents (documents_propose), and procedures (skill_save). Prefer business scopes (org/domain/topic). Create tracked work with create_work(claim: true).",
+        "ACS chat surface: retrieve with ask; save truths (save_memory), documents (documents_propose), and procedures (skill_save). Prefer business scopes (org/domain/topic). Timed personal reminders: create_work(kind:\"user\", due_at, remind_at). Multi-step agent work: create_work(claim: true).",
       get_started: started,
       agent_identity: identity_line,
       org_knowledge_conventions:
         "Business scopes: acme/sales/pricing, acme/support/refunds. memories=truths, documents=long artifacts via documents_propose, skills=procedures via skill_save. Never invent org policy when ask returns nothing. Save knowledge first → release_work → submit_task_feedback. Standalone feedback (learned_for_agents, had_issues, improvements, info_needed) also works without task_id.",
       memory_protocol: Acs.Memory.Guidance.memory_protocol(:chat),
+      user_task_protocol: user_task_protocol(),
       tools: [
-        %{tool: "get_started", description: "Startup packet — returns connected_user / authenticated_as", params: %{audience: "chat"}},
+        %{tool: "get_started", description: "Startup packet — returns connected_user + pending_reminders", params: %{audience: "chat"}},
         %{
           tool: "ask",
           description: "Search memories, documents, and agent status (include connected_user name for personal context)",
@@ -442,22 +568,35 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         },
         %{
           tool: "create_work",
-          description: "Create + claim tracked multi-step work (omit agent_id; ACS uses OAuth identity)",
-          params: %{title: "...", claim: true}
+          description:
+            "Timed reminder: kind=user + due_at + remind_at (ISO-8601). Multi-step agent work: claim=true (no times).",
+          params: %{
+            title: "...",
+            kind: "user",
+            due_at: "2026-08-02T15:00:00Z",
+            remind_at: "2026-08-02T09:00:00Z"
+          }
         },
         %{
           tool: "list_tasks",
-          description: "List todo / in_progress tasks",
-          params: %{status_filter: "todo"}
+          description:
+            "ONLY when user asks about tasks. kind=user for reminders (optional for_user). Omit kind for coordination todos.",
+          params: %{kind: "user", status_filter: "todo"}
+        },
+        %{
+          tool: "resolve_user_task",
+          description:
+            "Close or snooze a user reminder. outcome: done | dismiss | remind_later. remind_later REQUIRES remind_at.",
+          params: %{task_id: "<id>", outcome: "done"}
         },
         %{
           tool: "claim_work",
-          description: "Claim an existing task (returns guidance)",
+          description: "Claim an existing coordination task (returns guidance)",
           params: %{task_id: "<slug>"}
         },
         %{
           tool: "release_work",
-          description: "Release a claimed task before feedback",
+          description: "Release a claimed coordination task before feedback",
           params: %{task_id: "<slug>"}
         },
         %{
@@ -473,6 +612,27 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         }
       ]
     }
+  end
+
+  defp user_task_protocol do
+    """
+    ## User reminders (chat)
+
+    USE WHEN the human wants a timed todo/reminder (meeting prep, follow-up, deadline).
+    Do NOT use claim_work / release_work / file locks for these.
+
+    Create: create_work(kind: "user", title, due_at, remind_at) — both times required (ISO-8601).
+    Assignee defaults to connected_user. Assigning someone else requires strictly higher clearance.
+    After remind_at, every get_started for that user includes the task in pending_reminders until resolved.
+
+    Resolve: resolve_user_task(task_id, outcome):
+    - done — completed
+    - dismiss — cancelled
+    - remind_later — MUST pass remind_at; if the user gave no time, ask them before calling
+
+    List: list_tasks(kind: "user") only when the user asks to see tasks. Optional for_user for managers (same/higher clearance). Never dump org tasks unprompted.
+    """
+    |> String.trim()
   end
 
   def acs_get_present_status(%{"status_filter" => "sleeping"}) do
@@ -523,23 +683,72 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   end
 
   def acs_list_tasks(args) when is_map(args) do
-    status_filter = Map.get(args, "status_filter")
-    status_filter = if status_filter == "all", do: nil, else: status_filter
+    kind = args["kind"]
+
+    if kind == "user" do
+      list_user_tasks(args)
+    else
+      status_filter = Map.get(args, "status_filter")
+      status_filter = if status_filter == "all", do: nil, else: status_filter
+      org = authenticated_org(args)
+      tasks = Acs.Acs.list_tasks(status_filter, org)
+
+      formatted =
+        Enum.map(tasks, fn t ->
+          %{
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            kind: Map.get(t, :kind) || "coordination",
+            locked_by_agent: t.locked_by_agent
+          }
+        end)
+
+      {:ok, %{tasks: formatted, count: length(formatted), kind: "coordination"}}
+    end
+  end
+
+  defp list_user_tasks(args) do
     org = authenticated_org(args)
-    tasks = Acs.Acs.list_tasks(status_filter, org)
+    viewer = connected_user_from_args(args) || args["agent_id"]
+    viewer_order = args["_auth_authority_sort_order"]
 
-    formatted =
-      Enum.map(tasks, fn t ->
-        %{
-          id: t.id,
-          title: t.title,
-          description: t.description,
-          status: t.status,
-          locked_by_agent: t.locked_by_agent
-        }
-      end)
+    if is_binary(viewer) and viewer != "" do
+      opts =
+        [org: org, for_user: args["for_user"], status: args["status_filter"]]
+        |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+        |> then(fn o ->
+          if is_integer(viewer_order), do: Keyword.put(o, :viewer_sort_order, viewer_order), else: o
+        end)
 
-    {:ok, %{tasks: formatted, count: length(formatted)}}
+      case Acs.UserTasks.list(viewer, opts) do
+        {:ok, tasks} ->
+          formatted =
+            Enum.map(tasks, fn t ->
+              %{
+                id: t.id,
+                title: t.title,
+                description: t.description,
+                status: t.status,
+                kind: "user",
+                assignee: t.assignee,
+                due_at: t.due_at,
+                remind_at: t.remind_at
+              }
+            end)
+
+          {:ok, %{tasks: formatted, count: length(formatted), kind: "user"}}
+
+        {:error, reason} when is_binary(reason) ->
+          {:error, reason}
+
+        {:error, reason} ->
+          {:error, inspect(reason)}
+      end
+    else
+      {:error, "connected user / agent_id required to list user tasks"}
+    end
   end
 
   defp authenticated_org(args) do
@@ -804,6 +1013,18 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     else
       {:error, "Only admin or service roles may set ACS time offset"}
     end
+  end
+
+  defp claim_guidance_opts(args, mode) when is_map(args) do
+    [
+      mode: mode,
+      agent_role: args["_auth_role"],
+      authority_sort_order: args["_auth_authority_sort_order"],
+      authority_level_slug: args["_auth_authority_level"],
+      allowed_teams: args["_auth_allowed_teams"],
+      allowed_projects: args["_auth_allowed_projects"]
+    ]
+    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
   end
 
   def list_plugins(_args) do

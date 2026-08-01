@@ -68,7 +68,12 @@ defmodule Acs.Memory.Search do
 
   defp fetch_memories_by_ids_with_org(memory_ids, opts) do
     org = Keyword.get(opts, :org, Acs.Org.current())
+    ctx = Acs.Abac.from_keyword(opts)
+
     Acs.Memory.Indexer.get_memories_by_ids(memory_ids, org)
+    |> Enum.reduce(%{}, fn {id, schema}, acc ->
+      if Acs.Abac.visible?(ctx, schema), do: Map.put(acc, id, schema), else: acc
+    end)
   end
 
   defp search_auto(query, opts) do

@@ -45,6 +45,12 @@ defmodule Acs.MCP.Plugs.MCPAuth do
                  {:ok, org_id} <- resolve_org(result.org_id, conn.assigns[:current_org]) do
               :ok = Acs.Org.put_current(org_id)
 
+              authority_sort_order =
+                resolve_authority_sort_order(org_id, result.role, result[:authority_level_slug])
+
+              Process.put(:acs_mcp_authority_level, result[:authority_level_slug])
+              Process.put(:acs_mcp_authority_sort_order, authority_sort_order)
+
               Acs.Observability.Events.put_context(
                 org: org_id,
                 agent_id: result[:agent_identity],
@@ -68,6 +74,8 @@ defmodule Acs.MCP.Plugs.MCPAuth do
               |> assign(:agent_allowed_teams, result[:allowed_teams])
               |> assign(:agent_allowed_projects, result[:allowed_projects])
               |> assign(:agent_identity, result[:agent_identity])
+              |> assign(:agent_authority_level, result[:authority_level_slug])
+              |> assign(:agent_authority_sort_order, authority_sort_order)
             else
               {:error, reason} -> unauthorized(conn, reason)
             end
@@ -166,7 +174,8 @@ defmodule Acs.MCP.Plugs.MCPAuth do
              result
              | role: role,
                org_id: slug,
-               agent_identity: Acs.Accounts.User.display_name(user)
+               agent_identity: Acs.Accounts.User.display_name(user),
+               authority_level_slug: Map.get(user, :authority_level_slug)
            }}
         else
           {:error, reason} when is_binary(reason) ->
@@ -361,4 +370,12 @@ defmodule Acs.MCP.Plugs.MCPAuth do
         conn
     end
   end
+
+  # Clearance from the principal's authority_level_slug (OAuth user or API key).
+  # Role never bypasses — missing slug → org lowest.
+  defp resolve_authority_sort_order(org, _role, slug) when is_binary(org) do
+    Acs.AuthorityLevels.viewer_sort_order(org, slug)
+  end
+
+  defp resolve_authority_sort_order(_, _, _), do: nil
 end

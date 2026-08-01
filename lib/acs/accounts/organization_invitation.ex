@@ -6,6 +6,7 @@ defmodule Acs.Accounts.OrganizationInvitation do
     field :email, :string
     field :normalized_email, :string
     field :role, :string
+    field :authority_level_slug, :string
     field :token_hash, :binary
     field :expires_at, :utc_datetime
     field :accepted_at, :utc_datetime
@@ -25,6 +26,7 @@ defmodule Acs.Accounts.OrganizationInvitation do
       :email,
       :normalized_email,
       :role,
+      :authority_level_slug,
       :inviter_id,
       :token_hash,
       :expires_at,

@@ -1,8 +1,7 @@
 {
   "mcpServers": {
     "acs": {
-      "type": "sse",
-      "url": "http://localhost:4001/mcp/sse",
+      "url": "http://localhost:4001/mcp/v1/messages",
       "headers": {
         "x-api-key": "<local-acs-api-key>"
       }

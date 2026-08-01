@@ -13,6 +13,7 @@ defmodule Acs.Accounts.User do
     field :oidc_subject, :string
     field :org, :string, default: "default"
     field :org_role, :string
+    field :authority_level_slug, :string
     belongs_to :organization, Acs.Orgs.Organization
 
     timestamps(type: :utc_datetime)
@@ -31,7 +32,8 @@ defmodule Acs.Accounts.User do
       :oidc_subject,
       :org,
       :organization_id,
-      :org_role
+      :org_role,
+      :authority_level_slug
     ])
     |> normalize_fields()
     |> validate_required([:email])

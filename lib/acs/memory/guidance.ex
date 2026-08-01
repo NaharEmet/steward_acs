@@ -34,15 +34,16 @@ lock_file before edit; unlock_file when done (by path or task_id). 10-min auto-r
 save_memory(kind, title, content, scope_path) — eternal truths only. Kinds: observation, learning, warning, pattern, bug, decision, invariant, axiom.
 
 Entity vs scope:
-- about_type person|company + about_name/about_email = who the fact is ABOUT (authority), not who may read it
-- visibility org|team|project|personal = who may read it (confidential: true ⇒ personal)
+- about_type person|company + about_name/about_email = who the fact is ABOUT, not who may read it
+- visibility org|team|project/personal = collaboration label / personal wall (confidential: true ⇒ personal)
+- data clearance: memories are stamped with the **writer's** authority level; readers see their level and lower (list_authority_levels). Unranked memories stay open. MCP role (admin/service) does not bypass clearance.
 
 Intake (LLM + heuristics) runs on every save:
 - about entity without visibility → needs_scope_choice (ask user, retry with visibility)
 - quality issues → needs_input (ask user, retry with intake_confirmed: true)
 - looks sensitive → still saves, returns suggested_sensitive note (ask if personal)
 
-Person directory: get_person_status / set_person_status for rank (high|elevated|standard) on first encounter.
+Person directory: get_person_status / set_person_status for job title (optional directory rank). Member clearance is set on Members / set_member_authority_level.
 """
 
   @chat_memory """
@@ -174,6 +175,7 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
     allowed_projects = Keyword.get(opts, :allowed_projects)
     agent_role = Keyword.get(opts, :agent_role)
     agent_id = Keyword.get(opts, :agent_id)
+    authority_sort_order = Keyword.get(opts, :authority_sort_order)
 
     search_opts = [{:scope_path, scope_path}, {:status, "approved"}, {:org, Acs.Org.current()}]
 
@@ -187,6 +189,20 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
 
     search_opts = if agent_role, do: search_opts ++ [agent_role: agent_role], else: search_opts
     search_opts = if agent_id, do: search_opts ++ [agent_id: agent_id], else: search_opts
+
+    search_opts =
+      if authority_sort_order,
+        do: search_opts ++ [authority_sort_order: authority_sort_order],
+        else: search_opts
+
+    search_opts =
+      case Keyword.get(opts, :authority_level_slug) do
+        slug when is_binary(slug) and slug != "" ->
+          search_opts ++ [authority_level_slug: slug]
+
+        _ ->
+          search_opts
+      end
 
     sorted =
       search_opts
@@ -217,6 +233,8 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
     allowed_projects = Keyword.get(opts, :allowed_projects)
     agent_role = Keyword.get(opts, :agent_role)
     agent_id = Keyword.get(opts, :agent_id)
+    authority_sort_order = Keyword.get(opts, :authority_sort_order)
+    authority_level_slug = Keyword.get(opts, :authority_level_slug)
 
     case Acs.Acs.get_task(task_id) do
       nil ->
@@ -238,6 +256,16 @@ Ingest: skill_get(name: \"ingest-document\") when saving a pasted/uploaded docum
           end)
           |> then(fn o -> if agent_role, do: o ++ [agent_role: agent_role], else: o end)
           |> then(fn o -> if agent_id, do: o ++ [agent_id: agent_id], else: o end)
+          |> then(fn o ->
+            if is_integer(authority_sort_order),
+              do: o ++ [authority_sort_order: authority_sort_order],
+              else: o
+          end)
+          |> then(fn o ->
+            if is_binary(authority_level_slug),
+              do: o ++ [authority_level_slug: authority_level_slug],
+              else: o
+          end)
 
         guidance = generate(scope_path, Keyword.merge([tier: tier, mode: mode], abac_opts))
         claim_context = Acs.ClaimContext.for_task(task_map)

@@ -1,8 +1,8 @@
 defmodule Acs.MCP.Tools.PersonHandlers do
   @moduledoc """
-  MCP handlers for the person status directory (authority + sensitivity rank).
+  MCP handlers for the person status directory (data authority + job status).
   """
-
+  alias Acs.AuthorityLevels
   alias Acs.PersonStatus
 
   def get_person_status(args) do
@@ -12,16 +12,19 @@ defmodule Acs.MCP.Tools.PersonHandlers do
 
     cond do
       is_nil(email) and is_nil(name) ->
-        {:error, "Provide email and/or name to look up a person"}
+        {:error, "email or name is required"}
 
       true ->
         case PersonStatus.get(org, email: email, name: name) do
           nil ->
+            levels = AuthorityLevels.list(org)
+
             {:ok,
              %{
                found: false,
-               message:
-                 "No status on file. Ask the user for this person's job status/title and rank (high|elevated|standard), then call set_person_status."
+               hint:
+                 "No status on file. Ask the user for this person's job status/title and authority level, then call set_person_status. Allowed levels: " <>
+                   Enum.map_join(levels, ", ", &"#{&1.label} (#{&1.slug})")
              }}
 
           person ->
@@ -35,38 +38,46 @@ defmodule Acs.MCP.Tools.PersonHandlers do
     email = blank_to_nil(args["email"])
     name = blank_to_nil(args["name"])
     status = blank_to_nil(args["status"])
-    rank = blank_to_nil(args["rank"]) || "standard"
+    rank_input = blank_to_nil(args["rank"]) || "standard"
+    updated_by = args["_auth_attribution"] || args["_auth_agent_id"]
 
     cond do
-      is_nil(status) ->
-        {:error, "status is required (job title / role, e.g. CEO, VP Sales, Engineer)"}
-
       is_nil(email) and is_nil(name) ->
-        {:error, "Provide email and/or name"}
+        {:error, "email or name is required"}
 
-      rank not in PersonStatus.ranks() ->
-        {:error, "rank must be one of: #{Enum.join(PersonStatus.ranks(), ", ")}"}
+      is_nil(status) ->
+        {:error, "status is required"}
+
+      is_nil(AuthorityLevels.resolve(org, rank_input)) ->
+        levels = AuthorityLevels.list(org)
+
+        {:error,
+         "rank must be an org authority level: " <>
+           Enum.map_join(levels, ", ", &"#{&1.label} (#{&1.slug})")}
 
       true ->
         attrs = %{
           "org" => org,
           "email" => email,
-          "name" => name || email,
+          "name" => name,
           "status" => status,
-          "rank" => rank,
-          "updated_by" => args["_auth_attribution"] || args["_auth_agent_id"] || Acs.Org.developer_name()
+          "rank" => rank_input,
+          "updated_by" => updated_by
         }
 
         case PersonStatus.upsert(attrs) do
           {:ok, person} ->
             {:ok,
              %{
-               message: "Person status saved",
+               status: "ok",
                person: PersonStatus.to_map(person)
              }}
 
-          {:error, changeset} ->
-            {:error, "Failed to save person status: #{inspect(changeset.errors)}"}
+          {:error, %Ecto.Changeset{} = cs} ->
+            {:error, "Validation failed: #{inspect(cs.errors)}"}
+
+          {:error, reason} ->
+            {:error, inspect(reason)}
         end
     end
   end

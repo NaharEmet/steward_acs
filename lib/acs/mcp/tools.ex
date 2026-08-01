@@ -7,6 +7,7 @@ defmodule Acs.MCP.Tools do
   alias Acs.MCP.Tools.DiagnosticHandlers
   alias Acs.MCP.Tools.SkillHandlers
   alias Acs.MCP.Tools.AdminHandlers
+  alias Acs.MCP.Tools.AuthorityHandlers
   alias Acs.MCP.Tools.QueryAgent
   alias Acs.MCP.Tools.PersonHandlers
   require Logger
@@ -16,6 +17,7 @@ defmodule Acs.MCP.Tools do
     "claim_work" => "acs_core",
     "release_work" => "acs_core",
     "create_work" => "acs_core",
+    "resolve_user_task" => "acs_core",
     "lock_file" => "acs_core",
     "unlock_file" => "acs_core",
     "get_present_status" => "acs_core",
@@ -34,6 +36,7 @@ defmodule Acs.MCP.Tools do
     "query_memories" => "knowledge",
     "get_person_status" => "knowledge",
     "set_person_status" => "knowledge",
+    "list_authority_levels" => "knowledge",
     "set_memory_status" => "knowledge",
     "generate_guidance_packet" => "knowledge",
     "ask" => "knowledge",
@@ -65,7 +68,10 @@ defmodule Acs.MCP.Tools do
     "generate_developer_key" => "acs_core",
     "list_developer_keys" => "acs_core",
     "revoke_developer_key" => "acs_core",
-    "create_org" => "acs_core"
+    "create_org" => "acs_core",
+    "upsert_authority_level" => "acs_core",
+    "delete_authority_level" => "acs_core",
+    "set_member_authority_level" => "acs_core"
   }
 
   def tool_category(name) do
@@ -129,7 +135,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "create_work",
-        "Create a new task. Set claim=true to immediately claim it (sets status to in_progress and locks it to you). Without claim, the task is created as todo for another agent to claim.",
+        "Create a task. USE kind=user + due_at + remind_at (ISO-8601) for timed personal reminders (chat). USE claim=true without times for multi-step agent coordination work. User reminders do not use claim/lock. Assigning another person requires strictly higher clearance.",
         %{
           "agent_id" => %{
             "type" => "string",
@@ -138,7 +144,26 @@ defmodule Acs.MCP.Tools do
           "title" => %{"type" => "string"},
           "claim" => %{
             "type" => "boolean",
-            "description" => "Set to true to immediately claim the task (returns guidance packet)"
+            "description" =>
+              "Coordination only: set true to immediately claim (returns guidance). Ignored for kind=user."
+          },
+          "kind" => %{
+            "type" => "string",
+            "description" => "\"user\" for timed reminders, or omit/\"coordination\" for agent work"
+          },
+          "assignee" => %{
+            "type" => "string",
+            "description" =>
+              "User-task assignee (defaults to you). Other people only if you have higher clearance."
+          },
+          "due_at" => %{
+            "type" => "string",
+            "description" => "User tasks: when the work is for (ISO-8601). Required with kind=user."
+          },
+          "remind_at" => %{
+            "type" => "string",
+            "description" =>
+              "User tasks: when to start surfacing in get_started (ISO-8601, <= due_at). Required with kind=user."
           },
           "description" => %{"type" => "string"},
           "file_paths" => %{"type" => "array", "items" => %{"type" => "string"}},
@@ -146,6 +171,26 @@ defmodule Acs.MCP.Tools do
           "component" => %{"type" => "string"}
         },
         ["agent_id", "title"]
+      ),
+      tool_def(
+        "resolve_user_task",
+        "Resolve a timed user reminder. USE WHEN pending_reminders from get_started need action, or the user completes/cancels/snoozes a reminder. outcome: done | dismiss | remind_later. remind_later REQUIRES remind_at — if the user gave no time, ask them before calling.",
+        %{
+          "agent_id" => %{"type" => "string"},
+          "task_id" => %{
+            "type" => "string",
+            "description" => "User task id from pending_reminders or list_tasks"
+          },
+          "outcome" => %{
+            "type" => "string",
+            "description" => "done | dismiss | remind_later"
+          },
+          "remind_at" => %{
+            "type" => "string",
+            "description" => "Required for remind_later: new ISO-8601 time to surface again"
+          }
+        },
+        ["agent_id", "task_id", "outcome"]
       ),
       tool_def(
         "lock_file",
@@ -193,12 +238,21 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "list_tasks",
-        "List all tasks. Optionally filter by status (todo, in_progress, in_review, done, blocked).",
+        "List tasks. USE ONLY when the user explicitly asks about tasks. Default = coordination todos. Pass kind=\"user\" for personal reminders (defaults to connected user; optional for_user for managers with same/higher clearance). Do NOT call for pending_reminders — those come from get_started.",
         %{
           "status_filter" => %{
             "type" => "string",
             "description" =>
-              "Optional: filter by status (todo, in_progress, in_review, done, blocked, all)"
+              "Optional: filter by status (todo, in_progress, in_review, done, blocked, dismissed, all). For kind=user: todo/done/dismissed/open."
+          },
+          "kind" => %{
+            "type" => "string",
+            "description" => "\"user\" for reminders; omit for coordination agent tasks"
+          },
+          "for_user" => %{
+            "type" => "string",
+            "description" =>
+              "With kind=user: list another person's reminders (requires same or higher clearance)"
           }
         },
         []
@@ -369,7 +423,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "get_person_status",
-        "Look up a person's job status/title and rank (high|elevated|standard). USE WHEN: first encounter with a person for authority attribution. If not found, ask once and call set_person_status.",
+        "Look up a person's job status/title and data authority level (org-defined label/slug). USE WHEN: first encounter with a person for authority attribution. If not found, ask once and call set_person_status. Call list_authority_levels for allowed ranks.",
         %{
           "email" => %{"type" => "string", "description" => "Person email (preferred)"},
           "name" => %{"type" => "string", "description" => "Person display name"}
@@ -378,7 +432,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "set_person_status",
-        "Save or update a person's job status/title and rank. Ask on first encounter when get_person_status returns found=false.",
+        "Save or update a person's job status/title and data authority level. Rank may be an org level slug or exact label from list_authority_levels.",
         %{
           "email" => %{"type" => "string", "description" => "Person email (preferred)"},
           "name" => %{"type" => "string", "description" => "Person display name"},
@@ -388,10 +442,56 @@ defmodule Acs.MCP.Tools do
           },
           "rank" => %{
             "type" => "string",
-            "description" => "Rank: high | elevated | standard (default standard)"
+            "description" =>
+              "Org authority level slug or label (default standard). Call list_authority_levels."
           }
         },
         ["status"]
+      ),
+      tool_def(
+        "list_authority_levels",
+        "List this org's data authority levels (slug, label, sort_order). 1 = highest clearance. Use when assigning person ranks or explaining access.",
+        %{},
+        []
+      ),
+      tool_def(
+        "upsert_authority_level",
+        "Create or update an org data authority level (admin only). Pass label (required); slug auto-derived if omitted. sort_order: 1 = highest.",
+        %{
+          "label" => %{"type" => "string", "description" => "Human-readable name"},
+          "slug" => %{"type" => "string", "description" => "Stable id (optional)"},
+          "sort_order" => %{
+            "type" => "integer",
+            "description" => "1 = highest clearance"
+          }
+        },
+        ["label"]
+      ),
+      tool_def(
+        "delete_authority_level",
+        "Delete an org data authority level by slug (admin only). If in use, returns needs_remap — retry with remap: promote|demote|<slug>. Org must keep at least one level.",
+        %{
+          "slug" => %{"type" => "string", "description" => "Level slug to delete"},
+          "remap" => %{
+            "type" => "string",
+            "description" =>
+              "Required when the level is in use: promote (nearest higher), demote (nearest lower), or a remaining level slug/label"
+          }
+        },
+        ["slug"]
+      ),
+      tool_def(
+        "set_member_authority_level",
+        "Set a Steward member's data authority clearance (admin OAuth user only). They can read memories at this level and lower.",
+        %{
+          "email" => %{"type" => "string", "description" => "Member email"},
+          "user_id" => %{"type" => "integer", "description" => "Member user id"},
+          "authority_level" => %{
+            "type" => "string",
+            "description" => "Level slug or label from list_authority_levels"
+          }
+        },
+        ["authority_level"]
       ),
       tool_def(
         "query_memories",
@@ -628,7 +728,7 @@ defmodule Acs.MCP.Tools do
       # Task Completion Feedback
       tool_def(
         "submit_task_feedback",
-        "Submit feedback to help improve Steward. Feedback is a system review — tell us what worked, what didn't, and what's missing so we can clean up noisy memories/documents/skills and improve guidance. Auto-generates knowledge memories from your learnings. Two modes: (1) tracked task feedback — pass task_id after release_work; (2) standalone feedback — skip task_id to report an issue or share a learning at any time. Chat agents: use this whenever you find stale or wrong knowledge, not just after tracked tasks.",
+        "Submit feedback to help improve Steward. Feedback is a system review — tell us what worked, what didn't, and what's missing so we can clean up noisy memories/documents/skills and improve guidance. Auto-generates knowledge memories from your learnings. Two modes: (1) tracked task feedback — pass task_id after release_work; (2) standalone feedback — omit task_id whenever ask/skill_get returned empty or wrong knowledge, or a tool/workflow was painful. Chat agents: prefer standalone feedback on knowledge gaps; do not wait for a tracked task.",
         %{
           "task_id" => %{
             "type" => "string",
@@ -936,6 +1036,7 @@ defmodule Acs.MCP.Tools do
     "claim_work" => &CoreHandlers.acs_claim_work/1,
     "release_work" => &CoreHandlers.acs_release_work/1,
     "create_work" => &CoreHandlers.acs_create_work/1,
+    "resolve_user_task" => &CoreHandlers.acs_resolve_user_task/1,
     "lock_file" => &CoreHandlers.acs_lock_file/1,
     "unlock_file" => &CoreHandlers.acs_unlock_file/1,
     "get_present_status" => &CoreHandlers.acs_get_present_status/1,
@@ -948,6 +1049,10 @@ defmodule Acs.MCP.Tools do
     "query_memories" => &MemoryHandlers.query_memories/1,
     "get_person_status" => &PersonHandlers.get_person_status/1,
     "set_person_status" => &PersonHandlers.set_person_status/1,
+    "list_authority_levels" => &AuthorityHandlers.list_authority_levels/1,
+    "upsert_authority_level" => &AuthorityHandlers.upsert_authority_level/1,
+    "delete_authority_level" => &AuthorityHandlers.delete_authority_level/1,
+    "set_member_authority_level" => &AuthorityHandlers.set_member_authority_level/1,
     "set_memory_status" => &MemoryHandlers.set_memory_status/1,
     "generate_guidance_packet" => &MemoryHandlers.generate_guidance_packet/1,
     "ask" => &QueryAgent.ask/1,

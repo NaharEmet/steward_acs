@@ -1,18 +1,18 @@
 defmodule Acs.PersonStatus do
   @moduledoc """
-  Org-scoped directory of people (email/name → job status + sensitivity rank).
+  Org-scoped directory of people (email/name → job status + data authority level).
 
-  Used for authority attribution and high-rank confidentiality when saving memories.
-  Rank: `high` | `elevated` | `standard` (default).
+  `rank` stores an authority **slug** from the org catalog (`Acs.AuthorityLevels`).
+  Legacy defaults: `high` | `elevated` | `standard` (labels Executive / Senior / Standard).
   """
 
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query
 
+  alias Acs.AuthorityLevels
   alias Acs.Repo
 
-  @ranks ~w(high elevated standard)
   @primary_key {:id, :binary_id, autogenerate: true}
 
   schema "acs_person_statuses" do
@@ -28,9 +28,11 @@ defmodule Acs.PersonStatus do
 
   @type t :: %__MODULE__{}
 
-  def ranks, do: @ranks
+  @doc "Legacy helper — true when the person's level is the highest sort_order band (1)."
+  def high_rank?(%__MODULE__{rank: rank, org: org}) when is_binary(rank) do
+    AuthorityLevels.sort_order_for(org || Acs.Org.current(), rank) == 1
+  end
 
-  def high_rank?(%__MODULE__{rank: "high"}), do: true
   def high_rank?(_), do: false
 
   def changeset(person, attrs) do
@@ -39,9 +41,9 @@ defmodule Acs.PersonStatus do
     |> update_change(:email, &normalize_email/1)
     |> update_change(:name, &normalize_name/1)
     |> update_change(:status, &trim_or_nil/1)
-    |> update_change(:rank, &normalize_rank/1)
+    |> update_change(:rank, &normalize_rank_slug/1)
     |> validate_required([:org, :name, :status, :rank])
-    |> validate_inclusion(:rank, @ranks)
+    |> validate_rank_in_catalog()
     |> validate_email_or_name()
     |> unique_constraint([:org, :email], name: :acs_person_statuses_org_email_index)
   end
@@ -63,11 +65,12 @@ defmodule Acs.PersonStatus do
     end
   end
 
-  @doc "Upsert person status. Identity is email when present, else name."
+  @doc "Upsert person status. Identity is email when present, else name. Rank may be slug or label."
   def upsert(attrs) when is_map(attrs) do
     org = attrs["org"] || attrs[:org] || Acs.Org.current()
     email = normalize_email(attrs["email"] || attrs[:email])
     name = normalize_name(attrs["name"] || attrs[:name])
+    AuthorityLevels.ensure_defaults!(org)
 
     existing =
       cond do
@@ -78,12 +81,15 @@ defmodule Acs.PersonStatus do
 
     base = existing || %__MODULE__{org: org}
 
+    rank_input = attrs["rank"] || attrs[:rank] || (existing && existing.rank) || "standard"
+    rank = resolve_rank_slug(org, rank_input) || "standard"
+
     params = %{
       "org" => org,
       "email" => email,
       "name" => name || (existing && existing.name),
       "status" => attrs["status"] || attrs[:status],
-      "rank" => attrs["rank"] || attrs[:rank] || (existing && existing.rank) || "standard",
+      "rank" => rank,
       "updated_by" => attrs["updated_by"] || attrs[:updated_by]
     }
 
@@ -93,6 +99,8 @@ defmodule Acs.PersonStatus do
   end
 
   def to_map(%__MODULE__{} = p) do
+    level = AuthorityLevels.get_by_slug(p.org, p.rank)
+
     %{
       id: p.id,
       org: p.org,
@@ -100,9 +108,31 @@ defmodule Acs.PersonStatus do
       name: p.name,
       status: p.status,
       rank: p.rank,
+      rank_label: level && level.label,
+      authority_sort_order: level && level.sort_order,
       updated_by: p.updated_by,
       updated_at: p.updated_at
     }
+  end
+
+  def ranks(org \\ Acs.Org.current()) do
+    AuthorityLevels.list(org) |> Enum.map(& &1.slug)
+  end
+
+  defp validate_rank_in_catalog(changeset) do
+    org = get_field(changeset, :org)
+    rank = get_field(changeset, :rank)
+
+    if is_binary(org) and is_binary(rank) and AuthorityLevels.get_by_slug(org, rank) do
+      changeset
+    else
+      allowed =
+        if is_binary(org),
+          do: AuthorityLevels.list(org) |> Enum.map(&"#{&1.label} (#{&1.slug})") |> Enum.join(", "),
+          else: ""
+
+      add_error(changeset, :rank, "must be an org authority level#{if allowed != "", do: ": #{allowed}", else: ""}")
+    end
   end
 
   defp validate_email_or_name(changeset) do
@@ -116,7 +146,17 @@ defmodule Acs.PersonStatus do
     end
   end
 
+  defp resolve_rank_slug(org, input) when is_binary(input) do
+    case AuthorityLevels.resolve(org, input) do
+      %{slug: slug} -> slug
+      nil -> normalize_rank_slug(input)
+    end
+  end
+
+  defp resolve_rank_slug(_, _), do: nil
+
   defp normalize_email(nil), do: nil
+
   defp normalize_email(email) when is_binary(email) do
     email |> String.trim() |> String.downcase() |> empty_to_nil()
   end
@@ -124,19 +164,20 @@ defmodule Acs.PersonStatus do
   defp normalize_email(_), do: nil
 
   defp normalize_name(nil), do: nil
+
   defp normalize_name(name) when is_binary(name) do
     name |> String.trim() |> empty_to_nil()
   end
 
   defp normalize_name(_), do: nil
 
-  defp normalize_rank(nil), do: "standard"
-  defp normalize_rank(rank) when is_binary(rank) do
-    rank = String.downcase(String.trim(rank))
-    if rank in @ranks, do: rank, else: "standard"
+  defp normalize_rank_slug(nil), do: "standard"
+
+  defp normalize_rank_slug(rank) when is_binary(rank) do
+    Acs.AuthorityLevel.slugify(rank)
   end
 
-  defp normalize_rank(_), do: "standard"
+  defp normalize_rank_slug(_), do: "standard"
 
   defp trim_or_nil(nil), do: nil
   defp trim_or_nil(s) when is_binary(s), do: s |> String.trim() |> empty_to_nil()

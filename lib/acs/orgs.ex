@@ -65,9 +65,11 @@ defmodule Acs.Orgs do
     case %Organization{} |> Organization.changeset(attrs) |> Repo.insert() do
       {:ok, organization} ->
         Acs.OrgsCache.invalidate()
+        _ = Acs.AuthorityLevels.ensure_defaults!(organization.slug)
         Provisioner.provision(organization)
 
-      {:error, changeset} -> {:error, changeset}
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 

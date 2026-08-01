@@ -250,6 +250,7 @@ defmodule Acs.Acs.SleepRegistry do
       from t in Acs.Acs.Task,
         where: t.org == ^org,
         where: t.status == "todo",
+        where: t.kind != "user" or is_nil(t.kind),
         where: is_nil(t.locked_by_agent),
         order_by: [asc: t.inserted_at],
         limit: 1

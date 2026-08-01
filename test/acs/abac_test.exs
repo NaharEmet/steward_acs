@@ -13,27 +13,24 @@ defmodule Acs.AbacTest do
       assert Abac.visible?(ctx, %Entry{visibility: "project", project: "acs"})
     end
 
-    test "collaborator without allowlists only sees org content" do
+    test "collaborator without allowlists sees every shared scope" do
       ctx = %Abac{agent_role: "collaborator"}
 
       assert Abac.visible?(ctx, %{"visibility" => "org"})
-      refute Abac.visible?(ctx, %{"visibility" => "team", "team" => "platform"})
-      refute Abac.visible?(ctx, %{"visibility" => "project", "project" => "acs"})
+      assert Abac.visible?(ctx, %{"visibility" => "team", "team" => "platform"})
+      assert Abac.visible?(ctx, %{"visibility" => "project", "project" => "acs"})
     end
 
-    test "collaborator with team allowlist sees org and matching team content" do
+    test "team and project allowlists do not restrict reads" do
       ctx = %Abac{agent_role: "collaborator", allowed_teams: ["platform"]}
 
-      assert Abac.visible?(ctx, %{"visibility" => "org"})
       assert Abac.visible?(ctx, %{"visibility" => "team", "team" => "platform"})
-      refute Abac.visible?(ctx, %{"visibility" => "team", "team" => "sales"})
-    end
+      assert Abac.visible?(ctx, %{"visibility" => "team", "team" => "sales"})
 
-    test "collaborator with project allowlist sees org and matching project content" do
       ctx = %Abac{agent_role: "collaborator", allowed_projects: ["acs"]}
 
       assert Abac.visible?(ctx, %{"visibility" => "project", "project" => "acs"})
-      refute Abac.visible?(ctx, %{"visibility" => "project", "project" => "other"})
+      assert Abac.visible?(ctx, %{"visibility" => "project", "project" => "other"})
     end
   end
 
@@ -44,11 +41,18 @@ defmodule Acs.AbacTest do
       assert :ok = Abac.validate_write(ctx, %{"visibility" => "org"})
     end
 
-    test "collaborator cannot write team content outside allowlist" do
+    # Regression: OAuth users always arrive with an empty team allowlist, so gating
+    # writes on it made team visibility unreachable for every connector user.
+    test "collaborator can write any team, including one outside its allowlist" do
       ctx = %Abac{agent_role: "collaborator", allowed_teams: ["platform"]}
 
       assert :ok = Abac.validate_write(ctx, %{"visibility" => "team", "team" => "platform"})
-      assert {:error, _} = Abac.validate_write(ctx, %{"visibility" => "team", "team" => "sales"})
+      assert :ok = Abac.validate_write(ctx, %{"visibility" => "team", "team" => "sales"})
+
+      ctx = %Abac{agent_role: "collaborator"}
+
+      assert :ok = Abac.validate_write(ctx, %{"visibility" => "team", "team" => "sales_cs"})
+      assert :ok = Abac.validate_write(ctx, %{"visibility" => "project", "project" => "acs"})
     end
 
     test "team visibility requires team field" do
@@ -67,8 +71,16 @@ defmodule Acs.AbacTest do
                Abac.memory_status_for_write(ctx, %{"visibility" => "org", "kind" => "context"})
     end
 
-    test "collaborator team-scoped writes keep default status" do
+    # Team visibility must not become a way around review now that anyone can write it.
+    test "collaborator team-scoped writes are also proposed for review" do
       ctx = %Abac{agent_role: "collaborator", allowed_teams: ["platform"]}
+
+      assert "proposed" =
+               Abac.memory_status_for_write(ctx, %{"visibility" => "team", "team" => "platform"})
+    end
+
+    test "admin writes keep default status" do
+      ctx = %Abac{agent_role: "admin"}
 
       assert is_nil(
                Abac.memory_status_for_write(ctx, %{"visibility" => "team", "team" => "platform"})

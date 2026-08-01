@@ -16,6 +16,7 @@ defmodule Acs.Developers.DeveloperApiKey do
     field :developer_name, :string
     field :role, :string, default: "collaborator"
     field :org, :string, default: "default"
+    field :authority_level_slug, :string, default: "standard"
     field :active, :boolean, default: true
     field :last_used_at, :utc_datetime
     field :allowed_teams_json, :string
@@ -31,6 +32,7 @@ defmodule Acs.Developers.DeveloperApiKey do
       :developer_name,
       :role,
       :org,
+      :authority_level_slug,
       :active,
       :last_used_at,
       :allowed_teams_json,

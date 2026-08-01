@@ -9,9 +9,11 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
   alias Acs.Accounts
   alias Acs.Accounts.InvitationNotifier
+  alias Acs.AuthorityLevels
 
   @roles ~w(member admin owner)
   @email_regex ~r/^[^\s]+@[^\s]+\.[^\s]+$/
+  @access_guide_dismissed_key "acs.members_access_guide_dismissed"
 
   def on_mount(_params, _session, socket) do
     {:cont, assign(socket, current_path: socket.assigns[:current_path] || "/")}
@@ -20,19 +22,30 @@ defmodule AcsWeb.AcsLive.MembersLive do
   @impl true
   def mount(_params, _session, socket) do
     attrs = empty_invitation_attrs()
+    guide_dismissed? = access_guide_dismissed?(socket)
 
     socket =
       assign(socket,
         organization: socket.assigns[:organization],
         members: [],
         pending_invitations: [],
+        authority_levels: [],
         current_role: nil,
         invitation_attrs: attrs,
         invitation_form:
-          to_form(%{"email" => attrs.email, "role" => attrs.role}, as: :invitation),
+          to_form(
+            %{
+              "email" => attrs.email,
+              "role" => attrs.role,
+              "authority_level_slug" => attrs.authority_level_slug
+            },
+            as: :invitation
+          ),
         invitation_errors: %{},
         invitation_link: nil,
-        email_delivery_enabled: InvitationNotifier.delivery_enabled?()
+        email_delivery_enabled: InvitationNotifier.delivery_enabled?(),
+        access_guide_dismissed: guide_dismissed?,
+        access_guide_open: not guide_dismissed?
       )
 
     case authorize_admin(socket) do
@@ -56,14 +69,14 @@ defmodule AcsWeb.AcsLive.MembersLive do
   @impl true
   def handle_event("validate-invitation", %{"invitation" => params}, socket) do
     attrs = normalize_invitation_attrs(params)
-    errors = validate_invitation(attrs, allowed_invite_roles(socket))
+    errors = validate_invitation(attrs, allowed_invite_roles(socket), socket.assigns.authority_levels)
     {:noreply, assign_invitation_form(socket, attrs, errors)}
   end
 
   def handle_event("invite-member", %{"invitation" => params}, socket) do
     with_admin(socket, fn socket ->
       attrs = normalize_invitation_attrs(params)
-      errors = validate_invitation(attrs, allowed_invite_roles(socket))
+      errors = validate_invitation(attrs, allowed_invite_roles(socket), socket.assigns.authority_levels)
 
       if map_size(errors) > 0 do
         {:noreply, assign_invitation_form(socket, attrs, errors)}
@@ -185,6 +198,48 @@ defmodule AcsWeb.AcsLive.MembersLive do
     end)
   end
 
+  def handle_event("change-authority", %{"target_id" => id, "authority_level" => slug}, socket) do
+    with_admin(socket, fn socket ->
+      target_id = resolve_member_id(socket.assigns.members, id)
+
+      cond do
+        is_nil(target_id) ->
+          {:noreply,
+           put_flash(socket, :error, "That member no longer belongs to this organization.")}
+
+        slug in [nil, ""] ->
+          {:noreply, put_flash(socket, :error, "Choose a data authority level.")}
+
+        true ->
+          mutate_and_reload(
+            socket,
+            Accounts.change_authority_level(socket.assigns.current_user, target_id, slug),
+            "Data authority updated.",
+            "change that member's data authority"
+          )
+      end
+    end)
+  end
+
+  def handle_event("dismiss-access-guide", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(access_guide_open: false, access_guide_dismissed: true)
+     |> push_event("store", %{key: @access_guide_dismissed_key, value: "1"})}
+  end
+
+  def handle_event("show-access-guide", _params, socket) do
+    {:noreply, assign(socket, access_guide_open: true)}
+  end
+
+  def handle_event("toggle-access-guide", _params, socket) do
+    if socket.assigns.access_guide_open do
+      handle_event("dismiss-access-guide", %{}, socket)
+    else
+      handle_event("show-access-guide", %{}, socket)
+    end
+  end
+
   def handle_event("remove-member", %{"id" => id}, socket) do
     with_admin(socket, fn socket ->
       case resolve_member_id(socket.assigns.members, id) do
@@ -262,12 +317,18 @@ defmodule AcsWeb.AcsLive.MembersLive do
       normalize_collection(Accounts.list_pending_invitations(socket.assigns.organization))
 
     current_role = current_user_role(socket.assigns.current_user, members)
+    org_slug =
+      case organization_slug(socket.assigns.organization) do
+        slug when is_binary(slug) and slug != "" -> slug
+        _ -> Acs.Org.current()
+      end
 
     socket =
       assign(socket,
         members: members,
         pending_invitations: pending_invitations,
-        current_role: current_role
+        current_role: current_role,
+        authority_levels: AuthorityLevels.list(org_slug)
       )
 
     cond do
@@ -295,11 +356,15 @@ defmodule AcsWeb.AcsLive.MembersLive do
       })
 
     emailed? = delivery == :ok
+    authority_slug = invitation_authority_slug(invitation)
 
     invitation_link = %{
       id: invitation_id(invitation),
       email: invitation_email(invitation),
       role: invitation_role(invitation),
+      authority_level_slug: authority_slug,
+      authority_level_label:
+        authority_label_for(authority_slug, socket.assigns.authority_levels),
       expires_at: field(invitation, :expires_at),
       url: url,
       emailed: emailed?,
@@ -420,7 +485,8 @@ defmodule AcsWeb.AcsLive.MembersLive do
   end
 
   defp invitation_mutation_error(socket, attrs, %Ecto.Changeset{} = changeset) do
-    errors = changeset_errors(changeset) |> Map.take([:email, :role])
+    errors =
+      changeset_errors(changeset) |> Map.take([:email, :role, :authority_level_slug])
 
     if map_size(errors) > 0 do
       {:noreply, assign_invitation_form(socket, attrs, errors)}
@@ -445,6 +511,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
         "That account already belongs to another organization. Send the invitation anyway only if they should leave their current organization."
       :rate_limited -> "Invitation activity is temporarily limited. Please try again later."
       :invalid_role -> "That role cannot be assigned by your current account."
+      :invalid_authority_level -> "Choose a valid data authority level for this invitation."
       :self_role_change -> "You cannot change your own organization role."
       :self_removal -> "You cannot remove your own account from this screen."
       :last_owner -> "The last owner cannot be demoted or removed. Assign another owner first."
@@ -528,6 +595,9 @@ defmodule AcsWeb.AcsLive.MembersLive do
       reason when reason in [:invalid_role, :role_not_allowed] ->
         :invalid_role
 
+      reason when reason in [:invalid_authority_level, :unknown_authority_level] ->
+        :invalid_authority_level
+
       reason when reason in [:self_role_change, :cannot_change_own_role] ->
         :self_role_change
 
@@ -553,14 +623,21 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
     %{
       email: params |> Map.get("email", "") |> String.trim() |> String.downcase(),
-      role: params |> Map.get("role", "member") |> String.trim() |> String.downcase()
+      role: params |> Map.get("role", "member") |> String.trim() |> String.downcase(),
+      authority_level_slug:
+        params
+        |> Map.get("authority_level_slug", "standard")
+        |> to_string()
+        |> String.trim()
+        |> String.downcase()
     }
   end
 
-  defp validate_invitation(attrs, allowed_roles) do
+  defp validate_invitation(attrs, allowed_roles, levels) do
     %{}
     |> validate_email(attrs.email)
     |> validate_invitation_role(attrs.role, allowed_roles)
+    |> validate_invitation_authority(attrs.authority_level_slug, levels)
   end
 
   defp validate_email(errors, ""), do: add_error(errors, :email, "Enter an email address.")
@@ -586,12 +663,31 @@ defmodule AcsWeb.AcsLive.MembersLive do
     end
   end
 
+  defp validate_invitation_authority(errors, slug, levels) do
+    allowed = Enum.map(levels, & &1.slug)
+
+    cond do
+      slug in ["", nil] ->
+        add_error(errors, :authority_level_slug, "Choose a data authority level.")
+
+      allowed != [] and slug not in allowed ->
+        add_error(errors, :authority_level_slug, "Choose a valid data authority level.")
+
+      true ->
+        errors
+    end
+  end
+
   defp add_error(errors, field_name, message) do
     Map.update(errors, field_name, [message], &[message | &1])
   end
 
   defp assign_invitation_form(socket, attrs, errors) do
-    params = %{"email" => attrs.email, "role" => attrs.role}
+    params = %{
+      "email" => attrs.email,
+      "role" => attrs.role,
+      "authority_level_slug" => attrs.authority_level_slug
+    }
 
     assign(socket,
       invitation_attrs: attrs,
@@ -617,6 +713,21 @@ defmodule AcsWeb.AcsLive.MembersLive do
   defp role_label("admin"), do: "Administrator"
   defp role_label("owner"), do: "Owner"
   defp role_label(_role), do: "Member"
+
+  defp member_authority_slug(member) do
+    field(member, :authority_level_slug) ||
+      field(Map.get(member, :user) || %{}, :authority_level_slug)
+  end
+
+  defp member_authority_label(member, levels) do
+    slug = member_authority_slug(member)
+
+    case Enum.find(levels, &(&1.slug == slug)) do
+      %{label: label} -> label
+      nil when is_binary(slug) and slug != "" -> slug
+      nil -> "Lowest (default)"
+    end
+  end
 
   defp current_user_role(current_user, members) do
     current_id = field(current_user, :id)
@@ -721,6 +832,15 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
   defp can_edit_role?(_member, _current_user, _current_role), do: false
 
+  # Owners may set anyone's clearance (including self). Admins may set members only (never themselves).
+  defp can_edit_authority?(_member, _current_user, "owner"), do: true
+
+  defp can_edit_authority?(member, current_user, "admin") do
+    not current_member?(member, current_user) and member_role(member) == "member"
+  end
+
+  defp can_edit_authority?(_member, _current_user, _current_role), do: false
+
   defp can_remove_member?(member, current_user, "owner"),
     do: not current_member?(member, current_user)
 
@@ -766,7 +886,26 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
   defp normalize_email(_value), do: ""
 
-  defp empty_invitation_attrs, do: %{email: "", role: "member"}
+  defp empty_invitation_attrs,
+    do: %{email: "", role: "member", authority_level_slug: "standard"}
+
+  defp access_guide_dismissed?(socket) do
+    case get_connect_params(socket) do
+      %{"members_access_guide_dismissed" => value} when value in ["1", "true", true] -> true
+      _ -> false
+    end
+  end
+
+  defp invitation_authority_slug(invitation) do
+    field(invitation, :authority_level_slug) || "standard"
+  end
+
+  defp authority_label_for(slug, levels) do
+    case Enum.find(levels, &(to_string(&1.slug) == to_string(slug))) do
+      %{label: label} when is_binary(label) and label != "" -> label
+      _ -> slug |> to_string() |> String.replace("_", " ") |> String.capitalize()
+    end
+  end
 
   defp field(record, key, default \\ nil)
   defp field(nil, _key, default), do: default
@@ -796,6 +935,85 @@ defmodule AcsWeb.AcsLive.MembersLive do
           <div><strong><%= @current_role %></strong><span>Your role</span></div>
         </div>
       </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin: 0 0 12px; flex-wrap: wrap;">
+        <button
+          id="toggle-access-guide"
+          type="button"
+          class="btn btn-ghost btn-sm"
+          phx-click="toggle-access-guide"
+        >
+          <%= if @access_guide_open, do: "Hide access help", else: "How access works" %>
+        </button>
+        <.link
+          navigate={"/settings/authority-levels"}
+          id="manage-authority-levels-link"
+          class="btn btn-ghost btn-sm"
+        >
+          Data authority levels
+        </.link>
+      </div>
+
+      <%= if @access_guide_open do %>
+        <aside id="members-access-guide" class="card account-card role-guide animate-in" aria-labelledby="role-guide-title" style="margin-bottom: 18px;">
+          <div class="account-card-heading">
+            <div>
+              <p class="account-kicker">Access guide</p>
+              <h2 id="role-guide-title">How Steward access works</h2>
+            </div>
+            <button
+              id="dismiss-access-guide"
+              type="button"
+              class="btn btn-ghost btn-sm"
+              phx-click="dismiss-access-guide"
+              aria-label="Dismiss access guide"
+            >
+              Got it
+            </button>
+          </div>
+
+          <div class="guide-section">
+            <h3>Access level (org role)</h3>
+            <p class="form-hint" style="margin-bottom: 0;">Three levels, one boundary. Every mutation is re-authorized against your current server-side role.</p>
+            <dl>
+              <div>
+                <dt><span class="role-badge role-member">member</span></dt>
+                <dd>Uses Steward's operational workspace.</dd>
+              </div>
+              <div>
+                <dt><span class="role-badge role-admin">admin</span></dt>
+                <dd>Manages members and member invitations.</dd>
+              </div>
+              <div>
+                <dt><span class="role-badge role-owner">owner</span></dt>
+                <dd>Controls roles, ownership, and all access.</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="guide-section">
+            <h3>Data authority (memory clearance)</h3>
+            <p class="form-hint">
+              Separate from org role. Org-named levels (Executive, Senior, Standard by default) decide how far a person can
+              <strong>read</strong> into org memory. New memories are stamped with the
+              <strong>writer's</strong> clearance — not the about-person's directory rank.
+              A person sees memories stamped at their level and lower.
+              Unranked memories stay open. Owners can set anyone's level, including their own; admins can set members only.
+              Manage the level labels under <strong>Data authority levels</strong>.
+            </p>
+          </div>
+
+          <div class="guide-section">
+            <h3>Scopes &amp; sensitivity</h3>
+            <p class="form-hint" style="margin-bottom: 0;">
+              Teams and projects are open collaboration scopes — they are not separate permission walls.
+              <strong>Visibility</strong> (org / team / project / personal) and <strong>confidential</strong> mark who may read a fact.
+              <strong>About</strong> (person or company) says who the fact is about, not who can see it.
+              Data authority still filters what each member can retrieve inside those scopes.
+            </p>
+          </div>
+        </aside>
+      <% end %>
 
       <div class="management-grid animate-in delay-1">
         <article class="card account-card invite-panel">
@@ -853,6 +1071,34 @@ defmodule AcsWeb.AcsLive.MembersLive do
                   <% end %>
                 </div>
               </div>
+
+              <div class="form-field">
+                <label for="invite-authority" class="form-label">Data authority</label>
+                <select
+                  id="invite-authority"
+                  name={@invitation_form[:authority_level_slug].name}
+                  class="form-control form-select"
+                  aria-invalid={Map.has_key?(@invitation_errors, :authority_level_slug)}
+                  aria-describedby="invite-authority-hint invite-authority-errors"
+                >
+                  <%= for level <- @authority_levels do %>
+                    <option
+                      value={level.slug}
+                      selected={@invitation_form[:authority_level_slug].value == level.slug}
+                    >
+                      <%= level.label %>
+                    </option>
+                  <% end %>
+                </select>
+                <p id="invite-authority-hint" class="form-hint">
+                  How far this person can see into org memory. Change later on this Members screen.
+                </p>
+                <div id="invite-authority-errors" class="field-errors" aria-live="polite">
+                  <%= for message <- Map.get(@invitation_errors, :authority_level_slug, []) do %>
+                    <p><%= message %></p>
+                  <% end %>
+                </div>
+              </div>
             </div>
 
             <p class="invite-delivery-note">
@@ -888,9 +1134,9 @@ defmodule AcsWeb.AcsLive.MembersLive do
               </div>
               <p id="invitation-link-recipient">
                 <%= if @invitation_link.emailed do %>
-                  Sent to <strong><%= @invitation_link.email %></strong> with <strong><%= role_label(@invitation_link.role) %></strong> access. Keep this backup URL private; creating another invitation invalidates it.
+                  Sent to <strong><%= @invitation_link.email %></strong> with <strong><%= role_label(@invitation_link.role) %></strong> access and <strong><%= @invitation_link.authority_level_label %></strong> data authority. Keep this backup URL private; creating another invitation invalidates it.
                 <% else %>
-                  Share only with <strong><%= @invitation_link.email %></strong>. This invitation grants <strong><%= role_label(@invitation_link.role) %></strong> access. Creating another link invalidates this one.
+                  Share only with <strong><%= @invitation_link.email %></strong>. This invitation grants <strong><%= role_label(@invitation_link.role) %></strong> access and <strong><%= @invitation_link.authority_level_label %></strong> data authority. Creating another link invalidates this one.
                 <% end %>
               </p>
               <%= if @invitation_link[:org_move] do %>
@@ -937,26 +1183,6 @@ defmodule AcsWeb.AcsLive.MembersLive do
             </aside>
           <% end %>
         </article>
-
-        <aside class="card account-card role-guide" aria-labelledby="role-guide-title">
-          <p class="account-kicker">Permission map</p>
-          <h2 id="role-guide-title">Three levels, one boundary</h2>
-          <dl>
-            <div>
-              <dt><span class="role-badge role-member">member</span></dt>
-              <dd>Uses Steward's operational workspace.</dd>
-            </div>
-            <div>
-              <dt><span class="role-badge role-admin">admin</span></dt>
-              <dd>Manages members and member invitations.</dd>
-            </div>
-            <div>
-              <dt><span class="role-badge role-owner">owner</span></dt>
-              <dd>Controls roles, ownership, and all access.</dd>
-            </div>
-          </dl>
-          <p class="form-hint">Every mutation is re-authorized against your current server-side role.</p>
-        </aside>
       </div>
 
       <article class="card management-card animate-in delay-2" aria-labelledby="members-title">
@@ -965,7 +1191,16 @@ defmodule AcsWeb.AcsLive.MembersLive do
             <p class="account-kicker">Current access</p>
             <h2 id="members-title">Organization members</h2>
           </div>
-          <span class="section-count"><%= length(@members) %> total</span>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <.link
+              navigate={"/settings/authority-levels"}
+              id="members-authority-levels-link"
+              class="btn btn-ghost btn-sm"
+            >
+              Edit authority levels
+            </.link>
+            <span class="section-count"><%= length(@members) %> total</span>
+          </div>
         </div>
 
         <%= if Enum.empty?(@members) do %>
@@ -982,6 +1217,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                 <tr>
                   <th scope="col">Member</th>
                   <th scope="col">Access level</th>
+                  <th scope="col">Data authority</th>
                   <th scope="col">Joined</th>
                   <th scope="col" class="actions-column">Actions</th>
                 </tr>
@@ -1001,6 +1237,32 @@ defmodule AcsWeb.AcsLive.MembersLive do
                       </div>
                     </td>
                     <td><span class={"role-badge role-#{member_role(member)}"}><%= role_label(member_role(member)) %></span></td>
+                    <td>
+                      <%= if can_edit_authority?(member, @current_user, @current_role) do %>
+                        <form id={dom_id("authority-form", member_id(member))} phx-change="change-authority" phx-submit="change-authority" class="role-form">
+                          <input type="hidden" name="target_id" value={member_id(member)} />
+                          <label class="sr-only" for={dom_id("member-authority", member_id(member))}>
+                            Data authority for <%= member_name(member) %>
+                          </label>
+                          <select
+                            id={dom_id("member-authority", member_id(member))}
+                            name="authority_level"
+                            class="form-control form-select form-control-sm"
+                          >
+                            <%= for level <- @authority_levels do %>
+                              <option
+                                value={level.slug}
+                                selected={to_string(member_authority_slug(member) || "standard") == to_string(level.slug)}
+                              >
+                                <%= level.label %>
+                              </option>
+                            <% end %>
+                          </select>
+                        </form>
+                      <% else %>
+                        <span class="timestamp"><%= member_authority_label(member, @authority_levels) %></span>
+                      <% end %>
+                    </td>
                     <td class="timestamp"><%= format_datetime(member_joined_at(member)) %></td>
                     <td>
                       <div class="table-actions">
@@ -1072,6 +1334,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                 <tr>
                   <th scope="col">Invited email</th>
                   <th scope="col">Access level</th>
+                  <th scope="col">Data authority</th>
                   <th scope="col"><%= if @email_delivery_enabled, do: "Delivery", else: "Link status" %></th>
                   <th scope="col">Expires</th>
                   <th scope="col" class="actions-column">Actions</th>
@@ -1082,6 +1345,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
                   <tr id={dom_id("invitation-row", invitation_id(invitation))}>
                     <td><strong class="table-primary"><%= invitation_email(invitation) %></strong></td>
                     <td><span class={"role-badge role-#{invitation_role(invitation)}"}><%= role_label(invitation_role(invitation)) %></span></td>
+                    <td><%= authority_label_for(invitation_authority_slug(invitation), @authority_levels) %></td>
                     <td>
                       <span class="delivery-state"><span class="status-dot" aria-hidden="true"></span><%= invitation_delivery_state(invitation, @email_delivery_enabled) %></span>
                     </td>

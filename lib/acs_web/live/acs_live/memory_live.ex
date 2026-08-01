@@ -159,7 +159,8 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   def handle_event("approve-all-proposed", _, socket) do
     # Fetch all proposed memories (up to 500)
     org = socket.assigns.current_org
-    proposed_memories = Indexer.list_memories(status: "proposed", limit: 500, org: org)
+    proposed_memories =
+      Indexer.list_memories([status: "proposed", limit: 500, org: org] ++ viewer_abac(socket))
 
     actor = web_actor(socket)
 
@@ -255,9 +256,18 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     end
   end
 
+  # Same clearance rule as MCP: the viewer's own authority level, role never bypasses.
+  defp viewer_abac(socket) do
+    case socket.assigns[:current_user] do
+      %{authority_level_slug: slug} -> [authority_level_slug: slug]
+      _ -> []
+    end
+  end
+
   defp load_data(socket) do
     query = socket.assigns.search_query
     status_filter = socket.assigns.status_filter
+    viewer = viewer_abac(socket)
 
     org = socket.assigns.current_org
     counts = Indexer.count_by_status(org)
@@ -265,9 +275,9 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     approved_count = Map.get(counts, "approved", 0)
     rejected_count = Map.get(counts, "rejected", 0)
     quarantined_count = Map.get(counts, "parse_error", 0)
-    review_count = Indexer.count_memories_needing_review(org)
+    review_count = Indexer.count_memories_needing_review(org, viewer)
 
-    memories_opts = [limit: 100, org: org]
+    memories_opts = [limit: 100, org: org] ++ viewer
 
     memories_opts =
       case status_filter do
@@ -285,7 +295,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
     memories =
       if status_filter == "review" do
-        Indexer.list_memories_needing_review(limit: 100, org: org)
+        Indexer.list_memories_needing_review([limit: 100, org: org] ++ viewer)
       else
         if query && query != "" do
           Search.search(query, memories_opts)
