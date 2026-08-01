@@ -47,6 +47,48 @@ defmodule Acs.UserTasksTest do
     assert msg =~ "due_at"
   end
 
+  test "remind_at after due_at is rejected", %{org: org} do
+    due = DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second)
+    later = DateTime.utc_now() |> DateTime.add(7200, :second) |> DateTime.truncate(:second)
+
+    assert {:error, msg} =
+             UserTasks.create(
+               %{
+                 "title" => "Bad window",
+                 "due_at" => DateTime.to_iso8601(due),
+                 "remind_at" => DateTime.to_iso8601(later)
+               },
+               "Alice",
+               org: org,
+               viewer_sort_order: 1
+             )
+
+    assert msg =~ "remind_at"
+  end
+
+  test "dismiss removes from pending_reminders", %{org: org} do
+    past = DateTime.utc_now() |> DateTime.add(-60, :second) |> DateTime.truncate(:second)
+    due = DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second)
+
+    assert {:ok, task} =
+             UserTasks.create(
+               %{
+                 "title" => "Dismiss unit",
+                 "due_at" => DateTime.to_iso8601(due),
+                 "remind_at" => DateTime.to_iso8601(past)
+               },
+               "Alice",
+               org: org,
+               viewer_sort_order: 1
+             )
+
+    assert {:ok, dismissed} =
+             UserTasks.resolve(task.id, "Alice", "dismiss", org: org, viewer_sort_order: 1)
+
+    assert dismissed.status == "dismissed"
+    refute Enum.any?(UserTasks.pending_reminders("Alice", org), &(&1.id == task.id))
+  end
+
   test "create self task and pending_reminders after remind_at", %{org: org} do
     past = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
     due = DateTime.utc_now() |> DateTime.add(86400, :second) |> DateTime.truncate(:second)

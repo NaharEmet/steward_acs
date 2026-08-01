@@ -51,6 +51,9 @@ defmodule Acs.MCP.Tools.AgentIdentityTest do
     assert packet.agent_identity =~ "Nahar"
     assert packet.get_started =~ "Connected user: \"Nahar\""
     assert packet.get_started =~ "Do not call get_present_status just to learn who you are"
+    assert packet.pending_reminders == []
+    assert is_binary(packet.user_task_protocol)
+    assert packet.pending_reminders_guidance =~ "list_tasks"
   end
 
   test "coding get_started returns connected_user from MCP token developer_name" do

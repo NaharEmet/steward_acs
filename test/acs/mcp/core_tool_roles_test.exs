@@ -28,6 +28,7 @@ defmodule Acs.MCP.CoreToolRolesTest do
     assert CoreToolRoles.authorized?("skill_save", "collaborator", :chat)
     assert CoreToolRoles.authorized?("create_work", "collaborator", :chat)
     assert CoreToolRoles.authorized?("resolve_user_task", "collaborator", :chat)
+    refute CoreToolRoles.eager_tool?("resolve_user_task")
     assert CoreToolRoles.authorized?("get_person_status", "collaborator", :chat)
     assert CoreToolRoles.authorized?("set_person_status", "collaborator", :chat)
     assert CoreToolRoles.authorized?("set_memory_status", "collaborator", :chat)
