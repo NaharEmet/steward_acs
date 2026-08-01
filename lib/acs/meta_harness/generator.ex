@@ -37,7 +37,7 @@ defmodule Acs.MetaHarness.Generator do
   @doc "Direct SQL query for Opencode"
   def query(sql) do
     try do
-      {:ok, result} = Ecto.Adapters.SQL.query(Acs.Repo, sql, [], log: false)
+      {:ok, result} = Ecto.Adapters.SQL.query(Acs.Repo, Acs.MetaHarness.SQL.adapt(sql), [], log: false)
 
       {:ok,
        Enum.map(result.rows, fn row ->
@@ -120,7 +120,8 @@ defmodule Acs.MetaHarness.Generator do
 
   defp query_sql(sql, params) do
     try do
-      {:ok, result} = Ecto.Adapters.SQL.query(Acs.Repo, sql, params, log: false)
+      {:ok, result} =
+        Ecto.Adapters.SQL.query(Acs.Repo, Acs.MetaHarness.SQL.adapt(sql), params, log: false)
 
       {:ok,
        Enum.map(result.rows, fn row ->

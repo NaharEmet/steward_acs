@@ -94,7 +94,6 @@ defmodule Acs.Memory.Auditor do
 
   @impl true
   def handle_info(:audit, state) do
-    Logger.info("[Acs.Memory.Auditor] Starting audit cycle")
     state = %{state | audit_in_progress: true}
 
     try do
@@ -216,6 +215,12 @@ defmodule Acs.Memory.Auditor do
         true
 
       error_count > 0 and verdict not in ["approve", "reject"] ->
+        true
+
+      # Fuzzy duplicates stay `proposed` on purpose so a human can make the call,
+      # but nothing else moves them off that status — without this they came back
+      # every cycle and were re-flagged forever.
+      is_binary(Map.get(flags, "flagged_reason")) and verdict not in ["approve", "reject"] ->
         true
 
       true ->
@@ -789,10 +794,12 @@ defmodule Acs.Memory.Auditor do
       memory ->
         existing_flags = decode_auditor_flags(memory.auditor_flags)
 
+        # String keys: existing_flags comes back from Jason.decode, so atom keys
+        # here merge alongside rather than over them and Jason emits both.
         merged_flags =
           Map.merge(existing_flags, %{
-            flagged_reason: reason,
-            flagged_at: DateTime.utc_now() |> DateTime.to_iso8601()
+            "flagged_reason" => reason,
+            "flagged_at" => DateTime.utc_now() |> DateTime.to_iso8601()
           })
 
         flags_json = Jason.encode!(merged_flags)

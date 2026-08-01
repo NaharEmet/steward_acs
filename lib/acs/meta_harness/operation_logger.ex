@@ -344,11 +344,13 @@ defmodule Acs.MetaHarness.OperationLogger do
   end
 
   defp insert_operation(entry) do
+    ph = Acs.MetaHarness.SQL.placeholders(14)
+
     Ecto.Adapters.SQL.query(
       Acs.Repo,
       """
         INSERT INTO acs_tool_operations (tool_name, status, latency_ms, error_type, error_message, agent_id, execution_id, execution_chain_id, sequence_order, attempt, tool_discovered, error_burst, params_hash, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (#{ph})
       """,
       [
         entry.tool_name,

@@ -224,6 +224,7 @@ defmodule Acs.Memory.Loader do
         {:valid, m} -> [m]
         _ -> []
       end)
+      |> dedupe_by_id()
 
     quarantined_info =
       Enum.flat_map(results, fn
@@ -251,6 +252,7 @@ defmodule Acs.Memory.Loader do
         {:valid, m} -> [m]
         _ -> []
       end)
+      |> dedupe_by_id()
 
     quarantined_info =
       Enum.flat_map(results, fn
@@ -260,6 +262,30 @@ defmodule Acs.Memory.Loader do
 
     {:ok, memories, quarantined_info}
   end
+
+  # A memory's path encodes its scope_path, so re-saving it under a new scope
+  # leaves the old file behind. Both copies index to the same row, and the stale
+  # copy (still `status: proposed`) overwrote the fresh verdict on every sweep —
+  # which re-queued already-rejected memories for a real LLM audit forever.
+  # Freshest write wins; ties go to the canonical root, which is listed first.
+  #
+  # ponytail: orphaned copies are ignored, not deleted, so the file count keeps
+  # drifting above the memory count. Upgrade path is pruning same-id copies in
+  # `save_to_file/1`, once we are willing to delete from the legacy root.
+  defp dedupe_by_id(memories) do
+    memories
+    |> Enum.group_by(& &1.id)
+    |> Enum.map(fn {_id, copies} -> Enum.max_by(copies, &updated_at_unix/1) end)
+  end
+
+  defp updated_at_unix(%Acs.Memory{updated_at: ts}) when is_binary(ts) do
+    case DateTime.from_iso8601(ts) do
+      {:ok, dt, _offset} -> DateTime.to_unix(dt, :microsecond)
+      _ -> 0
+    end
+  end
+
+  defp updated_at_unix(_), do: 0
 
   @doc """
   Reads all memory files, then writes `status: parse_error` to any

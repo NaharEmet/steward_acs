@@ -43,6 +43,20 @@ defmodule Acs.MCP.HTTPServer do
     open_sse(conn)
   end
 
+  # Streamable HTTP (Claude connectors POST JSON-RPC to the MCP URL itself).
+  # Legacy HTTP+SSE still POSTs to /mcp/messages?session_id=… after the endpoint event.
+  post "/mcp/sse" do
+    handle_streamable_post(conn)
+  end
+
+  post "/mcp/chat/sse" do
+    handle_streamable_post(conn)
+  end
+
+  post "/mcp/coding/sse" do
+    handle_streamable_post(conn)
+  end
+
   # MCP Streamable HTTP messages endpoint — receives JSON-RPC and responds via SSE
   post "/mcp/messages" do
     conn = fetch_query_params(conn)
@@ -60,76 +74,7 @@ defmodule Acs.MCP.HTTPServer do
 
   # MCP Endpoints
   post "/mcp/v1/messages" do
-    conn = fetch_query_params(conn)
-    session_id = conn.query_params["session_id"] || generate_session_id()
-
-    Logger.debug("MCP HTTP: received request on #{conn.request_path}")
-
-    case conn.body_params do
-      %{} = params ->
-        case Acs.MCP.ClientSession.bind(session_id, fn ->
-               Protocol.handle_message(
-                 params,
-                 conn.assigns[:agent_role],
-                 conn.assigns[:agent_org_id],
-                 conn.assigns[:agent_permissions],
-                 conn.assigns[:agent_allowed_teams],
-                 conn.assigns[:agent_allowed_projects],
-                 conn.assigns[:agent_identity]
-               )
-             end) do
-          {:sleep, id, agent_id, timeout} ->
-            timeout = cap_sleep_timeout(timeout)
-
-            Logger.info(
-              "MCP HTTP: agent #{agent_id} sleeping (long-poll, timeout=#{inspect(timeout)})"
-            )
-
-            result = Acs.MCP.Tools.CoreHandlers.sleep_and_wait(agent_id, timeout)
-
-            response =
-              case result do
-                {:ok, data} ->
-                  Protocol.success_response(id, %{
-                    "content" => [
-                      %{"type" => "text", "text" => Jason.encode!(data, pretty: true)}
-                    ]
-                  })
-
-                {:error, _reason} ->
-                  Protocol.success_response(id, %{
-                    "content" => [%{"type" => "text", "text" => "Error during sleep"}],
-                    "isError" => true
-                  })
-              end
-
-            conn
-            |> put_resp_content_type("application/json")
-            |> put_resp_header("x-mcp-session-id", session_id)
-            |> send_resp(200, Jason.encode!(response))
-
-          {:ok, response} ->
-            Logger.debug("MCP HTTP: response=#{inspect(response)}")
-
-            conn
-            |> put_resp_content_type("application/json")
-            |> put_resp_header("x-mcp-session-id", session_id)
-            |> send_resp(200, Jason.encode!(response))
-
-          {:error, reason} ->
-            error = Protocol.error_response(nil, -32700, "Parse error", reason)
-
-            conn
-            |> put_resp_content_type("application/json")
-            |> put_resp_header("x-mcp-session-id", session_id)
-            |> send_resp(200, Jason.encode!(error))
-        end
-
-      _ ->
-        conn
-        |> put_resp_content_type("application/json")
-        |> send_resp(400, Jason.encode!(%{error: "Invalid JSON"}))
-    end
+    handle_json_rpc_http(conn)
   end
 
   # Log ingestion from external services
@@ -538,6 +483,116 @@ defmodule Acs.MCP.HTTPServer do
 
       _ ->
         conn |> send_resp(400, ~s({"error": "Invalid JSON"}))
+    end
+  end
+
+  # Claude / Streamable HTTP clients POST JSON-RPC to the SSE URL.
+  # If a legacy session_id is present, reuse the SSE reply path; otherwise
+  # answer inline like /mcp/v1/messages.
+  defp handle_streamable_post(conn) do
+    conn = fetch_query_params(conn)
+    session_id = conn.query_params["session_id"]
+
+    if is_binary(session_id) and session_id != "" and
+         Acs.MCP.SSESessionManager.alive?(session_id) do
+      handle_mcp_message(conn, session_id)
+    else
+      handle_json_rpc_http(conn)
+    end
+  end
+
+  defp handle_json_rpc_http(conn) do
+    conn = fetch_query_params(conn)
+    session_id = conn.query_params["session_id"] || generate_session_id()
+    seed_http_audience(conn, session_id)
+
+    Logger.debug("MCP HTTP: received request on #{conn.request_path}")
+
+    case conn.body_params do
+      %{} = params ->
+        case Acs.MCP.ClientSession.bind(session_id, fn ->
+               Protocol.handle_message(
+                 params,
+                 conn.assigns[:agent_role],
+                 conn.assigns[:agent_org_id],
+                 conn.assigns[:agent_permissions],
+                 conn.assigns[:agent_allowed_teams],
+                 conn.assigns[:agent_allowed_projects],
+                 conn.assigns[:agent_identity]
+               )
+             end) do
+          {:sleep, id, agent_id, timeout} ->
+            timeout = cap_sleep_timeout(timeout)
+
+            Logger.info(
+              "MCP HTTP: agent #{agent_id} sleeping (long-poll, timeout=#{inspect(timeout)})"
+            )
+
+            result = Acs.MCP.Tools.CoreHandlers.sleep_and_wait(agent_id, timeout)
+
+            response =
+              case result do
+                {:ok, data} ->
+                  Protocol.success_response(id, %{
+                    "content" => [
+                      %{"type" => "text", "text" => Jason.encode!(data, pretty: true)}
+                    ]
+                  })
+
+                {:error, _reason} ->
+                  Protocol.success_response(id, %{
+                    "content" => [%{"type" => "text", "text" => "Error during sleep"}],
+                    "isError" => true
+                  })
+              end
+
+            conn
+            |> put_resp_content_type("application/json")
+            |> put_resp_header("x-mcp-session-id", session_id)
+            |> send_resp(200, Jason.encode!(response))
+
+          {:ok, nil} ->
+            # notifications/initialized — no JSON-RPC body
+            conn
+            |> put_resp_content_type("application/json")
+            |> put_resp_header("x-mcp-session-id", session_id)
+            |> send_resp(202, "")
+
+          {:ok, response} ->
+            Logger.debug("MCP HTTP: response=#{inspect(response)}")
+
+            conn
+            |> put_resp_content_type("application/json")
+            |> put_resp_header("x-mcp-session-id", session_id)
+            |> send_resp(200, Jason.encode!(response))
+
+          {:error, reason} ->
+            error = Protocol.error_response(nil, -32700, "Parse error", reason)
+
+            conn
+            |> put_resp_content_type("application/json")
+            |> put_resp_header("x-mcp-session-id", session_id)
+            |> send_resp(200, Jason.encode!(error))
+        end
+
+      _ ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(400, Jason.encode!(%{error: "Invalid JSON"}))
+    end
+  end
+
+  defp seed_http_audience(conn, session_id) do
+    endpoint = Acs.MCP.MemoryProvenance.normalize_endpoint(conn.request_path)
+
+    case Acs.MCP.Audience.from_request(conn.request_path, conn.query_params) do
+      audience when audience in [:chat, :coding] ->
+        Acs.MCP.ClientSession.seed_mcp_connect(session_id, endpoint || conn.request_path, audience)
+
+      _ ->
+        if endpoint do
+          Acs.MCP.ClientSession.seed_mcp_connect(session_id, endpoint, :coding)
+        end
     end
   end
 

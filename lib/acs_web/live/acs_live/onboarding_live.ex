@@ -15,8 +15,9 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
   end
 
   @impl true
-  def mount(_params, _session, socket) do
-    attrs = empty_attributes()
+  def mount(params, _session, socket) do
+    attrs = empty_attributes() |> maybe_prefill_from_params(params)
+    prefilled? = Map.get(attrs, "subdomain", "") != ""
 
     socket =
       socket
@@ -29,8 +30,8 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
         organization_attrs: attrs,
         form: to_form(attrs, as: :organization),
         errors: %{},
-        slug_touched: false,
-        subdomain_touched: false,
+        slug_touched: prefilled?,
+        subdomain_touched: prefilled?,
         name_form: user_name_form(socket.assigns[:current_user]),
         name_errors: %{}
       )
@@ -392,6 +393,28 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
   end
 
   defp empty_attributes, do: %{"name" => "", "slug" => "", "subdomain" => ""}
+
+  defp maybe_prefill_from_params(attrs, %{"subdomain" => subdomain}) when is_binary(subdomain) do
+    sub = normalize_identifier(subdomain)
+
+    if sub != "" do
+      attrs
+      |> Map.put("subdomain", sub)
+      |> Map.put("slug", sub)
+      |> Map.put("name", humanize_identifier(sub))
+    else
+      attrs
+    end
+  end
+
+  defp maybe_prefill_from_params(attrs, _), do: attrs
+
+  defp humanize_identifier(value) do
+    value
+    |> String.replace("-", " ")
+    |> String.split()
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
 
   defp user_name_form(nil), do: nil
 

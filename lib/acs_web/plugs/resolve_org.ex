@@ -86,9 +86,37 @@ defmodule AcsWeb.Plugs.ResolveOrg do
 
   # Scanner noise (www/m/portal/…) is expected — 404 is enough. Keep WARN for
   # hosts that look like a real org slug so misconfigured tenants stay visible.
-  @noise_hosts ~w(www m portal erp members internal mail smtp ftp api cdn staging test)
+  @noise_hosts ~w(
+    www m portal erp members internal mail smtp ftp api cdn staging test
+    partner backoffice client qa services oauth crm signin cms login my
+    mobile admin app apps web static assets img images js css
+  )
 
   defp unknown_host(conn) do
+    case claimable_subdomain(conn) do
+      subdomain when is_binary(subdomain) ->
+        unless noise_label?(subdomain) do
+          Logger.info("available org host",
+            action: "org_resolve",
+            status: "200",
+            error_type: "available_subdomain",
+            org: conn.host,
+            subdomain: subdomain
+          )
+        end
+
+        conn
+        |> assign(:host_type, :available)
+        |> assign(:available_subdomain, subdomain)
+        |> AcsWeb.AvailableOrgController.render_available(subdomain)
+        |> halt()
+
+      _ ->
+        plain_unknown(conn)
+    end
+  end
+
+  defp plain_unknown(conn) do
     meta = [
       action: "org_resolve",
       status: "404",
@@ -96,9 +124,8 @@ defmodule AcsWeb.Plugs.ResolveOrg do
       org: conn.host
     ]
 
-    if noise_host?(conn.host) do
-      Logger.debug("unknown org host", meta)
-    else
+    # ponytail: scanners + MCP probes on unclaimed hosts — silence Axiom noise
+    unless noise_host?(conn.host) or not browser_get?(conn) do
       Logger.warning("unknown org host", meta)
     end
 
@@ -109,14 +136,55 @@ defmodule AcsWeb.Plugs.ResolveOrg do
     |> halt()
   end
 
+  defp claimable_subdomain(conn) do
+    if browser_get?(conn) do
+      case Acs.Org.extract_subdomain(conn.host) do
+        sub when is_binary(sub) and sub != "" ->
+          if noise_label?(sub), do: nil, else: sub
+
+        _ ->
+          nil
+      end
+    else
+      nil
+    end
+  end
+
+  defp browser_get?(%{method: "GET"} = conn) do
+    path = conn.request_path || "/"
+    not String.starts_with?(path, "/mcp") and not String.starts_with?(path, "/api") and
+      not String.starts_with?(path, "/.well-known") and not String.starts_with?(path, "/oidc")
+  end
+
+  defp browser_get?(_), do: false
+
   defp noise_host?(host) when is_binary(host) do
-    case Acs.Org.extract_subdomain(host) do
-      sub when is_binary(sub) -> String.downcase(sub) in @noise_hosts
-      _ -> true
+    host = String.downcase(host)
+    base =
+      case Application.get_env(:steward_acs, :base_domain) do
+        b when is_binary(b) and b != "" -> String.downcase(b)
+        _ -> nil
+      end
+
+    cond do
+      is_binary(base) and (host == base or host == "www." <> base) ->
+        true
+
+      true ->
+        label =
+          case Acs.Org.extract_subdomain(host) do
+            sub when is_binary(sub) -> String.downcase(sub)
+            _ -> host |> String.split(".", parts: 2) |> hd()
+          end
+
+        noise_label?(label)
     end
   end
 
   defp noise_host?(_), do: true
+
+  defp noise_label?(label) when is_binary(label), do: String.downcase(label) in @noise_hosts
+  defp noise_label?(_), do: true
 
   defp account_host?(host) when is_binary(host) do
     case Application.get_env(:steward_acs, :account_host, "localhost") do

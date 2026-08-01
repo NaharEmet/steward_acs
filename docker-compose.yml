@@ -18,7 +18,7 @@ services:
       # Local is always SQLite — never inherit Neon DATABASE_URL from a host .env
       DATABASE_PATH: /app/priv/acs.sqlite
       DATABASE_URL: ""
-      ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-mimo,nim}"
+      ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-mimo}"
       MCP_AUTH_LOCAL_FALLBACK: "false"
       META_HARNESS_ENABLED: "true"
 

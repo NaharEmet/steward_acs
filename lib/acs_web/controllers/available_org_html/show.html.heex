@@ -1,0 +1,52 @@
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;">
+  <div class="card" style="width: 100%; max-width: 480px; padding: 32px;">
+    <div class="section-header" style="margin-bottom: 28px;">
+      <div>
+        <p class="text-dim" style="font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 10px;">
+          Workspace available
+        </p>
+        <h1 class="section-title" style="font-size: 1.75rem;">
+          <span style="color: var(--accent);"><%= @subdomain %> is available</span>
+        </h1>
+        <p class="text-dim" style="margin-top: 10px; font-size: 0.95rem; line-height: 1.5;">
+          Nobody has claimed <strong style="color: var(--text);"><%= @host %></strong> yet.
+          Create your organization and get started now.
+        </p>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <%= if @self_service_enabled do %>
+        <a
+          href={@create_url}
+          class="btn btn-primary"
+          style="display: block; width: 100%; text-align: center;"
+        >
+          Create your organization
+        </a>
+        <p class="text-dim" style="font-size: 0.8rem; text-align: center; margin-top: 4px;">
+          Verify your email, then we’ll reserve <span style="font-family: var(--font-mono);"><%= @subdomain %></span> for you.
+        </p>
+      <% else %>
+        <a
+          href={@sign_in_url}
+          class="btn btn-primary"
+          style="display: block; width: 100%; text-align: center;"
+        >
+          Sign in to get started
+        </a>
+        <p class="text-dim" style="font-size: 0.85rem; text-align: center;">
+          Organization creation is invite-only. Sign in or contact an administrator to claim this name.
+        </p>
+      <% end %>
+
+      <a
+        href={@sign_in_url}
+        class="btn btn-ghost"
+        style="display: block; width: 100%; text-align: center;"
+      >
+        Already have a workspace? Sign in
+      </a>
+    </div>
+  </div>
+</div>

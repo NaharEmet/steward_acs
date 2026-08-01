@@ -80,14 +80,41 @@ defmodule AcsWeb.Plugs.ResolveOrgTest do
     assert Acs.Org.current() == "yaml-tenant"
   end
 
-  test "returns not found for an unknown tenant host" do
+  test "available subdomain shows claim landing instead of plain 404" do
+    Application.put_env(:steward_acs, :self_service_orgs_enabled, true)
+
     result =
       Plug.Test.conn(:get, "/")
-      |> Map.put(:host, "unknown.stewardacs.xyz")
+      |> Map.put(:host, "acme.stewardacs.xyz")
+      |> ResolveOrg.call([])
+
+    assert result.halted
+    assert result.status == 200
+    assert result.assigns.host_type == :available
+    assert result.assigns.available_subdomain == "acme"
+    body = result.resp_body
+    assert body =~ "acme is available"
+    assert body =~ "Create your organization"
+    assert body =~ "return_to="
+  end
+
+  test "scanner vanity hosts stay plain 404" do
+    result =
+      Plug.Test.conn(:get, "/")
+      |> Map.put(:host, "partner.stewardacs.xyz")
       |> ResolveOrg.call([])
 
     assert %Plug.Conn{halted: true, status: 404, resp_body: "unknown org"} = result
     assert result.assigns.host_type == :unknown
+  end
+
+  test "MCP paths on unknown hosts stay plain 404" do
+    result =
+      Plug.Test.conn(:get, "/mcp/sse")
+      |> Map.put(:host, "acme.stewardacs.xyz")
+      |> ResolveOrg.call([])
+
+    assert %Plug.Conn{halted: true, status: 404, resp_body: "unknown org"} = result
   end
 
   test "allows /mcp/health on localhost without a tenant host" do

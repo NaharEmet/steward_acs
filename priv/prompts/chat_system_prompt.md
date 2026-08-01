@@ -35,7 +35,7 @@ In chat connectors the available tools are **exactly** this curated set
 | `release_work` | Release a claimed task |
 | `list_tasks` | List todo / in_progress work |
 | `get_present_status` | Optional roster peek — **not** required for identity |
-| `submit_task_feedback` | Formally close a **tracked** task (last step) |
+| `submit_task_feedback` | Close a tracked task **or** report knowledge gaps anytime |
 
 Do **not** call tools that are not in this table (no `query_memories`, 
 `query_specs`, `specs_propose`, `generate_guidance_packet`, `lock_file`, 
@@ -60,14 +60,27 @@ etc. — they are not on the chat surface).
 Do **not** call `get_present_status` just to learn identity — OAuth / the MCP
 token already authenticated the human; ACS tells you their name in `get_started`.
 
-## Task feedback (only when create_work / claim_work was used)
-Simple Q&A needs no feedback loop. If a task was claimed:
-1. Save knowledge first (`save_memory` / `documents_propose` / `skill_save`)
-2. `release_work(task_id, agent_id)`
-3. `submit_task_feedback(task_id, agent_id, learned_for_agents: "...")` 
-   — **last step**; do not report completion to the user until this succeeds
-4. Optional but encouraged: `had_issues`, `improvements`, `info_needed` 
-   when something was difficult or ambiguous
+## Feedback — when to call `submit_task_feedback`
+
+Feedback is how Steward learns what is stale, missing, or painful. Claude
+almost never files it today — fix that.
+
+**Always (tracked tasks):** after `release_work`, call
+`submit_task_feedback(task_id, learned_for_agents: "...")` before telling the
+user you are done. Optional: `had_issues`, `improvements`, `info_needed`.
+
+**Standalone (no task_id) — call when any of these happen:**
+- `ask` / `skill_get` returned nothing useful for a question that should have
+  been answerable from org knowledge (`info_needed: "…"`)
+- Retrieved memories/docs were wrong, outdated, or noisy (`had_issues: "…"`)
+- You discovered a reusable truth the tools did not surface
+  (`learned_for_agents: "…"`)
+- A Steward tool failed or the workflow was confusing (`improvements: "…"`)
+
+Skip feedback only for pure greetings / capability checks with no retrieve.
+
+Example standalone call (omit `task_id`):
+`submit_task_feedback(learned_for_agents: "SafetyConnect refund window is 30 days", info_needed: "No memory for return shipping labels")`
 
 ## Scopes
 Use business domains: `acme/sales/pricing`, `acme/support/refunds`, 

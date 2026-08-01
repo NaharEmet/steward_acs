@@ -432,15 +432,12 @@ defmodule Acs.MetaHarness.Analyzer do
   defp format_datetime(%NaiveDateTime{} = dt), do: NaiveDateTime.truncate(dt, :second)
   defp format_datetime(dt), do: dt
 
-  defp postgres? do
-    Application.get_env(:steward_acs, :repo_adapter) == Ecto.Adapters.Postgres or
-      match?("postgres" <> _, System.get_env("DATABASE_URL") || "")
-  end
+  defp postgres?, do: Acs.MetaHarness.SQL.postgres?()
 
   defp run_query(query, params) do
     if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
       try do
-        case Ecto.Adapters.SQL.query(Acs.Repo, query, params) do
+        case Ecto.Adapters.SQL.query(Acs.Repo, Acs.MetaHarness.SQL.adapt(query), params) do
           {:ok, %{columns: columns, rows: rows}} ->
             {:ok,
              Enum.map(rows, fn row ->

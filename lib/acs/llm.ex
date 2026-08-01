@@ -11,7 +11,7 @@ defmodule Acs.LLM do
 
   alias LLMUtils.ResponseParser
 
-  # Provider priority order for evaluations (mimo preferred; nim fallback)
+  # Provider priority order for evaluations (mimo preferred; nim/minimax optional fallbacks)
   @provider_priority ["mimo", "nim", "minimax", "openai"]
 
   @doc """
