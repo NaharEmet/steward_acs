@@ -59,7 +59,7 @@ Human index: [`guides/deployment-testing.md`](../../guides/deployment-testing.md
 
 1. Implement + ExUnit.
 2. Add to `chat_surface/0` in `lib/acs/mcp/core_tool_roles.ex` if chat connectors should see it.
-3. Sync `priv/prompts/chat_system_prompt.md` / guidance.
+3. Sync `priv/prompts/chat_system_prompt_body.md` / Always Active & Opt In wrappers / guidance.
 4. Update `test/acs/mcp/core_tool_roles_test.exs`.
 5. Do **not** hardcode the tool list in `smoke-chat-tools.sh` — deploy evals live `chat_surface/0`. Mismatch fails smoke when `SMOKE_API_KEY` is set.
 

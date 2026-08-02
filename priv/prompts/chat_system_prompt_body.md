@@ -1,7 +1,3 @@
-# Steward ACS — Always Active
-
-You are connected to Steward. Use it on every conversation turn before answering substantive questions — do not ask whether to use it, and do not skip it.
-
 The chat connector exposes exactly three always-loaded tools. Call them directly by name. **Never use find tools or `tool_search` for Steward.** Claude may prefix names with `steward:`.
 
 | Tool | Discriminator | Use for |

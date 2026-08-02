@@ -15,7 +15,7 @@ defmodule Acs.MCP.Audience do
     5. Fallback `:coding`
 
   Prefer URL for Claude.ai / ChatGPT connectors so tool lists match
-  `priv/prompts/chat_system_prompt.md` regardless of ambiguous `clientInfo.name`.
+  `priv/prompts/chat_system_prompt_body.md` (Always Active / Opt In wrappers) regardless of ambiguous `clientInfo.name`.
   """
 
   @type t :: :coding | :chat

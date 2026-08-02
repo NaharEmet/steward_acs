@@ -78,7 +78,7 @@ Pick the smallest layer that can catch the bug. Update docs/skill in the same ch
 
 1. Implement the tool + unit tests under `test/`.
 2. If it belongs on Claude chat connectors: add the name to `Acs.MCP.CoreToolRoles.chat_surface/0` in [`lib/acs/mcp/core_tool_roles.ex`](../lib/acs/mcp/core_tool_roles.ex).
-3. Keep `priv/prompts/chat_system_prompt.md` and chat guidance in sync.
+3. Keep `priv/prompts/chat_system_prompt_body.md` (Always Active / Opt In wrappers via `McpUrls.chat_system_prompt/1`) and chat guidance in sync.
 4. Extend [`test/acs/mcp/core_tool_roles_test.exs`](../test/acs/mcp/core_tool_roles_test.exs) (and agent_ops inventory tests if the hash/shape matters).
 5. **No smoke script edit required** — deploy smoke evals live `chat_surface/0` from the running container and compares to `/mcp/chat/sse` `tools/list`. Shipping a mismatched image fails smoke automatically when `SMOKE_API_KEY` is set.
 6. Coding-only tools: ensure `/mcp/coding/sse` still returns **more** tools than chat (smoke asserts divergence).

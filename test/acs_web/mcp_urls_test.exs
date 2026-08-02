@@ -24,18 +24,28 @@ defmodule AcsWeb.McpUrlsTest do
     assert chat.url == "https://prod.stewardacs.xyz/mcp/chat/sse"
   end
 
-  test "chat_system_prompt loads Always Active instructions" do
-    prompt = McpUrls.chat_system_prompt()
+  test "chat_system_prompt always and opt-in share body with different intros" do
+    always = McpUrls.chat_system_prompt(:always)
+    opt_in = McpUrls.chat_system_prompt(:opt_in)
+    default = McpUrls.chat_system_prompt()
 
-    assert prompt =~ "Steward ACS — Always Active"
-    assert prompt =~ "do not ask whether to use it"
-    assert prompt =~ "always-loaded"
-    assert prompt =~ "Never use find tools or `tool_search`"
-    assert prompt =~ "`steward_ask`"
-    assert prompt =~ "`steward_write`"
-    assert prompt =~ "`steward_work`"
-    refute prompt =~ "`get_started`"
-    refute prompt =~ "Always ask whether to use Steward"
+    assert always == default
+    assert always =~ "Steward ACS — Always Active"
+    assert always =~ "do not ask whether to use it"
+    refute always =~ "Always ask whether to use Steward"
+
+    assert opt_in =~ "Steward ACS — Opt In"
+    assert opt_in =~ "Always ask whether to use Steward"
+    refute opt_in =~ "do not ask whether to use it"
+
+    for prompt <- [always, opt_in] do
+      assert prompt =~ "always-loaded"
+      assert prompt =~ "Never use find tools or `tool_search`"
+      assert prompt =~ "`steward_ask`"
+      assert prompt =~ "`steward_write`"
+      assert prompt =~ "`steward_work`"
+      refute prompt =~ "`get_started`"
+    end
   end
 
   test "coding_system_prompt loads AGENTS_STEWARD instructions" do

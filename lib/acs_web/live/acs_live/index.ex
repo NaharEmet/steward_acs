@@ -28,7 +28,8 @@ defmodule AcsWeb.AcsLive.Index do
         pending_requests_count: Acs.MCP.ToolRequests.pending_count(),
         getting_started_dismissed: getting_started_dismissed?(socket),
         mcp_endpoints: AcsWeb.McpUrls.endpoints(),
-        chat_system_prompt: AcsWeb.McpUrls.chat_system_prompt(),
+        chat_system_prompt: AcsWeb.McpUrls.chat_system_prompt(:always),
+        chat_system_prompt_opt_in: AcsWeb.McpUrls.chat_system_prompt(:opt_in),
         coding_system_prompt: AcsWeb.McpUrls.coding_system_prompt()
       )
 
@@ -203,28 +204,32 @@ defmodule AcsWeb.AcsLive.Index do
             OAuth API identifier stays <code>/mcp/sse</code>.
             Chat: <code>steward_ask</code>, <code>steward_write</code>, and
             <code>steward_work</code> are always loaded. Call them directly; never use find tools /
-            <code>tool_search</code>. Reconnect after deploy to refresh the cached list. Coding keeps
-            the fine-grained tool names.
+            <code>tool_search</code>. Choose Always Active or Opt In for the Claude paste.
+            Reconnect after deploy to refresh the cached list. Coding keeps the fine-grained tool names.
           </p>
 
           <div class="mcp-connectors-list">
             <%= for endpoint <- @mcp_endpoints do %>
-              <% {prompt, prompt_label, prompt_button, prompt_dest} =
+              <% prompt_variants =
                    case endpoint.audience do
                      "coding" ->
-                       {@coding_system_prompt, "Copy this into your AGENTS.md", "Copy into AGENTS.md",
-                        "Paste into AGENTS.md / agent rules"}
+                       [
+                         {@coding_system_prompt, "coding", "Copy this into your AGENTS.md",
+                          "Copy into AGENTS.md", "Paste into AGENTS.md / agent rules"}
+                       ]
 
                      "chat" ->
-                       {@chat_system_prompt, "Copy this into your Claude system prompt",
-                        "Copy into Claude", "Paste into Claude system prompt"}
+                       [
+                         {@chat_system_prompt, "always", "Always Active — Steward every turn",
+                          "Copy Always Active", "Paste into Claude system prompt"},
+                         {@chat_system_prompt_opt_in, "opt-in",
+                          "Opt In — ask before using Steward", "Copy Opt In",
+                          "Paste into Claude system prompt"}
+                       ]
 
                      _ ->
-                       {"", nil, nil, nil}
+                       []
                    end %>
-              <% prompt_id = "mcp-#{endpoint.audience}-system-prompt" %>
-              <% prompt_btn_id = "copy-#{endpoint.audience}-system-prompt" %>
-              <% prompt_status_id = "mcp-#{endpoint.audience}-prompt-copy-status" %>
               <article class={"mcp-connector-card mcp-connector-card--#{endpoint.audience}"}>
                 <header class="mcp-connector-card-header">
                   <div class="mcp-connector-heading">
@@ -253,35 +258,40 @@ defmodule AcsWeb.AcsLive.Index do
                   </div>
                 </div>
 
-                <%= if prompt != "" and prompt_label do %>
+                <%= if prompt_variants != [] do %>
                   <div class="mcp-connector-step mcp-connector-step--prompt">
                     <span class="mcp-connector-step-num" aria-hidden="true">2</span>
                     <div class="mcp-connector-step-body">
-                      <p class="mcp-connector-step-label"><%= prompt_dest %></p>
-                      <div class="mcp-prompt-copy">
-                        <p class="mcp-prompt-copy-label"><%= prompt_label %></p>
-                        <button
-                          id={prompt_btn_id}
-                          type="button"
-                          class="btn btn-copy btn-copy-prompt"
-                          data-copy-target={prompt_id}
-                          data-copy-status={prompt_status_id}
-                          data-copy-label={prompt_button}
-                          data-copy-success={"Copied #{prompt_button}."}
-                        >
-                          <%= prompt_button %>
-                        </button>
-                      </div>
+                      <p class="mcp-connector-step-label"><%= elem(hd(prompt_variants), 4) %></p>
+                      <%= for {prompt, variant, prompt_label, prompt_button, _dest} <- prompt_variants do %>
+                        <% prompt_id = "mcp-#{endpoint.audience}-#{variant}-system-prompt" %>
+                        <% prompt_btn_id = "copy-#{endpoint.audience}-#{variant}-system-prompt" %>
+                        <% prompt_status_id = "mcp-#{endpoint.audience}-#{variant}-prompt-copy-status" %>
+                        <div class="mcp-prompt-copy">
+                          <p class="mcp-prompt-copy-label"><%= prompt_label %></p>
+                          <button
+                            id={prompt_btn_id}
+                            type="button"
+                            class="btn btn-copy btn-copy-prompt"
+                            data-copy-target={prompt_id}
+                            data-copy-status={prompt_status_id}
+                            data-copy-label={prompt_button}
+                            data-copy-success={"Copied #{prompt_button}."}
+                          >
+                            <%= prompt_button %>
+                          </button>
+                        </div>
+                        <textarea
+                          id={prompt_id}
+                          class="sr-only"
+                          readonly
+                          tabindex="-1"
+                          aria-hidden="true"
+                        ><%= prompt %></textarea>
+                        <p id={prompt_status_id} class="form-hint sr-only" aria-live="polite"></p>
+                      <% end %>
                     </div>
                   </div>
-                  <textarea
-                    id={prompt_id}
-                    class="sr-only"
-                    readonly
-                    tabindex="-1"
-                    aria-hidden="true"
-                  ><%= prompt %></textarea>
-                  <p id={prompt_status_id} class="form-hint sr-only" aria-live="polite"></p>
                 <% end %>
 
                 <p id={endpoint.copy_status_id} class="form-hint sr-only" aria-live="polite"></p>

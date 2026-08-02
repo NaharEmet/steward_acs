@@ -12,8 +12,20 @@ defmodule AcsWeb.McpUrls do
 
   @coding_path "/mcp/coding/sse"
   @chat_path "/mcp/chat/sse"
-  @chat_system_prompt_file "prompts/chat_system_prompt.md"
+  @chat_system_prompt_body_file "prompts/chat_system_prompt_body.md"
   @coding_system_prompt_file "prompts/coding_system_prompt.md"
+
+  @chat_always_intro """
+  # Steward ACS — Always Active
+
+  You are connected to Steward. Use it on every conversation turn before answering substantive questions — do not ask whether to use it, and do not skip it.
+  """
+
+  @chat_opt_in_intro """
+  # Steward ACS — Opt In
+
+  Always ask whether to use Steward at the start of a conversation. If the user says no, ignore the rest of this prompt. If yes, use Steward before answering substantive questions on every turn.
+  """
 
   @type endpoint :: %{
           id: String.t(),
@@ -25,15 +37,33 @@ defmodule AcsWeb.McpUrls do
           url: String.t()
         }
 
+  @type chat_prompt_mode :: :always | :opt_in
+
   @doc """
   Paste into Claude.ai / ChatGPT connector custom instructions.
 
-  Loaded from `priv/prompts/chat_system_prompt.md`; the three consolidated chat
-  tools are always loaded and must be called directly without tool_search.
+  Modes:
+  - `:always` (default) — Steward required every turn
+  - `:opt_in` — ask the user before using Steward
+
+  Both share `priv/prompts/chat_system_prompt_body.md` (three always-loaded
+  tools; call directly, never tool_search).
   """
   @spec chat_system_prompt() :: String.t()
-  def chat_system_prompt do
-    read_prompt(Path.join(:code.priv_dir(:steward_acs), @chat_system_prompt_file)) || ""
+  @spec chat_system_prompt(chat_prompt_mode()) :: String.t()
+  def chat_system_prompt(mode \\ :always)
+
+  def chat_system_prompt(:always), do: compose_chat_prompt(@chat_always_intro)
+  def chat_system_prompt(:opt_in), do: compose_chat_prompt(@chat_opt_in_intro)
+  def chat_system_prompt(_), do: chat_system_prompt(:always)
+
+  defp compose_chat_prompt(intro) do
+    body =
+      read_prompt(Path.join(:code.priv_dir(:steward_acs), @chat_system_prompt_body_file)) || ""
+
+    [String.trim(intro), body]
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join("\n\n")
   end
 
   @doc """

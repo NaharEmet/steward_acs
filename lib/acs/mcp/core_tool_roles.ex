@@ -9,7 +9,7 @@ defmodule Acs.MCP.CoreToolRoles do
 
   Chat assistants (Claude.ai / ChatGPT connectors) get exactly three tools via
   `chat_surface/0` (`steward_ask`, `steward_write`, `steward_work`). Keep that
-  list in sync with `priv/prompts/chat_system_prompt.md` and chat guidance.
+  list in sync with `priv/prompts/chat_system_prompt_body.md` and chat guidance.
 
   All three are marked `_meta["anthropic/alwaysLoad"]` via `eager_priority/0` —
   chat does not rely on Tool Search.
