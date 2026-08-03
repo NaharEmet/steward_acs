@@ -1490,15 +1490,6 @@ defmodule Acs.MCP.Tools do
           ]
         end
 
-      "sleep" ->
-        []
-
-      "wake" ->
-        [
-          %{tool: "list_tasks", prompt: "Check for available tasks", params: %{}},
-          %{tool: "get_present_status", prompt: "See who's working", params: %{}}
-        ]
-
       "get_locked_files" ->
         []
 

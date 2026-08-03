@@ -76,8 +76,10 @@ defmodule Acs.MCP.Tools.QueryAgent do
   end
 
   # One Ollama call shared by memory + document + skill hybrid search.
+  # Retrieval queries are truncated (embed latency scales with input length);
+  # storage indexing is never truncated.
   defp maybe_embed_query(query) when is_binary(query) and query != "" do
-    case Acs.Memory.Embedding.embed_text(query) do
+    case Acs.Memory.Embedding.embed_text(Acs.Memory.Embedding.retrieval_query(query)) do
       {:ok, embedding} -> embedding
       _ -> nil
     end

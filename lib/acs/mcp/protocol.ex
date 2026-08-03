@@ -25,7 +25,6 @@ defmodule Acs.MCP.Protocol do
   @spec handle_message(String.t() | map(), binary() | nil, binary() | nil, list(String.t()) | nil) ::
           {:ok, map() | nil}
           | {:error, String.t()}
-          | {:sleep, any(), String.t(), integer() | :infinity}
 
   def handle_message(
         message,
@@ -413,9 +412,6 @@ defmodule Acs.MCP.Protocol do
                "content" => [%{"type" => "text", "text" => "Error: #{inspect(reason)}"}],
                "isError" => true
              })}
-
-          {:sleep, agent_id, timeout} ->
-            {:sleep, id, agent_id, timeout}
         end
     end
   end

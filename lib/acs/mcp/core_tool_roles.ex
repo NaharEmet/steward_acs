@@ -54,8 +54,6 @@ defmodule Acs.MCP.CoreToolRoles do
     get_locked_files
     list_tasks
     resolve_user_task
-    sleep
-    wake
     submit_task_feedback
     help
     save_memory

@@ -55,7 +55,6 @@ defmodule Acs.Application do
         [
           Acs.Acs.Cache,
           Acs.Acs.Sweeper,
-          Acs.Acs.SleepRegistry,
           Acs.MCP.RateLimitStore,
           Acs.MCP.BridgeSessionStore,
           Acs.MCP.ClientSession,

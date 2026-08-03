@@ -548,7 +548,6 @@ defmodule Acs.Observability.AgentOps do
 
   defp result_status({:ok, _}), do: {"success", nil, nil}
   defp result_status(:ok), do: {"success", nil, nil}
-  defp result_status({:sleep, _, _}), do: {"success", nil, nil}
 
   defp result_status({:error, reason}) when is_binary(reason),
     do: {"failure", String.slice(reason, 0, 50), reason}

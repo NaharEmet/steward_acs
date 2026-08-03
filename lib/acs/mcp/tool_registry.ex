@@ -656,7 +656,6 @@ defmodule Acs.MCP.ToolRegistry do
 
   defp normalize_tool_result({:ok, _} = result), do: result
   defp normalize_tool_result({:error, _} = result), do: result
-  defp normalize_tool_result({:sleep, _, _} = result), do: result
   defp normalize_tool_result(:ok), do: {:ok, %{status: "ok"}}
   defp normalize_tool_result(nil), do: {:ok, %{status: "ok"}}
   defp normalize_tool_result(other), do: {:ok, %{status: "ok", result: inspect(other)}}

@@ -39,7 +39,6 @@ config :steward_acs, :mcp_auth_local_fallback, false
 config :steward_acs, :secure_session_cookie, true
 config :steward_acs, :hsts, true
 config :steward_acs, :log_ingest_key, System.get_env("LOG_INGEST_KEY", "")
-config :steward_acs, :http_sleep_max_ms, 300_000
 
 config :steward_acs, Acs.MCP.Server,
   enabled: true,

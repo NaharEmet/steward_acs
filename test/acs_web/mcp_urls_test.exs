@@ -31,12 +31,12 @@ defmodule AcsWeb.McpUrlsTest do
 
     assert always == default
     assert always =~ "Steward ACS — Always Active"
-    assert always =~ "do not ask whether to use it"
-    refute always =~ "Always ask whether to use Steward"
+    assert always =~ "never ask whether to use it"
+    refute always =~ "Ask the user at the start of every conversation"
 
     assert opt_in =~ "Steward ACS — Opt In"
-    assert opt_in =~ "Always ask whether to use Steward"
-    refute opt_in =~ "do not ask whether to use it"
+    assert opt_in =~ "Ask the user at the start of every conversation"
+    refute opt_in =~ "never ask whether to use it"
 
     for prompt <- [always, opt_in] do
       assert prompt =~ "always-loaded"

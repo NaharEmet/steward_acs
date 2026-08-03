@@ -20,7 +20,6 @@ defmodule Acs.MCP.HTTPServer do
 
   @max_log_batch 500
   @max_body_size 2_000_000
-  @default_http_sleep_max_ms 300_000
 
   plug(:match)
   plug(Acs.MCP.Plugs.RateLimit)
@@ -441,40 +440,6 @@ defmodule Acs.MCP.HTTPServer do
                  conn.assigns[:agent_identity]
                )
              end) do
-          {:sleep, id, agent_id, timeout} ->
-            timeout = cap_sleep_timeout(timeout)
-
-            Logger.info("MCP SSE: agent #{agent_id} sleeping (timeout=#{inspect(timeout)})")
-
-            org = conn.assigns[:agent_org_id]
-
-            Task.start(fn ->
-              result =
-                Acs.Org.with_current(org, fn ->
-                  Acs.MCP.Tools.CoreHandlers.sleep_and_wait(agent_id, timeout)
-                end)
-
-              response =
-                case result do
-                  {:ok, data} ->
-                    Protocol.success_response(id, %{
-                      "content" => [
-                        %{"type" => "text", "text" => Jason.encode!(data, pretty: true)}
-                      ]
-                    })
-
-                  {:error, _reason} ->
-                    Protocol.success_response(id, %{
-                      "content" => [%{"type" => "text", "text" => "Error during sleep"}],
-                      "isError" => true
-                    })
-                end
-
-              Acs.MCP.SSESessionManager.send_response(session_id, response, org)
-            end)
-
-            conn |> send_resp(202, "")
-
           # MCP notifications (e.g. notifications/initialized) have no JSON-RPC reply.
           # Emitting `data: null` on the SSE stream breaks Cursor's Zod parser.
           {:ok, nil} ->
@@ -531,36 +496,6 @@ defmodule Acs.MCP.HTTPServer do
                  conn.assigns[:agent_identity]
                )
              end) do
-          {:sleep, id, agent_id, timeout} ->
-            timeout = cap_sleep_timeout(timeout)
-
-            Logger.info(
-              "MCP HTTP: agent #{agent_id} sleeping (long-poll, timeout=#{inspect(timeout)})"
-            )
-
-            result = Acs.MCP.Tools.CoreHandlers.sleep_and_wait(agent_id, timeout)
-
-            response =
-              case result do
-                {:ok, data} ->
-                  Protocol.success_response(id, %{
-                    "content" => [
-                      %{"type" => "text", "text" => Jason.encode!(data, pretty: true)}
-                    ]
-                  })
-
-                {:error, _reason} ->
-                  Protocol.success_response(id, %{
-                    "content" => [%{"type" => "text", "text" => "Error during sleep"}],
-                    "isError" => true
-                  })
-              end
-
-            conn
-            |> put_resp_content_type("application/json")
-            |> put_resp_header("x-mcp-session-id", session_id)
-            |> send_resp(200, Jason.encode!(response))
-
           {:ok, nil} ->
             # notifications/initialized — no JSON-RPC body
             conn
@@ -691,17 +626,6 @@ defmodule Acs.MCP.HTTPServer do
   defp handle_sse_close(session_id, conn) do
     Acs.MCP.SSESessionManager.unregister(session_id)
     conn
-  end
-
-  defp cap_sleep_timeout(:infinity), do: http_sleep_max_ms()
-
-  defp cap_sleep_timeout(timeout) when is_integer(timeout) and timeout > 0,
-    do: min(timeout, http_sleep_max_ms())
-
-  defp cap_sleep_timeout(_), do: http_sleep_max_ms()
-
-  defp http_sleep_max_ms do
-    Application.get_env(:steward_acs, :http_sleep_max_ms, @default_http_sleep_max_ms)
   end
 
   defp process_log_entry(log_entry) do

@@ -147,7 +147,7 @@ defmodule Acs.Memory.ToolGuidance do
           id: "toolguidance_core_axiom_5",
           title: "List tasks when idle",
           summary:
-            "When idle, call list_tasks to find work or wait for the next user request. Do not use sleep/wake.",
+            "When idle, call list_tasks to find work or wait for the next user request.",
           importance: 3
         }
       ],

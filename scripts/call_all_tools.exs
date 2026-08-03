@@ -34,7 +34,6 @@ defmodule ToolTester do
       call_specs_propose(),
       call_app_configure(),
       call_app_remove(),
-      call_wake_not_sleeping(),
       call_unlock_not_locked(),
       call_claim_work_bad_task(),
       call_release_work_bad_task(),
@@ -71,7 +70,6 @@ defmodule ToolTester do
     case result do
       {:ok, _} -> IO.puts("OK")
       {:error, reason} -> IO.puts("ERROR: #{inspect(reason)}")
-      {:sleep, _, _} -> IO.puts("OK (sleep signal)")
     end
 
     {name, result}
@@ -101,7 +99,6 @@ defmodule ToolTester do
 
   defp call_create_work, do: try_call("create_work", Map.merge(@admin_auth, %{"agent_id" => "test_runner", "title" => "Tool tester test task"}))
   defp call_list_tasks, do: try_call("list_tasks", Map.merge(@admin_auth, %{"agent_id" => "test_runner"}))
-  defp call_wake_not_sleeping, do: try_call("wake", Map.merge(@admin_auth, %{"agent_id" => "test_runner"}))
   defp call_unlock_not_locked, do: try_call("unlock_file", Map.merge(@admin_auth, %{"agent_id" => "test_runner", "file_path" => "test/not_locked.txt"}))
   defp call_claim_work_bad_task, do: try_call("claim_work", Map.merge(@admin_auth, %{"agent_id" => "test_runner", "task_id" => "nonexistent"}))
   defp call_release_work_bad_task, do: try_call("release_work", Map.merge(@admin_auth, %{"agent_id" => "test_runner", "task_id" => "nonexistent"}))

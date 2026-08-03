@@ -2,10 +2,6 @@ IO.puts("=== help with level filter ===")
 {:ok, result} = Acs.MCP.Tools.call_tool("help", %{"level" => 1})
 IO.puts("Total tools at level 1: #{result["total_tools"]}")
 
-IO.puts("\n=== get_present_status with sleeping filter ===")
-{:ok, result2} = Acs.MCP.Tools.call_tool("get_present_status", %{"status_filter" => "sleeping"})
-IO.puts("Sleeping agents: #{inspect(result2)}")
-
 IO.puts("\n=== connection_diagnostic with llm ===")
 {:ok, result3} = Acs.MCP.Tools.call_tool("connection_diagnostic", %{"service" => "llm"})
 IO.puts("LLM diagnostic: #{inspect(result3)}")

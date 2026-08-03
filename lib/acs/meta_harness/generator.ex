@@ -498,9 +498,9 @@ defmodule Acs.MetaHarness.Generator do
     - Action: if gate count is high, raise the bar in `memory/intake` / `skills/intake` prompts (prefer allow). If `intake_bypass` dominates, gates are false positives.
 
     ### Agent Feedback
-    - Learned: #{Enum.take(data.feedback, 3) |> Enum.map(& &1["most_surprising"]) |> Enum.join(", ")}
-    - Issues: #{Enum.take(data.feedback, 3) |> Enum.map(& &1["most_time_consuming"]) |> Enum.join(", ")}
-    - Requests: #{Enum.take(data.feedback, 3) |> Enum.map(& &1["improvements_needed"]) |> Enum.join(", ")}
+    - Learned: #{Enum.take(data.feedback, 3) |> Enum.map(& &1["most_surprising"]) |> Enum.reject(&is_nil/1) |> Enum.join(", ")}
+    - Issues: #{Enum.take(data.feedback, 3) |> Enum.map(& &1["most_time_consuming"]) |> Enum.reject(&is_nil/1) |> Enum.join(", ")}
+    - Requests: #{Enum.take(data.feedback, 3) |> Enum.map(& &1["improvements_needed"]) |> Enum.reject(&is_nil/1) |> Enum.join(", ")}
 
     ### Guidance Effectiveness (from new tracking)
     - Useful: #{Enum.count(data.feedback, fn f -> f["guidance_useful"] == true end)}/#{length(data.feedback)}

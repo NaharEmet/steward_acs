@@ -8,6 +8,11 @@ name: "steward-installer"
 scope_paths: ["guides/steward-installer", "site", "guides"]
 when_to_use: When onboarding a new user or setting up ACS for the first time
 tags: ["install", "setup", "onboarding", "guide"]
+approved_at: "2026-08-03T10:00:40.597085Z"
+approved_by: "human"
+reviewed_at: "2026-08-03T10:00:40.597085Z"
+reviewed_by: "human"
+status: "approved"
 ---
 
 # ACS Installer Guide

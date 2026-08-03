@@ -18,13 +18,13 @@ defmodule AcsWeb.McpUrls do
   @chat_always_intro """
   # Steward ACS — Always Active
 
-  You are connected to Steward. Use it on every conversation turn before answering substantive questions — do not ask whether to use it, and do not skip it.
+  Steward is always active: use it in every conversation. On every turn, before answering substantive questions, call Steward — never ask whether to use it and never skip it.
   """
 
   @chat_opt_in_intro """
   # Steward ACS — Opt In
 
-  Always ask whether to use Steward at the start of a conversation. If the user says no, ignore the rest of this prompt. If yes, use Steward before answering substantive questions on every turn.
+  Ask the user at the start of every conversation whether to use Steward. If they say no, ignore the rest of this prompt. If yes, use Steward before answering substantive questions on every turn.
   """
 
   @type endpoint :: %{

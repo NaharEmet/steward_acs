@@ -8,6 +8,11 @@ audit_reasoning: "The skill is exceptionally well-structured for a 'coding' audi
 audit_score: 10
 audit_status: "ok"
 audited_at: "2026-07-28T18:03:11.640523Z"
+approved_at: "2026-08-03T10:00:33.464186Z"
+approved_by: "human"
+reviewed_at: "2026-08-03T10:00:33.464186Z"
+reviewed_by: "human"
+status: "approved"
 ---
 
 # Deployment

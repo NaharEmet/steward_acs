@@ -263,10 +263,6 @@ if mcp_resource_url = System.get_env("MCP_RESOURCE_URL") do
   config :steward_acs, :mcp_resource_url, mcp_resource_url
 end
 
-if System.get_env("HTTP_SLEEP_MAX_MS") do
-  config :steward_acs, :http_sleep_max_ms, String.to_integer(System.get_env("HTTP_SLEEP_MAX_MS"))
-end
-
 config :steward_acs, :nim_api_key, System.get_env("NIM_API_KEY", "")
 config :steward_acs, :mimo_api_key, System.get_env("MIMO_API_KEY", "")
 config :steward_acs, :minimax_api_key, System.get_env("MINIMAX_API_KEY", "")

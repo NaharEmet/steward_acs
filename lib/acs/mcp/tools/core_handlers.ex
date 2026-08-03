@@ -6,7 +6,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   Implements the handler functions for agent coordination tools:
   creating, claiming, and releasing tasks; locking and unlocking files;
-  agent sleep/wake; present status queries; and log retrieval.
+  present status queries; and log retrieval.
 
   ## Key Functions
 
@@ -16,30 +16,13 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   - `acs_lock_file/1` — Locks a file for exclusive editing
   - `acs_unlock_file/1` — Unlocks a file or all files for a task
   - `acs_get_present_status/1` — Returns agent status or assigns agent ID
-  - `acs_sleep/1` — Puts agent to sleep until task arrives
-  - `acs_wake/1` — Wakes a sleeping agent
   - `get_logs/1` — Retrieves application logs with filters
   - `acs_time/1` — Gets or sets ACS time offset
   """
   alias Acs.Acs.Cache
-  alias Acs.Acs.SleepRegistry
   alias Acs.MCP.LogStore
   require Logger
   import Ecto.Query, only: [from: 2]
-
-  @doc false
-  def sleep_and_wait(agent_id, timeout) do
-    case SleepRegistry.register(agent_id, timeout) do
-      {:ok, ref, _status} ->
-        do_wait_for_task(ref, agent_id, timeout)
-
-      {:ok, ref, :immediate, _task_id} ->
-        do_wait_for_task(ref, agent_id, timeout)
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
 
   def acs_claim_work(%{"agent_id" => agent_id, "task_id" => task_id} = args) do
     scope_path = args["scope_path"]
@@ -173,7 +156,6 @@ defmodule Acs.MCP.Tools.CoreHandlers do
                %{status: "created", task_id: task.slug, title: task.title, claim_error: reason}}
           end
         else
-          SleepRegistry.try_dispatch(task.id)
           {:ok, %{status: "ok", task_id: task.slug, title: task.title}}
         end
 
@@ -201,7 +183,6 @@ defmodule Acs.MCP.Tools.CoreHandlers do
                }}
           end
         else
-          SleepRegistry.try_dispatch(task.id)
           {:ok, %{status: "warning", task_id: task.slug, title: task.title, similar_tasks: similar}}
         end
 
@@ -543,11 +524,6 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     |> String.trim()
   end
 
-  def acs_get_present_status(%{"status_filter" => "sleeping"}) do
-    agents = SleepRegistry.list_sleeping_agents()
-    {:ok, %{sleeping_agents: agents, count: length(agents)}}
-  end
-
   def acs_get_present_status(%{"agent_id" => agent_id})
       when is_binary(agent_id) and agent_id != "" and agent_id != "unknown" do
     statuses = with_task_slugs(Acs.Acs.get_present_status())
@@ -701,88 +677,6 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     case Map.get(args, "_auth_org_id") do
       org when is_binary(org) and org != "" -> org
       _ -> Acs.Org.current()
-    end
-  end
-
-  defp do_wait_for_task(ref, agent_id, timeout) do
-    mon_ref = Process.monitor(Acs.Acs.SleepRegistry)
-
-    result =
-      receive do
-        {:task_assigned, ^ref, task_id} ->
-          Process.demonitor(mon_ref, [:flush])
-
-          {:ok,
-           %{
-             status: "woken",
-             task_id: task_id,
-             message: "Task available. Call claim_work with the task_id to claim it."
-           }}
-
-        {:cancelled, ^ref} ->
-          Process.demonitor(mon_ref, [:flush])
-          {:ok, %{status: "cancelled", message: "Sleep was cancelled by administrator"}}
-
-        {:DOWN, ^mon_ref, :process, _pid, reason} ->
-          {:error, "Sleep registry crashed: #{inspect(reason)}"}
-      after
-        timeout ->
-          Process.demonitor(mon_ref, [:flush])
-          SleepRegistry.unregister(agent_id)
-          {:ok, %{status: "timeout", message: "No task arrived within the timeout period"}}
-      end
-
-    result
-  end
-
-  def acs_sleep(args) do
-    agent_id = args["agent_id"]
-    timeout = parse_timeout(args["timeout"])
-
-    cond do
-      is_nil(agent_id) ->
-        {:error, "Missing agent_id"}
-
-      has_active_task?(agent_id) ->
-        {:error, "Agent #{agent_id} has an active task. Release or complete it before sleeping."}
-
-      true ->
-        # Register agent in AgentStatus so it appears in present_status
-        Acs.Acs.put_agent_status(agent_id, %{current_task_id: nil, purpose: "sleeping"})
-        {:sleep, agent_id, timeout}
-    end
-  end
-
-  defp has_active_task?(agent_id) do
-    org = Acs.Org.current()
-
-    count =
-      Acs.Repo.one(
-        from t in Acs.Acs.Task,
-          where: t.locked_by_agent == ^agent_id,
-          where: t.status == "in_progress",
-          where: t.org == ^org,
-          select: count()
-      )
-
-    count > 0
-  end
-
-  defp parse_timeout(nil), do: :infinity
-  defp parse_timeout(0), do: :infinity
-  defp parse_timeout(t) when is_integer(t) and t > 0, do: t
-  defp parse_timeout(_), do: :infinity
-
-  def acs_wake(args) do
-    agent_id = args["agent_id"]
-
-    if is_nil(agent_id) do
-      {:error, "Missing agent_id"}
-    else
-      case SleepRegistry.wake_agent(agent_id) do
-        {:ok, :cancelled} -> {:ok, %{status: "woken", agent_id: agent_id}}
-        {:error, :not_sleeping} -> {:error, "Agent #{agent_id} is not sleeping"}
-      end
     end
   end
 

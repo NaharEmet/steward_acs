@@ -4,6 +4,26 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
   alias Acs.MCP.Plugs.MCPAuth
   alias Acs.Developers
 
+  @developer_name_file "priv/acs_developer_name.txt"
+
+  # Shared-key auth falls back to the persisted developer name when the env
+  # placeholder is set, so tests that assert nil identity must clear the file
+  # (mirrors Acs.OrgTest "developer name identity").
+  defp without_persisted_developer_name do
+    previous =
+      if File.exists?(@developer_name_file), do: File.read!(@developer_name_file), else: :absent
+
+    on_exit(fn ->
+      case previous do
+        :absent -> File.rm(@developer_name_file)
+        content -> File.write!(@developer_name_file, content)
+      end
+    end)
+
+    if previous != :absent, do: File.rm(@developer_name_file)
+    :ok
+  end
+
   describe "call/2" do
     test "sets agent_org_id and role on request with valid developer key" do
       {:ok, %{key: raw_key}} =
@@ -83,6 +103,7 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       original_name = Application.get_env(:steward_acs, :developer_name)
       Application.put_env(:steward_acs, :mcp_api_key, "test-shared-mcp-key")
       Application.put_env(:steward_acs, :developer_name, "unknown")
+      without_persisted_developer_name()
 
       on_exit(fn ->
         Application.put_env(:steward_acs, :mcp_api_key, original_key)
@@ -123,6 +144,7 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       original_name = Application.get_env(:steward_acs, :developer_name)
       Application.put_env(:steward_acs, :mcp_auth_local_fallback, true)
       Application.put_env(:steward_acs, :developer_name, "unknown")
+      without_persisted_developer_name()
 
       on_exit(fn ->
         Application.put_env(:steward_acs, :mcp_auth_local_fallback, original)
@@ -212,5 +234,4 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
       assert challenge =~ "/.well-known/oauth-protected-resource/mcp/sse"
     end
   end
-
 end
