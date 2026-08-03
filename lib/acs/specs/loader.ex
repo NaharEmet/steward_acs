@@ -25,6 +25,10 @@ defmodule Acs.Specs.Loader do
     explicit_specs_path(org) || Acs.Org.specs_dir(org)
   end
 
+  defp invalidate_cache(_app) do
+    Acs.FileCache.invalidate_org(:specs_cache, specs_path())
+  end
+
   defp explicit_specs_path(org) do
     case System.get_env("SPECS_PATH") ||
            Application.get_env(:steward_acs, Acs.Specs.Loader, []) |> Keyword.get(:specs_path) do
@@ -128,20 +132,27 @@ defmodule Acs.Specs.Loader do
   def list(opts \\ []) do
     app = opts[:app]
 
-    with :ok <- validate_app_filter(app) do
-      results =
-        specs_dirs()
-        |> Enum.flat_map(fn base ->
-          if is_nil(app) do
-            apps_dir(base)
-            |> Enum.flat_map(fn {sub_app, dir} -> list_in_dir(dir, sub_app, base) end)
-          else
-            list_in_dir(Path.join(base, app), app, base)
-          end
-        end)
-        |> Enum.uniq_by(&{&1.app, &1.path})
+    case Acs.FileCache.get(:specs_cache, specs_path(), {:list, app}) do
+      {:ok, results} ->
+        {:ok, results}
 
-      {:ok, results}
+      :miss ->
+        with :ok <- validate_app_filter(app) do
+          results =
+            specs_dirs()
+            |> Enum.flat_map(fn base ->
+              if is_nil(app) do
+                apps_dir(base)
+                |> Enum.flat_map(fn {sub_app, dir} -> list_in_dir(dir, sub_app, base) end)
+              else
+                list_in_dir(Path.join(base, app), app, base)
+              end
+            end)
+            |> Enum.uniq_by(&{&1.app, &1.path})
+
+          Acs.FileCache.put(:specs_cache, specs_path(), {:list, app}, results)
+          {:ok, results}
+        end
     end
   end
 
@@ -240,6 +251,7 @@ defmodule Acs.Specs.Loader do
           content = to_file_content(entry, ext)
           File.write!(file, content)
           Logger.info("Saved cognition entry: #{file}")
+          invalidate_cache(entry.app)
           Acs.broadcast(:specs_updated, %{app: entry.app, id: entry.id})
           :ok
         end
@@ -279,6 +291,7 @@ defmodule Acs.Specs.Loader do
         file ->
           File.rm!(file)
           Logger.info("Deleted cognition spec: #{file}")
+          invalidate_cache(app)
           Acs.broadcast(:specs_updated, %{app: app, id: path})
           if legacy_spec_exists?(app, path), do: {:ok, :legacy_shadow}, else: :ok
 
@@ -296,18 +309,25 @@ defmodule Acs.Specs.Loader do
   Returns {:ok, [%Entry{}]}.
   """
   def load_all(opts \\ []) do
-    with {:ok, specs} <- list(opts) do
-      entries =
-        specs
-        |> Enum.reduce([], fn spec, acc ->
-          case load_file(spec.file_path) do
-            {:ok, entry} -> [entry | acc]
-            _ -> acc
-          end
-        end)
-        |> Enum.reverse()
+    case Acs.FileCache.get(:specs_cache, specs_path(), {:load_all, opts[:app]}) do
+      {:ok, entries} ->
+        {:ok, entries}
 
-      {:ok, entries}
+      :miss ->
+        with {:ok, specs} <- list(opts) do
+          entries =
+            specs
+            |> Enum.reduce([], fn spec, acc ->
+              case load_file(spec.file_path) do
+                {:ok, entry} -> [entry | acc]
+                _ -> acc
+              end
+            end)
+            |> Enum.reverse()
+
+          Acs.FileCache.put(:specs_cache, specs_path(), {:load_all, opts[:app]}, entries)
+          {:ok, entries}
+        end
     end
   end
 

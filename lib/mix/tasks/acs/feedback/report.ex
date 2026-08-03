@@ -417,7 +417,7 @@ defmodule Mix.Tasks.Acs.Feedback.Report do
 
     helpful_ids =
       feedback
-      |> Enum.flat_map(fn f -> f.guidance_items_helpful || [] end)
+      |> Enum.flat_map(fn f -> decode_guidance_items(f.guidance_items_helpful) end)
       |> Enum.reject(&is_nil/1)
 
     if Enum.empty?(helpful_ids) do
@@ -439,7 +439,7 @@ defmodule Mix.Tasks.Acs.Feedback.Report do
 
     confusing_ids =
       feedback
-      |> Enum.flat_map(fn f -> f.guidance_items_confusing || [] end)
+      |> Enum.flat_map(fn f -> decode_guidance_items(f.guidance_items_confusing) end)
       |> Enum.reject(&is_nil/1)
 
     if Enum.empty?(confusing_ids) do
@@ -471,6 +471,21 @@ defmodule Mix.Tasks.Acs.Feedback.Report do
       end)
     end
   end
+
+  # guidance_items_helpful / guidance_items_confusing are stored as JSON-array
+  # strings (encode_array_field in error_handlers.ex). Decode to a list for
+  # flat_mapping; anything unparseable degrades to [].
+  defp decode_guidance_items(nil), do: []
+  defp decode_guidance_items(items) when is_list(items), do: items
+
+  defp decode_guidance_items(items) when is_binary(items) do
+    case Jason.decode(items) do
+      {:ok, decoded} when is_list(decoded) -> decoded
+      _ -> []
+    end
+  end
+
+  defp decode_guidance_items(_), do: []
 
   defp percentage(count, total) do
     if total == 0 do

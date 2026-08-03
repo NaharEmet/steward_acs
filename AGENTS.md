@@ -6,6 +6,8 @@ Check if `@AGENTS_STEWARD.md` exists. If yes, follow the instructions there. If 
 
 **Git:** stay on `dev` for all work — commit/push there only. Never create or switch branches. Promote `dev` → `prod` only when the user asks to deploy. If not on `dev`, ask — do not switch yourself.
 
+**Save what you produce:** after coding tasks touching `/lib/`, propose or update the module spec (`specs_propose` purpose/invariants/workflows); after a repeatable procedure, save a skill (`skill_save`); after working out a plan with the user, save it as a document under `documents/plans/<slug>`; run `query_specs(undocumented: true)` to find modules missing specs. See the `acs_get_started` guidance packet for the store decision.
+
 ## Guides
 
 Project-specific workflows live in `guides/`. Check them before starting work:

@@ -4,9 +4,15 @@ defmodule Acs.MetaHarness.Scheduler do
 
   Runs on a configurable interval (default: 1 hour) to:
   - Run `Acs.MetaHarness.Analyzer` analysis
-  - Generate report via `Acs.MetaHarness.DocumentGenerator.generate/1`
+  - Generate report + plan via `Acs.MetaHarness.Generator.generate/0`
 
   The interval can be configured via the `META_HARNESS_INTERVAL_MS` environment variable.
+
+  Manual triggers (`trigger_analysis/0`) are forwarded through the GenServer
+  mailbox so they serialize with the scheduled tick — two overlapping
+  `Generator.generate/0` calls would otherwise write duplicate report/plan
+  files and ship duplicate Axiom rollups. The Generator also holds its own
+  re-entrancy lock as a second line of defense.
   """
 
   use GenServer
@@ -34,27 +40,45 @@ defmodule Acs.MetaHarness.Scheduler do
 
   @impl true
   def handle_info(:run_analysis, state) do
+    {state, _result} = run_cycle(state)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_call(:run_analysis, _from, state) do
+    {state, result} = run_cycle(state)
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_cast(:run_analysis, state) do
+    handle_info(:run_analysis, state)
+  end
+
+  defp run_cycle(state) do
     _start_time = System.monotonic_time(:millisecond)
 
     Logger.info("[Acs.MetaHarness.Scheduler] Starting analysis cycle")
 
-    try do
-      {elapsed, _results} = :timer.tc(fn -> run_analysis_cycle() end)
+    result =
+      try do
+        {elapsed, result} = :timer.tc(fn -> run_analysis_cycle() end)
 
-      Logger.info("[Acs.MetaHarness.Scheduler] Analysis completed in #{div(elapsed, 1000)}ms")
+        Logger.info("[Acs.MetaHarness.Scheduler] Analysis completed in #{div(elapsed, 1000)}ms")
 
-      schedule_next_run(state.interval)
+        result
+      rescue
+        e ->
+          stacktrace = __STACKTRACE__
+          Logger.error("[Acs.MetaHarness.Scheduler] Message handling crashed: #{inspect(e)}")
+          Logger.error("[Acs.MetaHarness.Scheduler] Stacktrace: #{inspect(stacktrace)}")
+          %{error: inspect(e), stacktrace: inspect(stacktrace)}
+      end
 
-      {:noreply, %{state | last_run: DateTime.utc_now()}}
-    rescue
-      e ->
-        stacktrace = __STACKTRACE__
-        Logger.error("[Acs.MetaHarness.Scheduler] Message handling crashed: #{inspect(e)}")
-        Logger.error("[Acs.MetaHarness.Scheduler] Stacktrace: #{inspect(stacktrace)}")
-        # Always reschedule next run even on error - GenServer must stay alive
-        schedule_next_run(state.interval)
-        {:noreply, %{state | last_run: DateTime.utc_now()}}
-    end
+    # Always reschedule next run even on error - GenServer must stay alive
+    schedule_next_run(state.interval)
+
+    {%{state | last_run: DateTime.utc_now()}, result}
   end
 
   defp schedule_next_run(interval) do
@@ -98,9 +122,18 @@ defmodule Acs.MetaHarness.Scheduler do
 
   @doc """
   Manually trigger an analysis cycle.
+
+  Forwards through the GenServer mailbox (call) so the run is serialized with
+  the scheduled tick instead of running concurrently in the caller's process.
+  Returns the run result; falls back to a synchronous run when the scheduler
+  isn't running (e.g. during app boot / tests).
   """
   @spec trigger_analysis() :: map()
   def trigger_analysis do
-    run_analysis_cycle()
+    if Process.whereis(__MODULE__) do
+      GenServer.call(__MODULE__, :run_analysis, :infinity)
+    else
+      run_analysis_cycle()
+    end
   end
 end

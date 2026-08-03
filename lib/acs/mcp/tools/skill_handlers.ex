@@ -8,13 +8,19 @@ defmodule Acs.MCP.Tools.SkillHandlers do
   def skill_audit_status(_args) do
     {results, _audited} = Acs.Skills.Auditor.audit_all()
 
-    skills =
+    audited_now =
       Enum.map(results, fn r ->
         Map.take(r, [:audit_status, :audit_score, :audit_reasoning, :audited_at])
         |> Map.put(:name, r.name)
       end)
 
-    {:ok, %{skills: skills, total: length(results)}}
+    catalog =
+      Store.list_skills()
+      |> Enum.group_by(fn meta -> Map.get(meta, "status") || "proposed" end)
+      |> Enum.map(fn {status, entries} -> %{status: status, count: length(entries)} end)
+      |> Enum.sort_by(& &1.status)
+
+    {:ok, %{skills: audited_now, total: length(audited_now), catalog: catalog}}
   end
 
   def skill_get(args) do
@@ -72,7 +78,7 @@ defmodule Acs.MCP.Tools.SkillHandlers do
     description = blank_to_nil(args["description"]) || intake.suggested_description
     when_to_use = blank_to_nil(args["when_to_use"]) || intake.suggested_when_to_use
     tags = args["tags"] || []
-    scope_paths = args["scope_paths"] || []
+    scope_paths = args["scope_paths"] || task_scope_paths(args)
 
     with :ok <- ensure_editable(ctx, name) do
       case Store.save_skill(name, content,
@@ -110,6 +116,27 @@ defmodule Acs.MCP.Tools.SkillHandlers do
         {:error, reason} ->
           {:error, "Failed to save skill: #{inspect(reason)}"}
       end
+    end
+  end
+
+  # Pre-fill scope_paths from the caller's current task scope (the same
+  # code-path/business-domain scope computed at claim time). Zero info loss:
+  # only used when the agent did not pass scope_paths explicitly.
+  defp task_scope_paths(args) do
+    agent_id =
+      blank_to_nil(args["_auth_agent_id"]) ||
+        blank_to_nil(args["_auth_attribution"]) ||
+        blank_to_nil(args["agent_id"])
+
+    with true <- is_binary(agent_id),
+         %{current_task_id: task_id} when is_binary(task_id) <- Acs.Acs.get_agent_status(agent_id),
+         %{file_paths: file_paths} <- Acs.Acs.get_task(task_id) do
+      case Acs.ClaimContext.scope_from_file_paths(file_paths) do
+        scope when is_binary(scope) and scope != "" -> [scope]
+        _ -> []
+      end
+    else
+      _ -> []
     end
   end
 

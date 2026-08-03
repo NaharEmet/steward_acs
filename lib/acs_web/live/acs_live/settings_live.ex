@@ -55,15 +55,36 @@ defmodule AcsWeb.AcsLive.SettingsLive do
     if socket.assigns.local_identity? and socket.assigns.is_admin do
       case Acs.Org.set_developer_name(name) do
         {:ok, trimmed} ->
+          socket =
+            case socket.assigns.current_user do
+              %Acs.Accounts.User{} = user ->
+                case Acs.Accounts.update_user_name(user, trimmed) do
+                  {:ok, updated_user} ->
+                    assign(socket,
+                      developer_name: trimmed,
+                      name_form: to_form(%{"name" => trimmed}, as: :identity),
+                      current_user: updated_user
+                    )
+
+                  _ ->
+                    assign(socket,
+                      developer_name: trimmed,
+                      name_form: to_form(%{"name" => trimmed}, as: :identity)
+                    )
+                end
+
+              _ ->
+                assign(socket,
+                  developer_name: trimmed,
+                  name_form: to_form(%{"name" => trimmed}, as: :identity)
+                )
+            end
+
           {:noreply,
-           socket
-           |> assign(
-             developer_name: trimmed,
-             name_form: to_form(%{"name" => trimmed}, as: :identity)
-           )
-           |> put_flash(
+           put_flash(
+             socket,
              :info,
-             "Coding identity set to #{trimmed}. Restart Cursor MCP (or reconnect) to pick it up."
+             "Coding identity set to #{trimmed}. Your account name is updated. Restart Cursor MCP (or reconnect) to pick it up."
            )}
 
         {:error, :blank} ->
@@ -139,14 +160,14 @@ defmodule AcsWeb.AcsLive.SettingsLive do
         <div class="card" style="padding: 24px; margin-bottom: 16px;">
           <div class="section-header" style="align-items: flex-start; margin-bottom: 12px;">
             <div>
-              <h2 class="section-title">Coding identity</h2>
+              <h2 class="section-title">Developer name</h2>
               <p class="text-dim" style="font-size: 0.8rem; margin-top: 5px;">
-                Same idea as prod: a named developer identity for MCP.
+                Your named coding identity for MCP.
                 <%= if @local_identity? do %>
                   Local shared <code>MCP_API_KEY</code> uses this name in Active Agents.
-                  Prefer an <code>acs_dev_</code> key in Cursor for the full prod path.
+                  You can also set it with <code>ACS_DEVELOPER_NAME</code> in your <code>.env</code>.
                 <% else %>
-                  Mint an <code>acs_dev_</code> key and put it in your agent’s <code>x-api-key</code> header.
+                  Use a developer API key for identity on multi-tenant hosts.
                 <% end %>
               </p>
             </div>
@@ -170,9 +191,21 @@ defmodule AcsWeb.AcsLive.SettingsLive do
               </div>
             </.form>
           <% end %>
+        </div>
 
-          <.form for={@key_form} id="mint-key-form" phx-submit="mint-developer-key" style={"margin-top: #{if @local_identity?, do: "20px", else: "0"};"}>
-            <label for="key-name" class="form-label">Developer API key (prod coding path)</label>
+        <div class="card" style="padding: 24px; margin-bottom: 16px;">
+          <div class="section-header" style="align-items: flex-start; margin-bottom: 12px;">
+            <div>
+              <h2 class="section-title">Developer API keys</h2>
+              <p class="text-dim" style="font-size: 0.8rem; margin-top: 5px;">
+                Prod coding path: mint an <code>acs_dev_</code> key and put it in your agent’s
+                <code>x-api-key</code> header (e.g. Cursor <code>mcp.json</code>).
+              </p>
+            </div>
+          </div>
+
+          <.form for={@key_form} id="mint-key-form" phx-submit="mint-developer-key">
+            <label for="key-name" class="form-label">Name on the key</label>
             <div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
               <input
                 id="key-name"
@@ -180,7 +213,7 @@ defmodule AcsWeb.AcsLive.SettingsLive do
                 name={@key_form[:name].name}
                 value={@key_form[:name].value}
                 class="form-input"
-                placeholder="Name on the key"
+                placeholder="e.g. Nahar"
                 style="flex: 1;"
               />
               <button type="submit" class="btn btn-copy">Generate key</button>

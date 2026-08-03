@@ -8,8 +8,49 @@ defmodule Acs.MetaHarness.Generator do
 
   @doc "Generate full analysis + plan, write to files"
   def generate do
-    Logger.info("[Generator] Starting analysis...")
+    if try_acquire_lock() do
+      Logger.info("[Generator] Starting analysis...")
 
+      try do
+        do_generate()
+      after
+        release_lock()
+      end
+    else
+      Logger.warning("[Generator] Skipping generate — a previous run is still in progress")
+      %{report: "skipped", plan: "skipped", shipped: false, skipped: true}
+    end
+  end
+
+  # Guard against concurrent generate() calls (scheduler tick, synchronous
+  # trigger_analysis/0, and the mix task can overlap). Only one run writes
+  # files and ships Axiom rollups; overlapping runs are skipped.
+  @lock_table :acs_meta_harness_generator_lock
+
+  defp ensure_lock_table do
+    case :ets.whereis(@lock_table) do
+      :undefined ->
+        try do
+          :ets.new(@lock_table, [:named_table, :public, :set, read_concurrency: true])
+        rescue
+          ArgumentError -> :ok
+        end
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp try_acquire_lock do
+    ensure_lock_table()
+    :ets.insert_new(@lock_table, {:running, self()})
+  end
+
+  defp release_lock do
+    :ets.delete(@lock_table, :running)
+  end
+
+  defp do_generate do
     try do
       analysis = Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours)
       # Prod: ship rollups to steward_meta_analytics (same dataset as agent.tool).
@@ -24,7 +65,13 @@ defmodule Acs.MetaHarness.Generator do
 
       Logger.info("[Generator] Generated report: #{report_path}, plan: #{plan_path}")
 
-      %{report: report_path, plan: plan_path, shipped: true}
+      %{
+        report: report_path,
+        plan: plan_path,
+        shipped: true,
+        source: analysis.metadata[:source],
+        operations: data.operations.total
+      }
     rescue
       e ->
         stacktrace = __STACKTRACE__
@@ -93,12 +140,16 @@ defmodule Acs.MetaHarness.Generator do
       feedback: query_feedback(),
       errors: errors,
       intake: analysis.intake_friction || [],
-      agent_stats: agent_stats
+      agent_stats: agent_stats,
+      source: analysis.metadata[:source] || "unknown"
     }
   end
 
   defp query_feedback do
-    case query_sql("SELECT * FROM task_completion_feedback ORDER BY inserted_at DESC LIMIT 100", []) do
+    case query_sql(
+           "SELECT * FROM task_completion_feedback ORDER BY inserted_at DESC LIMIT 100",
+           []
+         ) do
       {:ok, rows} -> rows
       _ -> []
     end
@@ -173,7 +224,9 @@ defmodule Acs.MetaHarness.Generator do
     - Unique Tools Used: #{length(data.operations.tools)}
     - Active Agents: #{data.agent_stats.count}
     - Agent Feedback Submissions: #{length(data.feedback)}
+    - Data Source: #{data.source}
 
+    #{format_zero_alert(data)}
     ## Tool Performance (sorted by failures)
     #{format_tool_table(data.operations.tools)}
 
@@ -188,6 +241,18 @@ defmodule Acs.MetaHarness.Generator do
     """
   end
 
+  # An all-zero report is indistinguishable from a healthy quiet system unless
+  # we call it out. Zero ops usually means the DB source is empty AND the ETS
+  # fallback found nothing — surface that so data-source flips are visible.
+  defp format_zero_alert(%{operations: %{total: 0}} = data) do
+    "> ⚠️ **NO OPERATIONS RECORDED** — the analyzer found zero tool operations. " <>
+      "This usually means the local/Postgres `acs_tool_operations` table is empty " <>
+      "or unreachable and the in-memory RecentOps fallback held no data. " <>
+      "(Data source: #{data.source})\n\n"
+  end
+
+  defp format_zero_alert(_), do: ""
+
   defp format_intake([]), do: "  _No intake gates — default-allow is holding_"
 
   defp format_intake(rows) do
@@ -198,6 +263,7 @@ defmodule Acs.MetaHarness.Generator do
     body =
       Enum.map(rows, fn row ->
         hint = row[:prompt_hint] || row["prompt_hint"] || ""
+
         "| #{row[:tool_name] || row["tool_name"]} | #{row[:error_type] || row["error_type"]} | #{row[:occurrence_count] || row["occurrence_count"]} | #{hint} |"
       end)
       |> Enum.join("\n")
@@ -211,7 +277,9 @@ defmodule Acs.MetaHarness.Generator do
   defp format_tool_table([]), do: "  _No data_"
 
   defp format_tool_table(tools) do
-    Enum.map(tools, fn t ->
+    tools
+    |> Enum.sort_by(fn t -> -(t["failures"] || 0) end)
+    |> Enum.map(fn t ->
       rate =
         if t["total_calls"] && t["total_calls"] > 0 do
           (t["successes"] || 0) / t["total_calls"]
@@ -277,12 +345,12 @@ defmodule Acs.MetaHarness.Generator do
 
     helpful_ids =
       feedback
-      |> Enum.flat_map(fn f -> f["guidance_items_helpful"] || [] end)
+      |> Enum.flat_map(&decode_guidance_items(&1["guidance_items_helpful"]))
       |> Enum.reject(&is_nil/1)
 
     confusing_ids =
       feedback
-      |> Enum.flat_map(fn f -> f["guidance_items_confusing"] || [] end)
+      |> Enum.flat_map(&decode_guidance_items(&1["guidance_items_confusing"]))
       |> Enum.reject(&is_nil/1)
 
     missing_items = feedback |> Enum.map(& &1["guidance_missing"]) |> Enum.reject(&is_nil/1)
@@ -321,6 +389,21 @@ defmodule Acs.MetaHarness.Generator do
       """
     end
   end
+
+  # guidance_items_helpful / guidance_items_confusing are stored as JSON-array
+  # strings (encode_array_field in error_handlers.ex). Decode to a list for
+  # flat_mapping; anything unparseable degrades to [].
+  defp decode_guidance_items(nil), do: []
+  defp decode_guidance_items(items) when is_list(items), do: items
+
+  defp decode_guidance_items(items) when is_binary(items) do
+    case Jason.decode(items) do
+      {:ok, decoded} when is_list(decoded) -> decoded
+      _ -> []
+    end
+  end
+
+  defp decode_guidance_items(_), do: []
 
   defp get_top_values(feedback, field, count) do
     values =
@@ -421,8 +504,8 @@ defmodule Acs.MetaHarness.Generator do
 
     ### Guidance Effectiveness (from new tracking)
     - Useful: #{Enum.count(data.feedback, fn f -> f["guidance_useful"] == true end)}/#{length(data.feedback)}
-    - Helpful items: #{data.feedback |> Enum.flat_map(fn f -> f["guidance_items_helpful"] || [] end) |> Enum.frequencies() |> Enum.sort_by(fn {_, v} -> -v end) |> Enum.take(3) |> Enum.map(fn {k, _v} -> "#{k}" end) |> Enum.join(", ")}
-    - Confusing items: #{data.feedback |> Enum.flat_map(fn f -> f["guidance_items_confusing"] || [] end) |> Enum.frequencies() |> Enum.sort_by(fn {_, v} -> -v end) |> Enum.take(3) |> Enum.map(fn {k, _v} -> "#{k}" end) |> Enum.join(", ")}
+    - Helpful items: #{data.feedback |> Enum.flat_map(&decode_guidance_items(&1["guidance_items_helpful"])) |> Enum.frequencies() |> Enum.sort_by(fn {_, v} -> -v end) |> Enum.take(3) |> Enum.map(fn {k, _v} -> "#{k}" end) |> Enum.join(", ")}
+    - Confusing items: #{data.feedback |> Enum.flat_map(&decode_guidance_items(&1["guidance_items_confusing"])) |> Enum.frequencies() |> Enum.sort_by(fn {_, v} -> -v end) |> Enum.take(3) |> Enum.map(fn {k, _v} -> "#{k}" end) |> Enum.join(", ")}
 
     ## Output Format
 

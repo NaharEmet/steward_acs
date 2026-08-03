@@ -1,5 +1,5 @@
 defmodule Acs.MCP.Tools.SkillHandlersTest do
-  use ExUnit.Case, async: false
+  use Acs.DataCase, async: false
 
   alias Acs.MCP.Tools.SkillHandlers
 
@@ -54,6 +54,43 @@ defmodule Acs.MCP.Tools.SkillHandlersTest do
                "content" => "Always lock files.",
                "intake_confirmed" => true
              })
+  end
+
+  test "skill_save pre-fills scope_paths from the caller's current task scope" do
+    agent_id = "d3_prefill_agent_#{System.unique_integer([:positive])}"
+
+    {:ok, task} =
+      Acs.create_task(
+        %{
+          "title" => "D3 scope prefill test",
+          "file_paths" => ["lib/acs/mcp/tools/skill_handlers.ex"]
+        },
+        agent_id
+      )
+
+    Acs.Acs.put_agent_status(agent_id, %{current_task_id: task.id, purpose: "active"})
+
+    assert {:ok, %{saved: true}} =
+             SkillHandlers.skill_save(%{
+               "name" => "d3-prefill",
+               "content" => "## Steps\n1. Do the thing\n2. Verify\n",
+               "intake_confirmed" => true,
+               "_auth_agent_id" => agent_id
+             })
+
+    assert %{scope_paths: ["lib/acs/mcp/tools"]} =
+             Acs.Skills.Store.get_skill("d3-prefill")
+  end
+
+  test "skill_save without a current task leaves scope_paths empty" do
+    assert {:ok, %{saved: true}} =
+             SkillHandlers.skill_save(%{
+               "name" => "d3-noscope",
+               "content" => "## Steps\n1. Do the thing\n2. Verify\n",
+               "intake_confirmed" => true
+             })
+
+    assert %{scope_paths: []} = Acs.Skills.Store.get_skill("d3-noscope")
   end
 
   describe "rank-gated edits (unified role management)" do

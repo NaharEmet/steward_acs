@@ -18,6 +18,8 @@ defmodule Acs.Memory.Embedding do
   @default_model "nomic-embed-text"
   # nomic-embed-text output size; must match pgvector column on Neon.
   @default_dimensions 768
+  # Bounded parallelism for batch embedding; avoids hammering Ollama on backfills.
+  @default_batch_concurrency 5
 
   @doc """
   Returns the configured Ollama URL.
@@ -41,6 +43,27 @@ defmodule Acs.Memory.Embedding do
   def dimensions do
     Application.get_env(:steward_acs, __MODULE__, [])
     |> Keyword.get(:dimensions, @default_dimensions)
+  end
+
+  # Retrieval queries embedded against the corpus don't need the full text —
+  # Ollama embedding cost scales ~linearly with input length, and claim-time
+  # queries are long (title + full task description). Truncating the retrieval
+  # prompt cuts embed latency without meaningfully hurting recall.
+  @retrieval_query_chars 200
+
+  @doc """
+  Truncates a retrieval query to the length that gets embedded.
+
+  Storage indexing embeds full content (via `embed_text/1`); only *retrieval*
+  queries should pass through this, since recall is driven by the query's key
+  terms, which live in the head of the text.
+  """
+  def retrieval_query(query) when is_binary(query) do
+    if String.length(query) > @retrieval_query_chars do
+      String.slice(query, 0, @retrieval_query_chars)
+    else
+      query
+    end
   end
 
   @doc """
@@ -145,25 +168,50 @@ defmodule Acs.Memory.Embedding do
   """
   @spec embed_texts([String.t()]) :: {:ok, [[float()]]} | {:error, String.t()}
   def embed_texts(texts) when is_list(texts) do
-    if texts == [] do
-      {:ok, []}
-    else
-      results = Enum.map(texts, &embed_text/1)
+    results = embed_batch(texts)
 
-      errors =
-        Enum.filter(results, fn
-          {:ok, _} -> false
-          {:error, _} -> true
-        end)
+    errors =
+      Enum.filter(results, fn
+        {:ok, _} -> false
+        {:error, _} -> true
+      end)
 
-      case errors do
-        [] ->
-          {:ok, Enum.map(results, fn {:ok, embedding} -> embedding end)}
+    case errors do
+      [] ->
+        {:ok, Enum.map(results, fn {:ok, embedding} -> embedding end)}
 
-        [first_error | _] ->
-          {:error, elem(first_error, 1)}
-      end
+      [first_error | _] ->
+        {:error, elem(first_error, 1)}
     end
+  end
+
+  @doc """
+  Embeds a list of texts with bounded parallel concurrency.
+
+  Returns a per-text result list in input order: `[{:ok, embedding} |
+  {:error, reason}]`. Concurrency is bounded (default `#{@default_batch_concurrency}`,
+  overridable via the `:embed_batch_concurrency` config key or the
+  `:max_concurrency` option) so large backfills don't hammer Ollama.
+  """
+  @spec embed_batch([String.t()], keyword()) :: [{:ok, [float()]} | {:error, String.t()}]
+  def embed_batch(texts, opts \\ []) do
+    max_concurrency =
+      opts[:max_concurrency] ||
+        Application.get_env(:steward_acs, __MODULE__, [])
+        |> Keyword.get(:embed_batch_concurrency, @default_batch_concurrency)
+
+    texts
+    |> Task.async_stream(
+      &embed_text/1,
+      max_concurrency: max_concurrency,
+      timeout: 60_000,
+      ordered: true,
+      on_timeout: :kill_task
+    )
+    |> Enum.map(fn
+      {:ok, result} -> result
+      {:exit, _reason} -> {:error, "embedding timed out"}
+    end)
   end
 
   @doc """

@@ -125,6 +125,21 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     |> Enum.join(", ")
   end
 
+  # guidance_items_helpful / guidance_items_confusing are stored as JSON-array
+  # strings (encode_array_field in error_handlers.ex). Decode to a list for
+  # flat_mapping; anything unparseable degrades to [].
+  defp decode_guidance_items(nil), do: []
+  defp decode_guidance_items(items) when is_list(items), do: items
+
+  defp decode_guidance_items(items) when is_binary(items) do
+    case Jason.decode(items) do
+      {:ok, decoded} when is_list(decoded) -> decoded
+      _ -> []
+    end
+  end
+
+  defp decode_guidance_items(_), do: []
+
   defp summarize_guidance_data(feedback) do
     total = length(feedback)
     useful = Enum.count(feedback, fn f -> f.guidance_useful == true end)
@@ -132,12 +147,12 @@ defmodule Acs.MetaHarness.DocumentGenerator do
 
     helpful_ids =
       feedback
-      |> Enum.flat_map(fn f -> f.guidance_items_helpful || [] end)
+      |> Enum.flat_map(fn f -> decode_guidance_items(f.guidance_items_helpful) end)
       |> Enum.reject(&is_nil/1)
 
     confusing_ids =
       feedback
-      |> Enum.flat_map(fn f -> f.guidance_items_confusing || [] end)
+      |> Enum.flat_map(fn f -> decode_guidance_items(f.guidance_items_confusing) end)
       |> Enum.reject(&is_nil/1)
 
     missing_texts = feedback |> Enum.map(& &1.guidance_missing) |> Enum.reject(&is_nil/1)
@@ -218,6 +233,7 @@ defmodule Acs.MetaHarness.DocumentGenerator do
     |> Enum.take(10)
     |> Enum.map(fn {name, data} ->
       failures = if data.failure_count > 0, do: ", #{data.failure_count} failures", else: ""
+
       "  - **#{name}**: #{data.total_calls} executions, #{format_rate(data.success_rate)} success#{failures}, #{data.discovery_count} discovery probes"
     end)
     |> Enum.join("\n")
@@ -300,17 +316,19 @@ defmodule Acs.MetaHarness.DocumentGenerator do
         error_type,
         created_at
       FROM acs_tool_operations
-      WHERE created_at >= datetime('now', '-1 day')
+      WHERE created_at >= ?1
       ORDER BY execution_chain_id, sequence_order
     """
 
+    cutoff = DateTime.add(DateTime.utc_now(), -1, :day)
+
     if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
       try do
-        case Ecto.Adapters.SQL.query(Acs.Repo, query, []) do
-          {:ok, %Exqlite.Result{} = result} ->
+        case Ecto.Adapters.SQL.query(Acs.Repo, Acs.MetaHarness.SQL.adapt(query), [cutoff]) do
+          {:ok, %{columns: columns, rows: rows}} ->
             {:ok,
-             Enum.map(result.rows, fn row ->
-               Enum.zip(result.columns, row) |> Enum.into(%{})
+             Enum.map(rows, fn row ->
+               Enum.zip(columns, row) |> Enum.into(%{})
              end)}
 
           {:error, _} ->

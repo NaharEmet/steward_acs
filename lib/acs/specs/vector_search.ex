@@ -65,7 +65,17 @@ defmodule Acs.Specs.VectorSearch do
     :ok
   end
 
-  def upsert_chunk(id, app, path, chunk_index, source, content, embedding, org \\ Acs.Org.current(), repo \\ Acs.Repo)
+  def upsert_chunk(
+        id,
+        app,
+        path,
+        chunk_index,
+        source,
+        content,
+        embedding,
+        org \\ Acs.Org.current(),
+        repo \\ Acs.Repo
+      )
       when is_binary(id) and is_list(embedding) do
     vector_literal = Pgvector.encode(embedding)
 
@@ -270,45 +280,36 @@ defmodule Acs.Specs.VectorSearch do
     {:ok, entries} = Loader.load_all()
     existing = existing_chunk_ids()
 
+    unembedded_chunks =
+      Enum.flat_map(entries, fn entry ->
+        entry
+        |> chunk_entry()
+        |> Enum.reject(fn chunk -> MapSet.member?(existing, chunk.id) end)
+      end)
+
+    results = Acs.Memory.Embedding.embed_batch(Enum.map(unembedded_chunks, & &1.text))
+
     {embedded, failed} =
-      Enum.reduce(entries, {0, 0}, fn entry, {emb_acc, fail_acc} ->
-        chunks = chunk_entry(entry)
+      unembedded_chunks
+      |> Enum.zip(results)
+      |> Enum.reduce({0, 0}, fn
+        {chunk, {:ok, embedding}}, {emb_acc, fail_acc} ->
+          upsert_chunk(
+            chunk.id,
+            chunk.app,
+            chunk.path,
+            chunk.chunk_index,
+            chunk.source,
+            chunk.content,
+            embedding
+          )
 
-        unembedded_chunks =
-          Enum.reject(chunks, fn chunk ->
-            MapSet.member?(existing, chunk.id)
-          end)
+          {emb_acc + 1, fail_acc}
 
-        if unembedded_chunks == [] do
-          {emb_acc, fail_acc}
-        else
-          {chunk_emb, chunk_fail} =
-            Enum.reduce(unembedded_chunks, {0, 0}, fn chunk, {ce, cf} ->
-              case Acs.Memory.Embedding.embed_text(chunk.text) do
-                {:ok, embedding} ->
-                  upsert_chunk(
-                    chunk.id,
-                    chunk.app,
-                    chunk.path,
-                    chunk.chunk_index,
-                    chunk.source,
-                    chunk.content,
-                    embedding
-                  )
+        {chunk, {:error, reason}}, {emb_acc, fail_acc} ->
+          Logger.warning("[Specs.VectorSearch] Failed to embed chunk #{chunk.id}: #{reason}")
 
-                  {ce + 1, cf}
-
-                {:error, reason} ->
-                  Logger.warning(
-                    "[Specs.VectorSearch] Failed to embed chunk #{chunk.id}: #{reason}"
-                  )
-
-                  {ce, cf + 1}
-              end
-            end)
-
-          {emb_acc + chunk_emb, fail_acc + chunk_fail}
-        end
+          {emb_acc, fail_acc + 1}
       end)
 
     stats = %{
@@ -369,11 +370,12 @@ defmodule Acs.Specs.VectorSearch do
         chunk_index: idx,
         source: source,
         content: text,
-        text: build_chunk_text(%{
-          title: entry.title,
-          source: source,
-          content: text
-        })
+        text:
+          build_chunk_text(%{
+            title: entry.title,
+            source: source,
+            content: text
+          })
       }
     end)
   end
@@ -404,12 +406,13 @@ defmodule Acs.Specs.VectorSearch do
         chunk_index: idx,
         source: source,
         content: text,
-        text: build_chunk_text(%{
-          title: entry.title,
-          source: source,
-          section: name,
-          content: text
-        })
+        text:
+          build_chunk_text(%{
+            title: entry.title,
+            source: source,
+            section: name,
+            content: text
+          })
       }
     end)
   end
@@ -453,7 +456,13 @@ defmodule Acs.Specs.VectorSearch do
     if new_count > @chunk_max_words and current != [] do
       chunk_text = Enum.join(current, "\n\n")
       remainder = merge_overlap(current, p)
-      group_into_chunks(rest, remainder, [chunk_text | acc], count_words(Enum.join(remainder, "\n\n")))
+
+      group_into_chunks(
+        rest,
+        remainder,
+        [chunk_text | acc],
+        count_words(Enum.join(remainder, "\n\n"))
+      )
     else
       group_into_chunks(rest, current ++ [p], acc, new_count)
     end
@@ -465,6 +474,7 @@ defmodule Acs.Specs.VectorSearch do
       |> Enum.reverse()
       |> Enum.reduce({[], 0}, fn p, {acc, count} ->
         wc = count_words(p)
+
         if count + wc <= @chunk_overlap_words do
           {[p | acc], count + wc}
         else

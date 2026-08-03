@@ -23,18 +23,33 @@ defmodule Acs.Skills.Store do
 
   def skill_dir, do: Acs.Org.skills_dir()
 
+  defp invalidate_cache do
+    Acs.FileCache.invalidate(:skills_cache, skill_dir(), :all_skills)
+  end
+
   def all_skills do
-    search_dirs()
-    |> Enum.flat_map(fn root ->
-      Enum.map(skill_paths(root), fn path ->
-        {Path.rootname(Path.relative_to(path, root)), path, root}
+    case Acs.FileCache.get(:skills_cache, skill_dir(), :all_skills) do
+      {:ok, skills} -> skills
+      :miss -> load_all_skills_and_cache(skill_dir())
+    end
+  end
+
+  defp load_all_skills_and_cache(dir) do
+    skills =
+      search_dirs()
+      |> Enum.flat_map(fn root ->
+        Enum.map(skill_paths(root), fn path ->
+          {Path.rootname(Path.relative_to(path, root)), path, root}
+        end)
       end)
-    end)
-    |> Enum.uniq_by(&elem(&1, 0))
-    |> Enum.map(fn {_id, path, root} -> parse_skill_file(path, root) end)
-    |> Enum.reject(&is_nil/1)
-    # One skill per name: earlier roots win (org vault → legacy → builtin).
-    |> Enum.uniq_by(&String.downcase(&1.name || &1.id))
+      |> Enum.uniq_by(&elem(&1, 0))
+      |> Enum.map(fn {_id, path, root} -> parse_skill_file(path, root) end)
+      |> Enum.reject(&is_nil/1)
+      # One skill per name: earlier roots win (org vault → legacy → builtin).
+      |> Enum.uniq_by(&String.downcase(&1.name || &1.id))
+
+    Acs.FileCache.put(:skills_cache, dir, :all_skills, skills)
+    skills
   end
 
   def list_skills(tag \\ nil) do
@@ -79,15 +94,32 @@ defmodule Acs.Skills.Store do
       %{"status" => status, "reviewed_by" => reviewer, "reviewed_at" => now}
       |> maybe_add_decision_fields(status, reviewer, now)
 
-    update_frontmatter(id, fields)
+    case update_frontmatter(id, fields) do
+      :ok ->
+        invalidate_cache()
+        :ok
+
+      other ->
+        other
+    end
   end
 
   def update_status(_id, _status, _reviewer), do: {:error, :invalid_status}
 
   def write_audit_fields(id_or_name, fields) do
     case find_skill(id_or_name) do
-      nil -> {:error, :not_found}
-      skill -> update_file_frontmatter(skill.file, fields)
+      nil ->
+        {:error, :not_found}
+
+      skill ->
+        case update_file_frontmatter(skill.file, fields) do
+          :ok ->
+            invalidate_cache()
+            :ok
+
+          other ->
+            other
+        end
     end
   end
 
@@ -124,6 +156,7 @@ defmodule Acs.Skills.Store do
 
       body = String.trim_trailing(content) <> "\n"
       File.write!(path, "---\n#{frontmatter}\n---\n\n#{body}")
+      invalidate_cache()
       {:ok, %{name: name, id: safe, path: path, status: meta["status"]}}
     else
       false -> {:error, :unsafe_path}

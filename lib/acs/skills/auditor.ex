@@ -110,8 +110,11 @@ defmodule Acs.Skills.Auditor do
   Returns `{results, updated_audited}`.
   """
   def audit_all(skills \\ nil, audited \\ MapSet.new()) do
+    metas = skills || Store.list_skills()
+    backfill_legacy_statuses(metas)
+
     candidates =
-      (skills || Store.list_skills())
+      metas
       |> Enum.uniq_by(& &1["name"])
       |> Enum.reject(fn meta ->
         already_audited?(meta) or MapSet.member?(audited, meta["name"])
@@ -158,6 +161,28 @@ defmodule Acs.Skills.Auditor do
 
     is_binary(status) and status != "" and is_binary(audited_at) and audited_at != ""
   end
+
+  defp backfill_legacy_statuses(metas) do
+    # Skills audited before the auto-approve feature (commit d414398) have audit
+    # fields but no status, so the auditor skips them forever. Give them a
+    # governance status based on their stored audit verdict, once.
+    Enum.each(metas, fn meta ->
+      if already_audited?(meta) and blank_status?(meta["status"]) do
+        case meta["audit_status"] do
+          "ok" ->
+            Store.update_status(meta["id"] || meta["name"], "approved", "llm")
+
+          "failing" ->
+            Store.update_status(meta["id"] || meta["name"], "rejected", "llm")
+
+          _ ->
+            :ok
+        end
+      end
+    end)
+  end
+
+  defp blank_status?(status), do: is_nil(status) or status == ""
 
   defp audit_one(skill) do
     case audit_with_retry(skill, @max_retries, @backoff_delays) do

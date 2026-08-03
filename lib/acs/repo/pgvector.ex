@@ -23,7 +23,7 @@ defmodule Acs.Repo.Pgvector do
   def resolve_embedding(query, opts) do
     case Keyword.get(opts, :embedding) do
       emb when is_list(emb) and emb != [] -> {:ok, emb}
-      _ -> Acs.Memory.Embedding.embed_text(query)
+      _ -> Acs.Memory.Embedding.embed_text(Acs.Memory.Embedding.retrieval_query(query))
     end
   end
 end

@@ -23,11 +23,13 @@ Do not skip this step. Do not assume you can create the task later. Even if the 
 
 When the work is done:
 
-1. **Save information** — pick one primary store:
-   - **skill_save** — repeatable how-to you just followed (numbered steps)
-   - **specs_propose** with `document_type` + `title` + `content` — long non-code document
-   - **specs_propose** with purpose/invariants/workflows — code module spec
-   - **save_memory** — short eternal truth
+1. **Save information** — pick a primary store if any trigger applies (else skip saving):
+   - **Worked out a plan with the user** (implementation, improvement, migration, remediation) → `specs_propose` a **document** under `documents/plans/<slug>` so the plan persists
+   - **Changed a code module's intent/contract** → `specs_propose` with purpose/invariants/workflows (code module spec). After changing `/lib/` code, run `query_specs(undocumented: true)` and `specs_get` the touched module; propose or update the spec before `release_work`.
+   - **Followed a repeatable how-to** (numbered steps) → `skill_save`
+   - **Produced a long non-code document** → `specs_propose` with `document_type` + `title` + `content`
+   - **Discovered a short eternal truth** → `save_memory`
+   - **Otherwise** → save nothing; do not force a save
 2. **Release the task** — `acs_release_work(task_id: "<id>", agent_id: "<AGENT>")`
 3. **Submit feedback** — `acs_submit_task_feedback(...)` last, to formally close the task
 4. Only then tell the user you're done
@@ -72,7 +74,7 @@ Chat agents can submit feedback **without** a task_id for simple Q&A interaction
 - Business: `acme/sales/pricing`, `acme/support/refunds`, `acme/policy/privacy`
 - Code: `lib/acs/memory`, `agent_coordination_system/tools`
 
-Store: **memories** = short eternal truths · **specs** = code module docs · **documents** = long non-code artifacts via `specs_propose(document_type, title, content)` · **skills** = step-by-step procedures.
+Store: **memories** = short eternal truths · **specs** = code module docs · **documents** = long non-code artifacts via `specs_propose(document_type, title, content)` (including plans worked out with the user, under `documents/plans/<slug>`) · **skills** = step-by-step procedures.
 Always attach a clear `scope_path` when saving so the next agent can retrieve by domain.
 
 ## 👤 Human-Readable Task IDs (Slugs)

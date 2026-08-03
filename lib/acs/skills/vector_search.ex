@@ -193,19 +193,19 @@ defmodule Acs.Skills.VectorSearch do
         MapSet.member?(existing, skill["name"])
       end)
 
+    results = Acs.Memory.Embedding.embed_batch(Enum.map(to_embed, &retrieval_text/1))
+
     {embedded, failed} =
-      Enum.reduce(to_embed, {0, 0}, fn skill, {emb_acc, fail_acc} ->
-        text = retrieval_text(skill)
+      to_embed
+      |> Enum.zip(results)
+      |> Enum.reduce({0, 0}, fn
+        {skill, {:ok, embedding}}, {emb_acc, fail_acc} ->
+          upsert_embedding(skill["name"], embedding)
+          {emb_acc + 1, fail_acc}
 
-        case Acs.Memory.Embedding.embed_text(text) do
-          {:ok, embedding} ->
-            upsert_embedding(skill["name"], embedding)
-            {emb_acc + 1, fail_acc}
-
-          {:error, reason} ->
-            Logger.warning("[Skills.VectorSearch] Failed to embed #{skill["name"]}: #{reason}")
-            {emb_acc, fail_acc + 1}
-        end
+        {skill, {:error, reason}}, {emb_acc, fail_acc} ->
+          Logger.warning("[Skills.VectorSearch] Failed to embed #{skill["name"]}: #{reason}")
+          {emb_acc, fail_acc + 1}
       end)
 
     stats = %{

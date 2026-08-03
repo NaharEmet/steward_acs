@@ -35,6 +35,13 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
         else: "developer_key"
 
     args = normalize_about_args(args)
+
+    # Kick off the embedding BEFORE the intake LLM review so the two expensive
+    # network calls (~4-6s LLM + ~1.5-2s embed) run concurrently instead of
+    # serially. The task is awaited exactly once in the save path and its result
+    # is reused for both duplicate detection and storage.
+    embed_task = maybe_spawn_embed_task(args)
+
     {:ok, intake} = Acs.Memory.Intake.review(args)
     args = merge_intake_into_args(args, intake)
 
@@ -42,17 +49,19 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
     cond do
       about_entity?(args) and not explicit_visibility?(args) ->
+        shutdown_embed_task(embed_task)
         {:ok, scope_choice_payload(args, person, intake)}
 
       blocking_intake?(intake, args) ->
+        shutdown_embed_task(embed_task)
         {:ok, intake_questions_payload(args, intake)}
 
       true ->
-        do_save_memory(args, ctx, org, creator_id, creator_type, person, intake)
+        do_save_memory(args, ctx, org, creator_id, creator_type, person, intake, embed_task)
     end
   end
 
-  defp do_save_memory(args, ctx, org, creator_id, creator_type, person, intake) do
+  defp do_save_memory(args, ctx, org, creator_id, creator_type, person, intake, embed_task) do
     kind = args["kind"]
     title = args["title"]
     content = args["content"]
@@ -106,7 +115,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
          :ok <- Acs.Memory.validate(memory_map) do
       memory = Acs.Memory.new(memory_map)
 
-      case do_save_with_validation(memory, memory_map,
+      case do_save_with_validation(memory, memory_map, embed_task,
              actor: %{type: creator_type, id: creator_id},
              source: "mcp",
              message: "Create memory #{memory.id}"
@@ -258,12 +267,12 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
            reason: args["notes"],
            message: args["notes"] || "Transition memory #{memory_id} to #{status}"
          ) do
-        {:ok, _result} ->
-          {:ok, %{status: status, memory_id: memory_id, message: "Memory #{status}"}}
+      {:ok, _result} ->
+        {:ok, %{status: status, memory_id: memory_id, message: "Memory #{status}"}}
 
-        {:error, reason} ->
-          {:error, "Failed to update memory status: #{inspect(reason)}"}
-      end
+      {:error, reason} ->
+        {:error, "Failed to update memory status: #{inspect(reason)}"}
+    end
   end
 
   def generate_guidance_packet(args) do
@@ -585,38 +594,38 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     end
   end
 
-  # Layer 2 & 3: Check for semantic/lexical duplicates
-  defp check_semantic_memory_duplicate(%Acs.Memory{} = memory) do
-    retrieval_text = Acs.Memory.Embedding.memory_to_retrieval_text(memory)
+  # Layer 2 & 3: Check for semantic/lexical duplicates.
+  #
+  # `embedding_result` is the pre-computed embedding from the background task:
+  #   {:ok, embedding} | {:error, reason} | :skipped
+  defp check_semantic_memory_duplicate(%Acs.Memory{} = memory, {:ok, embedding}) do
+    # Layer 2: Vector similarity search with high threshold
+    current_storage_id = Acs.Memory.Indexer.storage_id(memory.org, memory.id)
 
-    case Acs.Memory.Embedding.embed_text(retrieval_text) do
-      {:ok, embedding} ->
-        # Layer 2: Vector similarity search with high threshold
-        current_storage_id = Acs.Memory.Indexer.storage_id(memory.org, memory.id)
+    similar =
+      Acs.Memory.VectorIndex.search_threshold(embedding, 0.92)
+      |> Enum.filter(&tenant_embedding?(&1.memory_id, memory.org))
 
-        similar =
-          Acs.Memory.VectorIndex.search_threshold(embedding, 0.92)
-          |> Enum.filter(&tenant_embedding?(&1.memory_id, memory.org))
+    # Exclude the memory itself (in case of re-save) and find strongest match
+    case Enum.reject(similar, fn s -> s.memory_id == current_storage_id end) do
+      [most_similar | _] ->
+        public_id = Acs.Memory.Indexer.public_id(most_similar.memory_id, memory.org)
+        other = Acs.Memory.Indexer.get_memory(public_id, memory.org)
+        other_title = if other, do: other.title, else: public_id
 
-        # Exclude the memory itself (in case of re-save) and find strongest match
-        case Enum.reject(similar, fn s -> s.memory_id == current_storage_id end) do
-          [most_similar | _] ->
-            public_id = Acs.Memory.Indexer.public_id(most_similar.memory_id, memory.org)
-            other = Acs.Memory.Indexer.get_memory(public_id, memory.org)
-            other_title = if other, do: other.title, else: public_id
+        {:error,
+         "A similar memory already exists (cosine similarity: #{Float.round(most_similar.similarity, 4)}): '#{other_title}'. Please review existing memories before creating a new one."}
 
-            {:error,
-             "A similar memory already exists (cosine similarity: #{Float.round(most_similar.similarity, 4)}): '#{other_title}'. Please review existing memories before creating a new one."}
-
-          [] ->
-            # Layer 3 still applies when embeddings are up but nothing is near-duplicate.
-            check_lexical_memory_duplicate(memory.title, memory.scope_path)
-        end
-
-      {:error, _reason} ->
-        # Layer 3: Ollama unavailable — lexical comparison only
+      [] ->
+        # Layer 3 still applies when embeddings are up but nothing is near-duplicate.
         check_lexical_memory_duplicate(memory.title, memory.scope_path)
     end
+  end
+
+  # Layer 3 fallback when embedding is unavailable (Ollama down, timeout, or
+  # non-embeddable kind): lexical comparison only.
+  defp check_semantic_memory_duplicate(%Acs.Memory{} = memory, _embedding_result) do
+    check_lexical_memory_duplicate(memory.title, memory.scope_path)
   end
 
   # Layer 3 fallback: Check for memory with same title at the same scope
@@ -647,17 +656,20 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     end
   end
 
-  defp store_memory_embedding(%Acs.Memory{} = memory) do
+  # Stores the pre-computed embedding (computed once at the start of the save) so
+  # the retrieval text is never re-embedded after the duplicate check.
+  defp store_memory_embedding(%Acs.Memory{} = memory, embedding_result) do
     if memory.kind in Acs.Memory.embeddable_kinds() do
-      retrieval_text = Acs.Memory.Embedding.memory_to_retrieval_text(memory)
-
-      case Acs.Memory.Embedding.embed_text(retrieval_text) do
+      case embedding_result do
         {:ok, embedding} ->
           storage_id = Acs.Memory.Indexer.storage_id(memory.org, memory.id)
           Acs.Memory.VectorIndex.upsert_embedding(storage_id, embedding)
 
         {:error, reason} ->
           Logger.warning("[Tools] Could not store embedding for #{memory.id}: #{reason}")
+
+        :skipped ->
+          Logger.warning("[Tools] Skipping embedding for #{memory.id}: no embedding computed")
       end
     else
       Logger.debug("[Tools] Skipping embedding for non-embeddable kind: #{memory.kind}")
@@ -677,12 +689,62 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
   defp decode_created_by(_), do: nil
 
-  defp do_save_with_validation(memory, memory_map, store_opts) do
+  defp maybe_spawn_embed_task(args) do
+    case build_preview_memory(args) do
+      nil ->
+        nil
+
+      memory ->
+        Task.async(fn ->
+          retrieval_text = Acs.Memory.Embedding.memory_to_retrieval_text(memory)
+          Acs.Memory.Embedding.embed_text(retrieval_text)
+        end)
+    end
+  end
+
+  # Builds a lightweight %Acs.Memory{} purely to derive the retrieval text that
+  # will be embedded. Acs.Memory.new/1 is a passthrough (it does not rewrite
+  # title/kind/content/scope_path), so this text matches the final saved memory.
+  # Returns nil for non-embeddable kinds so no embedding work is started.
+  defp build_preview_memory(args) do
+    if args["kind"] in Acs.Memory.embeddable_kinds() do
+      Acs.Memory.new(%{
+        "kind" => args["kind"],
+        "title" => args["title"],
+        "summary" => args["summary"],
+        "content" => args["content"],
+        "scope_path" => args["scope_path"],
+        "failure_modes" => args["failure_modes"] || []
+      })
+    end
+  end
+
+  defp shutdown_embed_task(nil), do: :ok
+  defp shutdown_embed_task(task), do: Task.shutdown(task, :brutal_kill)
+
+  # Awaits the pre-computed embedding task exactly once. Always returns
+  # {:ok, embedding_result} so an embedding failure degrades to the lexical
+  # duplicate check rather than failing the save.
+  defp await_embedding(nil), do: {:ok, :skipped}
+
+  defp await_embedding(task) do
+    result =
+      try do
+        Task.await(task, 35_000)
+      catch
+        :exit, _reason -> {:error, :embedding_timed_out}
+      end
+
+    {:ok, result}
+  end
+
+  defp do_save_with_validation(memory, memory_map, embed_task, store_opts) do
     with :ok <- check_exact_memory_duplicate(memory.id),
-         :ok <- check_semantic_memory_duplicate(memory),
+         {:ok, embedding_result} <- await_embedding(embed_task),
+         :ok <- check_semantic_memory_duplicate(memory, embedding_result),
          {:ok, conflict_flags} <- Acs.Memory.Conflict.check_before_save(memory_map),
          {:ok, _result} <- Acs.Memory.Store.save(memory, store_opts) do
-      store_memory_embedding(memory)
+      store_memory_embedding(memory, embedding_result)
 
       {:ok,
        %{

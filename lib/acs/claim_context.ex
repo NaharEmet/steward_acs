@@ -67,7 +67,12 @@ defmodule Acs.ClaimContext do
     |> Enum.take(@max_skills)
   end
 
-  defp scope_from_file_paths([path | _]) when is_binary(path) do
+  @doc """
+  Derive a scope path from a task's file_paths, matching the claim-time scope
+  format (spec path for /lib/ files, else the file's dirname). Used at claim
+  time and by skill_save to pre-fill `scope_paths` from the caller's task.
+  """
+  def scope_from_file_paths([path | _]) when is_binary(path) do
     if String.contains?(path, "/lib/") do
       {_module, spec_path} = Loader.file_to_module_path(path)
       spec_path
@@ -76,7 +81,7 @@ defmodule Acs.ClaimContext do
     end
   end
 
-  defp scope_from_file_paths(_), do: ""
+  def scope_from_file_paths(_), do: ""
 
   defp build_query(task_map) do
     [task_map[:title] || task_map["title"], task_map[:description] || task_map["description"]]
@@ -118,7 +123,9 @@ defmodule Acs.ClaimContext do
       end
 
     (from_paths ++ from_search)
-    |> Enum.uniq_by(fn entry -> {entry.app, entry.id} end)
+    |> Enum.uniq_by(fn entry ->
+      {Map.get(entry, :app), Map.get(entry, :id) || Map.get(entry, :path)}
+    end)
     |> Enum.take(@max_specs)
     |> Enum.map(&spec_summary/1)
   end

@@ -136,22 +136,22 @@ defmodule Acs.Specs.Tools do
         {:ok, entry} ->
           chunks = Acs.Specs.VectorSearch.chunk_entry(entry)
 
-          Enum.each(chunks, fn chunk ->
-            case Acs.Memory.Embedding.embed_text(chunk.text) do
-              {:ok, embedding} ->
-                Acs.Specs.VectorSearch.upsert_chunk(
-                  chunk.id,
-                  chunk.app,
-                  chunk.path,
-                  chunk.chunk_index,
-                  chunk.source,
-                  chunk.content,
-                  embedding
-                )
+          chunks
+          |> Enum.zip(Acs.Memory.Embedding.embed_batch(Enum.map(chunks, & &1.text)))
+          |> Enum.each(fn
+            {chunk, {:ok, embedding}} ->
+              Acs.Specs.VectorSearch.upsert_chunk(
+                chunk.id,
+                chunk.app,
+                chunk.path,
+                chunk.chunk_index,
+                chunk.source,
+                chunk.content,
+                embedding
+              )
 
-              {:error, reason} ->
-                Logger.warning("[Tools] Failed to embed spec #{app}/#{path}: #{reason}")
-            end
+            {_chunk, {:error, reason}} ->
+              Logger.warning("[Tools] Failed to embed spec #{app}/#{path}: #{reason}")
           end)
 
         {:error, _} ->
@@ -261,7 +261,13 @@ defmodule Acs.Specs.Tools do
       |> Map.put("version", current_version + 1)
       |> Map.put("parent_version", current_version)
       # Clear prior LLM audit so re-proposals are re-evaluated.
-      |> Map.drop(["audit_verdict", "audited_at", "audit_reasoning", "quality_score", "approved_by"])
+      |> Map.drop([
+        "audit_verdict",
+        "audited_at",
+        "audit_reasoning",
+        "quality_score",
+        "approved_by"
+      ])
 
     entry = Entry.from_map(merged)
     entry = %{entry | spec_hash: Entry.compute_spec_hash(entry)}
@@ -281,7 +287,13 @@ defmodule Acs.Specs.Tools do
       %{"app" => app, "id" => path, "status" => "proposed"}
       |> Map.merge(attrs)
       |> maybe_stamp_authority(writer_order)
-      |> Map.drop(["audit_verdict", "audited_at", "audit_reasoning", "quality_score", "approved_by"])
+      |> Map.drop([
+        "audit_verdict",
+        "audited_at",
+        "audit_reasoning",
+        "quality_score",
+        "approved_by"
+      ])
 
     entry = Entry.from_map(new_args)
     entry = %{entry | spec_hash: Entry.compute_spec_hash(entry)}

@@ -200,7 +200,7 @@ defmodule Acs.Memory.HybridSearch do
         emb
 
       _ ->
-        case Embedding.embed_text(query) do
+        case Embedding.embed_text(Embedding.retrieval_query(query)) do
           {:ok, embedding} -> embedding
           _ -> nil
         end

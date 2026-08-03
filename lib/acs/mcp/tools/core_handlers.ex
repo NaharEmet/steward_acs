@@ -433,7 +433,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
       nil ->
         """
-        No named coding identity yet. Closest to prod: ask the human their name, then call generate_developer_key(name:, role: \"admin\") and tell them to put the returned key in Cursor mcp.json as x-api-key. Local shortcuts: Settings → Coding identity, or set ACS_DEVELOPER_NAME in .env / bin/setup.sh. Until then get_present_status assigns a pool name (Alice/Yara/…).
+        No named coding identity yet. Do NOT invent or reuse one — \"unknown\" is rejected. Ask the human their name, then tell them to set it and restart: (1) set ACS_DEVELOPER_NAME=TheirName in their .env (or bin/setup.sh) and restart the server, or (2) use the web UI Settings → Coding identity → enter their name → Save name. Prod/remote path: mint an acs_dev_ key with that developer_name (generate_developer_key(name:, role: \"admin\")) and put it in Cursor mcp.json as x-api-key. Until they set one, get_present_status assigns a pool name (Alice/Yara/…).
         """
         |> String.trim()
     end

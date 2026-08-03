@@ -15,11 +15,18 @@ defmodule Acs.Accounts do
   def get_user!(id), do: Repo.get!(User, id)
 
   def update_user_name(%User{} = user, name) when is_binary(name) and name != "" do
-    case user |> User.name_changeset(name) |> Repo.update() do
+    trimmed = String.trim(name)
+
+    changeset =
+      user
+      |> User.name_changeset(trimmed)
+      |> Ecto.Changeset.change(first_name: trimmed, last_name: nil)
+
+    case Repo.update(changeset) do
       {:ok, _updated} = ok ->
         # Local/single-tenant: signup name doubles as MCP agent identity
         # (same idea as acs_dev_ developer_name in prod).
-        _ = Acs.Org.set_developer_name(name)
+        _ = Acs.Org.set_developer_name(trimmed)
         ok
 
       error ->

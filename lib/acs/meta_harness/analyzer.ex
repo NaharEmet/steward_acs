@@ -45,7 +45,7 @@ defmodule Acs.MetaHarness.Analyzer do
         timeframe: timeframe,
         start_time: start_time,
         end_time: end_time,
-        source: "postgres"
+        source: if(Acs.MetaHarness.SQL.postgres?(), do: "postgres", else: "sqlite")
       }
     }
 
@@ -247,7 +247,10 @@ defmodule Acs.MetaHarness.Analyzer do
   # ── Error Cluster Analysis ────────────────────────────────────────────────────
 
   defp find_error_clusters(start_time, end_time, min_occurrences) do
-    agents_agg = if postgres?(), do: "string_agg(DISTINCT agent_id, ',')", else: "GROUP_CONCAT(DISTINCT agent_id)"
+    agents_agg =
+      if postgres?(),
+        do: "string_agg(DISTINCT agent_id, ',')",
+        else: "GROUP_CONCAT(DISTINCT agent_id)"
 
     query = """
       SELECT
@@ -267,7 +270,11 @@ defmodule Acs.MetaHarness.Analyzer do
       LIMIT 20
     """
 
-    case run_query(query, [format_datetime(start_time), format_datetime(end_time), min_occurrences]) do
+    case run_query(query, [
+           format_datetime(start_time),
+           format_datetime(end_time),
+           min_occurrences
+         ]) do
       {:ok, results} ->
         Enum.map(results, fn row ->
           %{
@@ -307,7 +314,11 @@ defmodule Acs.MetaHarness.Analyzer do
       LIMIT 30
     """
 
-    case run_query(query, [format_datetime(start_time), format_datetime(end_time), min_occurrences]) do
+    case run_query(query, [
+           format_datetime(start_time),
+           format_datetime(end_time),
+           min_occurrences
+         ]) do
       {:ok, results} ->
         Enum.map(results, fn row ->
           %{
@@ -348,6 +359,7 @@ defmodule Acs.MetaHarness.Analyzer do
         COUNT(*) as total_operations,
         SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success_count,
         SUM(CASE WHEN status IN ('failure', 'error') THEN 1 ELSE 0 END) as failure_count,
+        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as error_count,
         SUM(CASE WHEN status = 'discovery' THEN 1 ELSE 0 END) as discovery_count,
         COUNT(DISTINCT tool_name) as unique_tools_used,
         AVG(latency_ms) as avg_latency,

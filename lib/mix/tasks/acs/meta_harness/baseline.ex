@@ -63,18 +63,20 @@ defmodule Mix.Tasks.Acs.MetaHarness.Baseline do
     SELECT tool_name, error_type, COUNT(*) as count
     FROM acs_tool_operations
     WHERE status IN ('failure', 'error')
-      AND created_at >= datetime('now', '-1 day')
+      AND created_at >= ?1
     GROUP BY tool_name, error_type
     ORDER BY count DESC
     LIMIT 20
     """
 
-    query_sql(sql)
+    cutoff = DateTime.add(DateTime.utc_now(), -1, :day)
+    query_sql(sql, [cutoff])
   end
 
-  defp query_sql(sql) do
+  defp query_sql(sql, params) do
     try do
-      {:ok, result} = Ecto.Adapters.SQL.query(Acs.Repo, sql, [], log: false)
+      {:ok, result} =
+        Ecto.Adapters.SQL.query(Acs.Repo, Acs.MetaHarness.SQL.adapt(sql), params, log: false)
 
       rows =
         Enum.map(result.rows, fn row ->

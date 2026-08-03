@@ -30,6 +30,7 @@ defmodule Mix.Tasks.Acs.MetaHarness.Report do
 
     timeframe =
       case opts[:timeframe] do
+        "7d" -> :last_7_days
         "30d" -> :last_30_days
         _ -> :last_24_hours
       end

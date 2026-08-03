@@ -22,14 +22,16 @@ defmodule Mix.Tasks.Acs.MetaHarness.Cleanup do
   defp delete_old_records do
     if Code.ensure_loaded?(Acs.Repo) and function_exported?(Acs.Repo, :transaction, 1) do
       try do
+        cutoff = DateTime.add(DateTime.utc_now(), -@retention_days, :day)
+
         result =
           Ecto.Adapters.SQL.query(
             Acs.Repo,
-            """
+            Acs.MetaHarness.SQL.adapt("""
               DELETE FROM acs_tool_operations 
-              WHERE created_at < datetime('now', '-#{@retention_days} days')
-            """,
-            []
+              WHERE created_at < ?1
+            """),
+            [cutoff]
           )
 
         result.num_rows

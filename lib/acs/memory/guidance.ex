@@ -74,6 +74,20 @@ defmodule Acs.Memory.Guidance do
   Before release_work: pick one — skill_save (how-to) | specs_propose document_type+content (long doc) | specs_propose purpose/invariants (code spec) | save_memory (short truth). Then release_work → submit_task_feedback last. Feedback is a system review: (1) report stale/noisy memories/specs, (2) suggest improvements, (3) flag missing guidance.
   """
 
+  @coding_store_choice """
+  When a task is done, save to the store the first trigger that applies:
+  1. Worked out a plan with the user (implementation, improvement, migration, remediation) → specs_propose a document under documents/plans/<slug>.
+  2. Changed a code module's intent/contract → specs_propose a spec (purpose/invariants/workflows). Check query_specs(undocumented: true) first.
+  3. Followed a repeatable multi-step procedure (deploy, secrets rotation, ingest, debug playbook, review) → skill_save.
+  4. Produced a long shareable artifact (policy, brief, research, marketing) → specs_propose a document.
+  5. Discovered a short eternal truth → save_memory.
+  6. Otherwise → save nothing; do not force a save.
+  """
+
+  @coding_save_plan """
+  If you and the user worked out a plan this session (implementation, improvement, migration, remediation), save it via specs_propose (document_type, title, content) under documents/plans/<kebab-slug> before release_work.
+  """
+
   @coding_maintenance """
   Outdated? set_memory_status(id, "stale", notes) → save_memory corrected version → specs_propose for outdated specs/documents.
   """
@@ -165,6 +179,9 @@ defmodule Acs.Memory.Guidance do
   ## Options
   - `tier`: `:full` (default) | `:claim`
   - `mode`: `:mcp` / `:coding` | `:knowledge` / `:chat`
+  - `skip_scope_context`: when `true`, skips the ClaimContext.for_scope
+    enrichment (relevant_skills/relevant_specs). Used by `for_task/2`,
+    which already fetches claim context and overwrites those fields.
   """
   def generate(scope_path, opts \\ []) do
     tier = Keyword.get(opts, :tier, :full)
@@ -217,7 +234,11 @@ defmodule Acs.Memory.Guidance do
         :coding -> build_coding_packet(scope_path, sorted, tool_guidance, tier)
       end
 
-    merge_scope_context(packet, scope_path)
+    if Keyword.get(opts, :skip_scope_context, false) do
+      packet
+    else
+      merge_scope_context(packet, scope_path)
+    end
   end
 
   @doc """
@@ -265,7 +286,7 @@ defmodule Acs.Memory.Guidance do
               else: o
           end)
 
-        guidance = generate(scope_path, Keyword.merge([tier: tier, mode: mode], abac_opts))
+        guidance = generate(scope_path, Keyword.merge([tier: tier, mode: mode, skip_scope_context: true], abac_opts))
         claim_context = Acs.ClaimContext.for_task(task_map)
         title = (task_map[:title] || "") |> String.downcase()
 
@@ -274,6 +295,7 @@ defmodule Acs.Memory.Guidance do
         |> Map.put(:relevant_skills, claim_context.relevant_skills)
         |> Map.put(:relevant_specs, claim_context.relevant_specs)
         |> maybe_put_coding_finish(audience, tier)
+        |> maybe_put_missing_spec_nudge()
     end
   end
 
@@ -316,6 +338,8 @@ defmodule Acs.Memory.Guidance do
       org_knowledge_conventions: @coding_conventions,
       specs_instructions: specs_instructions_for_tier(:claim),
       skills_instructions: skills_instructions_for_tier(:claim),
+      store_choice: @coding_store_choice,
+      save_plan: @coding_save_plan,
       relevant_skills: [],
       relevant_specs: [],
       # aliases kept for older callers / tests
@@ -350,6 +374,8 @@ defmodule Acs.Memory.Guidance do
       org_knowledge_conventions: @coding_conventions,
       specs_instructions: specs_instructions_for_tier(:full),
       skills_instructions: skills_instructions_for_tier(:full),
+      store_choice: @coding_store_choice,
+      save_plan: @coding_save_plan,
       relevant_skills: [],
       relevant_specs: [],
       workflow_basics: @coding_workflow,
@@ -418,6 +444,29 @@ defmodule Acs.Memory.Guidance do
   end
 
   defp maybe_put_coding_finish(packet, :chat, _tier), do: packet
+
+  defp maybe_put_missing_spec_nudge(%{audience: :coding} = packet) do
+    missing =
+      (packet[:relevant_specs] || [])
+      |> Enum.filter(fn s -> (s[:status] || s["status"]) == "missing" end)
+      |> Enum.map(fn s -> s[:path] || s["path"] end)
+      |> Enum.reject(&is_nil/1)
+
+    case missing do
+      [] ->
+        packet
+
+      paths ->
+        nudge =
+          "Modules you'll touch have no spec: " <>
+            Enum.join(paths, ", ") <>
+            ". If you change them, propose a spec (specs_propose purpose/invariants/workflows) before release_work."
+
+        Map.put(packet, :missing_spec_nudge, nudge)
+    end
+  end
+
+  defp maybe_put_missing_spec_nudge(packet), do: packet
 
   defp extract_axioms(memories, opts \\ []) do
     min_importance = Keyword.get(opts, :min_importance, 1)
@@ -730,6 +779,7 @@ defmodule Acs.Memory.Guidance do
     |> Map.put(:relevant_skills, ctx.relevant_skills)
     |> Map.put(:relevant_specs, ctx.relevant_specs)
     |> Map.put(:skills_finish_protocol, @coding_finish)
+    |> maybe_put_missing_spec_nudge()
   end
 
   def specs_instructions_for_tier(:claim) do
