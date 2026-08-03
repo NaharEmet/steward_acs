@@ -31,6 +31,33 @@ defmodule Acs.AuthorityLevelsTest do
     refute AuthorityLevels.can_read?(nil, 1)
   end
 
+  # Full high(1)/elevated(2)/standard(3) matrix — read = own+lower; edit = strictly lower.
+  test "can_read?/can_edit? matrix across default hierarchy levels" do
+    for viewer <- 1..3, memory <- 1..3 do
+      assert AuthorityLevels.can_read?(viewer, memory) == memory >= viewer
+      assert AuthorityLevels.can_edit?(viewer, memory) == memory > viewer
+    end
+  end
+
+  test "authority levels are isolated per org" do
+    org_a = "auth-iso-a-#{System.unique_integer([:positive])}"
+    org_b = "auth-iso-b-#{System.unique_integer([:positive])}"
+
+    AuthorityLevels.list(org_a)
+    AuthorityLevels.list(org_b)
+
+    assert {:ok, _} =
+             AuthorityLevels.upsert(org_a, %{
+               "label" => "Board",
+               "slug" => "board",
+               "sort_order" => 4
+             })
+
+    assert AuthorityLevels.resolve(org_a, "board")
+    refute AuthorityLevels.resolve(org_b, "board")
+    assert Enum.map(AuthorityLevels.list(org_b), & &1.slug) == ["high", "elevated", "standard"]
+  end
+
   test "viewer_sort_order never crashes on missing org context", %{org: org} do
     AuthorityLevels.list(org)
 

@@ -39,6 +39,57 @@ defmodule Acs.Memory.IndexerAuthorityTest do
     refute "high-secret" in titles_nil
   end
 
+  test "indexer enforces full high/elevated/standard read matrix", %{org: org} do
+    insert!(org, "mem-high", 1)
+    insert!(org, "mem-elevated", 2)
+    insert!(org, "mem-standard", 3)
+    insert!(org, "mem-unranked", nil)
+
+    expected = %{
+      1 => ["mem-high", "mem-elevated", "mem-standard", "mem-unranked"],
+      2 => ["mem-elevated", "mem-standard", "mem-unranked"],
+      3 => ["mem-standard", "mem-unranked"]
+    }
+
+    for {viewer_order, visible} <- expected do
+      titles =
+        Indexer.list_memories(
+          org: org,
+          status: "approved",
+          authority_sort_order: viewer_order,
+          agent_role: "collaborator",
+          agent_id: "viewer-#{viewer_order}@acme.com"
+        )
+        |> Enum.map(& &1.title)
+        |> Enum.filter(&String.starts_with?(&1, "mem-"))
+        |> Enum.sort()
+
+      assert titles == Enum.sort(visible),
+             "viewer order #{viewer_order} saw #{inspect(titles)}, expected #{inspect(visible)}"
+    end
+  end
+
+  test "ranked memories do not leak across orgs", %{org: org} do
+    other = "idx-auth-other-#{System.unique_integer([:positive])}"
+    AuthorityLevels.ensure_defaults!(other)
+
+    insert!(org, "org-a-high", 1)
+    insert!(other, "org-b-high", 1)
+
+    titles =
+      Indexer.list_memories(
+        org: org,
+        status: "approved",
+        authority_sort_order: 1,
+        agent_role: "collaborator",
+        agent_id: "exec@acme.com"
+      )
+      |> Enum.map(& &1.title)
+
+    assert "org-a-high" in titles
+    refute "org-b-high" in titles
+  end
+
   test "personal high-ranked memory remains visible to its owner", %{org: org} do
     insert!(org, "mine-personal", 1, visibility: "personal", created_by_agent: "owner@acme.com")
 
