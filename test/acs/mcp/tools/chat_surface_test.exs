@@ -9,6 +9,7 @@ defmodule Acs.MCP.Tools.ChatSurfaceTest do
     assert ChatSurface.routed_tool("steward_ask", %{"content_query" => "pricing"}) == "ask"
     assert ChatSurface.routed_tool("steward_ask", %{"action" => "search"}) == "ask"
     assert ChatSurface.routed_tool("steward_ask", %{"action" => "skill"}) == "skill_get"
+    assert ChatSurface.routed_tool("steward_ask", %{"action" => "document"}) == "specs_get"
 
     assert ChatSurface.routed_tool("steward_ask", %{"action" => "person_status"}) ==
              "get_person_status"
@@ -81,12 +82,29 @@ defmodule Acs.MCP.Tools.ChatSurfaceTest do
                params: %{search: "deploy"}
              })
 
+    assert %{tool: "steward_ask", params: %{action: "document", app: "steward_acs", path: "documents/reference/x"}} =
+             ChatSurface.consolidate_step(%{
+               tool: "specs_get",
+               prompt: "Load document",
+               params: %{app: "steward_acs", path: "documents/reference/x"}
+             })
+
     assert %{tool: "steward_write", params: %{kind: "memory", memory_kind: "learning"}} =
              ChatSurface.consolidate_step(%{
                tool: "save_memory",
                prompt: "Save it",
                params: %{kind: "learning"}
              })
+  end
+
+  test "steward_ask schema includes document fetch branch" do
+    ask = Enum.find(ChatSurface.tool_defs(), &(&1["name"] == "steward_ask"))
+    branches = ask["inputSchema"]["oneOf"]
+
+    assert Enum.any?(branches, fn b ->
+             get_in(b, ["properties", "action", "enum"]) == ["document"] and
+               "app" in b["required"] and "path" in b["required"]
+           end)
   end
 
   test "tool schemas are three discriminated unions" do

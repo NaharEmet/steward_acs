@@ -32,17 +32,30 @@ defmodule Acs.ClaimContext do
   Returns skills and specs relevant to a scope path (e.g. from generate_guidance_packet).
   """
   def for_scope(scope_path) when is_binary(scope_path) do
-    %{
-      relevant_skills: skills_for_scope(scope_path),
-      relevant_specs: specs_for_scope(scope_path)
-    }
+    scope = String.trim(scope_path)
+
+    if scope == "" do
+      %{relevant_skills: global_skills(), relevant_specs: []}
+    else
+      %{
+        relevant_skills: skills_for_scope(scope_path),
+        relevant_specs: specs_for_scope(scope_path)
+      }
+    end
   end
 
-  def for_scope(_), do: %{relevant_skills: [], relevant_specs: []}
+  def for_scope(_), do: %{relevant_skills: global_skills(), relevant_specs: []}
 
   @doc "Skills tagged or scoped to this path."
   def skills_for_scope(scope_path) do
     Store.search_skills(scope_path)
+    |> Enum.take(@max_skills)
+    |> Enum.map(&skill_summary/1)
+  end
+
+  @doc "Org-wide top skills (no scope constraint)."
+  def global_skills do
+    Store.list_skills()
     |> Enum.take(@max_skills)
     |> Enum.map(&skill_summary/1)
   end
@@ -91,7 +104,7 @@ defmodule Acs.ClaimContext do
   end
 
   defp relevant_skills("") do
-    Store.list_skills() |> Enum.take(@max_skills)
+    global_skills()
   end
 
   defp relevant_skills(query) do
@@ -184,5 +197,4 @@ defmodule Acs.ClaimContext do
       status: "chunk"
     }
   end
-
 end

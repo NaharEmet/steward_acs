@@ -106,6 +106,18 @@ defmodule Acs.Memory.Guidance do
   End of task pick one primary store (how-to / long doc / code spec / short truth).
   """
 
+  @scope_hint """
+  No scope_path was provided, so relevant_skills/relevant_specs only show org-wide top skills.
+  For scope-relevant skills, specs, and knowledge, request guidance for a specific scope:
+  pass scope_path when claiming work, or re-fetch guidance with scope_path: "org/domain/topic"
+  (or a code path like "lib/acs/memory").
+  """
+
+  @scope_hint_chat """
+  No scope was provided, so this packet only shows org-wide top skills.
+  For scope-relevant skills, specs, and knowledge, ask again with a scope such as "org/domain/topic".
+  """
+
   @specs_instructions_short """
   specs_propose: code SPEC (purpose/invariants) when module intent changed; DOCUMENT (document_type+title+content) for policy/brief/research/marketing. Not truths or how-tos. query_specs finds both.
   """
@@ -129,7 +141,9 @@ defmodule Acs.Memory.Guidance do
   # ── Chat packet copy ────────────────────────────────────────────────
 
   @chat_workflow """
-  Retrieve with steward_ask(action:"search"); load procedures with action:"skill". Optionally use steward_work(action:"create", claim:true) for tracked work.
+  Retrieve with steward_ask(action:"search"); load procedures with action:"skill"; load document bodies with action:"document" (app + path from search).
+  Documents: inline for 1–2 small hits; otherwise excerpts + fetch. Skills: never inlined — always fetch with action:"skill" when a listed skill fits the task. Never claim titles-only means content is unavailable.
+  Follow surfaced process docs/skills (e.g. ask clarifying questions before filing tickets). Optionally use steward_work(action:"create", claim:true) for tracked work.
   Answer from ACS; if nothing matches, say so. Save truths/documents/skills and status changes with the matching steward_write kind.
   Feedback is steward_write(kind:"feedback"): report stale/wrong knowledge, improvements, and information gaps. task_id is optional for standalone feedback.
   """
@@ -157,6 +171,7 @@ defmodule Acs.Memory.Guidance do
   - steward_write kind=document — policies, briefs, marketing
   - steward_write kind=skill — step-by-step playbooks
   Chat tools are exactly steward_ask, steward_write, steward_work; all are always loaded and called by name. Never use tool_search.
+  After search: steward_ask(action:"document", app, path) for document bodies; action:"skill" is **required** when a listed skill fits the task (skills are never fully inlined).
   Ingest: steward_ask(action:\"skill\", name:\"ingest-document\") before saving a pasted/uploaded document.
   """
 
@@ -286,7 +301,12 @@ defmodule Acs.Memory.Guidance do
               else: o
           end)
 
-        guidance = generate(scope_path, Keyword.merge([tier: tier, mode: mode, skip_scope_context: true], abac_opts))
+        guidance =
+          generate(
+            scope_path,
+            Keyword.merge([tier: tier, mode: mode, skip_scope_context: true], abac_opts)
+          )
+
         claim_context = Acs.ClaimContext.for_task(task_map)
         title = (task_map[:title] || "") |> String.downcase()
 
@@ -762,7 +782,25 @@ defmodule Acs.Memory.Guidance do
     String.slice(merged, 0, @knowledge_max_chars)
   end
 
-  defp merge_scope_context(packet, scope_path) when scope_path in [nil, ""], do: packet
+  defp merge_scope_context(%{audience: :chat} = packet, scope_path)
+       when scope_path in [nil, ""] do
+    ctx = Acs.ClaimContext.for_scope(scope_path)
+
+    packet
+    |> Map.put(:relevant_skills, ctx.relevant_skills)
+    |> Map.put(:relevant_specs, ctx.relevant_specs)
+    |> Map.put(:scope_hint, @scope_hint_chat)
+  end
+
+  defp merge_scope_context(packet, scope_path) when scope_path in [nil, ""] do
+    ctx = Acs.ClaimContext.for_scope(scope_path)
+
+    packet
+    |> Map.put(:relevant_skills, ctx.relevant_skills)
+    |> Map.put(:relevant_specs, ctx.relevant_specs)
+    |> Map.put(:scope_hint, @scope_hint)
+    |> maybe_put_missing_spec_nudge()
+  end
 
   defp merge_scope_context(%{audience: :chat} = packet, scope_path) do
     ctx = Acs.ClaimContext.for_scope(scope_path)

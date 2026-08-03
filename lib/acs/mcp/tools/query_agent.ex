@@ -7,6 +7,13 @@ defmodule Acs.MCP.Tools.QueryAgent do
   the client AI translates the human's natural language into these
   structured parameters.
 
+  Documents: when search returns 1–2 hits each under ~5k tokens, the full body
+  is inlined. Otherwise each hit includes a short excerpt plus a ready-to-run
+  fetch call (`steward_ask` action `document`).
+
+  Skills: never inlined in search — always excerpts plus a fetch call
+  (`steward_ask` action `skill`). Agents must load matching skills before acting.
+
   ## Parameters
 
   - `kind` — memory kind filter (context, status, work_note, activity, ...)
@@ -30,6 +37,11 @@ defmodule Acs.MCP.Tools.QueryAgent do
   @default_limit 10
   @max_limit 50
   @default_skill_min_score 0.45
+  # ponytail: ~4 chars/token; upgrade if we adopt a real tokenizer
+  @max_inline_tokens 5_000
+  @max_inline_hits 2
+  @chars_per_token 4
+  @excerpt_chars 400
 
   @doc """
   Executes an `ask` query against memories, documents, skills, and agent status.
@@ -284,6 +296,16 @@ defmodule Acs.MCP.Tools.QueryAgent do
     }
   end
 
+  # Test seam for inline/catalog formatting.
+  @doc false
+  def render_documents(docs), do: format_documents_section(docs)
+
+  @doc false
+  def render_skills(skills), do: format_skills_section(skills)
+
+  @doc false
+  def under_inline_token_limit?(text), do: under_token_limit?(text)
+
   defp format_memories_section([]), do: nil
   defp format_memories_section(nil), do: nil
 
@@ -297,11 +319,19 @@ defmodule Acs.MCP.Tools.QueryAgent do
         kind = if is_struct(m, Acs.Memory.Schema), do: m.kind, else: Map.get(m, :kind)
         status = if is_struct(m, Acs.Memory.Schema), do: m.status, else: Map.get(m, :status)
         team_tag = if is_struct(m, Acs.Memory.Schema), do: m.team, else: Map.get(m, :team)
+        content = if is_struct(m, Acs.Memory.Schema), do: m.content, else: Map.get(m, :content)
 
         meta = [kind, status]
         meta = if team_tag, do: meta ++ ["team:#{team_tag}"], else: meta
 
-        "- **#{title}** (`#{Enum.join(meta, ", ")}`) — #{id}"
+        body =
+          if is_binary(content) and content != "" do
+            "\n  #{String.replace(content, "\n", "\n  ")}"
+          else
+            ""
+          end
+
+        "- **#{title}** (`#{Enum.join(meta, ", ")}`) — #{id}#{body}"
       end)
 
     "## Memories (#{length(mems)})\n\n#{Enum.join(items, "\n")}"
@@ -311,45 +341,228 @@ defmodule Acs.MCP.Tools.QueryAgent do
   defp format_documents_section(nil), do: nil
 
   defp format_documents_section(docs) do
-    items =
+    resolved =
       docs
       |> Enum.take(@max_limit)
-      |> Enum.map(fn d ->
-        title = if is_struct(d, Acs.Specs.Entry), do: d.title, else: Map.get(d, :title)
+      |> Enum.map(&normalize_doc/1)
+      |> Enum.reject(&is_nil/1)
+      |> dedupe_docs()
+      |> Enum.map(&resolve_full_document/1)
 
-        doc_type =
-          if is_struct(d, Acs.Specs.Entry), do: d.document_type, else: Map.get(d, :document_type)
+    if inline_bodies?(Enum.map(resolved, & &1.body)) do
+      items =
+        Enum.map(resolved, fn d ->
+          title = d.title || d.path || "document"
+          type_str = d.document_type || "document"
 
-        app = if is_struct(d, Acs.Specs.Entry), do: d.app, else: Map.get(d, :app)
-        id = if is_struct(d, Acs.Specs.Entry), do: d.id, else: Map.get(d, :id)
+          """
+          ### #{title} (`#{type_str}` · `#{d.app}/#{d.path}`)
 
-        type_str = if doc_type, do: doc_type, else: "spec"
-        app_str = if app, do: " (#{app})", else: ""
+          #{d.body}
+          """
+        end)
 
-        "- **#{title}** (`#{type_str}#{app_str}`) — #{id}"
-      end)
+      "## Documents (#{length(resolved)}) — full content\n\n#{Enum.join(items, "\n")}"
+    else
+      items =
+        Enum.map(resolved, fn d ->
+          title = d.title || d.path || "document"
+          type_str = d.document_type || "document"
+          excerpt = excerpt(d.body)
+          fetch = "steward_ask(action:\"document\", app:\"#{d.app}\", path:\"#{d.path}\")"
 
-    "## Documents (#{length(docs)})\n\n#{Enum.join(items, "\n")}"
+          """
+          - **#{title}** (`#{type_str}`) — `#{d.app}/#{d.path}`
+            Excerpt: #{excerpt}
+            Full: `#{fetch}` (coding: `specs_get(app:, path:)`)
+          """
+        end)
+
+      hint =
+        "Excerpts only — not full bodies. If a hit is relevant, **fetch the full document** " <>
+          "with the `steward_ask(action:\"document\", ...)` call above before acting. " <>
+          "Never assume Steward cannot return document content."
+
+      "## Documents (#{length(resolved)}) — excerpts\n\n#{Enum.join(items, "\n")}\n#{hint}"
+    end
   end
 
   defp format_skills_section([]), do: nil
   defp format_skills_section(nil), do: nil
 
+  # Skills are never inlined — agents must steward_ask(action:"skill") to load them.
   defp format_skills_section(skills) do
+    skills
+    |> Enum.take(@max_limit)
+    |> Enum.map(&with_skill_body/1)
+    |> format_skills_catalog()
+  end
+
+  defp format_skills_catalog(skills) do
     items =
-      skills
-      |> Enum.take(@max_limit)
-      |> Enum.map(fn s ->
-        name = s[:name] || s["name"]
-        desc = s[:description] || s["description"] || ""
-        tags = s[:tags] || s["tags"] || []
+      Enum.map(skills, fn s ->
+        name = s[:name] || s["name"] || Map.get(s, :name)
+        desc = s[:description] || s["description"] || Map.get(s, :description) || ""
+        when_to = s[:when_to_use] || s["when_to_use"] || Map.get(s, :when_to_use) || ""
+        tags = s[:tags] || s["tags"] || Map.get(s, :tags) || []
+        body = s[:body] || Map.get(s, :body) || ""
         tag_str = if tags == [], do: "", else: " [#{Enum.join(tags, ", ")}]"
-        desc_str = if desc == "" or is_nil(desc), do: "", else: " — #{desc}"
-        "- **#{name}**#{tag_str}#{desc_str}"
+        excerpt_src = if is_binary(body) and body != "", do: body, else: desc
+        excerpt = excerpt(excerpt_src)
+        fetch = "steward_ask(action:\"skill\", name:\"#{name}\")"
+
+        when_line =
+          if is_binary(when_to) and when_to != "" do
+            "\n          When to use: #{when_to}"
+          else
+            ""
+          end
+
+        """
+        - **#{name}**#{tag_str}#{when_line}
+          Excerpt: #{excerpt}
+          Full: `#{fetch}` (coding: `skill_get(name:)`) — **required before following this procedure**
+        """
       end)
 
-    "## Related Skills (#{length(skills)})\n\n#{Enum.join(items, "\n")}\n\nUse `skill_get(name:)` to load a procedure."
+    hint =
+      "Skills are never fully inlined in search. If any skill fits what you are about to do, " <>
+        "**you must fetch it** with `steward_ask(action:\"skill\", name:)` (or `search:`) and follow it. " <>
+        "Do not improvise a procedure when a matching skill is listed."
+
+    "## Related Skills (#{length(skills)}) — excerpts (fetch required)\n\n#{Enum.join(items, "\n")}\n#{hint}"
   end
+
+  defp excerpt(nil), do: "(no excerpt)"
+  defp excerpt(""), do: "(no excerpt)"
+
+  defp excerpt(text) when is_binary(text) do
+    collapsed = text |> String.replace(~r/\s+/, " ") |> String.trim()
+
+    if String.length(collapsed) <= @excerpt_chars do
+      collapsed
+    else
+      String.slice(collapsed, 0, @excerpt_chars) <> "…"
+    end
+  end
+
+  defp excerpt(_), do: "(no excerpt)"
+
+  defp normalize_doc(%Acs.Specs.Entry{} = e) do
+    %{
+      app: e.app,
+      path: e.id,
+      title: e.title,
+      document_type: e.document_type || "spec",
+      body: entry_body(e),
+      chunk?: false
+    }
+  end
+
+  defp normalize_doc(%{__rag_chunk: true} = c) do
+    app = Map.get(c, :app)
+    path = Map.get(c, :path)
+
+    if is_binary(app) and is_binary(path) do
+      %{
+        app: app,
+        path: path,
+        title: nil,
+        document_type: "chunk",
+        body: Map.get(c, :content) || "",
+        chunk?: true
+      }
+    end
+  end
+
+  defp normalize_doc(map) when is_map(map) do
+    app = Map.get(map, :app) || Map.get(map, "app")
+    path = Map.get(map, :path) || Map.get(map, "path") || Map.get(map, :id) || Map.get(map, "id")
+
+    if is_binary(app) and is_binary(path) do
+      %{
+        app: app,
+        path: path,
+        title: Map.get(map, :title) || Map.get(map, "title"),
+        document_type: Map.get(map, :document_type) || Map.get(map, "document_type") || "document",
+        body:
+          Map.get(map, :content) || Map.get(map, "content") || Map.get(map, :purpose) ||
+            Map.get(map, "purpose") || "",
+        chunk?: false
+      }
+    end
+  end
+
+  defp normalize_doc(_), do: nil
+
+  defp dedupe_docs(docs) do
+    docs
+    |> Enum.reduce({[], MapSet.new()}, fn d, {acc, seen} ->
+      key = "#{d.app}/#{d.path}"
+
+      if MapSet.member?(seen, key) do
+        {acc, seen}
+      else
+        {acc ++ [d], MapSet.put(seen, key)}
+      end
+    end)
+    |> elem(0)
+  end
+
+  defp resolve_full_document(%{chunk?: true, app: app, path: path} = doc)
+       when is_binary(app) and is_binary(path) do
+    case Acs.Specs.Loader.load(app, path) do
+      {:ok, entry} ->
+        %{
+          doc
+          | body: entry_body(entry),
+            title: entry.title || doc.title,
+            document_type: entry.document_type || doc.document_type,
+            chunk?: false
+        }
+
+      _ ->
+        doc
+    end
+  end
+
+  defp resolve_full_document(doc), do: doc
+
+  defp entry_body(%Acs.Specs.Entry{content: c}) when is_binary(c) and c != "", do: c
+  defp entry_body(%Acs.Specs.Entry{purpose: p}) when is_binary(p) and p != "", do: p
+  defp entry_body(_), do: ""
+
+  defp with_skill_body(s) do
+    name = s[:name] || s["name"]
+    desc = s[:description] || s["description"]
+    tags = s[:tags] || s["tags"] || []
+    when_to = s[:when_to_use] || s["when_to_use"]
+
+    case Store.get_skill(name) do
+      nil ->
+        %{name: name, description: desc, tags: tags, when_to_use: when_to, body: ""}
+
+      skill ->
+        %{
+          name: skill.name,
+          description: skill.description || desc,
+          tags: skill.tags || tags,
+          when_to_use: Map.get(skill, :when_to_use) || Map.get(skill, "when_to_use") || when_to,
+          body: skill.content || ""
+        }
+    end
+  end
+
+  defp inline_bodies?(bodies) when is_list(bodies) do
+    length(bodies) in 1..@max_inline_hits and
+      Enum.all?(bodies, fn body -> is_binary(body) and body != "" and under_token_limit?(body) end)
+  end
+
+  defp under_token_limit?(text) when is_binary(text) do
+    div(String.length(text) + @chars_per_token - 1, @chars_per_token) <= @max_inline_tokens
+  end
+
+  defp under_token_limit?(_), do: false
 
   defp format_status_section([]), do: nil
   defp format_status_section(nil), do: nil

@@ -2,7 +2,7 @@ The chat connector exposes exactly three always-loaded tools. Call them directly
 
 | Tool | Discriminator | Use for |
 |------|---------------|---------|
-| `steward_ask` | `action`: `start`, `search`, `skill`, `person_status`, `present_status`, `list_tasks` | Bootstrap and retrieve |
+| `steward_ask` | `action`: `start`, `search`, `skill`, `document`, `person_status`, `present_status`, `list_tasks` | Bootstrap and retrieve |
 | `steward_write` | `kind`: `memory`, `document`, `skill`, `memory_status`, `person_status`, `feedback` | Persist knowledge, update status, send feedback |
 | `steward_work` | `action`: `create`, `claim`, `release`, `resolve_reminder` | Timed reminders and tracked coordination |
 
@@ -10,14 +10,18 @@ The chat connector exposes exactly three always-loaded tools. Call them directly
 
 1. Call `steward_ask()` with no arguments (or `action: "start"`). It returns `connected_user`, identity guidance, and due `pending_reminders`. Omit `agent_id` later; never invent a nickname.
 2. If reminders are pending, briefly surface them. Use `steward_work(action: "resolve_reminder", task_id:, outcome:)`; `remind_later` also requires a user-provided `remind_at`.
-3. Before answering substantive questions, retrieve with `steward_ask(action: "search", content_query: "...")` and/or load a procedure with `steward_ask(action: "skill", search: "...")`. Include `connected_user` in searches for that person's context.
-4. Answer from Steward results. If nothing relevant is returned, say so; never invent organization policy.
-5. Save durable results before ending the turn when appropriate:
+3. Before answering substantive questions **or taking actions** (filing tickets, changing process, etc.), retrieve with `steward_ask(action: "search", content_query: "...")` and/or load a procedure with `steward_ask(action: "skill", search: "...")`. Include `connected_user` in searches for that person's context.
+4. **Read bodies before acting.**
+   - **Documents:** Search inlines full content for 1–2 hits under ~5k tokens. More hits return **excerpts** plus a ready-to-run `steward_ask(action: "document", app:, path:)` — fetch before relying on them.
+   - **Skills:** Search **never** inlines full skills — only excerpts + fetch calls. If a listed skill fits what you are about to do, you **must** call `steward_ask(action: "skill", name:)` (or `search:`) and follow it. Do not improvise when a matching skill is listed.
+   Never claim Steward only returns titles. Never skip process docs/skills that search surfaced (e.g. Linear/Scrum PM guidance that requires clarifying questions before filing tickets).
+5. Answer from Steward results. If nothing relevant is returned, say so; never invent organization policy.
+6. Save durable results before ending the turn when appropriate:
    - `steward_write(kind: "memory", memory_kind:, title:, content:, scope_path:)` for short eternal truths.
    - `steward_write(kind: "document", app:, path:, document_type:, title:, content:)` for long artifacts.
    - `steward_write(kind: "skill", name:, content:)` for reusable step-by-step procedures.
-6. Timed reminders use `steward_work(action: "create", kind: "user", title:, due_at:, remind_at:)`. Never invent times and do not claim/lock reminders.
-7. Multi-step tracked work uses `steward_work(action: "create", title:, claim: true)` → work/save → `steward_work(action: "release", task_id:)` → `steward_write(kind: "feedback", task_id:, learned_for_agents:)` last.
+7. Timed reminders use `steward_work(action: "create", kind: "user", title:, due_at:, remind_at:)`. Never invent times and do not claim/lock reminders.
+8. Multi-step tracked work uses `steward_work(action: "create", title:, claim: true)` → work/save → `steward_work(action: "release", task_id:)` → `steward_write(kind: "feedback", task_id:, learned_for_agents:)` last.
 
 Only use `steward_ask(action: "list_tasks", ...)` when the user explicitly asks to see tasks. Pending reminders are already returned by the startup call. `present_status` is optional and is not needed to discover identity.
 

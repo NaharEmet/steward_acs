@@ -471,7 +471,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
       general:
         "ACS chat has exactly three always-loaded tools: steward_ask (bootstrap/retrieve), steward_write (persist/status/feedback), and steward_work (reminders/coordination). Never use tool_search.",
       get_started:
-        "1) steward_ask(action:\"search\", content_query:) and/or action:\"skill\"  2) answer from ACS  3) steward_write as needed  4) reminders/coordination via steward_work.#{reminder_step}",
+        "1) steward_ask(action:\"search\", content_query:) and/or action:\"skill\" / action:\"document\"  2) read bodies before acting  3) steward_write as needed  4) reminders/coordination via steward_work.#{reminder_step}",
       agent_identity: identity_line,
       org_knowledge_conventions:
         "Business scopes use org/domain/topic. steward_write kind=memory stores short truths, kind=document stores long artifacts, kind=skill stores procedures. Save before release; feedback is last for tracked work.",

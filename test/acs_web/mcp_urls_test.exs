@@ -44,6 +44,10 @@ defmodule AcsWeb.McpUrlsTest do
       assert prompt =~ "`steward_ask`"
       assert prompt =~ "`steward_write`"
       assert prompt =~ "`steward_work`"
+      assert prompt =~ "action: \"document\""
+      assert prompt =~ "action: \"skill\""
+      assert prompt =~ "Search **never** inlines full skills"
+      assert prompt =~ "Never claim Steward only returns titles"
       refute prompt =~ "`get_started`"
     end
   end

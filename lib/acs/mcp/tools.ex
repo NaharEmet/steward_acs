@@ -1833,6 +1833,18 @@ defmodule Acs.MCP.Tools do
         else
           [
             %{
+              tool: "specs_get",
+              prompt:
+                "Document listed without body? Load it before acting (chat: steward_ask action=document)",
+              params: %{app: "<app>", path: "<path>"}
+            },
+            %{
+              tool: "skill_get",
+              prompt:
+                "If a listed skill fits the task, you MUST fetch and follow it before acting (chat: steward_ask action=skill)",
+              params: %{name: "<skill-name>"}
+            },
+            %{
               tool: "submit_task_feedback",
               prompt:
                 "Results not quite what you expected? Flag stale or wrong knowledge in feedback",

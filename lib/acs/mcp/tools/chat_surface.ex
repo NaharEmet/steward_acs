@@ -18,6 +18,7 @@ defmodule Acs.MCP.Tools.ChatSurface do
     "get_started" => {"steward_ask", "action", "start"},
     "ask" => {"steward_ask", "action", "search"},
     "skill_get" => {"steward_ask", "action", "skill"},
+    "specs_get" => {"steward_ask", "action", "document"},
     "get_person_status" => {"steward_ask", "action", "person_status"},
     "get_present_status" => {"steward_ask", "action", "present_status"},
     "list_tasks" => {"steward_ask", "action", "list_tasks"},
@@ -121,6 +122,9 @@ defmodule Acs.MCP.Tools.ChatSurface do
       "skill_get" ->
         SkillHandlers.skill_get(drop_discriminator(args, "action"))
 
+      "specs_get" ->
+        Acs.Specs.Tools.call_tool("specs_get", drop_discriminator(args, "action"))
+
       "get_person_status" ->
         PersonHandlers.get_person_status(drop_discriminator(args, "action"))
 
@@ -182,6 +186,7 @@ defmodule Acs.MCP.Tools.ChatSurface do
       "start" -> "get_started"
       "search" -> "ask"
       "skill" -> "skill_get"
+      "document" -> "specs_get"
       "person_status" -> "get_person_status"
       "present_status" -> "get_present_status"
       "list_tasks" -> "list_tasks"
@@ -239,13 +244,14 @@ defmodule Acs.MCP.Tools.ChatSurface do
   def steward_ask_def do
     tool_def(
       "steward_ask",
-      "Bootstrap and retrieve from Steward. Empty call or action=start returns the startup packet. Use action=search for org knowledge, action=skill for procedures, or a focused status/task action.",
+      "Bootstrap and retrieve from Steward. Empty call or action=start returns the startup packet. Use action=search for org knowledge (1–2 small documents may inline; skills always return excerpts — you must action=skill to load a matching procedure). Load procedures with action=skill whenever they fit the task; load document/spec bodies with action=document (app + path). Follow process docs/skills before acting.",
       [
         branch(%{}, []),
         branch(%{"action" => enum("start")}, ["action"]),
         default_search_branch(),
         branch(search_properties(), ["action"]),
         branch(skill_get_properties(), ["action"]),
+        branch(document_get_properties(), ["action", "app", "path"]),
         branch(person_get_properties(), ["action"]),
         branch(present_status_properties(), ["action"]),
         branch(list_tasks_properties(), ["action"])
@@ -337,6 +343,14 @@ defmodule Acs.MCP.Tools.ChatSurface do
       "tag" => string("Skill tag filter"),
       "scope_path" => string("Business or code scope"),
       "mode" => %{"type" => "string", "enum" => ["hybrid", "keyword", "semantic"]}
+    }
+  end
+
+  defp document_get_properties do
+    %{
+      "action" => enum("document"),
+      "app" => string("App from search hit (e.g. steward_acs)"),
+      "path" => string("Document path from search hit")
     }
   end
 
