@@ -30,7 +30,8 @@ defmodule Acs.MetaHarness.RecentOpsTest do
       agent_id: "email|x"
     })
 
-    result = RecentOps.analyze(now - 60_000, now + 60_000, min_sample_size: 1, min_cluster_size: 1)
+    result =
+      RecentOps.analyze(now - 60_000, now + 60_000, min_sample_size: 1, min_cluster_size: 1)
 
     assert map_size(result.tool_reliability) == 1
     assert result.tool_reliability["ask"].total_calls == 2

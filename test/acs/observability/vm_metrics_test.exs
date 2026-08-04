@@ -41,7 +41,10 @@ defmodule Acs.Observability.VmMetricsTest do
 
     {:ok, pid} =
       start_supervised(
-        {VmMetrics, name: :"vm_metrics_test_#{System.unique_integer([:positive])}", interval_ms: 20, exporter: enqueue}
+        {VmMetrics,
+         name: :"vm_metrics_test_#{System.unique_integer([:positive])}",
+         interval_ms: 20,
+         exporter: enqueue}
       )
 
     assert_receive {:vm_metric, event}, 500

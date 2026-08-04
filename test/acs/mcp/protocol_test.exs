@@ -131,8 +131,10 @@ defmodule Acs.MCP.ProtocolTest do
 
       assert instructions =~ ~s(Connected ACS user: "Nahar")
       assert instructions =~ "never invent a nickname"
-      assert instructions =~ "steward_ask(action:\"search\", content_query:)"
-      assert instructions =~ "never use tool_search"
+      assert instructions =~ "org or process knowledge"
+      assert instructions =~ "steward_write"
+      assert instructions =~ "never tool_search"
+      refute instructions =~ "steward_ask(action:\"search\", content_query:)"
     end
 
     test "chat lists only consolidated tools and accepts a hidden legacy alias" do

@@ -67,14 +67,19 @@ defmodule AcsWeb.AcsLive.MembersLive do
   @impl true
   def handle_event("validate-invitation", %{"invitation" => params}, socket) do
     attrs = normalize_invitation_attrs(params)
-    errors = validate_invitation(attrs, allowed_invite_roles(socket), socket.assigns.authority_levels)
+
+    errors =
+      validate_invitation(attrs, allowed_invite_roles(socket), socket.assigns.authority_levels)
+
     {:noreply, assign_invitation_form(socket, attrs, errors)}
   end
 
   def handle_event("invite-member", %{"invitation" => params}, socket) do
     with_admin(socket, fn socket ->
       attrs = normalize_invitation_attrs(params)
-      errors = validate_invitation(attrs, allowed_invite_roles(socket), socket.assigns.authority_levels)
+
+      errors =
+        validate_invitation(attrs, allowed_invite_roles(socket), socket.assigns.authority_levels)
 
       if map_size(errors) > 0 do
         {:noreply, assign_invitation_form(socket, attrs, errors)}
@@ -315,6 +320,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
       normalize_collection(Accounts.list_pending_invitations(socket.assigns.organization))
 
     current_role = current_user_role(socket.assigns.current_user, members)
+
     org_slug =
       case organization_slug(socket.assigns.organization) do
         slug when is_binary(slug) and slug != "" -> slug
@@ -361,8 +367,7 @@ defmodule AcsWeb.AcsLive.MembersLive do
       email: invitation_email(invitation),
       role: invitation_role(invitation),
       authority_level_slug: authority_slug,
-      authority_level_label:
-        authority_label_for(authority_slug, socket.assigns.authority_levels),
+      authority_level_label: authority_label_for(authority_slug, socket.assigns.authority_levels),
       expires_at: field(invitation, :expires_at),
       url: url,
       emailed: emailed?,
@@ -500,22 +505,50 @@ defmodule AcsWeb.AcsLive.MembersLive do
 
   defp context_error_message(reason, action) do
     case reason_code(reason) do
-      :unauthorized -> "Your current role is not allowed to #{action}."
-      :forbidden -> "Your current role is not allowed to #{action}."
-      :not_found -> "The requested member or invitation no longer exists."
-      :already_invited -> "A pending invitation already exists for that email address."
-      :already_member -> "That account already belongs to this organization."
+      :unauthorized ->
+        "Your current role is not allowed to #{action}."
+
+      :forbidden ->
+        "Your current role is not allowed to #{action}."
+
+      :not_found ->
+        "The requested member or invitation no longer exists."
+
+      :already_invited ->
+        "A pending invitation already exists for that email address."
+
+      :already_member ->
+        "That account already belongs to this organization."
+
       :already_in_organization ->
         "That account already belongs to another organization. Send the invitation anyway only if they should leave their current organization."
-      :rate_limited -> "Invitation activity is temporarily limited. Please try again later."
-      :invalid_role -> "That role cannot be assigned by your current account."
-      :invalid_authority_level -> "Choose a valid data authority level for this invitation."
-      :self_role_change -> "You cannot change your own organization role."
-      :self_removal -> "You cannot remove your own account from this screen."
-      :last_owner -> "The last owner cannot be demoted or removed. Assign another owner first."
-      :protected_role -> "Your current role cannot modify that owner or administrator."
-      :email_unverified -> "The target account must have a verified email address."
-      _unknown -> "Steward could not #{action}. Please review the request and try again."
+
+      :rate_limited ->
+        "Invitation activity is temporarily limited. Please try again later."
+
+      :invalid_role ->
+        "That role cannot be assigned by your current account."
+
+      :invalid_authority_level ->
+        "Choose a valid data authority level for this invitation."
+
+      :self_role_change ->
+        "You cannot change your own organization role."
+
+      :self_removal ->
+        "You cannot remove your own account from this screen."
+
+      :last_owner ->
+        "The last owner cannot be demoted or removed. Assign another owner first."
+
+      :protected_role ->
+        "Your current role cannot modify that owner or administrator."
+
+      :email_unverified ->
+        "The target account must have a verified email address."
+
+      _unknown ->
+        "Steward could not #{action}. Please review the request and try again."
     end
   end
 

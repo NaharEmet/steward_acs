@@ -95,7 +95,11 @@ defmodule AcsWeb.AcsLive.SettingsLive do
 
         {:error, :multi_tenant} ->
           {:noreply,
-           put_flash(socket, :error, "Use a developer API key for identity on multi-tenant hosts.")}
+           put_flash(
+             socket,
+             :error,
+             "Use a developer API key for identity on multi-tenant hosts."
+           )}
       end
     else
       {:noreply, put_flash(socket, :error, "Only local admins can set the coding identity.")}

@@ -95,8 +95,14 @@ defmodule Acs.Abac do
     visibility = field(item, "visibility", "org")
 
     cond do
-      visibility == "personal" -> personal_owner?(ctx, item)
-      true -> Acs.AuthorityLevels.can_edit?(resolved_viewer_order(ctx), field(item, "authority_sort_order"))
+      visibility == "personal" ->
+        personal_owner?(ctx, item)
+
+      true ->
+        Acs.AuthorityLevels.can_edit?(
+          resolved_viewer_order(ctx),
+          field(item, "authority_sort_order")
+        )
     end
   end
 
@@ -188,7 +194,8 @@ defmodule Acs.Abac do
   defp validate_visibility_value(visibility) when visibility in @valid_visibilities, do: :ok
 
   defp validate_visibility_value(visibility),
-    do: {:error, "Invalid visibility '#{visibility}'. Must be one of: org, team, project, personal"}
+    do:
+      {:error, "Invalid visibility '#{visibility}'. Must be one of: org, team, project, personal"}
 
   defp validate_scope_fields("team", team, _project) when is_binary(team) and team != "",
     do: :ok

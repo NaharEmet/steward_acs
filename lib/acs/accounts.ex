@@ -712,7 +712,10 @@ defmodule Acs.Accounts do
   def consume_session_handoff(_, _, _), do: {:error, :invalid_handoff}
 
   defp invitation_result({:ok, {invitation, token}}), do: {:ok, invitation, token}
-  defp invitation_result({:ok, {invitation, token, warning}}), do: {:ok, invitation, token, warning}
+
+  defp invitation_result({:ok, {invitation, token, warning}}),
+    do: {:ok, invitation, token, warning}
+
   defp invitation_result({:error, reason}), do: {:error, reason}
 
   defp accept_result({:ok, {user, invitation}}), do: {:ok, user, invitation}

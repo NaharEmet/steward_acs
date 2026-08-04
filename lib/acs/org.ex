@@ -431,19 +431,37 @@ defmodule Acs.Org do
     |> Path.expand()
     |> Path.split()
     |> Enum.reduce_while(nil, fn
-      "/", _ -> {:cont, "/"}
-      segment, nil -> {:cont, segment}
+      "/", _ ->
+        {:cont, "/"}
+
+      segment, nil ->
+        {:cont, segment}
+
       segment, current ->
         candidate = Path.join(current, segment)
-        resolved = case File.lstat(candidate) do
-          {:ok, %File.Stat{type: :symlink}} ->
-            link = File.read_link!(candidate)
-            target = if String.starts_with?(link, "/"), do: link, else: Path.join(Path.dirname(candidate), link)
-            Path.expand(target)
-          {:ok, _} -> candidate
-          {:error, :enoent} -> candidate
-          {:error, _} -> candidate
-        end
+
+        resolved =
+          case File.lstat(candidate) do
+            {:ok, %File.Stat{type: :symlink}} ->
+              link = File.read_link!(candidate)
+
+              target =
+                if String.starts_with?(link, "/"),
+                  do: link,
+                  else: Path.join(Path.dirname(candidate), link)
+
+              Path.expand(target)
+
+            {:ok, _} ->
+              candidate
+
+            {:error, :enoent} ->
+              candidate
+
+            {:error, _} ->
+              candidate
+          end
+
         {:cont, resolved}
     end)
   end

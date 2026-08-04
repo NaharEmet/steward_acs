@@ -128,10 +128,15 @@ defmodule Acs.PersonStatus do
     else
       allowed =
         if is_binary(org),
-          do: AuthorityLevels.list(org) |> Enum.map(&"#{&1.label} (#{&1.slug})") |> Enum.join(", "),
+          do:
+            AuthorityLevels.list(org) |> Enum.map(&"#{&1.label} (#{&1.slug})") |> Enum.join(", "),
           else: ""
 
-      add_error(changeset, :rank, "must be an org authority level#{if allowed != "", do: ": #{allowed}", else: ""}")
+      add_error(
+        changeset,
+        :rank,
+        "must be an org authority level#{if allowed != "", do: ": #{allowed}", else: ""}"
+      )
     end
   end
 

@@ -175,7 +175,9 @@ defmodule AcsWeb.UserSessionControllerTest do
              } = get_session(conn, :oidc_session)
     end
 
-    test "callback creates a global verified identity and redirects an orgless user", %{conn: conn} do
+    test "callback creates a global verified identity and redirects an orgless user", %{
+      conn: conn
+    } do
       conn = get(account_conn(conn), "/auth/log_in")
       conn = conn |> recycle() |> account_conn() |> get("/auth/callback", %{"code" => "verified"})
 
@@ -192,7 +194,9 @@ defmodule AcsWeb.UserSessionControllerTest do
 
     test "callback rejects an identity whose provider email is not verified", %{conn: conn} do
       conn = get(account_conn(conn), "/auth/log_in")
-      conn = conn |> recycle() |> account_conn() |> get("/auth/callback", %{"code" => "unverified"})
+
+      conn =
+        conn |> recycle() |> account_conn() |> get("/auth/callback", %{"code" => "unverified"})
 
       assert redirected_to(conn) == "/users/log_in"
 

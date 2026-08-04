@@ -24,30 +24,30 @@ defmodule AcsWeb.McpUrlsTest do
     assert chat.url == "https://prod.stewardacs.xyz/mcp/chat/sse"
   end
 
-  test "chat_system_prompt always and opt-in share body with different intros" do
+  test "chat_system_prompt is mandate-only with different always vs opt-in intros" do
     always = McpUrls.chat_system_prompt(:always)
     opt_in = McpUrls.chat_system_prompt(:opt_in)
     default = McpUrls.chat_system_prompt()
 
     assert always == default
     assert always =~ "Steward ACS — Always Active"
-    assert always =~ "never ask whether to use it"
-    refute always =~ "Ask the user at the start of every conversation"
+    assert always =~ "Don't ask whether to use Steward"
+    assert always =~ "Before doing a task, or when you need org or process knowledge"
+    refute always =~ "Ask the user at the start of each conversation"
+    refute always =~ "every turn"
 
     assert opt_in =~ "Steward ACS — Opt In"
-    assert opt_in =~ "Ask the user at the start of every conversation"
-    refute opt_in =~ "never ask whether to use it"
+    assert opt_in =~ "Ask the user at the start of each conversation"
+    assert opt_in =~ "Before doing a task, or when you need org or process knowledge"
+    refute opt_in =~ "Don't ask whether to use Steward"
+    refute opt_in =~ "every turn"
 
     for prompt <- [always, opt_in] do
-      assert prompt =~ "always-loaded"
-      assert prompt =~ "Never use find tools or `tool_search`"
-      assert prompt =~ "`steward_ask`"
+      assert prompt =~ "Never use `tool_search`"
+      assert prompt =~ "`steward_ask()`"
       assert prompt =~ "`steward_write`"
-      assert prompt =~ "`steward_work`"
-      assert prompt =~ "action: \"document\""
-      assert prompt =~ "action: \"skill\""
-      assert prompt =~ "Search **never** inlines full skills"
-      assert prompt =~ "Never claim Steward only returns titles"
+      assert prompt =~ "guidance packet"
+      refute prompt =~ "| Tool |"
       refute prompt =~ "`get_started`"
     end
   end

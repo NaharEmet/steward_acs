@@ -63,12 +63,14 @@ defmodule Acs.MCP.ClientSession do
     else
       _ ->
         pool_name = Acs.Acs.Cache.get_and_increment_agent_index()
+
         with {:ok, data} <- fetch(session_id) do
           merged = Map.put(data, :agent_name, pool_name)
           put(session_id, merged)
         else
           _ -> put(session_id, %{agent_name: pool_name})
         end
+
         pool_name
     end
   end

@@ -149,7 +149,8 @@ defmodule Acs.MCP.Tools.CoreHandlers do
         if claim do
           case Acs.claim_task(task.id, agent_id, claim_guidance_opts(args, mode)) do
             {:ok, _task, guidance} ->
-              {:ok, %{status: "claimed", task_id: task.slug, title: task.title, guidance: guidance}}
+              {:ok,
+               %{status: "claimed", task_id: task.slug, title: task.title, guidance: guidance}}
 
             {:error, reason} ->
               {:ok,
@@ -183,7 +184,8 @@ defmodule Acs.MCP.Tools.CoreHandlers do
                }}
           end
         else
-          {:ok, %{status: "warning", task_id: task.slug, title: task.title, similar_tasks: similar}}
+          {:ok,
+           %{status: "warning", task_id: task.slug, title: task.title, similar_tasks: similar}}
         end
 
       {:error, reason} ->
@@ -577,7 +579,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
          auto_release_at: l.auto_release_at,
          task_id: Map.get(slug_by_id, l.task_id, l.task_id)
        }
-      end)}
+     end)}
   end
 
   defp with_task_slugs(statuses) when is_list(statuses) do

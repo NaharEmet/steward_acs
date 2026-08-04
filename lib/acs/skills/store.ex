@@ -164,8 +164,11 @@ defmodule Acs.Skills.Store do
     end
   end
 
-  defp normalize_opts(opts) when is_list(opts), do: Map.new(opts, fn {k, v} -> {to_string(k), v} end)
-  defp normalize_opts(opts) when is_map(opts), do: Map.new(opts, fn {k, v} -> {to_string(k), v} end)
+  defp normalize_opts(opts) when is_list(opts),
+    do: Map.new(opts, fn {k, v} -> {to_string(k), v} end)
+
+  defp normalize_opts(opts) when is_map(opts),
+    do: Map.new(opts, fn {k, v} -> {to_string(k), v} end)
 
   defp safe_name(name) do
     name

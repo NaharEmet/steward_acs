@@ -1166,7 +1166,7 @@ defmodule Acs.MCP.Tools do
 
       # ponytail: chat models invent nicknames (nahar-chat); OAuth identity is authoritative.
       chat? and usable_auth_agent_id?(auth_identity) and is_binary(requested) and
-          not blank_agent_id?(requested) and
+        not blank_agent_id?(requested) and
           normalize_agent_id(requested) != normalize_agent_id(auth_identity) ->
         Map.put(args, "agent_id", auth_identity)
 
@@ -1323,275 +1323,81 @@ defmodule Acs.MCP.Tools do
 
     steps =
       case tool_name do
-      "get_started" ->
-        get_started_next_steps(args, agent_id)
+        "get_started" ->
+          get_started_next_steps(args, agent_id)
 
-      "create_work" ->
-        if Map.get(result, :status) == "claimed" do
-          file_paths = Map.get(args, "file_paths", [])
-          guidance = Map.get(result, :guidance, %{})
+        "create_work" ->
+          if Map.get(result, :status) == "claimed" do
+            file_paths = Map.get(args, "file_paths", [])
+            guidance = Map.get(result, :guidance, %{})
 
-          lock_step = fn fp ->
-            %{
-              tool: "lock_file",
-              prompt: "Lock file to prevent concurrent edits",
-              params: %{agent_id: agent_id, task_id: task_id, file_path: fp}
-            }
+            lock_step = fn fp ->
+              %{
+                tool: "lock_file",
+                prompt: "Lock file to prevent concurrent edits",
+                params: %{agent_id: agent_id, task_id: task_id, file_path: fp}
+              }
+            end
+
+            lock_steps =
+              if file_paths != [],
+                do: Enum.map(file_paths, lock_step),
+                else: []
+
+            relevant_skill_steps(guidance, Map.get(args, "title", "")) ++
+              relevant_spec_steps(guidance) ++ lock_steps
+          else
+            [
+              %{
+                tool: "claim_work",
+                prompt: "Claim the task to start working on it",
+                params: %{agent_id: agent_id, task_id: task_id}
+              },
+              %{
+                tool: "list_tasks",
+                prompt: "Or list other todo tasks",
+                params: %{status_filter: "todo"}
+              }
+            ]
           end
 
-          lock_steps =
-            if file_paths != [],
-              do: Enum.map(file_paths, lock_step),
-              else: []
+        "claim_work" ->
+          guidance = Map.get(result, :guidance, %{})
 
-          relevant_skill_steps(guidance, Map.get(args, "title", "")) ++
-            relevant_spec_steps(guidance) ++ lock_steps
-        else
+          relevant_skill_steps(guidance, "") ++
+            relevant_spec_steps(guidance) ++
+            [
+              %{
+                tool: "lock_file",
+                prompt: "Lock file to prevent concurrent edits",
+                params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}
+              },
+              %{
+                tool: "generate_guidance_packet",
+                prompt: "Get detailed guidance for the scope before starting",
+                params: %{scope_path: "<scope_path>"}
+              }
+            ]
+
+        "release_work" ->
           [
             %{
-              tool: "claim_work",
-              prompt: "Claim the task to start working on it",
-              params: %{agent_id: agent_id, task_id: task_id}
-            },
-            %{
-              tool: "list_tasks",
-              prompt: "Or list other todo tasks",
-              params: %{status_filter: "todo"}
-            }
-          ]
-        end
-
-      "claim_work" ->
-        guidance = Map.get(result, :guidance, %{})
-
-        relevant_skill_steps(guidance, "") ++
-          relevant_spec_steps(guidance) ++
-          [
-            %{
-              tool: "lock_file",
-              prompt: "Lock file to prevent concurrent edits",
-              params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}
-            },
-            %{
-              tool: "generate_guidance_packet",
-              prompt: "Get detailed guidance for the scope before starting",
-              params: %{scope_path: "<scope_path>"}
-            }
-          ]
-
-      "release_work" ->
-        [
-          %{
-            tool: "skill_save",
+              tool: "skill_save",
               prompt:
                 "Followed a step-by-step workflow with the user? Save it now before feedback",
-            params: %{
-              name: "<kebab-case-name>",
-              content: "# Steps\n1. ...\n2. ...",
-              description: "One-line summary",
-              when_to_use: "When to load this skill",
-              scope_paths: ["<scope_path>"],
-              tags: ["workflow"]
-            }
-          },
-          %{
-            tool: "save_memory",
-            prompt:
-              "Save eternal truths (principles/invariants) discovered during this task — read memory_protocol first",
               params: %{
-                kind: "learning",
-                title: "...",
-                content: "...",
-                scope_path: "<scope_path>"
-              },
-              guidance: %{
-                memory_protocol: Acs.Memory.Guidance.memory_protocol(args["_auth_audience"])
+                name: "<kebab-case-name>",
+                content: "# Steps\n1. ...\n2. ...",
+                description: "One-line summary",
+                when_to_use: "When to load this skill",
+                scope_paths: ["<scope_path>"],
+                tags: ["workflow"]
               }
-          },
-          %{
-            tool: "specs_propose",
-            prompt:
-              "Save shareable output — module spec, project doc, marketing copy, or knowledge file",
-            params: %{
-              app: "<app>",
-              path: "<path>",
-              title: "...",
-              document_type: "deliverable",
-              content: "..."
-            }
-          },
-          %{
-            tool: "submit_task_feedback",
-            prompt: "Last step — formally close the task after saving information",
-            params: %{
-              task_id: task_id,
-              agent_id: agent_id,
-              learned_for_agents: "...",
-              guidance_useful: true
-            }
-          }
-        ]
-
-      "lock_file" ->
-        [
-          %{
-            tool: "unlock_file",
-            prompt: "Release file lock so others can edit",
-            params: %{agent_id: agent_id, file_path: Map.get(args, "file_path", "")}
-          }
-        ]
-
-      "unlock_file" ->
-        [
-          %{
-            tool: "release_work",
-            prompt: "All files done? Mark task complete",
-            params: %{agent_id: agent_id, task_id: task_id}
-          },
-          %{
-            tool: "lock_file",
-            prompt: "Lock another file for this task",
-            params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}
-          }
-        ]
-
-      "get_present_status" ->
-        [
-          %{
-            tool: "list_tasks",
-            prompt: "List todo tasks to find work items",
-            params: %{status_filter: "todo"}
-          },
-          %{
-            tool: "create_work",
-            prompt: "Or create a new task for the current request",
-            params: %{agent_id: agent_id, title: "...", claim: true}
-          }
-        ]
-
-      "list_tasks" ->
-        todo = Map.get(result, :tasks, []) |> Enum.filter(fn t -> t[:status] == "todo" end)
-
-        if todo != [] do
-          [
-            %{
-              tool: "claim_work",
-              prompt: "Claim a todo task to start working",
-              params: %{agent_id: agent_id, task_id: hd(todo)[:id]}
-            }
-          ]
-        else
-          [
-            %{
-              tool: "create_work",
-              prompt: "No todo tasks — create one for the current request",
-              params: %{agent_id: agent_id, title: "...", claim: true}
-            }
-          ]
-        end
-
-      "get_locked_files" ->
-        []
-
-      "save_memory" ->
-        cond do
-          Map.get(result, :status) == "needs_scope_choice" ->
-            [
-              %{
-                tool: "save_memory",
-                prompt:
-                  "Ask the user which visibility to use, then retry with the same fields plus visibility",
-                params:
-                  Map.take(args, [
-                    "kind",
-                    "title",
-                    "content",
-                    "scope_path",
-                    "about_type",
-                    "about_name",
-                    "about_email",
-                    "about_person_email",
-                    "about_person_name",
-                    "tags",
-                    "summary"
-                  ])
-                  |> Map.put("visibility", "<org|team|project|personal>")
-              }
-            ]
-
-          Map.get(result, :status) == "needs_input" ->
-            [
-              %{
-                tool: "save_memory",
-                prompt:
-                  "Ask the user the intake questions, then retry with fixes and intake_confirmed: true",
-                params:
-                  Map.take(args, [
-                    "kind",
-                    "title",
-                    "content",
-                    "scope_path",
-                    "about_type",
-                    "about_name",
-                    "about_email",
-                    "visibility",
-                    "tags",
-                    "summary"
-                  ])
-                  |> Map.put("intake_confirmed", true)
-              }
-            ]
-
-          Map.get(result, :suggested_sensitive) == true ->
-            [
-              %{
-                tool: "save_memory",
-                prompt:
-                  "Ask if this should be personal; if yes, re-save with visibility: personal (or confidential: true)",
-                params: %{
-                  kind: Map.get(args, "kind"),
-                  title: Map.get(args, "title"),
-                  content: Map.get(args, "content"),
-                  scope_path: Map.get(args, "scope_path"),
-                  visibility: "personal",
-                  intake_confirmed: true
-                }
-              },
-              %{
-                tool: "query_memories",
-                prompt: "Verify the saved memory is findable by search",
-                params: %{
-                  query: Map.get(args, "title", ""),
-                  scope_path: Map.get(args, "scope_path", "")
-                }
-              }
-            ]
-
-          true ->
-            [
-              %{
-                tool: "query_memories",
-                prompt: "Verify the saved memory is findable by search",
-                params: %{
-                  query: Map.get(args, "title", ""),
-                  scope_path: Map.get(args, "scope_path", "")
-                }
-              },
-              %{
-                tool: "set_memory_status",
-                prompt: "No conflicts? Approve to make visible to all agents",
-                params: %{memory_id: Map.get(result, :id, ""), status: "approved"}
-              }
-            ]
-        end
-
-      "query_memories" ->
-        if Map.get(result, :count, 0) == 0 do
-          [
+            },
             %{
               tool: "save_memory",
               prompt:
-                "No results — document your knowledge so others find it (read memory_protocol first)",
+                "Save eternal truths (principles/invariants) discovered during this task — read memory_protocol first",
               params: %{
                 kind: "learning",
                 title: "...",
@@ -1601,420 +1407,614 @@ defmodule Acs.MCP.Tools do
               guidance: %{
                 memory_protocol: Acs.Memory.Guidance.memory_protocol(args["_auth_audience"])
               }
-            }
-          ]
-        else
-          [
+            },
+            %{
+              tool: "specs_propose",
+              prompt:
+                "Save shareable output — module spec, project doc, marketing copy, or knowledge file",
+              params: %{
+                app: "<app>",
+                path: "<path>",
+                title: "...",
+                document_type: "deliverable",
+                content: "..."
+              }
+            },
             %{
               tool: "submit_task_feedback",
-              prompt:
-                "Results not quite right? Flag stale or noisy memories in feedback so Steward improves",
+              prompt: "Last step — formally close the task after saving information",
+              params: %{
+                task_id: task_id,
+                agent_id: agent_id,
+                learned_for_agents: "...",
+                guidance_useful: true
+              }
+            }
+          ]
+
+        "lock_file" ->
+          [
+            %{
+              tool: "unlock_file",
+              prompt: "Release file lock so others can edit",
+              params: %{agent_id: agent_id, file_path: Map.get(args, "file_path", "")}
+            }
+          ]
+
+        "unlock_file" ->
+          [
+            %{
+              tool: "release_work",
+              prompt: "All files done? Mark task complete",
+              params: %{agent_id: agent_id, task_id: task_id}
+            },
+            %{
+              tool: "lock_file",
+              prompt: "Lock another file for this task",
+              params: %{agent_id: agent_id, task_id: task_id, file_path: "<file_path>"}
+            }
+          ]
+
+        "get_present_status" ->
+          [
+            %{
+              tool: "list_tasks",
+              prompt: "List todo tasks to find work items",
+              params: %{status_filter: "todo"}
+            },
+            %{
+              tool: "create_work",
+              prompt: "Or create a new task for the current request",
+              params: %{agent_id: agent_id, title: "...", claim: true}
+            }
+          ]
+
+        "list_tasks" ->
+          todo = Map.get(result, :tasks, []) |> Enum.filter(fn t -> t[:status] == "todo" end)
+
+          if todo != [] do
+            [
+              %{
+                tool: "claim_work",
+                prompt: "Claim a todo task to start working",
+                params: %{agent_id: agent_id, task_id: hd(todo)[:id]}
+              }
+            ]
+          else
+            [
+              %{
+                tool: "create_work",
+                prompt: "No todo tasks — create one for the current request",
+                params: %{agent_id: agent_id, title: "...", claim: true}
+              }
+            ]
+          end
+
+        "get_locked_files" ->
+          []
+
+        "save_memory" ->
+          cond do
+            Map.get(result, :status) == "needs_scope_choice" ->
+              [
+                %{
+                  tool: "save_memory",
+                  prompt:
+                    "Ask the user which visibility to use, then retry with the same fields plus visibility",
+                  params:
+                    Map.take(args, [
+                      "kind",
+                      "title",
+                      "content",
+                      "scope_path",
+                      "about_type",
+                      "about_name",
+                      "about_email",
+                      "about_person_email",
+                      "about_person_name",
+                      "tags",
+                      "summary"
+                    ])
+                    |> Map.put("visibility", "<org|team|project|personal>")
+                }
+              ]
+
+            Map.get(result, :status) == "needs_input" ->
+              [
+                %{
+                  tool: "save_memory",
+                  prompt:
+                    "Ask the user the intake questions, then retry with fixes and intake_confirmed: true",
+                  params:
+                    Map.take(args, [
+                      "kind",
+                      "title",
+                      "content",
+                      "scope_path",
+                      "about_type",
+                      "about_name",
+                      "about_email",
+                      "visibility",
+                      "tags",
+                      "summary"
+                    ])
+                    |> Map.put("intake_confirmed", true)
+                }
+              ]
+
+            Map.get(result, :suggested_sensitive) == true ->
+              [
+                %{
+                  tool: "save_memory",
+                  prompt:
+                    "Ask if this should be personal; if yes, re-save with visibility: personal (or confidential: true)",
+                  params: %{
+                    kind: Map.get(args, "kind"),
+                    title: Map.get(args, "title"),
+                    content: Map.get(args, "content"),
+                    scope_path: Map.get(args, "scope_path"),
+                    visibility: "personal",
+                    intake_confirmed: true
+                  }
+                },
+                %{
+                  tool: "query_memories",
+                  prompt: "Verify the saved memory is findable by search",
+                  params: %{
+                    query: Map.get(args, "title", ""),
+                    scope_path: Map.get(args, "scope_path", "")
+                  }
+                }
+              ]
+
+            true ->
+              [
+                %{
+                  tool: "query_memories",
+                  prompt: "Verify the saved memory is findable by search",
+                  params: %{
+                    query: Map.get(args, "title", ""),
+                    scope_path: Map.get(args, "scope_path", "")
+                  }
+                },
+                %{
+                  tool: "set_memory_status",
+                  prompt: "No conflicts? Approve to make visible to all agents",
+                  params: %{memory_id: Map.get(result, :id, ""), status: "approved"}
+                }
+              ]
+          end
+
+        "query_memories" ->
+          if Map.get(result, :count, 0) == 0 do
+            [
+              %{
+                tool: "save_memory",
+                prompt:
+                  "No results — document your knowledge so others find it (read memory_protocol first)",
+                params: %{
+                  kind: "learning",
+                  title: "...",
+                  content: "...",
+                  scope_path: "<scope_path>"
+                },
+                guidance: %{
+                  memory_protocol: Acs.Memory.Guidance.memory_protocol(args["_auth_audience"])
+                }
+              }
+            ]
+          else
+            [
+              %{
+                tool: "submit_task_feedback",
+                prompt:
+                  "Results not quite right? Flag stale or noisy memories in feedback so Steward improves",
                 params: %{
                   agent_id: agent_id,
                   info_needed: "Search for '<query>' returned poor results"
                 }
+              }
+            ]
+          end
+
+        "set_memory_status" ->
+          [
+            %{
+              tool: "query_memories",
+              prompt: "Verify the updated memory appears correctly",
+              params: %{scope_path: Map.get(args, "scope_path", "")}
             }
           ]
-        end
 
-      "set_memory_status" ->
-        [
-          %{
-            tool: "query_memories",
-            prompt: "Verify the updated memory appears correctly",
-            params: %{scope_path: Map.get(args, "scope_path", "")}
-          }
-        ]
+        "generate_guidance_packet" ->
+          scope = Map.get(args, "scope_path", "")
+          skills = Map.get(result, :relevant_skills, [])
 
-      "generate_guidance_packet" ->
-        scope = Map.get(args, "scope_path", "")
-        skills = Map.get(result, :relevant_skills, [])
+          skill_steps =
+            skills
+            |> Enum.take(5)
+            |> Enum.map(fn s ->
+              name = s[:name] || s["name"]
 
-        skill_steps =
-          skills
-          |> Enum.take(5)
-          |> Enum.map(fn s ->
-            name = s[:name] || s["name"]
-
-            %{
-              tool: "skill_get",
-              prompt: "Read scope workflow: #{name}",
-              params: %{name: name}
-            }
-          end)
-
-        scope_step =
-          if scope != "" do
-            [
               %{
                 tool: "skill_get",
-                prompt: "Browse all skills available for this scope",
-                params: %{scope_path: scope}
+                prompt: "Read scope workflow: #{name}",
+                params: %{name: name}
+              }
+            end)
+
+          scope_step =
+            if scope != "" do
+              [
+                %{
+                  tool: "skill_get",
+                  prompt: "Browse all skills available for this scope",
+                  params: %{scope_path: scope}
+                }
+              ]
+            else
+              [
+                %{
+                  tool: "skill_get",
+                  prompt: "Browse full skill catalog — see what's available and when to use each",
+                  params: %{}
+                }
+              ]
+            end
+
+          skill_steps ++ scope_step
+
+        "list_error_traces" ->
+          if Map.get(result, :total, 0) > 0 do
+            trace = Map.get(result, :traces, []) |> List.first()
+
+            [
+              %{
+                tool: "ack_error_trace",
+                prompt: "Claim an error to investigate",
+                params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}
+              },
+              %{
+                tool: "create_task_from_error_trace",
+                prompt: "Turn this error into a fix task",
+                params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}
               }
             ]
           else
             [
               %{
-                tool: "skill_get",
-                prompt: "Browse full skill catalog — see what's available and when to use each",
-                params: %{}
+                tool: "get_logs",
+                prompt: "No error traces found — check logs directly for clues",
+                params: %{level: "error", limit: 50}
               }
             ]
           end
 
-        skill_steps ++ scope_step
-
-      "list_error_traces" ->
-        if Map.get(result, :total, 0) > 0 do
-          trace = Map.get(result, :traces, []) |> List.first()
-
+        "ack_error_trace" ->
           [
             %{
-              tool: "ack_error_trace",
-              prompt: "Claim an error to investigate",
-              params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}
-            },
-            %{
-              tool: "create_task_from_error_trace",
-              prompt: "Turn this error into a fix task",
-              params: %{trace_id: if(trace, do: trace[:id], else: "<trace_id>")}
+              tool: "resolve_error_trace",
+              prompt: "Mark as resolved once the root cause is fixed",
+              params: %{trace_id: Map.get(args, "trace_id", "")}
             }
           ]
-        else
+
+        "resolve_error_trace" ->
+          []
+
+        "create_task_from_error_trace" ->
+          [
+            %{
+              tool: "claim_work",
+              prompt: "Claim the error-fix task to start investigating",
+              params: %{agent_id: agent_id, task_id: Map.get(result, :task_id, "")}
+            }
+          ]
+
+        "submit_task_feedback" ->
+          [
+            %{
+              tool: "list_tasks",
+              prompt: "Check if more work is waiting",
+              params: %{status_filter: "todo"}
+            },
+            %{
+              tool: "create_work",
+              prompt: "Or create the next task",
+              params: %{agent_id: agent_id, title: "...", claim: true}
+            }
+          ]
+
+        "help" ->
+          []
+
+        "query" ->
+          []
+
+        "config_lookup" ->
+          []
+
+        "connection_diagnostic" ->
           [
             %{
               tool: "get_logs",
-              prompt: "No error traces found — check logs directly for clues",
+              prompt: "Issues found? Check error logs for details",
               params: %{level: "error", limit: 50}
             }
           ]
-        end
 
-      "ack_error_trace" ->
-        [
-          %{
-            tool: "resolve_error_trace",
-            prompt: "Mark as resolved once the root cause is fixed",
-            params: %{trace_id: Map.get(args, "trace_id", "")}
-          }
-        ]
-
-      "resolve_error_trace" ->
-        []
-
-      "create_task_from_error_trace" ->
-        [
-          %{
-            tool: "claim_work",
-            prompt: "Claim the error-fix task to start investigating",
-            params: %{agent_id: agent_id, task_id: Map.get(result, :task_id, "")}
-          }
-        ]
-
-      "submit_task_feedback" ->
-        [
-          %{
-            tool: "list_tasks",
-            prompt: "Check if more work is waiting",
-            params: %{status_filter: "todo"}
-          },
-          %{
-            tool: "create_work",
-            prompt: "Or create the next task",
-            params: %{agent_id: agent_id, title: "...", claim: true}
-          }
-        ]
-
-      "help" ->
-        []
-
-      "query" ->
-        []
-
-      "config_lookup" ->
-        []
-
-      "connection_diagnostic" ->
-        [
-          %{
-            tool: "get_logs",
-            prompt: "Issues found? Check error logs for details",
-            params: %{level: "error", limit: 50}
-          }
-        ]
-
-      "memory_health_check" ->
-        [
-          %{
-            tool: "get_logs",
-            prompt: "Memory issues found? Check error logs",
-            params: %{level: "error", limit: 50}
-          }
-        ]
-
-      "specs_get" ->
-        [
-          %{
-            tool: "specs_propose",
-            prompt: "Missing or outdated? Propose a module spec or shareable document",
-            params: %{
-              app: Map.get(args, "app", ""),
-              path: Map.get(args, "path", ""),
-              title: "...",
-              document_type: "spec",
-              content: "..."
+        "memory_health_check" ->
+          [
+            %{
+              tool: "get_logs",
+              prompt: "Memory issues found? Check error logs",
+              params: %{level: "error", limit: 50}
             }
-          },
-          %{
-            tool: "specs_approve",
-            prompt: "Spec looks correct? Approve it",
-            params: %{
-              app: Map.get(args, "app", ""),
-              path: Map.get(args, "path", ""),
-              reviewer: agent_id
-            }
-          }
-        ]
+          ]
 
-      "query_specs" ->
-        [
-          %{
-            tool: "specs_propose",
-            prompt: "Save a module spec or shareable document (project, marketing, knowledge)",
-            params: %{
-              app: "<app>",
-              path: "<path>",
-              title: "...",
-              document_type: "deliverable",
-              content: "..."
+        "specs_get" ->
+          [
+            %{
+              tool: "specs_propose",
+              prompt: "Missing or outdated? Propose a module spec or shareable document",
+              params: %{
+                app: Map.get(args, "app", ""),
+                path: Map.get(args, "path", ""),
+                title: "...",
+                document_type: "spec",
+                content: "..."
+              }
+            },
+            %{
+              tool: "specs_approve",
+              prompt: "Spec looks correct? Approve it",
+              params: %{
+                app: Map.get(args, "app", ""),
+                path: Map.get(args, "path", ""),
+                reviewer: agent_id
+              }
             }
-          },
-          %{
-            tool: "submit_task_feedback",
-            prompt:
-              "Found outdated or missing specs? Flag them in feedback to improve the knowledge base",
+          ]
+
+        "query_specs" ->
+          [
+            %{
+              tool: "specs_propose",
+              prompt: "Save a module spec or shareable document (project, marketing, knowledge)",
+              params: %{
+                app: "<app>",
+                path: "<path>",
+                title: "...",
+                document_type: "deliverable",
+                content: "..."
+              }
+            },
+            %{
+              tool: "submit_task_feedback",
+              prompt:
+                "Found outdated or missing specs? Flag them in feedback to improve the knowledge base",
               params: %{
                 agent_id: agent_id,
                 info_needed: "Spec search results were incomplete or outdated"
               }
-          }
-        ]
+            }
+          ]
 
-      "ask" ->
-        result_count = Map.get(result, :total, 0)
-        content_query = Map.get(args, "content_query", "")
+        "ask" ->
+          result_count = Map.get(result, :total, 0)
+          content_query = Map.get(args, "content_query", "")
 
-        query_prompt =
-          if is_binary(content_query) and content_query != "" do
-            "Search for '#{content_query}' returned poor results"
-          else
-            "Search results were incomplete or outdated"
-          end
+          query_prompt =
+            if is_binary(content_query) and content_query != "" do
+              "Search for '#{content_query}' returned poor results"
+            else
+              "Search results were incomplete or outdated"
+            end
 
-        if result_count == 0 do
-          [
-            %{
-              tool: "save_memory",
+          if result_count == 0 do
+            [
+              %{
+                tool: "save_memory",
                 prompt: "No results — document your knowledge so others find it",
-              params: %{
-                kind: "learning",
-                title: "...",
-                content: "...",
-                scope_path: "<scope_path>"
+                params: %{
+                  kind: "learning",
+                  title: "...",
+                  content: "...",
+                  scope_path: "<scope_path>"
+                }
+              },
+              %{
+                tool: "submit_task_feedback",
+                prompt:
+                  "Couldn't find what you needed? Flag the gap in feedback so Steward improves",
+                params: %{agent_id: agent_id, info_needed: query_prompt}
               }
-            },
-            %{
-              tool: "submit_task_feedback",
-              prompt:
-                "Couldn't find what you needed? Flag the gap in feedback so Steward improves",
-              params: %{agent_id: agent_id, info_needed: query_prompt}
-            }
-          ]
-        else
-          [
-            %{
-              tool: "specs_get",
-              prompt:
-                "Document listed without body? Load it before acting (chat: steward_ask action=document)",
-              params: %{app: "<app>", path: "<path>"}
-            },
-            %{
-              tool: "skill_get",
-              prompt:
-                "If a listed skill fits the task, you MUST fetch and follow it before acting (chat: steward_ask action=skill)",
-              params: %{name: "<skill-name>"}
-            },
-            %{
-              tool: "submit_task_feedback",
-              prompt:
-                "Results not quite what you expected? Flag stale or wrong knowledge in feedback",
-              params: %{agent_id: agent_id, info_needed: query_prompt}
-            }
-          ]
-        end
-
-      name when name in ["specs_propose", "documents_propose"] ->
-        [
-          %{
-            tool: "specs_approve",
-            prompt: "Proposed entry ready? Approve to make it official",
-            params: %{
-              app: Map.get(args, "app", ""),
-              path: Map.get(args, "path", ""),
-              reviewer: agent_id
-            }
-          }
-        ]
-
-      "specs_approve" ->
-        []
-
-      "specs_reject" ->
-        []
-
-      "skill_get" ->
-        catalog = Map.get(result, :catalog, [])
-        skills = Map.get(result, :skills, [])
-        related = Map.get(result, :related, [])
-        scope_path = Map.get(args, "scope_path", "")
-
-        read_steps =
-          cond do
-            length(skills) == 1 ->
-              name = hd(skills)["name"]
-
-              [
-                %{
-                  tool: "skill_get",
-                  prompt: "Follow the steps in skill '#{name}' before proceeding",
-                  params: %{name: name}
-                }
-              ]
-
-            length(skills) > 1 ->
-              skills
-              |> Enum.take(5)
-              |> Enum.map(fn s ->
-                n = s["name"]
-
-                %{
-                  tool: "skill_get",
-                  prompt: "Read full workflow: #{n}",
-                  params: %{name: n}
-                }
-              end)
-
-            true ->
-              []
+            ]
+          else
+            [
+              %{
+                tool: "specs_get",
+                prompt:
+                  "Document listed without body? Load it before acting (chat: steward_ask action=document)",
+                params: %{app: "<app>", path: "<path>"}
+              },
+              %{
+                tool: "skill_get",
+                prompt:
+                  "If a listed skill fits the task, you MUST fetch and follow it before acting (chat: steward_ask action=skill)",
+                params: %{name: "<skill-name>"}
+              },
+              %{
+                tool: "submit_task_feedback",
+                prompt:
+                  "Results not quite what you expected? Flag stale or wrong knowledge in feedback",
+                params: %{agent_id: agent_id, info_needed: query_prompt}
+              }
+            ]
           end
 
-        related_steps =
-          related
-          |> Enum.take(3)
-          |> Enum.map(fn s ->
-            n = s["name"]
-            tagline = s["when_to_use"] || s["description"]
-
+        name when name in ["specs_propose", "documents_propose"] ->
+          [
             %{
-              tool: "skill_get",
-              prompt: "Related skill: #{n} — #{tagline}",
-              params: %{name: n}
+              tool: "specs_approve",
+              prompt: "Proposed entry ready? Approve to make it official",
+              params: %{
+                app: Map.get(args, "app", ""),
+                path: Map.get(args, "path", ""),
+                reviewer: agent_id
+              }
             }
-          end)
+          ]
 
-        catalog_steps =
-          if skills == [] and catalog != [] do
-            catalog
-            |> Enum.take(5)
+        "specs_approve" ->
+          []
+
+        "specs_reject" ->
+          []
+
+        "skill_get" ->
+          catalog = Map.get(result, :catalog, [])
+          skills = Map.get(result, :skills, [])
+          related = Map.get(result, :related, [])
+          scope_path = Map.get(args, "scope_path", "")
+
+          read_steps =
+            cond do
+              length(skills) == 1 ->
+                name = hd(skills)["name"]
+
+                [
+                  %{
+                    tool: "skill_get",
+                    prompt: "Follow the steps in skill '#{name}' before proceeding",
+                    params: %{name: name}
+                  }
+                ]
+
+              length(skills) > 1 ->
+                skills
+                |> Enum.take(5)
+                |> Enum.map(fn s ->
+                  n = s["name"]
+
+                  %{
+                    tool: "skill_get",
+                    prompt: "Read full workflow: #{n}",
+                    params: %{name: n}
+                  }
+                end)
+
+              true ->
+                []
+            end
+
+          related_steps =
+            related
+            |> Enum.take(3)
             |> Enum.map(fn s ->
               n = s["name"]
               tagline = s["when_to_use"] || s["description"]
 
               %{
                 tool: "skill_get",
-                prompt: "Available: #{n} — #{tagline}",
+                prompt: "Related skill: #{n} — #{tagline}",
                 params: %{name: n}
               }
             end)
-          else
-            []
-          end
 
-        scope_browse =
-          if scope_path != "" do
-            []
-          else
+          catalog_steps =
+            if skills == [] and catalog != [] do
+              catalog
+              |> Enum.take(5)
+              |> Enum.map(fn s ->
+                n = s["name"]
+                tagline = s["when_to_use"] || s["description"]
+
+                %{
+                  tool: "skill_get",
+                  prompt: "Available: #{n} — #{tagline}",
+                  params: %{name: n}
+                }
+              end)
+            else
+              []
+            end
+
+          scope_browse =
+            if scope_path != "" do
+              []
+            else
+              [
+                %{
+                  tool: "skill_get",
+                  prompt: "Entering a scope? Pass scope_path to see skills for that area",
+                  params: %{scope_path: "<scope_path>"}
+                }
+              ]
+            end
+
+          read_steps ++
+            related_steps ++
+            catalog_steps ++
+            scope_browse ++
             [
               %{
-                tool: "skill_get",
-                prompt: "Entering a scope? Pass scope_path to see skills for that area",
-                params: %{scope_path: "<scope_path>"}
+                tool: "skill_save",
+                prompt: "Missing a workflow? Create a skill so others reuse it",
+                params: %{name: "<name>", content: "...", scope_paths: ["<scope_path>"]}
+              },
+              %{
+                tool: "skill_audit_status",
+                prompt: "Audit all skills for quality gaps",
+                params: %{}
               }
             ]
-          end
 
-        read_steps ++
-          related_steps ++
-          catalog_steps ++
-          scope_browse ++
+        "skill_save" ->
           [
             %{
-              tool: "skill_save",
-              prompt: "Missing a workflow? Create a skill so others reuse it",
-              params: %{name: "<name>", content: "...", scope_paths: ["<scope_path>"]}
-            },
-            %{
               tool: "skill_audit_status",
-              prompt: "Audit all skills for quality gaps",
+              prompt: "Verify new skill meets quality standards",
               params: %{}
             }
           ]
 
-      "skill_save" ->
-        [
-          %{
-            tool: "skill_audit_status",
-            prompt: "Verify new skill meets quality standards",
-            params: %{}
-          }
-        ]
+        "skill_audit_status" ->
+          [
+            %{
+              tool: "skill_save",
+              prompt: "Fix low-scoring skills to improve quality",
+              params: %{name: "<name>", content: "..."}
+            }
+          ]
 
-      "skill_audit_status" ->
-        [
-          %{
-            tool: "skill_save",
-            prompt: "Fix low-scoring skills to improve quality",
-            params: %{name: "<name>", content: "..."}
-          }
-        ]
+        "app_list" ->
+          [
+            %{
+              tool: "app_configure",
+              prompt: "Need a new external service? Configure an app",
+              params: %{name: "<app_name>"}
+            }
+          ]
 
-      "app_list" ->
-        [
-          %{
-            tool: "app_configure",
-            prompt: "Need a new external service? Configure an app",
-            params: %{name: "<app_name>"}
-          }
-        ]
+        "app_configure" ->
+          [%{tool: "app_list", prompt: "Verify the app was configured correctly", params: %{}}]
 
-      "app_configure" ->
-        [%{tool: "app_list", prompt: "Verify the app was configured correctly", params: %{}}]
+        "app_remove" ->
+          [%{tool: "app_list", prompt: "Verify the app was removed", params: %{}}]
 
-      "app_remove" ->
-        [%{tool: "app_list", prompt: "Verify the app was removed", params: %{}}]
+        "list_plugins" ->
+          []
 
-      "list_plugins" ->
-        []
+        "list_orgs" ->
+          []
 
-      "list_orgs" ->
-        []
+        "time" ->
+          []
 
-      "time" ->
-        []
-
-      _ ->
-        []
-    end
+        _ ->
+          []
+      end
 
     maybe_chat_next_steps(steps, args)
   end

@@ -33,7 +33,8 @@ defmodule Acs.Application do
     :ok = Acs.Org.load_persisted_developer_name()
 
     meta_harness_children =
-      if meta_harness_enabled?() and Application.get_env(:steward_acs, :start_background_workers, true) do
+      if meta_harness_enabled?() and
+           Application.get_env(:steward_acs, :start_background_workers, true) do
         _ = Acs.MetaHarness.RecentOps.setup()
         [Acs.MetaHarness.OperationLogger, Acs.MetaHarness.Scheduler]
       else

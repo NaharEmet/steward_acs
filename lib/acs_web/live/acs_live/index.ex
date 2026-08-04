@@ -220,7 +220,7 @@ defmodule AcsWeb.AcsLive.Index do
 
                      "chat" ->
                        [
-                         {@chat_system_prompt, "always", "Always Active — Steward every turn",
+                         {@chat_system_prompt, "always", "Always Active — use when needed",
                           "Copy Always Active", "Paste into Claude system prompt"},
                          {@chat_system_prompt_opt_in, "opt-in",
                           "Opt In — ask before using Steward", "Copy Opt In",

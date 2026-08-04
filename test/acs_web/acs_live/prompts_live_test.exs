@@ -20,7 +20,9 @@ defmodule AcsWeb.AcsLive.PromptsLiveTest do
   test "prompt editor binds phx-change/submit so edits can save with a success flash" do
     source = File.read!("lib/acs_web/live/acs_live/prompts_live.ex")
 
-    refute source =~ ~s(phx-input=), "phx-input is not a LiveView binding; edits never reached the server"
+    refute source =~ ~s(phx-input=),
+           "phx-input is not a LiveView binding; edits never reached the server"
+
     assert source =~ ~s(phx-change="editor-input")
     assert source =~ ~s(phx-submit="save")
     assert source =~ "Prompt saved successfully"

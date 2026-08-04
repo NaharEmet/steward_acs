@@ -385,7 +385,8 @@ defmodule Acs.AuthorityLevels do
     end
   end
 
-  defp resolve_remap_level(_, _, _), do: {:error, "remap must be promote, demote, or a level slug"}
+  defp resolve_remap_level(_, _, _),
+    do: {:error, "remap must be promote, demote, or a level slug"}
 
   # Nearest higher privilege = largest sort_order still below deleted.
   defp neighbor(levels, deleted, :promote) do

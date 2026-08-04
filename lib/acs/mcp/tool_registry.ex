@@ -38,7 +38,13 @@ defmodule Acs.MCP.ToolRegistry do
   def stats(org \\ Acs.Org.current()), do: GenServer.call(__MODULE__, {:stats, org})
   def list_plugins(org \\ Acs.Org.current()), do: GenServer.call(__MODULE__, {:list_plugins, org})
 
-  def authorize_tool(name, agent_role, agent_permissions \\ nil, org \\ Acs.Org.current(), audience \\ nil)
+  def authorize_tool(
+        name,
+        agent_role,
+        agent_permissions \\ nil,
+        org \\ Acs.Org.current(),
+        audience \\ nil
+      )
 
   def authorize_tool(name, agent_role, agent_permissions, org, audience),
     do:
@@ -688,12 +694,12 @@ defmodule Acs.MCP.ToolRegistry do
          permissions: context[:permissions] || context["permissions"] || [],
          allowed_teams: context[:allowed_teams] || context["allowed_teams"],
          allowed_projects: context[:allowed_projects] || context["allowed_projects"],
-        agent_id: context[:agent_id] || context["agent_id"],
-        attribution_id: context[:attribution_id] || context["attribution_id"],
-        audience: context[:audience] || context["audience"],
-        audience_source: context[:audience_source] || context["audience_source"],
-        client_name: context[:client_name] || context["client_name"],
-        mcp_endpoint: context[:mcp_endpoint] || context["mcp_endpoint"]
+         agent_id: context[:agent_id] || context["agent_id"],
+         attribution_id: context[:attribution_id] || context["attribution_id"],
+         audience: context[:audience] || context["audience"],
+         audience_source: context[:audience_source] || context["audience_source"],
+         client_name: context[:client_name] || context["client_name"],
+         mcp_endpoint: context[:mcp_endpoint] || context["mcp_endpoint"]
        }}
     else
       {:error, "Missing authentication context"}
@@ -715,8 +721,7 @@ defmodule Acs.MCP.ToolRegistry do
       "_auth_allowed_projects" => auth.allowed_projects,
       "_auth_agent_id" => auth.agent_id,
       "_auth_attribution" => auth.attribution_id,
-      "_auth_authority_level" =>
-        auth[:authority_level] || Process.get(:acs_mcp_authority_level),
+      "_auth_authority_level" => auth[:authority_level] || Process.get(:acs_mcp_authority_level),
       "_auth_authority_sort_order" =>
         auth[:authority_sort_order] || Process.get(:acs_mcp_authority_sort_order),
       "_auth_audience" => auth[:audience] && to_string(auth[:audience]),
@@ -801,8 +806,12 @@ defmodule Acs.MCP.ToolRegistry do
 
   defp scope_from_args(args) do
     cond do
-      is_binary(args["scope_path"]) and args["scope_path"] != "" -> args["scope_path"]
-      is_binary(args["scope"]) and args["scope"] != "" -> args["scope"]
+      is_binary(args["scope_path"]) and args["scope_path"] != "" ->
+        args["scope_path"]
+
+      is_binary(args["scope"]) and args["scope"] != "" ->
+        args["scope"]
+
       is_list(args["scope_paths"]) ->
         Enum.find_value(args["scope_paths"], fn
           s when is_binary(s) and s != "" -> s

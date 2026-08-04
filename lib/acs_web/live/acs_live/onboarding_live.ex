@@ -420,7 +420,10 @@ defmodule AcsWeb.AcsLive.OnboardingLive do
 
   defp user_name_form(user) do
     name = field(user, :name, "")
-    if is_binary(name) and String.trim(name) != "", do: nil, else: to_form(%{"name" => ""}, as: :user)
+
+    if is_binary(name) and String.trim(name) != "",
+      do: nil,
+      else: to_form(%{"name" => ""}, as: :user)
   end
 
   defp validate_name_present(name) do

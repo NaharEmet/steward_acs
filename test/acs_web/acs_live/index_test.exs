@@ -28,7 +28,7 @@ defmodule AcsWeb.AcsLive.IndexTest do
     assert html =~ "Cursor, Claude Code, OpenCode"
     assert html =~ "Claude.ai, ChatGPT"
     assert html =~ "Paste into Claude system prompt"
-    assert html =~ "Always Active — Steward every turn"
+    assert html =~ "Always Active — use when needed"
     assert html =~ "Opt In — ask before using Steward"
     assert html =~ "Copy Always Active"
     assert html =~ "Copy Opt In"

@@ -244,7 +244,10 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     if learned = args["learned_for_agents"] do
       save_feedback_memory(
         "learning",
-        if(is_standalone, do: "Agent learning from chat interaction", else: "Key learning from task #{String.slice(task_id, 0, 8)}"),
+        if(is_standalone,
+          do: "Agent learning from chat interaction",
+          else: "Key learning from task #{String.slice(task_id, 0, 8)}"
+        ),
         learned,
         scope_path,
         args
@@ -254,7 +257,10 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     if had_issues = args["had_issues"] do
       save_feedback_memory(
         "warning",
-        if(is_standalone, do: "Issue or obstacle encountered", else: "Issue encountered in task #{String.slice(task_id, 0, 8)}"),
+        if(is_standalone,
+          do: "Issue or obstacle encountered",
+          else: "Issue encountered in task #{String.slice(task_id, 0, 8)}"
+        ),
         had_issues,
         scope_path,
         args
@@ -284,7 +290,10 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
     if info_needed = args["info_needed"] do
       save_feedback_memory(
         "observation",
-        if(is_standalone, do: "Information gap or missing knowledge", else: "Information gap identified in task"),
+        if(is_standalone,
+          do: "Information gap or missing knowledge",
+          else: "Information gap identified in task"
+        ),
         info_needed,
         scope_path,
         args

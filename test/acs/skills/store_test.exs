@@ -161,7 +161,10 @@ defmodule Acs.Skills.StoreTest do
     """)
 
     assert [%{name: "deployment", id: "deployment"}] =
-             Enum.filter(Store.all_skills(), &(&1.name == "deployment" or &1.name == "Nested Deployment"))
+             Enum.filter(
+               Store.all_skills(),
+               &(&1.name == "deployment" or &1.name == "Nested Deployment")
+             )
 
     assert Store.get_skill("orgs/default/deployment") == nil
   end
@@ -183,7 +186,10 @@ defmodule Acs.Skills.StoreTest do
 
     path = Path.join(skills_dir, "rotate-token.md")
     assert File.exists?(path)
-    assert %{name: "Rotate Token", status: "proposed", tags: ["secrets"]} = Store.get_skill("rotate-token")
+
+    assert %{name: "Rotate Token", status: "proposed", tags: ["secrets"]} =
+             Store.get_skill("rotate-token")
+
     assert File.read!(path) =~ "when_to_use:"
   end
 end

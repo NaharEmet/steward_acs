@@ -152,6 +152,7 @@ defmodule AcsWeb.Plugs.ResolveOrg do
 
   defp browser_get?(%{method: "GET"} = conn) do
     path = conn.request_path || "/"
+
     not String.starts_with?(path, "/mcp") and not String.starts_with?(path, "/api") and
       not String.starts_with?(path, "/.well-known") and not String.starts_with?(path, "/oidc")
   end
@@ -160,6 +161,7 @@ defmodule AcsWeb.Plugs.ResolveOrg do
 
   defp noise_host?(host) when is_binary(host) do
     host = String.downcase(host)
+
     base =
       case Application.get_env(:steward_acs, :base_domain) do
         b when is_binary(b) and b != "" -> String.downcase(b)

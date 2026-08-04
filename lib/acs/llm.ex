@@ -534,8 +534,11 @@ defmodule Acs.LLM do
 
   defp load_prompt!(category, name) do
     case Acs.Prompts.load(category, name) do
-      nil -> raise "Missing #{category}/#{name} evaluation prompt. Create priv/prompts/#{category}/#{name}.md"
-      template -> template
+      nil ->
+        raise "Missing #{category}/#{name} evaluation prompt. Create priv/prompts/#{category}/#{name}.md"
+
+      template ->
+        template
     end
   end
 

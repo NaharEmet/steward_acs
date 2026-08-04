@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Pre-commit hook: fail if any staged .ex/.exs file is not mix-formatted.
+# Install repo-locally with:  git config core.hooksPath scripts/git-hooks
+# Bypass with:                SKIP_FORMAT_CHECK=1 git commit ...
+set -euo pipefail
+
+if [[ "${SKIP_FORMAT_CHECK:-0}" == "1" ]]; then
+  exit 0
+fi
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR -- '*.ex' '*.exs')"
+if [[ -z "$staged" ]]; then
+  exit 0
+fi
+
+if ! command -v mix >/dev/null 2>&1; then
+  echo "WARN: mix not found on PATH; skipping format check (CI still enforces it)" >&2
+  exit 0
+fi
+
+mapfile -t files <<<"$staged"
+
+if ! mix format --check-formatted "${files[@]}" >/dev/null 2>&1; then
+  echo "ERROR: staged Elixir files are not mix-formatted. Run:" >&2
+  echo "  mix format ${staged//$'\n'/ }" >&2
+  echo "or: SKIP_FORMAT_CHECK=1 git commit ... (not recommended)" >&2
+  exit 1
+fi

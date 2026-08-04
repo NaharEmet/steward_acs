@@ -106,6 +106,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   @secret_key_pattern ~r/(key|token|secret|password|authorization|credential)/i
 
   defp redact_config(%{__struct__: _} = value), do: value
+
   defp redact_config(value) when is_map(value) do
     Map.new(value, fn {k, v} ->
       if is_binary(k) and k =~ @secret_key_pattern do
@@ -115,6 +116,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
       end
     end)
   end
+
   defp redact_config(value) when is_list(value), do: Enum.map(value, &redact_config/1)
   defp redact_config(value), do: value
 
@@ -149,6 +151,7 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   defp deep_merge(%{} = a, %{} = b) do
     Map.merge(a, b, fn _k, av, bv -> deep_merge(av, bv) end)
   end
+
   defp deep_merge(_a, b), do: b
 
   defp filter_config(config, path, key) do
@@ -158,7 +161,10 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
       else
         case Map.get(config, path) do
           nil ->
-            %{error: "Unknown config path: #{path}. Valid paths: agents, skills, plugins, mcp, all"}
+            %{
+              error:
+                "Unknown config path: #{path}. Valid paths: agents, skills, plugins, mcp, all"
+            }
 
           data ->
             %{path => data}
@@ -183,8 +189,10 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
       value -> {:ok, value}
     end
   end
+
   defp find_key(values, key) when is_list(values),
     do: Enum.find_value(values, :error, &find_key(&1, key))
+
   defp find_key(_value, _key), do: :error
 
   def connection_diagnostic(args) do

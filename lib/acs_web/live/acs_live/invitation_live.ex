@@ -248,7 +248,11 @@ defmodule AcsWeb.AcsLive.InvitationLive do
         nil
 
       is_map(current_organization) ->
-        field(current_organization, :name, field(current_organization, :slug, "your current organization"))
+        field(
+          current_organization,
+          :name,
+          field(current_organization, :slug, "your current organization")
+        )
 
       true ->
         "your current organization"
@@ -506,7 +510,10 @@ defmodule AcsWeb.AcsLive.InvitationLive do
 
   defp user_name_form(user) do
     name = field(user, :name, "")
-    if is_binary(name) and String.trim(name) != "", do: nil, else: to_form(%{"name" => ""}, as: :user)
+
+    if is_binary(name) and String.trim(name) != "",
+      do: nil,
+      else: to_form(%{"name" => ""}, as: :user)
   end
 
   defp user_needs_name?(nil), do: true

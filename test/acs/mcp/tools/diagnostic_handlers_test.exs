@@ -49,14 +49,21 @@ defmodule Acs.MCP.Tools.DiagnosticHandlersTest do
   describe "config_lookup/1" do
     setup do
       original_paths = Application.get_env(:steward_acs, :opencode_config_paths)
-      dir = Path.join(System.tmp_dir!(), "acs_config_lookup_#{System.unique_integer([:positive])}")
+
+      dir =
+        Path.join(System.tmp_dir!(), "acs_config_lookup_#{System.unique_integer([:positive])}")
+
       File.mkdir_p!(dir)
 
       project = Path.join(dir, "opencode.json")
       global = Path.join(dir, "global.json")
 
       File.write!(project, Jason.encode!(%{"plugin" => ["./.opencode/plugins/ponytail.mjs"]}))
-      File.write!(global, Jason.encode!(%{"mcp" => %{"acs" => %{"url" => "http://x", "x-api-key" => "secret-abc"}}}))
+
+      File.write!(
+        global,
+        Jason.encode!(%{"mcp" => %{"acs" => %{"url" => "http://x", "x-api-key" => "secret-abc"}}})
+      )
 
       Application.put_env(:steward_acs, :opencode_config_paths, [project, global])
 

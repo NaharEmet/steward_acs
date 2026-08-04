@@ -54,7 +54,8 @@ defmodule Acs.MCP.Tools.QueryAgentTest do
       id: "documents/reference/linear-pm",
       title: "Linear/Scrum Master Agent (PM-facing)",
       document_type: "reference",
-      content: "Ask clarifying questions before filing tickets. Confirm priority, cycle, and estimate."
+      content:
+        "Ask clarifying questions before filing tickets. Confirm priority, cycle, and estimate."
     }
 
     rendered = QueryAgent.render_documents([entry])
@@ -80,7 +81,10 @@ defmodule Acs.MCP.Tools.QueryAgentTest do
     assert rendered =~ "excerpts"
     assert rendered =~ "Excerpt:"
     assert rendered =~ "Body 1 with enough text"
-    assert rendered =~ ~s|steward_ask(action:"document", app:"steward_acs", path:"documents/reference/doc-1")|
+
+    assert rendered =~
+             ~s|steward_ask(action:"document", app:"steward_acs", path:"documents/reference/doc-1")|
+
     assert rendered =~ "fetch the full document"
   end
 
@@ -99,7 +103,10 @@ defmodule Acs.MCP.Tools.QueryAgentTest do
     rendered = QueryAgent.render_documents([entry])
     refute rendered =~ "full content"
     assert rendered =~ "Excerpt:"
-    assert rendered =~ ~s|steward_ask(action:"document", app:"steward_acs", path:"documents/reference/huge")|
+
+    assert rendered =~
+             ~s|steward_ask(action:"document", app:"steward_acs", path:"documents/reference/huge")|
+
     refute QueryAgent.under_inline_token_limit?(big)
   end
 

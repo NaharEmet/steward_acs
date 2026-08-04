@@ -18,13 +18,13 @@ defmodule AcsWeb.McpUrls do
   @chat_always_intro """
   # Steward ACS — Always Active
 
-  Steward is always active: use it in every conversation. On every turn, before answering substantive questions, call Steward — never ask whether to use it and never skip it.
+  Before doing a task, or when you need org or process knowledge, call `steward_ask()` and follow its guidance packet. Save durable results with `steward_write`. Never use `tool_search`. Don't ask whether to use Steward.
   """
 
   @chat_opt_in_intro """
   # Steward ACS — Opt In
 
-  Ask the user at the start of every conversation whether to use Steward. If they say no, ignore the rest of this prompt. If yes, use Steward before answering substantive questions on every turn.
+  Ask the user at the start of each conversation whether to use Steward; if they decline, ignore this prompt. Before doing a task, or when you need org or process knowledge, call `steward_ask()` and follow its guidance packet. Save durable results with `steward_write`. Never use `tool_search`.
   """
 
   @type endpoint :: %{
@@ -43,11 +43,11 @@ defmodule AcsWeb.McpUrls do
   Paste into Claude.ai / ChatGPT connector custom instructions.
 
   Modes:
-  - `:always` (default) — Steward required every turn
+  - `:always` (default) — Steward available; call when starting a task or needing org knowledge
   - `:opt_in` — ask the user before using Steward
 
-  Both share `priv/prompts/chat_system_prompt_body.md` (three always-loaded
-  tools; call directly, never tool_search).
+  Mandate-only paste; workflow detail lives in the `steward_ask()` guidance packet.
+  Optional shared body: `priv/prompts/chat_system_prompt_body.md` (usually empty).
   """
   @spec chat_system_prompt() :: String.t()
   @spec chat_system_prompt(chat_prompt_mode()) :: String.t()

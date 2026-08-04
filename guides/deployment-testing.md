@@ -41,7 +41,7 @@ Push to `dev` (and PRs targeting `prod`) triggers [`.github/workflows/ci.yml`](.
 
 - `test` — Postgres 16 service + `mix test` (`DATABASE_URL` to that service)
 - `release` — `MIX_ENV=prod` + `REPO_ADAPTER=postgres` release build
-- `lint` — `mix compile --warnings-as-errors` + `mix credo --strict`
+- `lint` — `mix format --check-formatted` + `mix compile --warnings-as-errors` + `mix credo --strict`
 
 Agents: after pushing to `dev`, check `gh run list --branch dev --workflow=CI` / `gh run watch`. On Deploy, a red CI gate means no image push and no cutover.
 
@@ -114,6 +114,17 @@ Pick the smallest layer that can catch the bug. Update docs/skill in the same ch
 | Cutover + health/DCR/chat smoke | `scripts/deploy.sh`, `scripts/smoke-chat-tools.sh` | This guide + deployment skill |
 | Slot/upstream helpers | `scripts/lib/acs_bluegreen.sh`, `scripts/check-bluegreen.sh` | deployment skill |
 | Chat allowlist source of truth | `lib/acs/mcp/core_tool_roles.ex` | tests + chat prompt |
+| Format gate | `mix format --check-formatted` in `ci.yml` `lint` job + `scripts/git-hooks/pre-commit` | This guide |
+
+### Pre-commit format hook (local)
+
+`.git/hooks` is not versioned, so the hook lives at `scripts/git-hooks/pre-commit` (checks only staged `.ex`/`.exs` files). Each dev enables it repo-locally:
+
+```bash
+git config core.hooksPath scripts/git-hooks
+```
+
+Bypass for a one-off: `SKIP_FORMAT_CHECK=1 git commit ...` (CI still enforces formatting on `dev` pushes and `prod` PRs).
 
 After changing smoke or CI, run the smallest local check (`mix test …`, `./scripts/check-bluegreen.sh`, or local `PUBLIC_URL=… SMOKE_API_KEY=… EXPECTED_CHAT_TOOLS=… ./scripts/smoke-chat-tools.sh` against a running stack) before relying on Actions.
 

@@ -8,22 +8,64 @@ defmodule AcsWeb.AcsLive.PromptsLive do
       category: "memory",
       name: "intake",
       label: "Memory intake triage",
-      desc: "Per-org LLM triage on save_memory (scope choice, quality questions, sensitive note). Heuristics apply when LLM is down."
+      desc:
+        "Per-org LLM triage on save_memory (scope choice, quality questions, sensitive note). Heuristics apply when LLM is down."
     },
     %{
       category: "skills",
       name: "intake",
       label: "Skill intake triage",
-      desc: "Per-org LLM triage on skill_save. Default allow; high bar for questions (secrets / unusable / no steps). Heuristics when LLM is down."
+      desc:
+        "Per-org LLM triage on skill_save. Default allow; high bar for questions (secrets / unusable / no steps). Heuristics when LLM is down."
     },
-    %{category: "memory", name: "evaluate", label: "Memory evaluation (coding)", desc: "Prompt for coding memory quality auditor"},
-    %{category: "memory", name: "evaluate_chat", label: "Memory evaluation (chat)", desc: "Prompt for chat memory quality auditor"},
-    %{category: "skills", name: "evaluate", label: "Skill evaluation (coding)", desc: "Prompt for coding skill quality auditor"},
-    %{category: "skills", name: "evaluate_chat", label: "Skill evaluation (chat)", desc: "Prompt for chat skill quality auditor"},
-    %{category: "skills", name: "instructions", label: "Skills instructions (coding)", desc: "Agent-facing instructions for how to use skills"},
-    %{category: "skills", name: "instructions_chat", label: "Skills instructions (chat)", desc: "Chat-facing instructions for how to use skills"},
-    %{category: "specs", name: "instructions", label: "Specs instructions (coding)", desc: "Agent-facing instructions for how to use specs/documents"},
-    %{category: "specs", name: "instructions_chat", label: "Specs instructions (chat)", desc: "Chat-facing instructions for how to use specs/documents"}
+    %{
+      category: "memory",
+      name: "evaluate",
+      label: "Memory evaluation (coding)",
+      desc: "Prompt for coding memory quality auditor"
+    },
+    %{
+      category: "memory",
+      name: "evaluate_chat",
+      label: "Memory evaluation (chat)",
+      desc: "Prompt for chat memory quality auditor"
+    },
+    %{
+      category: "skills",
+      name: "evaluate",
+      label: "Skill evaluation (coding)",
+      desc: "Prompt for coding skill quality auditor"
+    },
+    %{
+      category: "skills",
+      name: "evaluate_chat",
+      label: "Skill evaluation (chat)",
+      desc: "Prompt for chat skill quality auditor"
+    },
+    %{
+      category: "skills",
+      name: "instructions",
+      label: "Skills instructions (coding)",
+      desc: "Agent-facing instructions for how to use skills"
+    },
+    %{
+      category: "skills",
+      name: "instructions_chat",
+      label: "Skills instructions (chat)",
+      desc: "Chat-facing instructions for how to use skills"
+    },
+    %{
+      category: "specs",
+      name: "instructions",
+      label: "Specs instructions (coding)",
+      desc: "Agent-facing instructions for how to use specs/documents"
+    },
+    %{
+      category: "specs",
+      name: "instructions_chat",
+      label: "Specs instructions (chat)",
+      desc: "Chat-facing instructions for how to use specs/documents"
+    }
   ]
 
   def on_mount(_params, _session, socket) do
@@ -32,7 +74,15 @@ defmodule AcsWeb.AcsLive.PromptsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    socket = assign(socket, selected_id: nil, selected: nil, editor_content: "", original_content: "", saving: false)
+    socket =
+      assign(socket,
+        selected_id: nil,
+        selected: nil,
+        editor_content: "",
+        original_content: "",
+        saving: false
+      )
+
     {:ok, load_data(socket)}
   end
 
@@ -44,7 +94,8 @@ defmodule AcsWeb.AcsLive.PromptsLive do
 
   @impl true
   def handle_event("select", %{"prompt_id" => id}, socket) do
-    prompt = Enum.find(@known_prompts, &prompt_id(&1) == id)
+    prompt = Enum.find(@known_prompts, &(prompt_id(&1) == id))
+
     if prompt do
       builtin = load_builtin(prompt.category, prompt.name)
       file_path = override_path(prompt.category, prompt.name)
@@ -90,7 +141,8 @@ defmodule AcsWeb.AcsLive.PromptsLive do
 
     case dir do
       nil ->
-        {:noreply, put_flash(socket, :error, "No vault prompts directory configured for this org")}
+        {:noreply,
+         put_flash(socket, :error, "No vault prompts directory configured for this org")}
 
       dir ->
         file_path = Path.join(dir, "#{prompt.name}.md")
@@ -169,6 +221,7 @@ defmodule AcsWeb.AcsLive.PromptsLive do
 
   defp load_builtin(category, name) do
     path = Path.join([Application.app_dir(:steward_acs), "priv/prompts", category, "#{name}.md"])
+
     case File.read(path) do
       {:ok, content} -> String.trim(content)
       _ -> ""
@@ -201,22 +254,30 @@ defmodule AcsWeb.AcsLive.PromptsLive do
   defp source_badge(:builtin), do: "Builtin"
 
   defp template_vars(%{category: "memory", name: "intake"}),
-    do: [{"candidate_json", "proposed memory fields as JSON (kind, title, content, about_*, visibility, …)"}]
+    do: [
+      {"candidate_json",
+       "proposed memory fields as JSON (kind, title, content, about_*, visibility, …)"}
+    ]
 
   defp template_vars(%{category: "skills", name: "intake"}),
-    do: [{"candidate_json", "proposed skill fields as JSON (name, description, when_to_use, content, tags, scope_paths)"}]
-
-  defp template_vars(%{category: "memory", name: name}) when name in ["evaluate", "evaluate_chat"],
     do: [
-      {"memory_json", "memory entry as JSON"},
-      {"existing_memories_json", "context memories as JSON"}
+      {"candidate_json",
+       "proposed skill fields as JSON (name, description, when_to_use, content, tags, scope_paths)"}
     ]
 
-  defp template_vars(%{category: "skills", name: name}) when name in ["evaluate", "evaluate_chat"],
-    do: [
-      {"skill_json", "skill entry as JSON"},
-      {"existing_skills_json", "context skills as JSON"}
-    ]
+  defp template_vars(%{category: "memory", name: name})
+       when name in ["evaluate", "evaluate_chat"],
+       do: [
+         {"memory_json", "memory entry as JSON"},
+         {"existing_memories_json", "context memories as JSON"}
+       ]
+
+  defp template_vars(%{category: "skills", name: name})
+       when name in ["evaluate", "evaluate_chat"],
+       do: [
+         {"skill_json", "skill entry as JSON"},
+         {"existing_skills_json", "context skills as JSON"}
+       ]
 
   defp template_vars(_), do: []
 

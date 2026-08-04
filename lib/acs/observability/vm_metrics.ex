@@ -114,7 +114,10 @@ defmodule Acs.Observability.VmMetrics do
   end
 
   defp normalize_prev(nil), do: %{schedulers: nil, host: nil}
-  defp normalize_prev(schedulers) when is_list(schedulers), do: %{schedulers: schedulers, host: nil}
+
+  defp normalize_prev(schedulers) when is_list(schedulers),
+    do: %{schedulers: schedulers, host: nil}
+
   defp normalize_prev(%{schedulers: _, host: _} = prev), do: prev
   defp normalize_prev(%{schedulers: schedulers}), do: %{schedulers: schedulers, host: nil}
 

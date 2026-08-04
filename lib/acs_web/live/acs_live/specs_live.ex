@@ -104,7 +104,12 @@ defmodule AcsWeb.AcsLive.SpecsLive do
               {:noreply, put_flash(socket, :error, "Failed to approve: #{inspect(reason)}")}
           end
         else
-          {:noreply, put_flash(socket, :error, "Access denied: cannot edit specs at or above your clearance")}
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Access denied: cannot edit specs at or above your clearance"
+           )}
         end
 
       {:error, reason} ->
@@ -134,7 +139,12 @@ defmodule AcsWeb.AcsLive.SpecsLive do
               {:noreply, put_flash(socket, :error, "Failed to reject: #{inspect(reason)}")}
           end
         else
-          {:noreply, put_flash(socket, :error, "Access denied: cannot edit specs at or above your clearance")}
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Access denied: cannot edit specs at or above your clearance"
+           )}
         end
 
       {:error, reason} ->
@@ -164,7 +174,12 @@ defmodule AcsWeb.AcsLive.SpecsLive do
               {:noreply, put_flash(socket, :error, "Failed to deprecate: #{inspect(reason)}")}
           end
         else
-          {:noreply, put_flash(socket, :error, "Access denied: cannot edit specs at or above your clearance")}
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Access denied: cannot edit specs at or above your clearance"
+           )}
         end
 
       {:error, reason} ->

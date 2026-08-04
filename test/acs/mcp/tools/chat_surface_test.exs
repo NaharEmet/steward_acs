@@ -82,7 +82,10 @@ defmodule Acs.MCP.Tools.ChatSurfaceTest do
                params: %{search: "deploy"}
              })
 
-    assert %{tool: "steward_ask", params: %{action: "document", app: "steward_acs", path: "documents/reference/x"}} =
+    assert %{
+             tool: "steward_ask",
+             params: %{action: "document", app: "steward_acs", path: "documents/reference/x"}
+           } =
              ChatSurface.consolidate_step(%{
                tool: "specs_get",
                prompt: "Load document",

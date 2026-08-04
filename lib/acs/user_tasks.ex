@@ -146,6 +146,7 @@ defmodule Acs.UserTasks do
 
   def user_task_args?(args) when is_map(args) do
     kind = args["kind"] || args[:kind]
+
     kind == "user" or present?(args["due_at"]) or present?(args["remind_at"]) or
       present?(args["assignee"])
   end
@@ -295,6 +296,7 @@ defmodule Acs.UserTasks do
   defp present?(_), do: false
 
   defp blank_to_nil(nil), do: nil
+
   defp blank_to_nil(s) when is_binary(s) do
     t = String.trim(s)
     if t == "", do: nil, else: t

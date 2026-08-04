@@ -484,7 +484,8 @@ defmodule Acs.MCP.Tools.QueryAgent do
         app: app,
         path: path,
         title: Map.get(map, :title) || Map.get(map, "title"),
-        document_type: Map.get(map, :document_type) || Map.get(map, "document_type") || "document",
+        document_type:
+          Map.get(map, :document_type) || Map.get(map, "document_type") || "document",
         body:
           Map.get(map, :content) || Map.get(map, "content") || Map.get(map, :purpose) ||
             Map.get(map, "purpose") || "",

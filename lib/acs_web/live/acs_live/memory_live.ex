@@ -159,6 +159,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
   def handle_event("approve-all-proposed", _, socket) do
     # Fetch all proposed memories (up to 500)
     org = socket.assigns.current_org
+
     proposed_memories =
       Indexer.list_memories([status: "proposed", limit: 500, org: org] ++ viewer_abac(socket))
 

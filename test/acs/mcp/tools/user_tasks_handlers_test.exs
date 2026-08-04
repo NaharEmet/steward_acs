@@ -212,7 +212,7 @@ defmodule Acs.MCP.Tools.UserTasksHandlersTest do
                  "task_id" => task_id,
                  "outcome" => "dismiss"
                })
-              )
+             )
 
     refute Enum.any?(UserTasks.pending_reminders("Nahar", org), &(&1.slug == task_id))
   end

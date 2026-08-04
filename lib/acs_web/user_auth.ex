@@ -140,6 +140,7 @@ defmodule AcsWeb.UserAuth do
     case session["current_org"] do
       org when is_binary(org) and org != "" ->
         :ok = Acs.Org.put_current(org)
+
         organization =
           case socket.assigns[:current_user] do
             %{organization: %_struct{slug: ^org} = preloaded} ->
@@ -196,7 +197,8 @@ defmodule AcsWeb.UserAuth do
     org = session["current_org"] || socket.assigns[:current_org]
     user = socket.assigns[:current_user]
 
-    if tenant_user?(user, org, socket.assigns[:organization]) and organization_role(user) in ["owner", "admin"] do
+    if tenant_user?(user, org, socket.assigns[:organization]) and
+         organization_role(user) in ["owner", "admin"] do
       {:cont, socket}
     else
       {:halt, Phoenix.LiveView.redirect(socket, to: "/")}

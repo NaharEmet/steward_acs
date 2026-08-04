@@ -472,13 +472,13 @@ defmodule Acs.MCP.Protocol do
   defp audience_instructions(:chat, agent_identity) do
     base =
       """
-        ACS audience: chat. Exactly three tools are available and always loaded: steward_ask (bootstrap/retrieve), steward_write (persist/status/feedback), and steward_work (reminders/coordination). Call them directly; never use tool_search. Start with steward_ask() to get connected_user and pending_reminders. Retrieve with steward_ask(action:\"search\", content_query:); load procedures with action:\"skill\" whenever a listed skill fits the task (skills are never fully inlined in search); load document bodies with action:\"document\" (app + path). Search may inline 1–2 small documents; otherwise excerpts + fetch. Never claim titles-only. Follow process docs/skills before filing tickets or similar actions. Save truths/documents/skills or feedback with steward_write(kind:...). Timed reminders use steward_work(action:\"create\", kind:\"user\", due_at:, remind_at:); resolve with action:\"resolve_reminder\". List tasks only when asked via steward_ask(action:\"list_tasks\"). Prefer business scopes (org/domain/topic). Claimed work: save → steward_work(action:\"release\") → steward_write(kind:\"feedback\") last. Connect via /mcp/chat/sse.
+      ACS audience: chat. Tools: steward_ask, steward_write, steward_work — call by name; never tool_search. Before doing a task, or when you need org or process knowledge, call steward_ask() and follow its guidance packet. Save durable results with steward_write. Connect via /mcp/chat/sse.
       """
       |> String.trim()
 
     if usable_agent_identity?(agent_identity) do
       base <>
-        " Connected ACS user: \"#{agent_identity}\" (OAuth display name or MCP token developer_name). Call steward_ask() first — it returns connected_user. When searching this person's context, include \"#{agent_identity}\" in steward_ask(action:\"search\", content_query:). Omit agent_id on tool calls; never invent a nickname."
+        " Connected ACS user: \"#{agent_identity}\". Omit agent_id on tool calls; never invent a nickname."
     else
       base
     end

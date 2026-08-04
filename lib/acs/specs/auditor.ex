@@ -78,7 +78,10 @@ defmodule Acs.Specs.Auditor do
             end
 
           _ ->
-            Logger.debug("[Acs.Specs.Auditor] #{org}/#{app}/#{path} not found for post-save audit")
+            Logger.debug(
+              "[Acs.Specs.Auditor] #{org}/#{app}/#{path} not found for post-save audit"
+            )
+
             audited
         end
       end)
@@ -134,7 +137,9 @@ defmodule Acs.Specs.Auditor do
       end)
       |> Enum.reject(&is_nil/1)
 
-    approved = Enum.count(results, &(&1[:audit_verdict] == "approve" or &1[:status] == "approved"))
+    approved =
+      Enum.count(results, &(&1[:audit_verdict] == "approve" or &1[:status] == "approved"))
+
     rejected = Enum.count(results, &(&1[:audit_verdict] == "reject" or &1[:status] == "rejected"))
     review = Enum.count(results, &(&1[:audit_verdict] == "human_review"))
 

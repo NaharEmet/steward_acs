@@ -11,6 +11,7 @@ defmodule Acs.OrgsCache do
 
   def get do
     cutoff = cutoff()
+
     case :ets.lookup(@table, :orgs) do
       [{:orgs, orgs, ts}] when ts > cutoff -> orgs
       _ -> nil

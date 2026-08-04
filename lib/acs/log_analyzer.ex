@@ -181,7 +181,10 @@ defmodule Acs.LogAnalyzer do
       end
     rescue
       e ->
-        Logger.error("[LogAnalyzer] Crash during analysis: #{inspect(e)}", error: Exception.format_stacktrace(__STACKTRACE__))
+        Logger.error("[LogAnalyzer] Crash during analysis: #{inspect(e)}",
+          error: Exception.format_stacktrace(__STACKTRACE__)
+        )
+
         state
     end
   end

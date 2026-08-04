@@ -256,7 +256,9 @@ defmodule AcsWeb.UserSessionController do
           {first_name, last_name}
         else
           case name do
-            nil -> {nil, nil}
+            nil ->
+              {nil, nil}
+
             name when is_binary(name) ->
               case String.split(name, " ", parts: 2) do
                 [f, l] -> {f, l}
@@ -343,6 +345,7 @@ defmodule AcsWeb.UserSessionController do
     slug = conn.assigns[:current_org] || Acs.Org.configured()
     organization = ensure_local_organization!(slug)
     now = DateTime.utc_now() |> DateTime.truncate(:second)
+
     owner_attrs = %{
       organization_id: organization.id,
       org_role: "owner",

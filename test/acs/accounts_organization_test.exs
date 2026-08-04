@@ -277,6 +277,7 @@ defmodule Acs.AccountsOrganizationTest do
 
       assert {:ok, token} = Accounts.create_session_handoff(user, organization, "/tools")
       assert :ok = Accounts.bind_session_handoff(token, organization, user, "browser-state")
+
       assert {:ok, handoff} =
                Accounts.consume_session_handoff(token, organization, "browser-state")
 

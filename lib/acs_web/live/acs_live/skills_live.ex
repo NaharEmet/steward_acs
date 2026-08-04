@@ -95,7 +95,11 @@ defmodule AcsWeb.AcsLive.SkillsLive do
           end
         else
           {:noreply,
-           put_flash(socket, :error, "Access denied: cannot edit skills at or above your clearance")}
+           put_flash(
+             socket,
+             :error,
+             "Access denied: cannot edit skills at or above your clearance"
+           )}
         end
     end
   end

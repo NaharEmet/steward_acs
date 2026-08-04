@@ -35,19 +35,27 @@ defmodule Acs.MCP.Tools.SkillHandlers do
 
       search = args["search"] ->
         results = Store.search_skills(search)
-        {:ok, %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
+
+        {:ok,
+         %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
 
       tag = args["tag"] ->
         results = Store.list_skills(tag)
-        {:ok, %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
+
+        {:ok,
+         %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
 
       scope_path = args["scope_path"] ->
         results = Store.list_skills_by_scope(scope_path)
-        {:ok, %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
+
+        {:ok,
+         %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
 
       true ->
         results = Store.list_skills()
-        {:ok, %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
+
+        {:ok,
+         %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
     end
   end
 
@@ -145,8 +153,13 @@ defmodule Acs.MCP.Tools.SkillHandlers do
   # below the skill's stamped rank.
   defp ensure_editable(ctx, name) do
     case Store.get_skill(name) do
-      nil -> :ok
-      skill -> if Abac.can_edit?(ctx, skill), do: :ok, else: {:error, "Access denied: cannot edit skills at or above your clearance"}
+      nil ->
+        :ok
+
+      skill ->
+        if Abac.can_edit?(ctx, skill),
+          do: :ok,
+          else: {:error, "Access denied: cannot edit skills at or above your clearance"}
     end
   end
 

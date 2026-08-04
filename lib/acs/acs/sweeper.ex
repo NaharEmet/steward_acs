@@ -167,9 +167,7 @@ defmodule Acs.Acs.Sweeper do
         :skip
 
       {:error, reason} ->
-        Logger.warning(
-          "[Acs.Sweeper] Transaction failed for task #{task.id}: #{inspect(reason)}"
-        )
+        Logger.warning("[Acs.Sweeper] Transaction failed for task #{task.id}: #{inspect(reason)}")
 
         :error
     end
