@@ -513,8 +513,7 @@ defmodule Acs.Observability.AgentOps do
          sequence,
          discovery?
        ) do
-    if System.get_env("META_HARNESS_ENABLED", "false") == "true" and
-         Code.ensure_loaded?(Acs.MetaHarness.OperationLogger) do
+    if Acs.MetaHarness.enabled?() and Code.ensure_loaded?(Acs.MetaHarness.OperationLogger) do
       Acs.MetaHarness.OperationLogger.log_async(
         tool_name,
         status_atom(status),
@@ -523,6 +522,7 @@ defmodule Acs.Observability.AgentOps do
         error_message && to_string(error_message),
         Keyword.get(opts, :agent_id),
         Keyword.get(opts, :execution_id),
+        org: Keyword.get(opts, :org),
         execution_chain_id: chain_id,
         sequence_order: sequence,
         tool_discovered: discovery?,

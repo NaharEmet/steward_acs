@@ -19,7 +19,7 @@ defmodule Acs.Application do
 
   @impl true
   def stop(_state) do
-    if meta_harness_enabled?(), do: Acs.MetaHarness.OperationLogger.flush()
+    if Acs.MetaHarness.enabled?(), do: Acs.MetaHarness.OperationLogger.flush()
     :ok
   end
 
@@ -33,7 +33,7 @@ defmodule Acs.Application do
     :ok = Acs.Org.load_persisted_developer_name()
 
     meta_harness_children =
-      if meta_harness_enabled?() and
+      if Acs.MetaHarness.enabled?() and
            Application.get_env(:steward_acs, :start_background_workers, true) do
         _ = Acs.MetaHarness.RecentOps.setup()
         [Acs.MetaHarness.OperationLogger, Acs.MetaHarness.Scheduler]
@@ -246,7 +246,4 @@ defmodule Acs.Application do
     end
   end
 
-  defp meta_harness_enabled? do
-    System.get_env("META_HARNESS_ENABLED", "true") == "true"
-  end
 end

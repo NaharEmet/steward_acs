@@ -69,6 +69,7 @@ defmodule Acs.MetaHarness.OperationLogger do
       tool_discovered: Keyword.get(opts, :tool_discovered, false),
       error_burst: Keyword.get(opts, :error_burst, false),
       params_hash: Keyword.get(opts, :params_hash),
+      org: Keyword.get(opts, :org) || Acs.Org.current(),
       inserted_at: DateTime.utc_now() |> DateTime.truncate(:second)
     }
 
@@ -138,23 +139,28 @@ defmodule Acs.MetaHarness.OperationLogger do
     new_size = size + 1
 
     if new_size >= @max_buffer_size do
-      _ = flush_buffer(new_buffer)
-      {:noreply, %{state | buffer: [], buffer_size: 0}}
+      {:noreply, after_flush(state, new_buffer)}
     else
       {:noreply, %{state | buffer: new_buffer, buffer_size: new_size}}
     end
   end
 
   @impl true
-  def handle_info(:flush, %{buffer: buffer, consecutive_failures: failures} = state) do
+  def handle_info(:flush, state) do
+    schedule_flush()
+    {:noreply, after_flush(state, state.buffer)}
+  end
+
+  # Shared flush outcome — timed and size-triggered paths must behave the same
+  # (do not drop the buffer when the DB write fails).
+  defp after_flush(%{consecutive_failures: failures} = state, buffer) do
     case flush_buffer(buffer) do
       :ok ->
         if failures > 0 do
           Logger.info("[OperationLogger] Flush recovered after #{failures} consecutive failures")
         end
 
-        schedule_flush()
-        {:noreply, %{state | buffer: [], buffer_size: 0, consecutive_failures: 0}}
+        %{state | buffer: [], buffer_size: 0, consecutive_failures: 0}
 
       {:error, reason} ->
         new_failures = failures + 1
@@ -167,7 +173,6 @@ defmodule Acs.MetaHarness.OperationLogger do
           Logger.warning("[OperationLogger] Flush failed (##{new_failures}): #{inspect(reason)}")
         end
 
-        # Cap buffer to prevent OOM on persistent DB failure
         dropped = max(0, length(buffer) - @max_buffer_cap)
 
         if dropped > 0 do
@@ -177,11 +182,13 @@ defmodule Acs.MetaHarness.OperationLogger do
         end
 
         capped = Enum.take(buffer, @max_buffer_cap)
-        capped_size = length(capped)
-        schedule_flush()
 
-        {:noreply,
-         %{state | buffer: capped, buffer_size: capped_size, consecutive_failures: new_failures}}
+        %{
+          state
+          | buffer: capped,
+            buffer_size: length(capped),
+            consecutive_failures: new_failures
+        }
     end
   end
 
@@ -227,12 +234,12 @@ defmodule Acs.MetaHarness.OperationLogger do
   end
 
   defp insert_operation(entry) do
-    ph = Acs.MetaHarness.SQL.placeholders(14)
+    ph = Acs.MetaHarness.SQL.placeholders(15)
 
     Ecto.Adapters.SQL.query(
       Acs.Repo,
       """
-        INSERT INTO acs_tool_operations (tool_name, status, latency_ms, error_type, error_message, agent_id, execution_id, execution_chain_id, sequence_order, attempt, tool_discovered, error_burst, params_hash, created_at)
+        INSERT INTO acs_tool_operations (tool_name, status, latency_ms, error_type, error_message, agent_id, execution_id, execution_chain_id, sequence_order, attempt, tool_discovered, error_burst, params_hash, org, created_at)
         VALUES (#{ph})
       """,
       [
@@ -249,6 +256,7 @@ defmodule Acs.MetaHarness.OperationLogger do
         entry.tool_discovered,
         entry.error_burst,
         entry.params_hash,
+        entry.org,
         entry.inserted_at
       ]
     )

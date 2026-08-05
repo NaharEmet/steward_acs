@@ -852,8 +852,13 @@ defmodule Acs.Memory.Auditor do
 
         flags_json = Jason.encode!(updated_flags)
 
-        :ok =
-          record_audit_revision(memory, updated_flags, "Memory auditor recorded an audit error")
+        case record_audit_revision(memory, updated_flags, "Memory auditor recorded an audit error") do
+          :ok -> :ok
+          {:error, revision_reason} ->
+            Logger.warning(
+              "[Acs.Memory.Auditor] Skipped audit revision for #{memory_id}: #{inspect(revision_reason)}"
+            )
+        end
 
         Repo.update_all(
           from(m in Schema, where: m.id == ^memory_id),

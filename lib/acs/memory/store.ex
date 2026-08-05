@@ -12,7 +12,8 @@ defmodule Acs.Memory.Store do
   @doc "Persist a memory through the backend selected by deployment mode."
   def save(%Acs.Memory{} = memory, opts \\ []) do
     if Acs.Org.multi_tenant?() do
-      org = Acs.Org.current()
+      # Background jobs (e.g. Memory.Auditor) pass org: memory.org; HTTP uses current().
+      org = Keyword.get(opts, :org, Acs.Org.current())
 
       if memory.org not in [nil, org] do
         {:error, :tenant_mismatch}

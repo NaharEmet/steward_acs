@@ -24,10 +24,12 @@ defmodule Acs.MetaHarness.Analyzer do
     - `:timeframe` - Analysis window: `:last_24_hours`, `:last_7_days`, `:last_30_days` (default: `:last_24_hours`)
     - `:min_sample_size` - Minimum samples needed for reliable stats (default: 1)
     - `:min_cluster_size` - Minimum occurrences for error cluster detection (default: 2)
+    - `:org` - Tenant org slug (default: `Acs.Org.current/0`)
   """
   @spec analyze(keyword()) :: map()
   def analyze(opts \\ []) do
     timeframe = Keyword.get(opts, :timeframe, :last_24_hours)
+    org = Keyword.get(opts, :org, Acs.Org.current())
     # Sparse prod traffic — 1 sample is enough to ship meta.tool (was 5).
     min_sample = Keyword.get(opts, :min_sample_size, 1)
     min_cluster = Keyword.get(opts, :min_cluster_size, 2)
@@ -35,64 +37,103 @@ defmodule Acs.MetaHarness.Analyzer do
     {start_time, end_time} = calculate_time_range(timeframe)
 
     analysis = %{
-      tool_reliability: analyze_tool_reliability(start_time, end_time, min_sample),
-      latency_analysis: analyze_latency(start_time, end_time, min_sample),
-      error_clusters: find_error_clusters(start_time, end_time, min_cluster),
-      intake_friction: analyze_intake_friction(start_time, end_time, min_cluster),
-      agent_behavior: analyze_agent_behavior(start_time, end_time),
+      tool_reliability: analyze_tool_reliability(start_time, end_time, min_sample, org),
+      latency_analysis: analyze_latency(start_time, end_time, min_sample, org),
+      error_clusters: find_error_clusters(start_time, end_time, min_cluster, org),
+      intake_friction: analyze_intake_friction(start_time, end_time, min_cluster, org),
+      agent_behavior: analyze_agent_behavior(start_time, end_time, org),
       metadata: %{
         analyzed_at: DateTime.utc_now(),
         timeframe: timeframe,
+        org: org,
         start_time: start_time,
         end_time: end_time,
         source: if(Acs.MetaHarness.SQL.postgres?(), do: "postgres", else: "sqlite")
       }
     }
 
-    maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster, opts)
+    maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster, org, opts)
   end
 
   # When Postgres dual-write is empty/broken, roll up from in-memory RecentOps
   # (same events AgentOps already recorded). Ingest-only AXIOM_LOGS cannot query.
-  defp maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster, opts) do
-    cond do
-      Keyword.get(opts, :ets_fallback, true) == false ->
-        analysis
+  defp maybe_ets_fallback(analysis, start_time, end_time, min_sample, min_cluster, org, opts) do
+    if Keyword.get(opts, :ets_fallback, true) == false do
+      analysis
+    else
+      start_ms = DateTime.to_unix(start_time, :millisecond)
+      end_ms = DateTime.to_unix(end_time, :millisecond)
 
-      map_size(analysis.tool_reliability) > 0 ->
-        analysis
+      ets =
+        Acs.MetaHarness.RecentOps.analyze(start_ms, end_ms,
+          min_sample_size: min_sample,
+          min_cluster_size: min_cluster,
+          org: org
+        )
 
-      true ->
-        start_ms = DateTime.to_unix(start_time, :millisecond)
-        end_ms = DateTime.to_unix(end_time, :millisecond)
+      db_tools = Map.keys(analysis.tool_reliability)
+      ets_tools = Map.keys(ets.tool_reliability)
+      missing_tools = ets_tools -- db_tools
 
-        ets =
-          Acs.MetaHarness.RecentOps.analyze(start_ms, end_ms,
-            min_sample_size: min_sample,
-            min_cluster_size: min_cluster
-          )
-
-        if map_size(ets.tool_reliability) == 0 do
+      cond do
+        db_tools == [] and ets_tools == [] ->
           analysis
-        else
+
+        db_tools == [] ->
           Logger.info(
-            "[Analyzer] Postgres empty — using RecentOps ETS fallback (#{map_size(ets.tool_reliability)} tools)"
+            "[Analyzer] Postgres empty — using RecentOps ETS fallback (#{length(ets_tools)} tools)"
+          )
+
+          merge_ets_fields(analysis, ets, "ets_fallback")
+
+        missing_tools == [] ->
+          analysis
+
+        true ->
+          Logger.info(
+            "[Analyzer] Partial DB coverage — supplementing #{length(missing_tools)} tools from RecentOps"
           )
 
           analysis
-          |> Map.merge(
-            Map.take(ets, [
-              :tool_reliability,
-              :latency_analysis,
-              :error_clusters,
-              :intake_friction,
-              :agent_behavior
-            ])
-          )
-          |> put_in([:metadata, :source], "ets_fallback")
-        end
+          |> merge_ets_for_tools(ets, missing_tools)
+          |> put_in([:metadata, :source], hybrid_source(analysis.metadata.source))
+      end
     end
   end
+
+  defp merge_ets_fields(analysis, ets, source) do
+    analysis
+    |> Map.merge(
+      Map.take(ets, [
+        :tool_reliability,
+        :latency_analysis,
+        :error_clusters,
+        :intake_friction,
+        :agent_behavior
+      ])
+    )
+    |> put_in([:metadata, :source], source)
+  end
+
+  defp merge_ets_for_tools(analysis, ets, missing_tools) do
+    missing = MapSet.new(missing_tools)
+    tool_filter = fn row -> Map.fetch!(row, :tool_name) in missing end
+
+    %{
+      analysis
+      | tool_reliability:
+          Map.merge(analysis.tool_reliability, Map.take(ets.tool_reliability, missing_tools)),
+        latency_analysis:
+          Map.merge(analysis.latency_analysis, Map.take(ets.latency_analysis, missing_tools)),
+        error_clusters: analysis.error_clusters ++ Enum.filter(ets.error_clusters, tool_filter),
+        intake_friction: analysis.intake_friction ++ Enum.filter(ets.intake_friction, tool_filter),
+        agent_behavior: Map.merge(ets.agent_behavior, analysis.agent_behavior)
+    }
+  end
+
+  defp hybrid_source(source) when source in ["postgres", "sqlite"], do: "#{source}+ets_fallback"
+  defp hybrid_source(source) when is_binary(source), do: source <> "+ets_fallback"
+  defp hybrid_source(_), do: "postgres+ets_fallback"
 
   @doc """
   Returns a simple summary for quick inspection.
@@ -120,12 +161,13 @@ defmodule Acs.MetaHarness.Analyzer do
 
   # ── Tool Reliability Analysis ────────────────────────────────────────────────
 
-  defp analyze_tool_reliability(start_time, end_time, min_sample) do
+  defp analyze_tool_reliability(start_time, end_time, min_sample, org) do
     discovery_query = """
       SELECT tool_name, COUNT(*) as discovery_count
       FROM acs_tool_operations
       WHERE created_at >= ?1
         AND created_at <= ?2
+        AND org = ?3
         AND status = 'discovery'
       GROUP BY tool_name
     """
@@ -142,17 +184,18 @@ defmodule Acs.MetaHarness.Analyzer do
       FROM acs_tool_operations
       WHERE created_at >= ?1
         AND created_at <= ?2
+        AND org = ?3
         AND status != 'discovery'
       GROUP BY tool_name
-      HAVING COUNT(*) >= ?3
+      HAVING COUNT(*) >= ?4
       ORDER BY failure_count DESC, total_calls DESC
     """
 
     dt_start = format_datetime(start_time)
     dt_end = format_datetime(end_time)
 
-    case {run_query(exec_query, [dt_start, dt_end, min_sample]),
-          run_query(discovery_query, [dt_start, dt_end])} do
+    case {run_query(exec_query, [dt_start, dt_end, org, min_sample]),
+          run_query(discovery_query, [dt_start, dt_end, org])} do
       {{:ok, exec_results}, {:ok, discovery_results}} ->
         discovery_map =
           Enum.into(discovery_results, %{}, fn row ->
@@ -187,7 +230,7 @@ defmodule Acs.MetaHarness.Analyzer do
   # ── Latency Analysis ─────────────────────────────────────────────────────────
   # SQLite doesn't support PERCENTILE_CONT, so we compute percentiles in Elixir
 
-  defp analyze_latency(start_time, end_time, min_sample) do
+  defp analyze_latency(start_time, end_time, min_sample, org) do
     query = """
       SELECT
         tool_name,
@@ -198,13 +241,14 @@ defmodule Acs.MetaHarness.Analyzer do
       FROM acs_tool_operations
       WHERE created_at >= ?1
         AND created_at <= ?2
+        AND org = ?3
         AND latency_ms IS NOT NULL
       GROUP BY tool_name
-      HAVING COUNT(*) >= ?3
+      HAVING COUNT(*) >= ?4
       ORDER BY avg_latency DESC
     """
 
-    params = [format_datetime(start_time), format_datetime(end_time), min_sample]
+    params = [format_datetime(start_time), format_datetime(end_time), org, min_sample]
 
     # Get raw latency values per tool for percentile calculation
     percentile_query = """
@@ -212,11 +256,12 @@ defmodule Acs.MetaHarness.Analyzer do
       FROM acs_tool_operations
       WHERE created_at >= ?1
         AND created_at <= ?2
+        AND org = ?3
         AND latency_ms IS NOT NULL
       ORDER BY tool_name, latency_ms
     """
 
-    p_params = [format_datetime(start_time), format_datetime(end_time)]
+    p_params = [format_datetime(start_time), format_datetime(end_time), org]
 
     case {run_query(query, params), run_query(percentile_query, p_params)} do
       {{:ok, stats_results}, {:ok, raw_results}} ->
@@ -225,7 +270,9 @@ defmodule Acs.MetaHarness.Analyzer do
 
         Enum.into(stats_results, %{}, fn row ->
           tool_name = row["tool_name"]
-          latencies = Map.get(latencies_by_tool, tool_name, [])
+          latencies =
+          Map.get(latencies_by_tool, tool_name, [])
+          |> Enum.sort()
 
           {tool_name,
            %{
@@ -246,7 +293,7 @@ defmodule Acs.MetaHarness.Analyzer do
 
   # ── Error Cluster Analysis ────────────────────────────────────────────────────
 
-  defp find_error_clusters(start_time, end_time, min_occurrences) do
+  defp find_error_clusters(start_time, end_time, min_occurrences, org) do
     agents_agg =
       if postgres?(),
         do: "string_agg(DISTINCT agent_id, ',')",
@@ -262,10 +309,11 @@ defmodule Acs.MetaHarness.Analyzer do
       FROM acs_tool_operations
       WHERE created_at >= ?1
         AND created_at <= ?2
+        AND org = ?3
         AND status IN ('failure', 'error')
         AND error_type IS NOT NULL
       GROUP BY tool_name, error_type
-      HAVING COUNT(*) >= ?3
+      HAVING COUNT(*) >= ?4
       ORDER BY occurrence_count DESC
       LIMIT 20
     """
@@ -273,6 +321,7 @@ defmodule Acs.MetaHarness.Analyzer do
     case run_query(query, [
            format_datetime(start_time),
            format_datetime(end_time),
+           org,
            min_occurrences
          ]) do
       {:ok, results} ->
@@ -295,7 +344,7 @@ defmodule Acs.MetaHarness.Analyzer do
   # Logged as success with error_type intake_* so they don't tank success_rate,
   # but still surface for prompt-tuning (high gate rate = prompt too aggressive).
 
-  defp analyze_intake_friction(start_time, end_time, min_occurrences) do
+  defp analyze_intake_friction(start_time, end_time, min_occurrences, org) do
     like = if postgres?(), do: "error_type LIKE 'intake_%'", else: "error_type LIKE 'intake_%'"
 
     query = """
@@ -307,9 +356,10 @@ defmodule Acs.MetaHarness.Analyzer do
       FROM acs_tool_operations
       WHERE created_at >= ?1
         AND created_at <= ?2
+        AND org = ?3
         AND #{like}
       GROUP BY tool_name, error_type
-      HAVING COUNT(*) >= ?3
+      HAVING COUNT(*) >= ?4
       ORDER BY occurrence_count DESC
       LIMIT 30
     """
@@ -317,6 +367,7 @@ defmodule Acs.MetaHarness.Analyzer do
     case run_query(query, [
            format_datetime(start_time),
            format_datetime(end_time),
+           org,
            min_occurrences
          ]) do
       {:ok, results} ->
@@ -352,7 +403,7 @@ defmodule Acs.MetaHarness.Analyzer do
   # ── Agent Behavior Analysis ──────────────────────────────────────────────────
   # Derived from tool_operations table - no separate agent_behavior table needed
 
-  defp analyze_agent_behavior(start_time, end_time) do
+  defp analyze_agent_behavior(start_time, end_time, org) do
     query = """
       SELECT
         agent_id,
@@ -368,12 +419,13 @@ defmodule Acs.MetaHarness.Analyzer do
       FROM acs_tool_operations
       WHERE created_at >= ?1
         AND created_at <= ?2
+        AND org = ?3
         AND agent_id IS NOT NULL
       GROUP BY agent_id
       ORDER BY total_operations DESC
     """
 
-    case run_query(query, [format_datetime(start_time), format_datetime(end_time)]) do
+    case run_query(query, [format_datetime(start_time), format_datetime(end_time), org]) do
       {:ok, results} ->
         results
         |> Enum.into(%{}, fn row ->

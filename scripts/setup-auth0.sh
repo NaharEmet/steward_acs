@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Configure Auth0 tenant for Claude MCP Connectors (Steward ACS).
+# Configure Auth0 tenant for Claude + ChatGPT MCP Connectors (Steward ACS).
 #
 # Required env:
 #   AUTH0_M2M_CLIENT_ID      Machine-to-Machine app client ID
@@ -12,12 +12,19 @@
 #   AUTH0_USER_PASSWORD        ignored for passwordless; only used if AUTH0_DB_CONNECTION is a DB conn
 #   AUTH0_DB_CONNECTION        default: email (passwordless OTP via New Universal Login)
 #   SKIP_CLAUDE_APP            set to 1 to skip manual Claude OAuth app creation
+#   OAUTH_FIXED_DCR_CLIENT_ID  ACS fixed DCR Auth0 app — ChatGPT/Claude callbacks synced here
+#   CHATGPT_EXTRA_CALLBACKS    space-separated extra ChatGPT redirect URIs (Apps SDK per-app URLs)
 #
-# Login model (Claude Connectors + Steward web):
+# Login model (Claude/ChatGPT Connectors + Steward web):
 #   New Universal Login + Identifier First. Email passwordless OTP and/or
 #   Google — whichever connections are enabled on the client. ACS relinks by
 #   verified email when Auth0 `sub` differs across connections. True Auth0
 #   "magic links" require Classic Login and are not used here.
+#
+# Fixed DCR note:
+#   ACS `/oidc/register` returns OAUTH_FIXED_DCR_CLIENT_ID for every connector.
+#   Auth0 still validates redirect_uri against that app's Allowed Callback URLs.
+#   Claude alone is not enough — ChatGPT must be allowlisted on the same client.
 #
 set -euo pipefail
 
@@ -26,6 +33,16 @@ AUDIENCE="${AUTH0_AUDIENCE:-https://prod.stewardacs.xyz/mcp/sse}"
 MGMT_AUDIENCE="https://${DOMAIN}/api/v2/"
 DB_CONNECTION="${AUTH0_DB_CONNECTION:-email}"
 CLAUDE_CALLBACK="https://claude.ai/api/mcp/auth_callback"
+# ChatGPT connector + Apps manage redirects (OpenAI docs / Auth0 MCP guides).
+# Per-app Apps SDK URLs look like https://chatgpt.com/connector/oauth/{id} —
+# Auth0 has no path wildcards; pass those via CHATGPT_EXTRA_CALLBACKS.
+CHATGPT_CALLBACKS=(
+  "https://chatgpt.com/connector_platform_oauth_redirect"
+  "https://platform.openai.com/apps-manage/oauth"
+)
+# shellcheck disable=SC2206
+CHATGPT_EXTRA_CALLBACKS=( ${CHATGPT_EXTRA_CALLBACKS:-} )
+CONNECTOR_CALLBACKS=("$CLAUDE_CALLBACK" "${CHATGPT_CALLBACKS[@]}" "${CHATGPT_EXTRA_CALLBACKS[@]}")
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; NC='\033[0m'
 info()  { echo -e "${CYAN}[auth0]${NC} $*"; }
@@ -250,6 +267,29 @@ if [[ -n "${AUTH0_USER_EMAIL:-}" ]]; then
   ok "Assigned MCP User role to ${AUTH0_USER_EMAIL}"
 fi
 
+# Union connector callbacks onto an Auth0 app (Claude + ChatGPT share fixed DCR).
+ensure_connector_callbacks() {
+  local cid="$1" label="$2"
+  [[ -n "$cid" ]] || return 0
+  local current desired
+  current=$(api GET "/clients/${cid}?fields=callbacks&include_fields=true" | python3 -c "
+import sys, json
+print(json.dumps(json.load(sys.stdin).get('callbacks') or []))
+")
+  desired=$(python3 -c "
+import json, sys
+have = set(json.loads(sys.argv[1]))
+want = [u for u in sys.argv[2:] if u]
+merged = sorted(have | set(want))
+print(json.dumps(merged))
+changed = sorted(set(want) - have)
+print('CHANGED' if changed else 'SAME', file=sys.stderr)
+print('\\n'.join(changed), file=sys.stderr)
+" "$current" "${CONNECTOR_CALLBACKS[@]}")
+  api PATCH "/clients/${cid}" -d "{\"callbacks\": ${desired}}" >/dev/null
+  ok "Callbacks synced on ${label} (${cid})"
+}
+
 if [[ "${SKIP_CLAUDE_APP:-}" != "1" ]]; then
   info "Creating Claude.ai OAuth app (manual Client ID fallback)..."
   EXISTING=$(api GET /clients?fields=client_id,name 2>/dev/null | python3 -c "
@@ -260,6 +300,8 @@ for c in json.load(sys.stdin):
         break
 " || true)
 
+  CALLBACKS_JSON=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1:]))" "${CONNECTOR_CALLBACKS[@]}")
+
   if [[ -n "$EXISTING" ]]; then
     CLAUDE_CLIENT_ID="$EXISTING"
     ok "Claude.ai MCP app already exists client_id=${CLAUDE_CLIENT_ID}"
@@ -267,7 +309,7 @@ for c in json.load(sys.stdin):
     CLAUDE_CLIENT_ID=$(api POST /clients -d "{
       \"name\": \"Claude.ai MCP\",
       \"app_type\": \"regular_web\",
-      \"callbacks\": [\"${CLAUDE_CALLBACK}\"],
+      \"callbacks\": ${CALLBACKS_JSON},
       \"grant_types\": [\"authorization_code\", \"refresh_token\"],
       \"token_endpoint_auth_method\": \"none\",
       \"oidc_conformant\": true
@@ -277,10 +319,28 @@ for c in json.load(sys.stdin):
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo " Claude Connector OAuth Client ID (if DCR fails):"
+  echo " Claude/ChatGPT Connector OAuth Client ID (if DCR fails):"
   echo " ${CLAUDE_CLIENT_ID}"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi
+
+info "Ensuring Claude + ChatGPT callbacks on fixed/connector Auth0 apps..."
+for CID in $(api GET "/clients?fields=client_id,name&include_fields=true&per_page=100" | python3 -c "
+import sys, json
+names = {'Claude.ai MCP', 'steward_acs_mcp'}
+fixed = '''${OAUTH_FIXED_DCR_CLIENT_ID:-}'''.strip()
+seen = set()
+for c in json.load(sys.stdin):
+    cid = c.get('client_id') or ''
+    if (c.get('name') in names or (fixed and cid == fixed)) and cid not in seen:
+        seen.add(cid)
+        print(cid)
+if fixed and fixed not in seen:
+    print(fixed)
+"); do
+  NAME=$(api GET "/clients/${CID}?fields=name&include_fields=true" | python3 -c "import sys,json; print(json.load(sys.stdin).get('name') or 'fixed-dcr')")
+  ensure_connector_callbacks "$CID" "$NAME"
+done
 
 # After Claude apps exist: wire passwordless email, demote password DB
 CLAUDE_IDS=$(api GET "/clients?fields=client_id,name&include_fields=true&per_page=100" | python3 -c "
@@ -332,10 +392,11 @@ print(json.dumps({'is_domain_connection': False, 'enabled_clients': clients}))
   ok "Database connection demoted (not domain-level; Claude apps removed)"
 fi
 
-# Enable Google alongside email OTP for Steward web + Claude MCP clients.
+# Enable Google alongside email OTP for Steward web + MCP connector clients.
 # ACS merges identities by verified email when Auth0 creates distinct `sub`s.
 WEB_CLIENT_ID="${AUTH0_WEB_CLIENT_ID:-}"
-info "Enabling google-oauth2 for Steward web + Claude MCP clients..."
+FIXED_DCR_ID="${OAUTH_FIXED_DCR_CLIENT_ID:-}"
+info "Enabling google-oauth2 for Steward web + MCP connector clients..."
 GOOGLE_CONN=$(api GET "/connections?strategy=google-oauth2" | python3 -c "
 import sys, json
 conns = json.load(sys.stdin)
@@ -345,24 +406,30 @@ if [[ -n "$GOOGLE_CONN" ]]; then
   PATCH_JSON=$(api GET "/connections/${GOOGLE_CONN}" | python3 -c "
 import sys, json
 conn = json.load(sys.stdin)
-add = set(x for x in '''${CLAUDE_IDS} ${WEB_CLIENT_ID}'''.split() if x)
+add = set(x for x in '''${CLAUDE_IDS} ${WEB_CLIENT_ID} ${FIXED_DCR_ID}'''.split() if x)
 clients = set(conn.get('enabled_clients') or [])
 clients.update(add)
 print(json.dumps({'enabled_clients': sorted(clients)}))
 ")
   api PATCH "/connections/${GOOGLE_CONN}" -d "$PATCH_JSON" >/dev/null
-  ok "google-oauth2 enabled for Steward web + Claude MCP clients"
+  ok "google-oauth2 enabled for Steward web + MCP connector clients"
 else
-  info "No google-oauth2 connection found — create/enable Google social in Auth0 Dashboard"
+  info "No google-oauth2 connection found — create Google social in Auth0 Dashboard:"
+  info "  Authentication → Social → Create Connection → Google"
+  info "  Google Cloud OAuth redirect: https://${DOMAIN}/login/callback"
+  info "  Enable Apps: Steward web client + OAUTH_FIXED_DCR_CLIENT_ID (+ Claude.ai MCP)"
+  info "  Leave AUTH0_CONNECTION unset so Universal Login shows email OTP and Google"
 fi
 
 echo ""
 ok "Auth0 setup complete for ${DOMAIN}"
 echo "  MCP API:     ${AUDIENCE}"
 echo "  DCR:         enabled"
+echo "  Callbacks:   Claude + ChatGPT (fixed DCR client must allow both)"
 echo "  Login:       Identifier First + email OTP and/or Google (no connection= pin)"
 echo "  Identity:    ACS relinks by verified email across Auth0 connections"
 echo "  RBAC:        enabled with mcp:tools"
 echo ""
-echo "Next: Remove + re-add Claude connector at ${AUDIENCE} and connect."
+echo "Next: Remove + re-add the connector at ${AUDIENCE} (Claude or ChatGPT) and connect."
 echo "Users choose email OTP or Google on Universal Login (same verified email)."
+echo "ChatGPT Apps SDK per-app callback? set CHATGPT_EXTRA_CALLBACKS='https://chatgpt.com/connector/oauth/<id>'"

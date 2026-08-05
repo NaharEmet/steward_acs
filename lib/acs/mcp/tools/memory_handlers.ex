@@ -66,8 +66,8 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     title = args["title"]
     content = args["content"]
     scope_path = args["scope_path"]
-    tags = args["tags"] || []
-    triggers = args["triggers"] || []
+    tags = coerce_string_list(args["tags"])
+    triggers = coerce_string_list(args["triggers"])
     importance = args["importance"] || 3
     summary = args["summary"]
     failure_modes = args["failure_modes"] || []
@@ -757,4 +757,17 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  # MCP clients sometimes send JSON-encoded arrays as strings.
+  defp coerce_string_list(nil), do: []
+  defp coerce_string_list(list) when is_list(list), do: Enum.filter(list, &is_binary/1)
+
+  defp coerce_string_list(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, list} when is_list(list) -> Enum.filter(list, &is_binary/1)
+      _ -> []
+    end
+  end
+
+  defp coerce_string_list(_), do: []
 end

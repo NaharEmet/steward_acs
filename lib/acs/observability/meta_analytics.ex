@@ -37,13 +37,13 @@ defmodule Acs.Observability.MetaAnalytics do
     intake = Map.get(analysis, :intake_friction) || []
     agents = Map.get(analysis, :agent_behavior) || %{}
 
-    {total, success, failure, discovery} =
-      Enum.reduce(tools, {0, 0, 0, 0}, fn {_name, t}, {tot, ok, fail, disc} ->
+    {total, success, failure, error, discovery} =
+      Enum.reduce(tools, {0, 0, 0, 0, 0}, fn {_name, t}, {tot, ok, fail, err, disc} ->
         {tot + (t.total_calls || 0), ok + (t.success_count || 0), fail + (t.failure_count || 0),
-         disc + (t.discovery_count || 0)}
+         err + (t.error_count || 0), disc + (t.discovery_count || 0)}
       end)
 
-    exec = success + failure
+    exec = success + failure + error
     success_rate = if exec > 0, do: success / exec, else: nil
     intake_gates = Enum.reduce(intake, 0, fn row, acc -> acc + (row.occurrence_count || 0) end)
 
@@ -55,6 +55,7 @@ defmodule Acs.Observability.MetaAnalytics do
       "total_ops" => total,
       "success_count" => success,
       "failure_count" => failure,
+      "error_count" => error,
       "discovery_count" => discovery,
       "success_rate" => success_rate,
       "tool_count" => map_size(tools),

@@ -33,6 +33,8 @@ defmodule Acs.MetaHarness.Scheduler do
       "[Acs.MetaHarness.Scheduler] Starting with interval: #{div(interval, 60000)} minutes"
     )
 
+    # Run once at boot so deploy/restart isn't blind for a full interval.
+    Process.send_after(self(), :run_analysis, 0)
     schedule_next_run(interval)
 
     {:ok, %{interval: interval, last_run: nil}}

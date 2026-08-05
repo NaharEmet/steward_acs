@@ -338,6 +338,7 @@ defmodule Acs.MCP.HTTPServer do
     http_status = if db_ok, do: 200, else: 503
 
     conn
+    |> put_private(:phoenix_log_level, false)
     |> put_resp_content_type("application/json")
     |> send_resp(
       http_status,

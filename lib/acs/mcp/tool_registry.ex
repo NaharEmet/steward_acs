@@ -329,6 +329,12 @@ defmodule Acs.MCP.ToolRegistry do
     end
   end
 
+  # Tools spawned via Task.async during handle_call deliver {ref, result} here.
+  @impl true
+  def handle_info({ref, _result}, state) when is_reference(ref), do: {:noreply, state}
+
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, state), do: {:noreply, state}
+
   @impl true
   def handle_info(:refresh_tools, state) do
     {snapshot, errors} = refresh_snapshot(state.snapshot)

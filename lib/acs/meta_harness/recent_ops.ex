@@ -67,6 +67,7 @@ defmodule Acs.MetaHarness.RecentOps do
       :ets.tab2list(@table)
       |> Enum.filter(fn {ts, _} -> ts >= start_ms and ts <= end_ms end)
       |> Enum.map(fn {_, e} -> e end)
+      |> filter_by_org(Keyword.get(opts, :org))
 
     %{
       tool_reliability: tool_reliability(entries, min_sample),
@@ -89,6 +90,12 @@ defmodule Acs.MetaHarness.RecentOps do
   defp prune(now) do
     cutoff = now - @ttl_ms
     :ets.select_delete(@table, [{{:"$1", :_}, [{:<, :"$1", cutoff}], [true]}])
+  end
+
+  defp filter_by_org(entries, nil), do: entries
+
+  defp filter_by_org(entries, org) when is_binary(org) do
+    Enum.filter(entries, fn e -> Map.get(e, :org, "default") == org end)
   end
 
   defp tool_reliability(entries, min_sample) do
@@ -145,7 +152,10 @@ defmodule Acs.MetaHarness.RecentOps do
 
   defp error_clusters(entries, min_cluster) do
     entries
-    |> Enum.filter(&(&1.status in ["failure", "error"] and is_binary(&1.error_type)))
+    |> Enum.filter(fn e ->
+      type = Map.get(e, :error_type)
+      e.status in ["failure", "error"] and is_binary(type)
+    end)
     |> Enum.group_by(&{&1.tool_name, &1.error_type})
     |> Enum.reduce([], fn {{tool, type}, rows}, acc ->
       if length(rows) < min_cluster do
@@ -177,7 +187,8 @@ defmodule Acs.MetaHarness.RecentOps do
   defp intake_friction(entries, min_cluster) do
     entries
     |> Enum.filter(fn e ->
-      is_binary(e.error_type) and String.starts_with?(e.error_type, "intake_")
+      type = Map.get(e, :error_type)
+      is_binary(type) and String.starts_with?(type, "intake_")
     end)
     |> Enum.group_by(&{&1.tool_name, &1.error_type})
     |> Enum.reduce([], fn {{tool, type}, rows}, acc ->

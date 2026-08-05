@@ -41,5 +41,25 @@ defmodule Acs.MetaHarness.GeneratorTest do
         assert is_binary(result.plan)
       end
     end
+
+    test "clears stale lock left by a dead process" do
+      table = :acs_meta_harness_generator_lock
+
+      case :ets.whereis(table) do
+        :undefined ->
+          :ets.new(table, [:named_table, :public, :set, read_concurrency: true])
+
+        _ ->
+          :ok
+      end
+
+      dead = spawn(fn -> :ok end)
+      ref = Process.monitor(dead)
+      assert_receive {:DOWN, ^ref, :process, ^dead, _}, 5000
+      :ets.insert(table, {:running, dead})
+
+      result = Generator.generate()
+      refute Map.get(result, :skipped) == true
+    end
   end
 end

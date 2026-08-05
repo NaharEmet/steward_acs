@@ -137,6 +137,23 @@ defmodule Acs.Memory.StoreModeTest do
     end)
   end
 
+  test "database store accepts explicit org opt for background jobs without request context" do
+    Application.put_env(:steward_acs, :multi_tenant, true)
+    org = create_org("auditor-bg")
+    memory = memory_fixture("auditor-write", org.slug)
+
+    # Simulates Memory.Auditor: no request org, but org: passed in opts.
+    assert {:ok, _} =
+             Store.save(memory,
+               org: org.slug,
+               actor: %{type: "system", id: "memory_auditor"},
+               source: "auditor",
+               message: "Auditor revision"
+             )
+
+    assert Acs.Memory.Indexer.get_memory(memory.id, org.slug)
+  end
+
   test "ledger validation failures return errors and roll back atomically" do
     Application.put_env(:steward_acs, :multi_tenant, true)
     org = create_org("ledger-errors")

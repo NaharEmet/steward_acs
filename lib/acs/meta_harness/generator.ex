@@ -43,7 +43,19 @@ defmodule Acs.MetaHarness.Generator do
 
   defp try_acquire_lock do
     ensure_lock_table()
+    clear_stale_lock()
     :ets.insert_new(@lock_table, {:running, self()})
+  end
+
+  # Previous holder may have crashed before `after release_lock` ran.
+  defp clear_stale_lock do
+    case :ets.lookup(@lock_table, :running) do
+      [{:running, pid}] when is_pid(pid) ->
+        unless Process.alive?(pid), do: :ets.delete(@lock_table, :running)
+
+      _ ->
+        :ok
+    end
   end
 
   defp release_lock do
@@ -52,7 +64,7 @@ defmodule Acs.MetaHarness.Generator do
 
   defp do_generate do
     try do
-      analysis = Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours)
+      analysis = Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours, org: Acs.Org.current())
       # Prod: ship rollups to steward_meta_analytics (same dataset as agent.tool).
       Acs.Observability.MetaAnalytics.ship(analysis)
 
@@ -84,7 +96,7 @@ defmodule Acs.MetaHarness.Generator do
   # ── Data Gathering ───────────────────────────────────────────────────────────
 
   defp gather_all_data(analysis) do
-    analysis = analysis || Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours)
+    analysis = analysis || Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours, org: Acs.Org.current())
 
     # Transform Analyzer tool_reliability into tools list format
     tools =
@@ -157,13 +169,16 @@ defmodule Acs.MetaHarness.Generator do
 
   defp query_sql(sql, params) do
     try do
-      {:ok, result} =
-        Ecto.Adapters.SQL.query(Acs.Repo, Acs.MetaHarness.SQL.adapt(sql), params, log: false)
+      case Ecto.Adapters.SQL.query(Acs.Repo, Acs.MetaHarness.SQL.adapt(sql), params, log: false) do
+        {:ok, result} ->
+          {:ok,
+           Enum.map(result.rows, fn row ->
+             Enum.zip(result.columns, row) |> Enum.into(%{})
+           end)}
 
-      {:ok,
-       Enum.map(result.rows, fn row ->
-         Enum.zip(result.columns, row) |> Enum.into(%{})
-       end)}
+        {:error, reason} ->
+          {:error, reason}
+      end
     rescue
       e ->
         Logger.warning("[Generator] Query failed: #{inspect(e)}")

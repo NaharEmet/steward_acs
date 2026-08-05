@@ -43,7 +43,9 @@ x-steward-acs: &steward_acs
     SECRET_KEY_BASE: "${SECRET_KEY_BASE:?Set SECRET_KEY_BASE}"
     MCP_API_KEY: "${MCP_API_KEY:?Set MCP_API_KEY}"
     MCP_QUERY_KEY_AUTH: "${MCP_QUERY_KEY_AUTH:-false}"
-    OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-false}"
+    # Multi-tenant prod serves Claude/ChatGPT connectors; default on so a missing
+    # thin-env flag does not silently kill OAuth (API-key-only 401s, 404 PRM).
+    OAUTH_BEARER_ENABLED: "${OAUTH_BEARER_ENABLED:-true}"
     AUTH0_DOMAIN: "${AUTH0_DOMAIN:-}"
     AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-}"
     AUTH0_ISSUER: "${AUTH0_ISSUER:-}"
