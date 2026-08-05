@@ -25,39 +25,97 @@ defmodule Acs.MCP.Tools.SkillHandlers do
 
   def skill_get(args) do
     ctx = Abac.from_args(args)
+    include_content? = truthy?(args["include_content"])
 
     cond do
       name = args["name"] ->
         case Store.get_skill(name) do
-          nil -> {:ok, %{skills: [], total: 0, error: "skill '#{name}' not found"}}
-          skill -> {:ok, %{skills: visible_skills([skill], ctx), total: 1}}
+          nil ->
+            {:ok, %{skills: [], total: 0, error: "skill '#{name}' not found"}}
+
+          skill ->
+            skills = visible_skills([skill], ctx) |> Enum.map(&skill_card(&1, include_content?))
+            {:ok, skill_get_payload(skills, include_content?)}
         end
 
       search = args["search"] ->
         results = Store.search_skills(search)
-
-        {:ok,
-         %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
+        skills = visible_skills(results, ctx) |> Enum.map(&skill_card(&1, include_content?))
+        {:ok, skill_get_payload(skills, include_content?)}
 
       tag = args["tag"] ->
-        results = Store.list_skills(tag)
-
-        {:ok,
-         %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
+        results = resolve_listed(Store.list_skills(tag))
+        skills = visible_skills(results, ctx) |> Enum.map(&skill_card(&1, include_content?))
+        {:ok, skill_get_payload(skills, include_content?)}
 
       scope_path = args["scope_path"] ->
-        results = Store.list_skills_by_scope(scope_path)
-
-        {:ok,
-         %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
+        results = resolve_listed(Store.list_skills_by_scope(scope_path))
+        skills = visible_skills(results, ctx) |> Enum.map(&skill_card(&1, include_content?))
+        {:ok, skill_get_payload(skills, include_content?)}
 
       true ->
-        results = Store.list_skills()
-
-        {:ok,
-         %{skills: visible_skills(results, ctx), total: length(visible_skills(results, ctx))}}
+        results = resolve_listed(Store.list_skills())
+        skills = visible_skills(results, ctx) |> Enum.map(&skill_card(&1, include_content?))
+        {:ok, skill_get_payload(skills, include_content?)}
     end
   end
+
+  # Default: lean card (name/description/when_to_use/tags/…). Full markdown only
+  # when include_content: true — avoids dumping multi-KB playbooks into every fetch.
+  defp skill_get_payload(skills, true) do
+    %{skills: skills, total: length(skills), include_content: true}
+  end
+
+  defp skill_get_payload(skills, false) do
+    %{
+      skills: skills,
+      total: length(skills),
+      include_content: false,
+      hint: "Pass include_content: true to load the procedure body for a skill name."
+    }
+  end
+
+  defp skill_card(skill, include_content?) when is_map(skill) do
+    meta = Map.get(skill, :metadata) || Map.get(skill, "metadata") || %{}
+
+    card = %{
+      name: field(skill, :name),
+      id: field(skill, :id) || field(skill, :name),
+      description: field(skill, :description) || meta_get(meta, "description"),
+      when_to_use:
+        field(skill, :when_to_use) || meta_get(meta, "when_to_use") ||
+          meta_get(skill, "when_to_use"),
+      tags: field(skill, :tags) || meta_get(skill, "tags") || [],
+      scope_paths: field(skill, :scope_paths) || meta_get(skill, "scope_paths") || [],
+      status: field(skill, :status) || meta_get(skill, "status")
+    }
+
+    if include_content? do
+      Map.put(card, :content, field(skill, :content) || meta_get(skill, "content") || "")
+    else
+      card
+    end
+  end
+
+  # list_skills / list_skills_by_scope return frontmatter maps — rehydrate to structs
+  # so cards stay consistent (and content is available when requested).
+  defp resolve_listed(metas) when is_list(metas) do
+    Enum.map(metas, fn meta ->
+      name = meta["name"] || meta[:name]
+
+      case is_binary(name) && Store.get_skill(name) do
+        %{} = skill -> skill
+        _ -> meta
+      end
+    end)
+  end
+
+  defp field(map, key) when is_atom(key) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp meta_get(map, key) when is_map(map), do: Map.get(map, key)
+  defp meta_get(_, _), do: nil
 
   def skill_save(args) do
     name = blank_to_nil(args["name"])

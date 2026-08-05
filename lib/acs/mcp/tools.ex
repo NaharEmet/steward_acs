@@ -919,11 +919,16 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "skill_get",
-        "Retrieve skills — reusable workflow guides with step-by-step procedures. Pass `scope_path` to list skills for a business or code scope (same as generate_guidance_packet). Pass `name` for one skill, `search` to find by keywords, `tag` to filter, or nothing to get the full `catalog` with when_to_use hints. USE BEFORE: deployment, secrets, install, support playbooks, or any repeatable procedure.",
+        "Retrieve skills — reusable workflow guides. Default returns lean cards (name, description, when_to_use, tags, scope_paths, status) — not the markdown body. Pass include_content: true to load the procedure steps. Pass scope_path to list for a scope, name for one skill, search/tag to filter, or nothing for the catalog. USE BEFORE: deployment, secrets, install, support playbooks, or any repeatable procedure.",
         %{
           "name" => %{
             "type" => "string",
             "description" => "Skill name to retrieve"
+          },
+          "include_content" => %{
+            "type" => "boolean",
+            "description" =>
+              "If true, include the full markdown procedure body. Default false (summary card only)."
           },
           "scope_path" => %{
             "type" => "string",
@@ -1639,7 +1644,7 @@ defmodule Acs.MCP.Tools do
               %{
                 tool: "skill_get",
                 prompt: "Read scope workflow: #{name}",
-                params: %{name: name}
+                params: %{name: name, include_content: true}
               }
             end)
 
@@ -1877,30 +1882,31 @@ defmodule Acs.MCP.Tools do
           skills = Map.get(result, :skills, [])
           related = Map.get(result, :related, [])
           scope_path = Map.get(args, "scope_path", "")
+          already_full? = truthy_arg?(args["include_content"])
 
           read_steps =
             cond do
-              length(skills) == 1 ->
-                name = hd(skills)["name"]
+              length(skills) == 1 and not already_full? ->
+                name = skill_name(hd(skills))
 
                 [
                   %{
                     tool: "skill_get",
-                    prompt: "Follow the steps in skill '#{name}' before proceeding",
-                    params: %{name: name}
+                    prompt: "Load procedure body for '#{name}' then follow the steps",
+                    params: %{name: name, include_content: true}
                   }
                 ]
 
-              length(skills) > 1 ->
+              length(skills) > 1 and not already_full? ->
                 skills
                 |> Enum.take(5)
                 |> Enum.map(fn s ->
-                  n = s["name"]
+                  n = skill_name(s)
 
                   %{
                     tool: "skill_get",
-                    prompt: "Read full workflow: #{n}",
-                    params: %{name: n}
+                    prompt: "Load procedure body: #{n}",
+                    params: %{name: n, include_content: true}
                   }
                 end)
 
@@ -1912,8 +1918,8 @@ defmodule Acs.MCP.Tools do
             related
             |> Enum.take(3)
             |> Enum.map(fn s ->
-              n = s["name"]
-              tagline = s["when_to_use"] || s["description"]
+              n = skill_name(s)
+              tagline = s["when_to_use"] || s[:when_to_use] || s["description"] || s[:description]
 
               %{
                 tool: "skill_get",
@@ -1927,8 +1933,10 @@ defmodule Acs.MCP.Tools do
               catalog
               |> Enum.take(5)
               |> Enum.map(fn s ->
-                n = s["name"]
-                tagline = s["when_to_use"] || s["description"]
+                n = skill_name(s)
+
+                tagline =
+                  s["when_to_use"] || s[:when_to_use] || s["description"] || s[:description]
 
                 %{
                   tool: "skill_get",
@@ -2074,8 +2082,8 @@ defmodule Acs.MCP.Tools do
 
         %{
           tool: "skill_get",
-          prompt: "Read relevant workflow guide: #{name}",
-          params: %{name: name}
+          prompt: "Load procedure body: #{name}",
+          params: %{name: name, include_content: true}
         }
       end)
     end
@@ -2219,4 +2227,16 @@ defmodule Acs.MCP.Tools do
     instructions = Acs.Prompts.instructions("skills")
     if instructions != "", do: instructions <> "\n\n" <> base, else: base
   end
+
+  defp skill_name(skill) when is_map(skill) do
+    skill["name"] || skill[:name]
+  end
+
+  defp skill_name(_), do: nil
+
+  defp truthy_arg?(true), do: true
+  defp truthy_arg?("true"), do: true
+  defp truthy_arg?("yes"), do: true
+  defp truthy_arg?(1), do: true
+  defp truthy_arg?(_), do: false
 end

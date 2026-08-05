@@ -93,6 +93,66 @@ defmodule Acs.MCP.Tools.SkillHandlersTest do
     assert %{scope_paths: []} = Acs.Skills.Store.get_skill("d3-noscope")
   end
 
+  describe "skill_get content gating" do
+    test "name lookup returns summary card without content by default" do
+      assert {:ok, %{saved: true}} =
+               SkillHandlers.skill_save(%{
+                 "name" => "gated-proc",
+                 "description" => "A gated procedure",
+                 "when_to_use" => "When testing content gating",
+                 "content" => """
+                 ## Steps
+                 1. Do the thing
+                 2. Verify it worked
+                 3. Recover if it failed
+                 """,
+                 "intake_confirmed" => true
+               })
+
+      assert {:ok, %{skills: [card], total: 1, include_content: false, hint: hint}} =
+               SkillHandlers.skill_get(%{"name" => "gated-proc"})
+
+      assert card.name == "gated-proc"
+      assert card.description == "A gated procedure"
+      assert card.when_to_use == "When testing content gating"
+      refute Map.has_key?(card, :content)
+      assert hint =~ "include_content"
+    end
+
+    test "include_content true returns the markdown body" do
+      assert {:ok, %{saved: true}} =
+               SkillHandlers.skill_save(%{
+                 "name" => "full-proc",
+                 "description" => "Needs full body",
+                 "content" => "## Steps\n1. Alpha\n2. Beta\n3. Gamma\n",
+                 "intake_confirmed" => true
+               })
+
+      assert {:ok, %{skills: [card], include_content: true}} =
+               SkillHandlers.skill_get(%{"name" => "full-proc", "include_content" => true})
+
+      assert card.content =~ "Alpha"
+      refute Map.has_key?(card, :file)
+      refute Map.has_key?(card, :metadata)
+    end
+
+    test "search also omits bodies unless include_content is set" do
+      assert {:ok, %{saved: true}} =
+               SkillHandlers.skill_save(%{
+                 "name" => "searchable-proc",
+                 "description" => "Findable by search",
+                 "content" => "## Steps\n1. UniqueSearchTokenXYZ\n2. Verify\n",
+                 "intake_confirmed" => true
+               })
+
+      assert {:ok, %{skills: skills, include_content: false}} =
+               SkillHandlers.skill_get(%{"search" => "searchable-proc"})
+
+      assert Enum.any?(skills, &(&1.name == "searchable-proc"))
+      refute Enum.any?(skills, &Map.has_key?(&1, :content))
+    end
+  end
+
   describe "rank-gated edits (unified role management)" do
     test "member cannot edit an existing skill at or above own rank" do
       # Stamped as rank 1 by an admin (admin can edit anything).

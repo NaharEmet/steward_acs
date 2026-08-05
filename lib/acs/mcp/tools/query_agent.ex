@@ -409,7 +409,7 @@ defmodule Acs.MCP.Tools.QueryAgent do
         tag_str = if tags == [], do: "", else: " [#{Enum.join(tags, ", ")}]"
         excerpt_src = if is_binary(body) and body != "", do: body, else: desc
         excerpt = excerpt(excerpt_src)
-        fetch = "steward_ask(action:\"skill\", name:\"#{name}\")"
+        fetch = "steward_ask(action:\"skill\", name:\"#{name}\", include_content: true)"
 
         when_line =
           if is_binary(when_to) and when_to != "" do
@@ -421,14 +421,14 @@ defmodule Acs.MCP.Tools.QueryAgent do
         """
         - **#{name}**#{tag_str}#{when_line}
           Excerpt: #{excerpt}
-          Full: `#{fetch}` (coding: `skill_get(name:)`) — **required before following this procedure**
+          Full: `#{fetch}` (coding: `skill_get(name:, include_content: true)`) — **required before following this procedure**
         """
       end)
 
     hint =
       "Skills are never fully inlined in search. If any skill fits what you are about to do, " <>
-        "**you must fetch it** with `steward_ask(action:\"skill\", name:)` (or `search:`) and follow it. " <>
-        "Do not improvise a procedure when a matching skill is listed."
+        "**fetch the summary** with `steward_ask(action:\"skill\", name:)` then **load the body** with `include_content: true` " <>
+        "(coding: `skill_get(name:, include_content: true)`). Do not improvise a procedure when a matching skill is listed."
 
     "## Related Skills (#{length(skills)}) — excerpts (fetch required)\n\n#{Enum.join(items, "\n")}\n#{hint}"
   end
