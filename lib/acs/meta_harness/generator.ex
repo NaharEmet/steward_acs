@@ -64,7 +64,9 @@ defmodule Acs.MetaHarness.Generator do
 
   defp do_generate do
     try do
-      analysis = Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours, org: Acs.Org.current())
+      analysis =
+        Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours, org: Acs.Org.current())
+
       # Prod: ship rollups to steward_meta_analytics (same dataset as agent.tool).
       Acs.Observability.MetaAnalytics.ship(analysis)
 
@@ -96,7 +98,9 @@ defmodule Acs.MetaHarness.Generator do
   # ── Data Gathering ───────────────────────────────────────────────────────────
 
   defp gather_all_data(analysis) do
-    analysis = analysis || Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours, org: Acs.Org.current())
+    analysis =
+      analysis ||
+        Acs.MetaHarness.Analyzer.analyze(timeframe: :last_24_hours, org: Acs.Org.current())
 
     # Transform Analyzer tool_reliability into tools list format
     tools =

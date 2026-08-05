@@ -245,5 +245,4 @@ defmodule Acs.Application do
       _ -> false
     end
   end
-
 end

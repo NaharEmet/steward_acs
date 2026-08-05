@@ -126,7 +126,8 @@ defmodule Acs.MetaHarness.Analyzer do
         latency_analysis:
           Map.merge(analysis.latency_analysis, Map.take(ets.latency_analysis, missing_tools)),
         error_clusters: analysis.error_clusters ++ Enum.filter(ets.error_clusters, tool_filter),
-        intake_friction: analysis.intake_friction ++ Enum.filter(ets.intake_friction, tool_filter),
+        intake_friction:
+          analysis.intake_friction ++ Enum.filter(ets.intake_friction, tool_filter),
         agent_behavior: Map.merge(ets.agent_behavior, analysis.agent_behavior)
     }
   end
@@ -270,9 +271,10 @@ defmodule Acs.MetaHarness.Analyzer do
 
         Enum.into(stats_results, %{}, fn row ->
           tool_name = row["tool_name"]
+
           latencies =
-          Map.get(latencies_by_tool, tool_name, [])
-          |> Enum.sort()
+            Map.get(latencies_by_tool, tool_name, [])
+            |> Enum.sort()
 
           {tool_name,
            %{

@@ -360,7 +360,8 @@ defmodule Acs.MCP.ErrorTrace do
   end
 
   defp log_error_trace(action, entry) when is_map(entry) do
-    Logger.debug("[ErrorTrace] #{action} #{entry.service}/#{entry.component} count=#{entry.count}",
+    Logger.debug(
+      "[ErrorTrace] #{action} #{entry.service}/#{entry.component} count=#{entry.count}",
       action: "error_trace",
       status: Atom.to_string(action),
       org: entry.org,
