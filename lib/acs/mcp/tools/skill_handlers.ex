@@ -195,7 +195,8 @@ defmodule Acs.MCP.Tools.SkillHandlers do
         blank_to_nil(args["agent_id"])
 
     with true <- is_binary(agent_id),
-         %{current_task_id: task_id} when is_binary(task_id) <- Acs.Acs.get_agent_status(agent_id),
+         %{current_task_id: task_id} when is_binary(task_id) <-
+           Acs.Acs.get_agent_status(agent_id),
          %{file_paths: file_paths} <- Acs.Acs.get_task(task_id) do
       case Acs.ClaimContext.scope_from_file_paths(file_paths) do
         scope when is_binary(scope) and scope != "" -> [scope]
