@@ -357,7 +357,7 @@ defmodule Acs.Memory.ToolGuidance do
           id: "toolguidance_skills_axiom_2",
           title: "Read relevant skills at claim time",
           summary:
-            "claim_work returns relevant_skills in the guidance packet. Call skill_get(name:, include_content: true) for each before starting procedural work.",
+            "claim_work returns relevant_skills in the guidance packet. Call skill_get(name:) for each before starting procedural work — that returns the procedure body.",
           importance: 5
         },
         %{
@@ -389,7 +389,7 @@ defmodule Acs.Memory.ToolGuidance do
           id: "toolguidance_skills_pattern_1",
           title: "Before procedural work: skill_get then execute",
           summary:
-            "At claim: review relevant_skills in guidance → skill_get(name:, include_content: true) → follow steps → save_memory for learnings.",
+            "At claim: review relevant_skills in guidance → skill_get(name:) for the body → follow steps → save_memory for learnings.",
           importance: 5
         },
         %{
@@ -401,7 +401,7 @@ defmodule Acs.Memory.ToolGuidance do
         }
       ],
       compressed_knowledge:
-        "Skills tools: skill_get returns summary cards by default (pass include_content: true for the body); skill_save (create/update workflow); skill_audit_status (LLM quality audit). Prompts editable in priv/prompts/skills/ or Obsidian vault."
+        "Skills tools: skill_get(name:) returns procedure body (name+content); list/search returns discovery cards; skill_save (create/update workflow); skill_audit_status (LLM quality audit). Prompts editable in priv/prompts/skills/ or Obsidian vault."
     },
     "agent_coordination_system/tools/diagnostic" => %{
       critical_axioms: [

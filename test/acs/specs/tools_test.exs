@@ -49,7 +49,7 @@ defmodule Acs.Specs.ToolsTest do
   end
 
   describe "specs_get" do
-    test "returns entry for existing spec" do
+    test "returns body fields only for existing spec" do
       propose_spec()
 
       assert {:ok, entry} =
@@ -59,8 +59,38 @@ defmodule Acs.Specs.ToolsTest do
                })
 
       assert entry["app"] == "test"
-      assert entry["id"] == "my/module"
-      assert entry["status"] == "proposed"
+      assert entry["path"] == "my/module"
+      assert is_binary(entry["purpose"])
+      refute Map.has_key?(entry, "status")
+      refute Map.has_key?(entry, "tags")
+      refute Map.has_key?(entry, "id")
+      refute Map.has_key?(entry, "audit_reasoning")
+    end
+
+    test "document fetch returns content without governance noise" do
+      assert {:ok, _} =
+               Acs.Specs.Tools.call_tool("specs_propose", %{
+                 "app" => "test",
+                 "path" => "documents/policy/fetch-clean",
+                 "document_type" => "policy",
+                 "title" => "Clean Fetch Doc",
+                 "content" => "# Policy\n\nOnly the body should load.",
+                 "tags" => ["noise", "ignore"]
+               })
+
+      assert {:ok, doc} =
+               Acs.Specs.Tools.call_tool("specs_get", %{
+                 "app" => "test",
+                 "path" => "documents/policy/fetch-clean"
+               })
+
+      assert doc["app"] == "test"
+      assert doc["path"] == "documents/policy/fetch-clean"
+      assert doc["title"] == "Clean Fetch Doc"
+      assert doc["content"] =~ "Only the body should load"
+      refute Map.has_key?(doc, "tags")
+      refute Map.has_key?(doc, "status")
+      refute Map.has_key?(doc, "document_type")
     end
 
     test "returns nil for non-existent spec" do
@@ -127,7 +157,9 @@ defmodule Acs.Specs.ToolsTest do
                })
 
       assert results != []
-      assert Enum.all?(results, &(&1["status"] == "approved"))
+      # status filters server-side; discovery cards omit status
+      refute Enum.any?(results, &Map.has_key?(&1, "status"))
+      assert Enum.all?(results, &is_binary(&1["path"] || &1[:path] || &1["id"]))
     end
   end
 
@@ -224,7 +256,9 @@ defmodule Acs.Specs.ToolsTest do
       assert {:ok, %{specs: specs}} =
                Acs.Specs.Tools.call_tool("query_specs", %{"app" => "other"})
 
-      assert Enum.all?(specs, &(&1.app == "other"))
+      assert specs != []
+      assert Enum.all?(specs, &(&1["app"] == "other"))
+      refute Enum.any?(specs, &Map.has_key?(&1, "status"))
     end
 
     test "rejects traversal app filters" do
@@ -232,13 +266,15 @@ defmodule Acs.Specs.ToolsTest do
                Acs.Specs.Tools.call_tool("query_specs", %{"app" => "../outside"})
     end
 
-    test "filters by status" do
+    test "filters by status server-side without exposing status on cards" do
       propose_spec()
 
       assert {:ok, %{specs: specs}} =
                Acs.Specs.Tools.call_tool("query_specs", %{"status" => "proposed"})
 
-      assert Enum.all?(specs, &(&1.status == "proposed"))
+      assert specs != []
+      refute Enum.any?(specs, &Map.has_key?(&1, "status"))
+      assert Enum.all?(specs, &is_binary(&1["path"]))
     end
   end
 
@@ -278,7 +314,9 @@ defmodule Acs.Specs.ToolsTest do
                  |> Map.merge(auth)
                )
 
-      assert entry["team"] == "platform"
+      assert entry["path"] == "scoped/module"
+      assert is_binary(entry["purpose"])
+      refute Map.has_key?(entry, "team")
     end
 
     test "collaborator can propose a team-scoped spec for another team" do
@@ -375,8 +413,8 @@ defmodule Acs.Specs.ToolsTest do
                  "path" => "full/flow"
                })
 
-      assert fetched["status"] == "approved"
       assert fetched["purpose"] == "Testing the complete propose to approve workflow"
+      refute Map.has_key?(fetched, "status")
     end
   end
 

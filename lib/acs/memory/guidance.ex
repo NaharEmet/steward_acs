@@ -314,10 +314,42 @@ defmodule Acs.Memory.Guidance do
         |> Map.put(:task_context, build_task_context(title))
         |> Map.put(:relevant_skills, claim_context.relevant_skills)
         |> Map.put(:relevant_specs, claim_context.relevant_specs)
+        |> filter_claim_memories(title)
         |> maybe_put_coding_finish(audience, tier)
         |> maybe_put_missing_spec_nudge()
     end
   end
+
+  # Claim: only keep axioms/warnings that share a token with the task title.
+  # Otherwise agents get org-wide noise unrelated to this work.
+  defp filter_claim_memories(%{tier: :claim} = packet, title) do
+    tokens = Acs.ClaimContext.meaningful_tokens(title)
+
+    packet
+    |> Map.update(:critical_axioms, [], &keep_token_matches(&1, tokens))
+    |> Map.update(:warnings, [], &keep_token_matches(&1, tokens))
+  end
+
+  defp filter_claim_memories(packet, _title), do: packet
+
+  defp keep_token_matches(_items, []), do: []
+
+  defp keep_token_matches(items, tokens) when is_list(items) do
+    Enum.filter(items, fn item ->
+      text =
+        [
+          Map.get(item, :title) || Map.get(item, "title"),
+          Map.get(item, :summary) || Map.get(item, "summary")
+        ]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.join(" ")
+        |> String.downcase()
+
+      Enum.any?(tokens, &String.contains?(text, &1))
+    end)
+  end
+
+  defp keep_token_matches(_, _), do: []
 
   defp audience_from_mode(mode) when mode in [:knowledge, :chat, "knowledge", "chat"], do: :chat
   defp audience_from_mode(_), do: :coding
@@ -331,11 +363,12 @@ defmodule Acs.Memory.Guidance do
   end
 
   defp build_coding_packet(scope_path, sorted, tool_guidance, :claim) do
+    # Claim stays task-focused. Protocols (memory, locking, store choice) live on
+    # get_started — repeating them here is noise. Relevance comes from ClaimContext.
     %{
       audience: :coding,
       mode: :mcp,
       scope: scope_path,
-      scope_category: scope_path,
       tier: :claim,
       critical_axioms:
         merge_items(
@@ -351,21 +384,10 @@ defmodule Acs.Memory.Guidance do
           :warnings,
           @warnings_max
         ),
-      workflow: @coding_workflow,
-      file_locking: @coding_file_locking,
-      memory: @coding_memory,
-      agent_identity: @coding_identity,
-      org_knowledge_conventions: @coding_conventions,
-      specs_instructions: specs_instructions_for_tier(:claim),
-      skills_instructions: skills_instructions_for_tier(:claim),
-      store_choice: @coding_store_choice,
-      save_plan: @coding_save_plan,
       relevant_skills: [],
       relevant_specs: [],
-      # aliases kept for older callers / tests
-      workflow_basics: @coding_workflow,
-      file_locking_protocol: @coding_file_locking,
-      memory_protocol: @coding_memory
+      hint:
+        "Protocols are in get_started. Load relevant_skills / relevant_specs, then work → save → release_work → submit_task_feedback."
     }
   end
 
@@ -413,23 +435,13 @@ defmodule Acs.Memory.Guidance do
       audience: :chat,
       mode: :knowledge,
       scope: scope_path,
-      scope_category: scope_path,
       tier: :claim,
       critical_axioms: extract_axioms(sorted, min_importance: 4),
       warnings: extract_warnings(sorted, min_importance: 4),
-      workflow: @chat_workflow,
-      store: @chat_store,
-      honesty: @chat_honesty,
-      memory: @chat_memory,
-      memory_protocol: @chat_memory,
-      agent_identity: @chat_identity,
-      org_knowledge_conventions: @chat_conventions,
-      specs_instructions: specs_instructions_chat_for_tier(:claim),
-      skills_instructions: skills_instructions_chat_for_tier(:claim),
       relevant_skills: [],
       relevant_specs: [],
-      # thin aliases so existing tests reading workflow_basics still work
-      workflow_basics: @chat_workflow
+      hint:
+        "Protocols are in get_started / steward_ask start. Load relevant skills/docs, then act → save → release."
     }
   end
 
@@ -459,11 +471,11 @@ defmodule Acs.Memory.Guidance do
     }
   end
 
-  defp maybe_put_coding_finish(packet, :coding, _tier) do
+  defp maybe_put_coding_finish(packet, :coding, :full) do
     Map.put(packet, :skills_finish_protocol, @coding_finish)
   end
 
-  defp maybe_put_coding_finish(packet, :chat, _tier), do: packet
+  defp maybe_put_coding_finish(packet, _audience, _tier), do: packet
 
   defp maybe_put_missing_spec_nudge(%{audience: :coding} = packet) do
     missing =
@@ -816,7 +828,7 @@ defmodule Acs.Memory.Guidance do
     packet
     |> Map.put(:relevant_skills, ctx.relevant_skills)
     |> Map.put(:relevant_specs, ctx.relevant_specs)
-    |> Map.put(:skills_finish_protocol, @coding_finish)
+    |> maybe_put_coding_finish(Map.get(packet, :audience), Map.get(packet, :tier))
     |> maybe_put_missing_spec_nudge()
   end
 

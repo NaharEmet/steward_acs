@@ -631,7 +631,7 @@ defmodule Acs.MCP.Tools do
       # Specs Tools
       tool_def(
         "specs_get",
-        "Load a **spec** (code module docs) or **document** (non-code artifact) by app and path. Specs use purpose/invariants/workflows; documents use document_type + markdown content (policy, marketing, briefs, etc.). USE WHEN: before editing code, reading prior project output, or reviewing shared deliverables.",
+        "Load a **spec** or **document** body by app + path (default). Returns content only — documents: app/path/title/content; module specs: purpose/invariants/workflows/failure_modes (plus other body fields if set). No tags, status, audit, or governance fields. List/search with query_specs first to discover paths.",
         %{
           "app" => %{"type" => "string", "description" => "App name (e.g., 'my_app')"},
           "path" => %{
@@ -644,7 +644,7 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "query_specs",
-        "Search **specs** (code module docs) and **documents** (non-code: policies, briefs, marketing, knowledge files). Hybrid search by default. Use `undocumented: true` only for code modules missing specs.",
+        "Search **specs** and **documents** — returns discovery cards (app, path, title, purpose) without bodies. Use specs_get(app:, path:) to load content. Hybrid search by default. Use `undocumented: true` only for code modules missing specs.",
         %{
           "query" => %{"type" => "string", "description" => "Search query text (optional)"},
           "app" => %{"type" => "string", "description" => "Optional app filter"},
@@ -919,16 +919,12 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "skill_get",
-        "Retrieve skills — reusable workflow guides. Default returns lean cards (name, description, when_to_use, tags, scope_paths, status) — not the markdown body. Pass include_content: true to load the procedure steps. Pass scope_path to list for a scope, name for one skill, search/tag to filter, or nothing for the catalog. USE BEFORE: deployment, secrets, install, support playbooks, or any repeatable procedure.",
+        "Retrieve skills — reusable workflow guides. Pass `name` to load the procedure body (returns name + content only — list/search first for discovery). Pass search/tag/scope_path (or nothing for catalog) to list lean cards: name, description, when_to_use, tags. USE BEFORE: deployment, secrets, install, support playbooks, or any repeatable procedure.",
         %{
           "name" => %{
             "type" => "string",
-            "description" => "Skill name to retrieve"
-          },
-          "include_content" => %{
-            "type" => "boolean",
             "description" =>
-              "If true, include the full markdown procedure body. Default false (summary card only)."
+              "Skill name — returns the procedure body (name + content). List/search first to discover names."
           },
           "scope_path" => %{
             "type" => "string",
@@ -1643,8 +1639,8 @@ defmodule Acs.MCP.Tools do
 
               %{
                 tool: "skill_get",
-                prompt: "Read scope workflow: #{name}",
-                params: %{name: name, include_content: true}
+                prompt: "Load procedure body: #{name}",
+                params: %{name: name}
               }
             end)
 
@@ -1882,22 +1878,15 @@ defmodule Acs.MCP.Tools do
           skills = Map.get(result, :skills, [])
           related = Map.get(result, :related, [])
           scope_path = Map.get(args, "scope_path", "")
-          already_full? = truthy_arg?(args["include_content"])
+          by_name? = is_binary(args["name"]) and args["name"] != ""
 
           read_steps =
             cond do
-              length(skills) == 1 and not already_full? ->
-                name = skill_name(hd(skills))
+              # Already loaded the body by name — follow it; don't re-fetch.
+              by_name? ->
+                []
 
-                [
-                  %{
-                    tool: "skill_get",
-                    prompt: "Load procedure body for '#{name}' then follow the steps",
-                    params: %{name: name, include_content: true}
-                  }
-                ]
-
-              length(skills) > 1 and not already_full? ->
+              length(skills) >= 1 ->
                 skills
                 |> Enum.take(5)
                 |> Enum.map(fn s ->
@@ -1906,7 +1895,7 @@ defmodule Acs.MCP.Tools do
                   %{
                     tool: "skill_get",
                     prompt: "Load procedure body: #{n}",
-                    params: %{name: n, include_content: true}
+                    params: %{name: n}
                   }
                 end)
 
@@ -2083,7 +2072,7 @@ defmodule Acs.MCP.Tools do
         %{
           tool: "skill_get",
           prompt: "Load procedure body: #{name}",
-          params: %{name: name, include_content: true}
+          params: %{name: name}
         }
       end)
     end
@@ -2233,10 +2222,4 @@ defmodule Acs.MCP.Tools do
   end
 
   defp skill_name(_), do: nil
-
-  defp truthy_arg?(true), do: true
-  defp truthy_arg?("true"), do: true
-  defp truthy_arg?("yes"), do: true
-  defp truthy_arg?(1), do: true
-  defp truthy_arg?(_), do: false
 end

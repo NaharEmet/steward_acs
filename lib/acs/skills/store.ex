@@ -135,32 +135,46 @@ defmodule Acs.Skills.Store do
     safe = safe_name(name)
     path = Path.join(dir, "#{safe}.md")
 
-    with true <- Acs.Org.safe_path?(dir, path),
-         :ok <- File.mkdir_p(dir) do
-      meta = %{
-        "name" => name,
-        "description" => opts["description"],
-        "when_to_use" => opts["when_to_use"],
-        "tags" => opts["tags"] || [],
-        "scope_paths" => opts["scope_paths"] || [],
-        "status" => opts["status"] || "proposed",
-        "proposed_by" => opts["proposed_by"],
-        "authority_sort_order" => opts["authority_sort_order"]
-      }
+    try do
+      with true <- Acs.Org.safe_path?(dir, path),
+           :ok <- ensure_skills_dir(dir) do
+        meta = %{
+          "name" => name,
+          "description" => opts["description"],
+          "when_to_use" => opts["when_to_use"],
+          "tags" => opts["tags"] || [],
+          "scope_paths" => opts["scope_paths"] || [],
+          "status" => opts["status"] || "proposed",
+          "proposed_by" => opts["proposed_by"],
+          "authority_sort_order" => opts["authority_sort_order"]
+        }
 
-      frontmatter =
-        meta
-        |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
-        |> Enum.map(fn {k, v} -> "#{k}: #{encode_yaml_value(v)}" end)
-        |> Enum.join("\n")
+        frontmatter =
+          meta
+          |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+          |> Enum.map(fn {k, v} -> "#{k}: #{encode_yaml_value(v)}" end)
+          |> Enum.join("\n")
 
-      body = String.trim_trailing(content) <> "\n"
-      File.write!(path, "---\n#{frontmatter}\n---\n\n#{body}")
-      invalidate_cache()
-      {:ok, %{name: name, id: safe, path: path, status: meta["status"]}}
-    else
-      false -> {:error, :unsafe_path}
-      {:error, reason} -> {:error, reason}
+        body = String.trim_trailing(content) <> "\n"
+        File.write!(path, "---\n#{frontmatter}\n---\n\n#{body}")
+        invalidate_cache()
+        {:ok, %{name: name, id: safe, path: path, status: meta["status"]}}
+      else
+        false -> {:error, :unsafe_path}
+        {:error, reason} -> {:error, reason}
+      end
+    rescue
+      e in [File.Error, ErlangError] ->
+        {:error, "could not write #{path}: #{Exception.message(e)}"}
+    end
+  end
+
+  # Include the target dir in mkdir failures — bare :enoent is what Elixir
+  # returns for EACCES under a root-owned vault, which looks like a missing path.
+  defp ensure_skills_dir(dir) do
+    case File.mkdir_p(dir) do
+      :ok -> :ok
+      {:error, reason} -> {:error, "could not create #{dir}: #{reason}"}
     end
   end
 

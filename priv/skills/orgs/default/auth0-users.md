@@ -2,17 +2,17 @@
 description: "Create Auth0 users and enable email OTP + Google for web portal and Claude/ChatGPT MCP connectors"
 name: "auth0-users"
 proposed_by: "nahar emet"
-scope_paths: ["guides/deployment", "lib/acs_web", "auth", "scripts"]
+scope_paths: ["guides/deployment", "lib/acs_web", "lib/acs/auth0", "auth", "scripts"]
 status: "approved"
 tags: ["auth0", "oauth", "users", "admin", "connectors", "chatgpt", "google"]
 when_to_use: "When setting up OAuth users, enabling Google login, or fixing Claude/ChatGPT connector login on production ACS"
-audit_reasoning: "This is an exceptionally well-structured and comprehensive skill. It provides clear, actionable, step-by-step instructions for a complex administrative task (Auth0 user and connection management). The content is rich with concrete examples, including exact API endpoints, command-line snippets, specific Auth0 client IDs, and troubleshooting tables. The prerequisites (like M2M credentials) are implied by the script references. The verification and failure recovery sections are thorough, covering common pitfalls. The description is distinct and accurately summarizes the skill's purpose. The audience ('coding') is appropriate, as the task involves API calls, scripts, and configuration management suitable for a developer or DevOps agent. The scope is well-defined and matches the content."
+audit_reasoning: "This is an exceptionally well-structured skill. It provides clear, actionable, step-by-step instructions for a complex administrative task (Auth0 user and connector setup). It includes prerequisites, multiple methods (script, dashboard, API), verification steps, and a comprehensive troubleshooting table. The content is rich with concrete examples, exact file paths, command snippets, and specific Auth0 configuration details. The description is distinct and accurately summarizes the skill's purpose. The audience (coding) is appropriate given the technical nature of the task involving scripts, APIs, and configuration files."
 audit_score: 10
 audit_status: "ok"
-audited_at: "2026-08-04T06:33:56.097553Z"
-approved_at: "2026-08-04T06:33:56.104486Z"
+audited_at: "2026-08-05T16:38:59.728283Z"
+approved_at: "2026-08-05T16:38:59.731228Z"
 approved_by: "llm"
-reviewed_at: "2026-08-04T06:33:56.104486Z"
+reviewed_at: "2026-08-05T16:38:59.731228Z"
 reviewed_by: "llm"
 ---
 
@@ -38,8 +38,21 @@ Required permission: `mcp:tools` (via **MCP User** role)
 - Do **not** pin `connection=` in Caddy `/authorize` or web OIDC (leave `AUTH0_CONNECTION` unset) so UL shows the choice
 - Optional pin: set `AUTH0_CONNECTION=email` or `google-oauth2` only if you want to force one method
 - ACS reconnects by **verified email** when Auth0 `sub` differs across connections (`upsert_oidc_user` + MCP email fallback)
-- Users should use the **same email** for Google and passwordless; Auth0 still creates two identities — assign **MCP User** on whichever Auth0 user the connector uses
+- Users should use the **same email** for Google and passwordless; Auth0 still creates two identities — ACS assigns **MCP User** + **claude_mcp** on all Auth0 users for that email
 - Auth0 **magic links** require Classic Login; we use email OTP on New UL instead
+
+### Auto-assign MCP User (org create / invite)
+
+When `AUTH0_MGMT_CLIENT_ID` + `AUTH0_MGMT_CLIENT_SECRET` are set (Infisical / compose), `Acs.Auth0.McpRole` assigns **MCP User** and **claude_mcp** by email on:
+
+1. Org create (`Orgs.create_for_user`)
+2. Member invite (`Accounts.invite_user`) — if Auth0 identities already exist
+3. Invite accept (`Accounts.accept_invitation`)
+4. OIDC upsert when the ACS user already has an `organization_id` (covers a new Google identity after OTP)
+
+M2M app needs Management API scopes: `read:users`, `update:users`, `read:roles`. Role assign is best-effort (logged); user must **reconnect** the connector after roles land for a fresh JWT with `permissions: ["mcp:tools"]`.
+
+Manual `setup-auth0.sh` / dashboard assign remains the fallback when MGMT creds are missing or no Auth0 user exists yet for that email.
 
 Tenant bootstrap: `./scripts/setup-auth0.sh` (M2M creds in `certs/Oauth.md` or env). That script enables `email` + `google-oauth2` and unions **Claude + ChatGPT** callbacks on connector / fixed-DCR apps.
 
@@ -63,7 +76,7 @@ ACS code already accepts Google (`google-oauth2` subjects, email-verified claims
 5. Web app Allowed Callback URLs must include `https://prod.stewardacs.xyz/auth/callback` (and account host if used).
 6. Try web: open portal → Sign in → Universal Login should offer **Continue with Google** and email OTP.
 7. Try MCP: reconnect Claude/ChatGPT connector → same UL choice.
-8. After first Google login for MCP, assign **MCP User** role to the new `google-oauth2|…` Auth0 user (or rely on email merge if they already had OTP with the same verified email — still assign role if tools missing).
+8. After first Google login for an org member, `Acs.Auth0.McpRole` should auto-assign **MCP User** on the new `google-oauth2|…` identity (fallback: Dashboard / `setup-auth0.sh`).
 
 ### Script path (when M2M works)
 
@@ -132,7 +145,7 @@ Tell the user: **Settings → Connectors →** `https://prod.stewardacs.xyz/mcp/
 
 Auth0 API identifier: `https://prod.stewardacs.xyz/mcp/sse` for both. ACS picks chat vs coding from the SSE path.
 
-Google-first users: they self-create on first Google login — still assign **MCP User** for connector tokens.
+Google-first users: they self-create on first Google login — `McpRole` assigns **MCP User** when they already belong to an org (or on invite/accept/create).
 
 ---
 
@@ -192,14 +205,15 @@ Revoke active sessions: disconnect the connector in Claude/ChatGPT; tokens expir
 | No Google button on Universal Login | Create/enable Google social connection; enable it on **web** + **fixed DCR** apps; leave `AUTH0_CONNECTION` unset. See Enable Google section. |
 | `the connection is not enabled` for Google | Enable `google-oauth2` on that Auth0 application (Applications tab on the connection). |
 | Google works on web but not MCP (or reverse) | Different Auth0 apps — enable Google on **both** `AUTH0_WEB_CLIENT_ID` and `OAUTH_FIXED_DCR_CLIENT_ID`. |
-| Auth0 **Callback URL mismatch** / redirect_uri not allowed (esp. ChatGPT) | Add ChatGPT callbacks to the **fixed DCR** Auth0 app (`OAUTH_FIXED_DCR_CLIENT_ID`). See section above. ACS DCR echoes redirect_uris but Auth0 enforces the app allowlist. |
+| Auth0 **Callback URL mismatch** / redirect_uri not allowed (esp. ChatGPT) | Add ChatGPT callbacks to the **fixed DCR** Auth0 app (`OAUTH_FIXED_DCR_CLIENT_ID`). See section above. ACS DCR echoes redirect_uris but Auth0 enforces the app allowlist. Per-app Apps SDK URLs look like `https://chatgpt.com/connector/oauth/<id>` — check Auth0 logs `type:f` for the exact URI. |
+| Auth0 “Oops” / `Service not found: https://{org}.stewardacs.xyz/mcp/sse` | Self-serve orgs are **not** in `priv/orgs.yaml`. Caddy still sends that host as `audience`, so Auth0 needs an API for every org. Fix now: `EXTRA_ORG_SLUGS=anantha ./scripts/ensure-auth0-org-audiences.sh`. Going forward: set `AUTH0_MGMT_*` in Infisical — `Acs.Auth0.OrgAudience` runs on org provision. |
 | `invalid_request: ID First not enabled for the client` | Enable Identifier First: Auth0 → Authentication → Authentication Profile, or `PATCH /api/v2/prompts` with `identifier_first: true`. Re-run `./scripts/setup-auth0.sh`. |
 | Auth0 “Oops” + password form | Password DB must **not** be domain-level; email passwordless **must** be. Do not enable Username-Password for connector/web clients. |
 | `the connection is not enabled` | Enable **email** connection for first-party connector apps (`Claude.ai MCP`, `steward_acs_mcp`) — setup script does this. |
 | “Couldn't register with sign-in service” / Auth0 `too_many_entities` on `/oidc/register` | Free Auth0 tenants fill up with DCR apps. Prune with `python3 scripts/cleanup-auth0-dcr-clients.py --delete` (third-party only). Fixed DCR should prevent this. |
 | Auth0 `cls` success then `fn` fail: Resend `domain is not verified` | Passwordless **From** and Branding → Email Provider **From** must use a Resend-verified domain (e.g. `noreply@stewardacs.xyz`), **not** an unverified org domain like `@safetyconnect.io`. Recipient can still be `@safetyconnect.io`. Fix: `AUTH0_EMAIL_FROM='Steward ACS <noreply@stewardacs.xyz>' python3 scripts/fix-auth0-email-from.py --fix` |
 | “Couldn't register with sign-in service” | Enable **OIDC Dynamic Application Registration** or use manual Client ID from setup script |
-| User logs in but no MCP tools | Assign **MCP User** role; **reconnect** connector for a fresh token with `permissions` |
+| User logs in but no MCP tools | Check Auth0 roles on that identity; ensure MGMT scopes include `update:users`; **reconnect** connector for a fresh token with `permissions` |
 | Claude: “Couldn't connect / Taking you back to the desktop app” after OTP | Auth0 login succeeded but ACS rejected the token. Check prod logs for `OAuth user is not authorized`. Common causes: (1) ACS user missing for that org; (2) **MCP User role missing `mcp:tools` on that tenant audience** (role had only `https://prod.stewardacs.xyz/mcp/sse` — run `scripts/ensure-auth0-org-audiences.sh` and attach role permissions per org API); (3) legacy Google vs email identity split. Reconnect after fixing so the connector gets a fresh token. |
 | `setup-auth0.sh` / M2M `Unauthorized` | Refresh Management API M2M client secret in Auth0; update `certs/Oauth.md` / `AUTH0_M2M_*`. |
 

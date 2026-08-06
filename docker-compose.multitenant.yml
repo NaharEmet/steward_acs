@@ -50,6 +50,9 @@ x-steward-acs: &steward_acs
     AUTH0_AUDIENCE: "${AUTH0_AUDIENCE:-}"
     AUTH0_ISSUER: "${AUTH0_ISSUER:-}"
     AUTH0_CONNECTION: "${AUTH0_CONNECTION:-}"
+    # Management API — provisioner ensures per-org MCP audiences on create.
+    AUTH0_MGMT_CLIENT_ID: "${AUTH0_MGMT_CLIENT_ID:-}"
+    AUTH0_MGMT_CLIENT_SECRET: "${AUTH0_MGMT_CLIENT_SECRET:-}"
     OAUTH_FIXED_DCR_CLIENT_ID: "${OAUTH_FIXED_DCR_CLIENT_ID:-}"
     MCP_PUBLIC_URL: "${MCP_PUBLIC_URL:-https://prod.stewardacs.xyz}"
     MCP_RESOURCE_URL: "${MCP_RESOURCE_URL:-https://prod.stewardacs.xyz/mcp/sse}"

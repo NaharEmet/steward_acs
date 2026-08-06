@@ -94,7 +94,7 @@ defmodule Acs.MCP.Tools.SkillHandlersTest do
   end
 
   describe "skill_get content gating" do
-    test "name lookup returns summary card without content by default" do
+    test "name lookup returns name + content only" do
       assert {:ok, %{saved: true}} =
                SkillHandlers.skill_save(%{
                  "name" => "gated-proc",
@@ -109,34 +109,25 @@ defmodule Acs.MCP.Tools.SkillHandlersTest do
                  "intake_confirmed" => true
                })
 
-      assert {:ok, %{skills: [card], total: 1, include_content: false, hint: hint}} =
+      assert {:ok, %{skills: [body], total: 1}} =
                SkillHandlers.skill_get(%{"name" => "gated-proc"})
 
-      assert card.name == "gated-proc"
-      assert card.description == "A gated procedure"
-      assert card.when_to_use == "When testing content gating"
-      refute Map.has_key?(card, :content)
-      assert hint =~ "include_content"
+      assert body == %{
+               name: "gated-proc",
+               content: String.trim("""
+               ## Steps
+               1. Do the thing
+               2. Verify it worked
+               3. Recover if it failed
+               """)
+             }
+
+      refute Map.has_key?(body, :status)
+      refute Map.has_key?(body, :id)
+      refute Map.has_key?(body, :description)
     end
 
-    test "include_content true returns the markdown body" do
-      assert {:ok, %{saved: true}} =
-               SkillHandlers.skill_save(%{
-                 "name" => "full-proc",
-                 "description" => "Needs full body",
-                 "content" => "## Steps\n1. Alpha\n2. Beta\n3. Gamma\n",
-                 "intake_confirmed" => true
-               })
-
-      assert {:ok, %{skills: [card], include_content: true}} =
-               SkillHandlers.skill_get(%{"name" => "full-proc", "include_content" => true})
-
-      assert card.content =~ "Alpha"
-      refute Map.has_key?(card, :file)
-      refute Map.has_key?(card, :metadata)
-    end
-
-    test "search also omits bodies unless include_content is set" do
+    test "search returns discovery cards without content, status, or id" do
       assert {:ok, %{saved: true}} =
                SkillHandlers.skill_save(%{
                  "name" => "searchable-proc",
@@ -145,11 +136,14 @@ defmodule Acs.MCP.Tools.SkillHandlersTest do
                  "intake_confirmed" => true
                })
 
-      assert {:ok, %{skills: skills, include_content: false}} =
+      assert {:ok, %{skills: skills}} =
                SkillHandlers.skill_get(%{"search" => "searchable-proc"})
 
-      assert Enum.any?(skills, &(&1.name == "searchable-proc"))
-      refute Enum.any?(skills, &Map.has_key?(&1, :content))
+      card = Enum.find(skills, &(&1.name == "searchable-proc"))
+      assert card.description == "Findable by search"
+      refute Map.has_key?(card, :content)
+      refute Map.has_key?(card, :status)
+      refute Map.has_key?(card, :id)
     end
   end
 

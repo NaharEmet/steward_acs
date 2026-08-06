@@ -176,10 +176,12 @@ else
 fi
 
 info "Assigning mcp:tools to MCP User role..."
-api POST "/roles/${ROLE_ID}/permissions" -d "[{
-  \"resource_server_identifier\": \"${AUDIENCE}\",
-  \"permission_name\": \"mcp:tools\"
-}]" >/dev/null 2>&1 || true
+api POST "/roles/${ROLE_ID}/permissions" -d "{
+  \"permissions\": [{
+    \"resource_server_identifier\": \"${AUDIENCE}\",
+    \"permission_name\": \"mcp:tools\"
+  }]
+}" >/dev/null 2>&1 || true
 ok "Role permission assigned (or already present)"
 
 info "Configuring default third-party API access (required for DCR Claude clients)..."

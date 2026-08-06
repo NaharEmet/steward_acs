@@ -18,6 +18,10 @@ defmodule Acs.Orgs.Provisioner do
         |> Enum.each(&File.mkdir_p!/1)
       end
 
+      # Multi-tenant connectors need Auth0 API https://{slug}.{base}/mcp/sse
+      # (Caddy injects that audience). Best-effort — does not block ready.
+      Acs.Auth0.OrgAudience.ensure_async(organization.slug)
+
       update(organization, %{
         provisioning_status: "ready",
         provisioning_error: nil,

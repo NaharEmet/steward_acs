@@ -1,11 +1,17 @@
-#!/usr/bin/env bash
 # Ensure Auth0 resource servers + third-party grants exist for each org MCP URL.
-# Usage: BASE_DOMAIN=stewardacs.xyz ./scripts/ensure-auth0-org-audiences.sh
+# Usage:
+#   BASE_DOMAIN=stewardacs.xyz ./scripts/ensure-auth0-org-audiences.sh
+#   EXTRA_ORG_SLUGS="anantha other" ./scripts/ensure-auth0-org-audiences.sh
+#
+# Reads slug list from priv/orgs.yaml plus EXTRA_ORG_SLUGS (space-separated).
+# Self-serve orgs live in the DB and are NOT in yaml — prefer ACS provisioning
+# (AUTH0_MGMT_* → Acs.Auth0.OrgAudience) so new orgs get audiences automatically.
 set -euo pipefail
 
 DOMAIN="${AUTH0_DOMAIN:-dev-jw5wgp2b.us.auth0.com}"
 BASE_DOMAIN="${BASE_DOMAIN:-stewardacs.xyz}"
 ORGS_FILE="${ORGS_FILE:-priv/orgs.yaml}"
+EXTRA_ORG_SLUGS="${EXTRA_ORG_SLUGS:-}"
 M2M_ID="${AUTH0_MGMT_CLIENT_ID:-${AUTH0_M2M_CLIENT_ID:-}}"
 M2M_SECRET="${AUTH0_MGMT_CLIENT_SECRET:-${AUTH0_M2M_CLIENT_SECRET:-}}"
 MGMT_AUDIENCE="https://${DOMAIN}/api/v2/"
@@ -75,7 +81,7 @@ else:
   fi
 
   # MCP User / claude_mcp roles must include mcp:tools on THIS audience or
-  # Claude tokens for tenant hosts fail ACS oidc_role checks.
+  # connector tokens for tenant hosts fail ACS oidc_role checks.
   for ROLE_NAME in "MCP User" "claude_mcp"; do
     ROLE_ID=$(api GET "/roles?name_filter=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$ROLE_NAME")" | python3 -c "
 import sys, json
@@ -85,21 +91,30 @@ for r in json.load(sys.stdin):
         print(r['id']); break
 " "$ROLE_NAME" 2>/dev/null || true)
     if [[ -n "$ROLE_ID" ]]; then
-      api POST "/roles/${ROLE_ID}/permissions" -d "[{
-        \"resource_server_identifier\": \"${AUDIENCE}\",
-        \"permission_name\": \"mcp:tools\"
-      }]" >/dev/null 2>&1 || true
+      api POST "/roles/${ROLE_ID}/permissions" -d "{
+        \"permissions\": [{
+          \"resource_server_identifier\": \"${AUDIENCE}\",
+          \"permission_name\": \"mcp:tools\"
+        }]
+      }" >/dev/null 2>&1 || true
       echo "  ensured ${ROLE_NAME} has mcp:tools on audience"
     fi
   done
-done < <(python3 - "$ORGS_FILE" "$BASE_DOMAIN" <<'PY'
+done < <(python3 - "$ORGS_FILE" "$BASE_DOMAIN" "$EXTRA_ORG_SLUGS" <<'PY'
 import sys
 import yaml
 
-orgs_file, base = sys.argv[1], sys.argv[2]
+orgs_file, base, extra = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(orgs_file) as f:
     orgs = yaml.safe_load(f).get("orgs", {})
-for slug in orgs:
+slugs = list(orgs.keys())
+slugs += [s for s in extra.split() if s]
+# stable unique
+seen = set()
+for slug in slugs:
+    if slug in seen:
+        continue
+    seen.add(slug)
     print(f"https://{slug}.{base}/mcp/sse")
 PY
 )

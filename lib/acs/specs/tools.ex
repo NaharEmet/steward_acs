@@ -57,7 +57,9 @@ defmodule Acs.Specs.Tools do
     with :ok <- require_params!(args, ~w(app path)) do
       case Loader.load(args["app"], args["path"]) do
         {:ok, entry} ->
-          if Abac.visible?(ctx, entry), do: {:ok, Entry.to_map(entry)}, else: {:ok, nil}
+          if Abac.visible?(ctx, entry),
+            do: {:ok, entry_body(entry)},
+            else: {:ok, nil}
 
         {:error, :not_found} ->
           {:ok, nil}
@@ -66,6 +68,69 @@ defmodule Acs.Specs.Tools do
           {:error, "Failed to load spec: #{inspect(reason)}"}
       end
     end
+  end
+
+  # Fetch-by-path: agents already listed — return the body only (no tags/status/audit).
+  defp entry_body(%Entry{document_type: type} = entry) when is_binary(type) and type != "" do
+    %{
+      "app" => entry.app,
+      "path" => entry.id,
+      "title" => entry.title,
+      "content" => entry.content || ""
+    }
+    |> reject_blank()
+  end
+
+  defp entry_body(%Entry{} = entry) do
+    %{
+      "app" => entry.app,
+      "path" => entry.id,
+      "title" => entry.title,
+      "purpose" => entry.purpose,
+      "invariants" => entry.invariants,
+      "workflows" => entry.workflows,
+      "failure_modes" => entry.failure_modes,
+      "state_machine" => entry.state_machine,
+      "constraints" => entry.constraints,
+      "input" => entry.input,
+      "output" => entry.output,
+      "expected_transformation" => entry.expected_transformation
+    }
+    |> reject_blank()
+  end
+
+  # List/search: discovery cards — identity + short description, no body/governance noise.
+  defp entry_listing(%Entry{} = entry) do
+    %{
+      "app" => entry.app,
+      "path" => entry.id,
+      "title" => entry.title,
+      "document_type" => entry.document_type,
+      "purpose" => entry.purpose
+    }
+    |> reject_blank()
+  end
+
+  defp entry_listing(%{__rag_chunk: true} = chunk) do
+    %{
+      "app" => Map.get(chunk, :app),
+      "path" => Map.get(chunk, :path),
+      "title" => Map.get(chunk, :path) || Map.get(chunk, :context),
+      "purpose" => Map.get(chunk, :context),
+      "chunk" => true
+    }
+    |> reject_blank()
+  end
+
+  defp reject_blank(map) do
+    map
+    |> Enum.reject(fn
+      {_k, nil} -> true
+      {_k, ""} -> true
+      {_k, []} -> true
+      _ -> false
+    end)
+    |> Map.new()
   end
 
   defp build_search_opts(args) do
@@ -412,13 +477,7 @@ defmodule Acs.Specs.Tools do
               result =
                 entries
                 |> Abac.filter(ctx)
-                |> Enum.map(fn
-                  %{__rag_chunk: true} = chunk ->
-                    chunk
-
-                  entry ->
-                    Entry.to_map(entry)
-                end)
+                |> Enum.map(&entry_listing/1)
 
               {:ok, %{specs: result, count: length(result), mode: mode}}
 
@@ -437,7 +496,7 @@ defmodule Acs.Specs.Tools do
                 |> Abac.filter(ctx)
                 |> Enum.filter(fn entry -> matches_status?(entry.status, status_filter) end)
 
-              summaries = Enum.map(filtered, &entry_summary/1)
+              summaries = Enum.map(filtered, &entry_listing/1)
               {:ok, %{specs: summaries, count: length(summaries)}}
 
             {:error, reason} ->
@@ -472,17 +531,6 @@ defmodule Acs.Specs.Tools do
   defp matches_status?(_entry_status, nil), do: true
   defp matches_status?(_entry_status, ""), do: true
   defp matches_status?(entry_status, filter), do: entry_status == filter
-
-  defp entry_summary(entry) do
-    %{
-      id: entry.id,
-      app: entry.app,
-      status: entry.status,
-      title: entry.title,
-      purpose: entry.purpose,
-      verification_status: entry.verification_status
-    }
-  end
 
   defp require_params!(args, required) do
     Enum.reduce_while(required, :ok, fn key, _acc ->

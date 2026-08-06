@@ -244,7 +244,7 @@ defmodule Acs.MCP.Tools.ChatSurface do
   def steward_ask_def do
     tool_def(
       "steward_ask",
-      "Bootstrap and retrieve from Steward. Empty call or action=start returns the startup packet. Use action=search for org knowledge (1–2 small documents may inline; skills always return excerpts — action=skill returns a summary card; pass include_content: true to load the procedure body). Load matching skills before procedural work; load document/spec bodies with action=document (app + path). Follow process docs/skills before acting.",
+      "Bootstrap and retrieve from Steward. Empty call or action=start returns the startup packet. Use action=search for org knowledge (skills/docs return excerpts — fetch bodies with action=skill name: or action=document app+path). Fetches return content only, not tags/status/audit. Follow process docs/skills before acting.",
       [
         branch(%{}, []),
         branch(%{"action" => enum("start")}, ["action"]),
@@ -338,11 +338,7 @@ defmodule Acs.MCP.Tools.ChatSurface do
   defp skill_get_properties do
     %{
       "action" => enum("skill"),
-      "name" => string("Exact skill name"),
-      "include_content" => %{
-        "type" => "boolean",
-        "description" => "Include full procedure body (default false — summary card only)"
-      },
+      "name" => string("Exact skill name — returns procedure body"),
       "search" => string("Skill keyword search"),
       "tag" => string("Skill tag filter"),
       "scope_path" => string("Business or code scope"),
@@ -354,7 +350,7 @@ defmodule Acs.MCP.Tools.ChatSurface do
     %{
       "action" => enum("document"),
       "app" => string("App from search hit (e.g. steward_acs)"),
-      "path" => string("Document path from search hit")
+      "path" => string("Document path — returns body content only")
     }
   end
 

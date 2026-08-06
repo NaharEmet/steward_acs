@@ -194,28 +194,23 @@ defmodule Acs.Memory.GuidanceTest do
       refute Map.has_key?(packet, :store)
     end
 
-    test "claim tier loads complete claim instruction files without mid-sentence slice" do
+    test "claim tier stays lean — no get_started protocol dumps" do
       coding = Guidance.generate("lib/acs/memory", mode: :coding, tier: :claim)
       chat = Guidance.generate("acme/sales", mode: :chat, tier: :claim)
 
       assert coding.tier == :claim
-      assert coding.skills_instructions =~ "skill_save"
-      assert coding.skills_instructions =~ "specs_propose"
-      assert coding.skills_instructions =~ "save_memory"
-      refute coding.skills_instructions =~ "**specs_propose** \n\n"
-      assert coding.specs_instructions =~ "DOCUMENT"
-      assert coding.specs_instructions =~ "document_type"
-      refute coding.specs_instructions =~ "Treat them as **specs\n"
-      assert coding.workflow =~ "save"
-      assert coding.workflow =~ "release_work"
-      # save before release
-      assert coding.workflow =~ ~r/save.*release_work/s
+      assert coding.hint =~ "get_started"
+      refute Map.has_key?(coding, :skills_instructions)
+      refute Map.has_key?(coding, :specs_instructions)
+      refute Map.has_key?(coding, :memory_protocol)
+      refute Map.has_key?(coding, :workflow_basics)
+      refute Map.has_key?(coding, :store_choice)
+      refute Map.has_key?(coding, :skills_finish_protocol)
 
       assert chat.tier == :claim
-      assert chat.skills_instructions =~ "steward_ask"
-      assert chat.skills_instructions =~ "steward_write"
-      assert chat.specs_instructions =~ "steward_write"
-      assert chat.specs_instructions =~ "document_type"
+      assert chat.hint =~ "get_started"
+      refute Map.has_key?(chat, :skills_instructions)
+      refute Map.has_key?(chat, :memory_protocol)
     end
   end
 

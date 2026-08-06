@@ -1,14 +1,28 @@
 defmodule Acs.ClaimContext do
   @moduledoc """
   Finds skills and specs relevant to a task at claim time.
+
+  Never backfills the catalog when nothing matches — empty is better than
+  dumping the first N unrelated skills into guidance / `_next`.
   """
 
   alias Acs.Skills.Store
   alias Acs.Specs.{Entry, Loader, Search}
 
-  @max_skills 5
-  @max_specs 5
+  @max_skills 3
+  @max_specs 3
   @default_app "steward_acs"
+
+  # Tokens too common to imply relevance on their own.
+  @stopwords MapSet.new(~w(
+    a an the to for of and or with from this that is are be by on in at as it its
+    vs via when how what why fix bug issue task work add update make get set use
+    new old into over under after before about onto
+    url urls http https path name file code test tests smoke module app
+  ))
+
+  # Require at least a name (+10) or tag (+8) hit — description-only is too weak.
+  @min_skill_score 8
 
   @doc """
   Returns `%{relevant_skills: [...], relevant_specs: [...]}` for a task map or struct.
@@ -19,11 +33,8 @@ defmodule Acs.ClaimContext do
     file_paths = task_map[:file_paths] || task_map["file_paths"] || []
     scope_path = scope_from_file_paths(file_paths)
 
-    task_skills = relevant_skills(query)
-    scope_skills = skills_for_scope(scope_path)
-
     %{
-      relevant_skills: merge_skills(task_skills, scope_skills),
+      relevant_skills: merge_skills(relevant_skills(query), skills_for_scope(scope_path)),
       relevant_specs: relevant_specs(query, file_paths)
     }
   end
@@ -35,30 +46,31 @@ defmodule Acs.ClaimContext do
     scope = String.trim(scope_path)
 
     if scope == "" do
-      %{relevant_skills: global_skills(), relevant_specs: []}
+      %{relevant_skills: [], relevant_specs: []}
     else
       %{
-        relevant_skills: skills_for_scope(scope_path),
-        relevant_specs: specs_for_scope(scope_path)
+        relevant_skills: skills_for_scope(scope),
+        relevant_specs: specs_for_scope(scope)
       }
     end
   end
 
-  def for_scope(_), do: %{relevant_skills: global_skills(), relevant_specs: []}
+  def for_scope(_), do: %{relevant_skills: [], relevant_specs: []}
 
-  @doc "Skills tagged or scoped to this path."
-  def skills_for_scope(scope_path) do
-    Store.search_skills(scope_path)
-    |> Enum.take(@max_skills)
-    |> Enum.map(&skill_summary/1)
+  @doc "Skills scoped to this path (prefix match on skill scope_paths)."
+  def skills_for_scope(scope_path) when is_binary(scope_path) do
+    scope = String.trim(scope_path)
+
+    if scope == "" do
+      []
+    else
+      Store.list_skills_by_scope(scope)
+      |> Enum.take(@max_skills)
+      |> Enum.map(&skill_summary/1)
+    end
   end
 
-  @doc "Org-wide top skills (no scope constraint)."
-  def global_skills do
-    Store.list_skills()
-    |> Enum.take(@max_skills)
-    |> Enum.map(&skill_summary/1)
-  end
+  def skills_for_scope(_), do: []
 
   defp specs_for_scope(scope_path) when is_binary(scope_path) do
     scope = String.trim(scope_path)
@@ -68,7 +80,7 @@ defmodule Acs.ClaimContext do
   defp specs_for_scope(_), do: []
 
   defp do_specs_for_scope(scope) do
-    case Search.search(scope, limit: @max_specs) do
+    case Search.search(scope, limit: @max_specs, mode: "keyword") do
       {:ok, entries} -> Enum.map(entries, &spec_summary/1)
       _ -> []
     end
@@ -103,35 +115,72 @@ defmodule Acs.ClaimContext do
     |> String.trim()
   end
 
-  defp relevant_skills("") do
-    global_skills()
-  end
+  defp relevant_skills(""), do: []
 
   defp relevant_skills(query) do
-    Store.search_skills(query)
-    |> Enum.take(@max_skills)
-    |> Enum.map(&skill_summary/1)
+    tokens = meaningful_tokens(query)
+
+    if tokens == [] do
+      []
+    else
+      Store.all_skills()
+      |> Enum.map(fn skill -> {skill, skill_token_score(skill, tokens)} end)
+      |> Enum.filter(fn {_skill, score} -> score >= @min_skill_score end)
+      |> Enum.sort_by(fn {_skill, score} -> score end, :desc)
+      |> Enum.take(@max_skills)
+      |> Enum.map(fn {skill, _score} -> skill_summary(skill) end)
+    end
+  end
+
+  defp skill_token_score(skill, tokens) do
+    name = String.downcase(Map.get(skill, :name) || Map.get(skill, "name") || "")
+    desc = String.downcase(Map.get(skill, :description) || Map.get(skill, "description") || "")
+
+    tags =
+      (Map.get(skill, :tags) || Map.get(skill, "tags") || [])
+      |> Enum.map(&String.downcase/1)
+
+    scopes =
+      (Map.get(skill, :scope_paths) || Map.get(skill, "scope_paths") || [])
+      |> Enum.map(&String.downcase/1)
+
+    Enum.reduce(tokens, 0, fn token, acc ->
+      cond do
+        String.contains?(name, token) -> acc + 10
+        token in tags -> acc + 8
+        Enum.any?(scopes, &String.contains?(&1, token)) -> acc + 5
+        String.contains?(desc, token) -> acc + 3
+        true -> acc
+      end
+    end)
   end
 
   defp skill_summary(skill) when is_map(skill) do
     %{
       name: Map.get(skill, :name) || Map.get(skill, "name"),
       description: Map.get(skill, :description) || Map.get(skill, "description"),
-      tags: Map.get(skill, :tags) || Map.get(skill, "tags") || [],
-      when_to_use: Map.get(skill, :description) || Map.get(skill, "description") || ""
+      when_to_use:
+        Map.get(skill, :when_to_use) || Map.get(skill, "when_to_use") ||
+          Map.get(skill, :description) || Map.get(skill, "description") || ""
     }
   end
 
   defp relevant_specs(query, file_paths) do
     from_paths = specs_from_file_paths(file_paths)
+    tokens = meaningful_tokens(query)
 
     from_search =
-      if query == "" do
+      if tokens == [] do
         []
       else
-        case Search.search(query, limit: @max_skills) do
-          {:ok, entries} -> entries
-          _ -> []
+        case Search.search(Enum.join(tokens, " "), limit: @max_specs * 3, mode: "keyword") do
+          {:ok, entries} ->
+            entries
+            |> Enum.filter(&spec_token_hit?(&1, tokens))
+            |> Enum.take(@max_specs)
+
+          _ ->
+            []
         end
       end
 
@@ -142,6 +191,35 @@ defmodule Acs.ClaimContext do
     |> Enum.take(@max_specs)
     |> Enum.map(&spec_summary/1)
   end
+
+  # Prefer title/purpose/path hits over incidental body matches.
+  defp spec_token_hit?(%Entry{} = entry, tokens) do
+    haystack =
+      [
+        entry.id,
+        entry.title,
+        entry.purpose,
+        entry.document_type,
+        Enum.join(entry.tags || [], " ")
+      ]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
+      |> String.downcase()
+
+    Enum.any?(tokens, &String.contains?(haystack, &1))
+  end
+
+  defp spec_token_hit?(%{__rag_chunk: true} = chunk, tokens) do
+    haystack =
+      [Map.get(chunk, :path), Map.get(chunk, :context), Map.get(chunk, :title)]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
+      |> String.downcase()
+
+    Enum.any?(tokens, &String.contains?(haystack, &1))
+  end
+
+  defp spec_token_hit?(_, _), do: false
 
   defp specs_from_file_paths(file_paths) when is_list(file_paths) do
     file_paths
@@ -178,13 +256,21 @@ defmodule Acs.ClaimContext do
     end
   end
 
+  defp spec_summary(%Entry{status: "missing"} = entry) do
+    %{
+      app: entry.app,
+      path: entry.id,
+      title: entry.title || entry.id,
+      status: "missing"
+    }
+  end
+
   defp spec_summary(%Entry{} = entry) do
     %{
       app: entry.app,
       path: entry.id,
       title: entry.title,
-      purpose: entry.purpose,
-      status: entry.status
+      purpose: entry.purpose
     }
   end
 
@@ -193,8 +279,17 @@ defmodule Acs.ClaimContext do
       app: Map.get(chunk, :app),
       path: Map.get(chunk, :path),
       title: Map.get(chunk, :path) || Map.get(chunk, :context),
-      purpose: Map.get(chunk, :context),
-      status: "chunk"
+      purpose: Map.get(chunk, :context)
     }
   end
+
+  @doc false
+  def meaningful_tokens(query) when is_binary(query) do
+    query
+    |> String.downcase()
+    |> String.split(~r/[^a-z0-9]+/u, trim: true)
+    |> Enum.reject(&(String.length(&1) < 3 or MapSet.member?(@stopwords, &1)))
+  end
+
+  def meaningful_tokens(_), do: []
 end

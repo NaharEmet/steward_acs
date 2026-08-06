@@ -9,6 +9,7 @@ defmodule Acs.Orgs do
 
   alias Acs.Accounts
   alias Acs.Accounts.{AccountAuditEvent, User}
+  alias Acs.Auth0.McpRole
   alias Acs.Orgs.{Organization, Provisioner}
   alias Acs.Repo
 
@@ -115,7 +116,10 @@ defmodule Acs.Orgs do
                {:error, changeset} -> Repo.rollback(changeset)
              end
            end) do
-      Provisioner.provision(organization)
+      result = Provisioner.provision(organization)
+      user = Repo.get!(User, user_id)
+      McpRole.ensure_for_email_async(user.email)
+      result
     end
   end
 

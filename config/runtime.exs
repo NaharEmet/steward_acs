@@ -249,6 +249,18 @@ if auth0_issuer = System.get_env("AUTH0_ISSUER") do
   config :steward_acs, :auth0_issuer, auth0_issuer
 end
 
+if mgmt_id = System.get_env("AUTH0_MGMT_CLIENT_ID") do
+  if mgmt_id != "" do
+    config :steward_acs, :auth0_mgmt_client_id, mgmt_id
+  end
+end
+
+if mgmt_secret = System.get_env("AUTH0_MGMT_CLIENT_SECRET") do
+  if mgmt_secret != "" do
+    config :steward_acs, :auth0_mgmt_client_secret, mgmt_secret
+  end
+end
+
 if connection = System.get_env("AUTH0_CONNECTION") do
   if connection != "" do
     config :steward_acs, :auth0_connection, connection

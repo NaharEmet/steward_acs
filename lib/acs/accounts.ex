@@ -5,6 +5,7 @@ defmodule Acs.Accounts do
   import Ecto.Query, warn: false
 
   alias Acs.Accounts.{AccountAuditEvent, OrganizationInvitation, SessionHandoff, User, UserToken}
+  alias Acs.Auth0.McpRole
   alias Acs.Orgs.Organization
   alias Acs.Repo
 
@@ -132,6 +133,7 @@ defmodule Acs.Accounts do
           Repo.rollback(changeset)
       end
     end)
+    |> tap_mcp_role_for_org_member()
   end
 
   def upsert_oidc_user(_), do: {:error, :email_not_verified}
@@ -292,6 +294,7 @@ defmodule Acs.Accounts do
         end
       end)
       |> invitation_result()
+      |> tap_mcp_role_for_invite()
     end
   end
 
@@ -434,6 +437,7 @@ defmodule Acs.Accounts do
         end
       end)
       |> accept_result()
+      |> tap_mcp_role_for_accept()
     else
       :error -> {:error, :invalid_invitation}
     end
@@ -720,6 +724,35 @@ defmodule Acs.Accounts do
 
   defp accept_result({:ok, {user, invitation}}), do: {:ok, user, invitation}
   defp accept_result({:error, reason}), do: {:error, reason}
+
+  # Auth0 email OTP / Google are separate identities — assign MCP roles by email
+  # whenever membership is granted or an org member signs in with a new identity.
+  defp tap_mcp_role_for_org_member({:ok, %User{organization_id: org_id, email: email}} = result)
+       when is_integer(org_id) do
+    McpRole.ensure_for_email_async(email)
+    result
+  end
+
+  defp tap_mcp_role_for_org_member(result), do: result
+
+  defp tap_mcp_role_for_invite({:ok, invitation, _token} = result) do
+    McpRole.ensure_for_email_async(invitation.email)
+    result
+  end
+
+  defp tap_mcp_role_for_invite({:ok, invitation, _token, _warning} = result) do
+    McpRole.ensure_for_email_async(invitation.email)
+    result
+  end
+
+  defp tap_mcp_role_for_invite(result), do: result
+
+  defp tap_mcp_role_for_accept({:ok, user, _invitation} = result) do
+    McpRole.ensure_for_email_async(user.email)
+    result
+  end
+
+  defp tap_mcp_role_for_accept(result), do: result
 
   defp create_invitation!(actor, email, role, authority_level_slug) do
     token = raw_token()

@@ -25,7 +25,6 @@ defmodule Acs.MCP.Tools.SkillHandlers do
 
   def skill_get(args) do
     ctx = Abac.from_args(args)
-    include_content? = truthy?(args["include_content"])
 
     cond do
       name = args["name"] ->
@@ -34,71 +33,62 @@ defmodule Acs.MCP.Tools.SkillHandlers do
             {:ok, %{skills: [], total: 0, error: "skill '#{name}' not found"}}
 
           skill ->
-            skills = visible_skills([skill], ctx) |> Enum.map(&skill_card(&1, include_content?))
-            {:ok, skill_get_payload(skills, include_content?)}
+            case visible_skills([skill], ctx) do
+              [] ->
+                {:ok, %{skills: [], total: 0, error: "skill '#{name}' not found"}}
+
+              [visible] ->
+                {:ok, %{skills: [skill_body(visible)], total: 1}}
+            end
         end
 
       search = args["search"] ->
         results = Store.search_skills(search)
-        skills = visible_skills(results, ctx) |> Enum.map(&skill_card(&1, include_content?))
-        {:ok, skill_get_payload(skills, include_content?)}
+        skills = visible_skills(results, ctx) |> Enum.map(&skill_listing/1)
+        {:ok, %{skills: skills, total: length(skills)}}
 
       tag = args["tag"] ->
         results = resolve_listed(Store.list_skills(tag))
-        skills = visible_skills(results, ctx) |> Enum.map(&skill_card(&1, include_content?))
-        {:ok, skill_get_payload(skills, include_content?)}
+        skills = visible_skills(results, ctx) |> Enum.map(&skill_listing/1)
+        {:ok, %{skills: skills, total: length(skills)}}
 
       scope_path = args["scope_path"] ->
         results = resolve_listed(Store.list_skills_by_scope(scope_path))
-        skills = visible_skills(results, ctx) |> Enum.map(&skill_card(&1, include_content?))
-        {:ok, skill_get_payload(skills, include_content?)}
+        skills = visible_skills(results, ctx) |> Enum.map(&skill_listing/1)
+        {:ok, %{skills: skills, total: length(skills)}}
 
       true ->
         results = resolve_listed(Store.list_skills())
-        skills = visible_skills(results, ctx) |> Enum.map(&skill_card(&1, include_content?))
-        {:ok, skill_get_payload(skills, include_content?)}
+        skills = visible_skills(results, ctx) |> Enum.map(&skill_listing/1)
+        {:ok, %{skills: skills, total: length(skills)}}
     end
   end
 
-  # Default: lean card (name/description/when_to_use/tags/…). Full markdown only
-  # when include_content: true — avoids dumping multi-KB playbooks into every fetch.
-  defp skill_get_payload(skills, true) do
-    %{skills: skills, total: length(skills), include_content: true}
-  end
-
-  defp skill_get_payload(skills, false) do
+  # Fetch-by-name: agents already listed — return the procedure body only.
+  defp skill_body(skill) when is_map(skill) do
     %{
-      skills: skills,
-      total: length(skills),
-      include_content: false,
-      hint: "Pass include_content: true to load the procedure body for a skill name."
+      name: field(skill, :name),
+      content: field(skill, :content) || ""
     }
   end
 
-  defp skill_card(skill, include_content?) when is_map(skill) do
+  # List/search/catalog: discovery cards — no body, status, or id.
+  defp skill_listing(skill) when is_map(skill) do
     meta = Map.get(skill, :metadata) || Map.get(skill, "metadata") || %{}
 
-    card = %{
+    %{
       name: field(skill, :name),
-      id: field(skill, :id) || field(skill, :name),
       description: field(skill, :description) || meta_get(meta, "description"),
       when_to_use:
         field(skill, :when_to_use) || meta_get(meta, "when_to_use") ||
           meta_get(skill, "when_to_use"),
       tags: field(skill, :tags) || meta_get(skill, "tags") || [],
-      scope_paths: field(skill, :scope_paths) || meta_get(skill, "scope_paths") || [],
-      status: field(skill, :status) || meta_get(skill, "status")
+      scope_paths: field(skill, :scope_paths) || meta_get(skill, "scope_paths") || []
     }
-
-    if include_content? do
-      Map.put(card, :content, field(skill, :content) || meta_get(skill, "content") || "")
-    else
-      card
-    end
   end
 
-  # list_skills / list_skills_by_scope return frontmatter maps — rehydrate to structs
-  # so cards stay consistent (and content is available when requested).
+  # list_skills / list_skills_by_scope return frontmatter maps — rehydrate so
+  # listing fields stay consistent with parsed skills.
   defp resolve_listed(metas) when is_list(metas) do
     Enum.map(metas, fn meta ->
       name = meta["name"] || meta[:name]
