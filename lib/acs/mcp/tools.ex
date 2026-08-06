@@ -1886,7 +1886,7 @@ defmodule Acs.MCP.Tools do
               by_name? ->
                 []
 
-              length(skills) >= 1 ->
+              match?([_ | _], skills) ->
                 skills
                 |> Enum.take(5)
                 |> Enum.map(fn s ->

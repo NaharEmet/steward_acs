@@ -2,7 +2,7 @@ defmodule Acs.Artifacts.MultiTenantStoresTest do
   use Acs.DataCase, async: false
 
   alias Acs.Artifacts.{Ledger, Skill}
-  alias Acs.MCP.{ToolLoader}
+  alias Acs.MCP.ToolLoader
   alias Acs.MCP.Tools.DynamicTools
   alias Acs.Orgs.Organization
   alias Acs.Skills.Store
