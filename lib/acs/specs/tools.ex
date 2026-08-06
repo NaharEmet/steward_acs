@@ -110,7 +110,7 @@ defmodule Acs.Specs.Tools do
         case Loader.load(args["app"], args["path"]) do
           {:ok, existing_entry} ->
             if Abac.can_edit?(ctx, existing_entry) do
-              result = propose_update(existing_entry, attrs)
+              result = propose_update(existing_entry, attrs, args)
               maybe_generate_embeddings_async(args["app"], args["path"])
               result
             else
@@ -118,7 +118,9 @@ defmodule Acs.Specs.Tools do
             end
 
           {:error, :not_found} ->
-            result = propose_new(args["app"], args["path"], attrs, ctx.authority_sort_order)
+            result =
+              propose_new(args["app"], args["path"], attrs, ctx.authority_sort_order, args)
+
             maybe_generate_embeddings_async(args["app"], args["path"])
             result
 
@@ -131,32 +133,36 @@ defmodule Acs.Specs.Tools do
   end
 
   defp maybe_generate_embeddings_async(app, path) do
+    org = Acs.Org.current()
+
     Task.start(fn ->
-      case Loader.load(app, path) do
-        {:ok, entry} ->
-          chunks = Acs.Specs.VectorSearch.chunk_entry(entry)
+      Acs.Org.with_current(org, fn ->
+        case Loader.load(app, path) do
+          {:ok, entry} ->
+            chunks = Acs.Specs.VectorSearch.chunk_entry(entry)
 
-          chunks
-          |> Enum.zip(Acs.Memory.Embedding.embed_batch(Enum.map(chunks, & &1.text)))
-          |> Enum.each(fn
-            {chunk, {:ok, embedding}} ->
-              Acs.Specs.VectorSearch.upsert_chunk(
-                chunk.id,
-                chunk.app,
-                chunk.path,
-                chunk.chunk_index,
-                chunk.source,
-                chunk.content,
-                embedding
-              )
+            chunks
+            |> Enum.zip(Acs.Memory.Embedding.embed_batch(Enum.map(chunks, & &1.text)))
+            |> Enum.each(fn
+              {chunk, {:ok, embedding}} ->
+                Acs.Specs.VectorSearch.upsert_chunk(
+                  chunk.id,
+                  chunk.app,
+                  chunk.path,
+                  chunk.chunk_index,
+                  chunk.source,
+                  chunk.content,
+                  embedding
+                )
 
-            {_chunk, {:error, reason}} ->
-              Logger.warning("[Tools] Failed to embed spec #{app}/#{path}: #{reason}")
-          end)
+              {_chunk, {:error, reason}} ->
+                Logger.warning("[Tools] Failed to embed spec #{app}/#{path}: #{reason}")
+            end)
 
-        {:error, _} ->
-          :ok
-      end
+          {:error, _} ->
+            :ok
+        end
+      end)
     end)
   end
 
@@ -250,7 +256,7 @@ defmodule Acs.Specs.Tools do
           MapSet.size(MapSet.union(words1, words2))
   end
 
-  defp propose_update(existing_entry, attrs) do
+  defp propose_update(existing_entry, attrs, args) do
     existing_map = Entry.to_map(existing_entry)
     current_version = existing_entry.version || 1
 
@@ -272,7 +278,7 @@ defmodule Acs.Specs.Tools do
     entry = Entry.from_map(merged)
     entry = %{entry | spec_hash: Entry.compute_spec_hash(entry)}
 
-    case Loader.save(entry) do
+    case Loader.save(entry, ledger_opts(args, "Propose spec #{entry.app}/#{entry.id}")) do
       :ok ->
         Acs.Specs.Auditor.audit_soon(entry.app, entry.id)
         {:ok, Entry.to_map(entry)}
@@ -282,7 +288,7 @@ defmodule Acs.Specs.Tools do
     end
   end
 
-  defp propose_new(app, path, attrs, writer_order) do
+  defp propose_new(app, path, attrs, writer_order, args) do
     new_args =
       %{"app" => app, "id" => path, "status" => "proposed"}
       |> Map.merge(attrs)
@@ -298,7 +304,7 @@ defmodule Acs.Specs.Tools do
     entry = Entry.from_map(new_args)
     entry = %{entry | spec_hash: Entry.compute_spec_hash(entry)}
 
-    case Loader.save(entry) do
+    case Loader.save(entry, ledger_opts(args, "Propose spec #{entry.app}/#{entry.id}")) do
       :ok ->
         Acs.Specs.Auditor.audit_soon(entry.app, entry.id)
         {:ok, Entry.to_map(entry)}
@@ -322,7 +328,7 @@ defmodule Acs.Specs.Tools do
       case Loader.load(args["app"], args["path"]) do
         {:ok, entry} ->
           if Abac.can_edit?(ctx, entry) do
-            approve_entry(entry, args["reviewer"])
+            approve_entry(entry, args["reviewer"], args)
           else
             {:error, "Access denied"}
           end
@@ -336,7 +342,7 @@ defmodule Acs.Specs.Tools do
     end
   end
 
-  defp approve_entry(entry, reviewer) do
+  defp approve_entry(entry, reviewer, args) do
     current_version = entry.version || 1
 
     entry = %{
@@ -349,7 +355,7 @@ defmodule Acs.Specs.Tools do
 
     entry = %{entry | spec_hash: Entry.compute_spec_hash(entry)}
 
-    case Loader.save(entry) do
+    case Loader.save(entry, ledger_opts(args, "Transition spec #{entry.app}/#{entry.id}")) do
       :ok -> {:ok, Entry.to_map(entry)}
       {:error, reason} -> {:error, reason}
     end
@@ -364,7 +370,7 @@ defmodule Acs.Specs.Tools do
       case Loader.load(args["app"], args["path"]) do
         {:ok, entry} ->
           if Abac.can_edit?(ctx, entry) do
-            reject_entry(entry)
+            reject_entry(entry, args)
           else
             {:error, "Access denied"}
           end
@@ -378,13 +384,23 @@ defmodule Acs.Specs.Tools do
     end
   end
 
-  defp reject_entry(entry) do
+  defp reject_entry(entry, args) do
     entry = %{entry | status: "under_review"}
 
-    case Loader.save(entry) do
+    case Loader.save(entry, ledger_opts(args, "Transition spec #{entry.app}/#{entry.id}")) do
       :ok -> {:ok, Entry.to_map(entry)}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  defp ledger_opts(args, message) do
+    actor_id = args["_auth_attribution"] || args["_auth_agent_id"] || "unknown"
+
+    [
+      actor: %{type: "developer_key", id: actor_id},
+      source: "mcp",
+      message: message
+    ]
   end
 
   # ── query_specs (unified: search / list / undocumented) ──

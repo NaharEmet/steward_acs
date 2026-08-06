@@ -313,9 +313,21 @@ defmodule Acs.MCP.ToolRegistry do
           Enum.find(errors, fn {scope, _reason} -> scope == {:tenant, credential_org} end)
 
         if scope_error do
-          :ok = Acs.MCP.Tools.DynamicTools.rollback_tool(rollback)
+          rollback_result = Acs.MCP.Tools.DynamicTools.rollback_tool(rollback)
           {_scope, reason} = scope_error
-          {:reply, {:error, "Tool validation failed; write rolled back: #{reason}"}, state}
+
+          message =
+            case rollback_result do
+              :ok ->
+                "Tool validation failed; write rolled back: #{reason}"
+
+              {:error, rollback_reason} ->
+                Logger.error("Tenant tool rollback failed: #{inspect(rollback_reason)}")
+
+                "Tool validation failed and rollback failed: #{reason}; #{inspect(rollback_reason)}"
+            end
+
+          {:reply, {:error, message}, state}
         else
           Acs.broadcast(:tools_refresh, %{})
           if errors != [], do: log_refresh_errors(errors)
@@ -380,6 +392,7 @@ defmodule Acs.MCP.ToolRegistry do
 
   defp source_scope({:shared, _path}), do: :shared
   defp source_scope({:tenant, org, _path}), do: {:tenant, org}
+  defp source_scope({:tenant_db, org}), do: {:tenant, org}
 
   defp put_loaded_scope(snapshot, :shared, tools),
     do: %{snapshot | shared: scope_from_tools(tools)}

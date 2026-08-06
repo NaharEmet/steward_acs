@@ -1,16 +1,3 @@
-x-syncthing-entrypoint: &syncthing_entrypoint
-  - sh
-  - -c
-  - "chown 1000:1000 /var/syncthing/config /var/syncthing/vaults && exec /bin/syncthing"
-
-x-syncthing-base: &syncthing_base
-  image: syncthing/syncthing:latest
-  user: root
-  restart: unless-stopped
-  expose:
-    - "8384"
-  entrypoint: *syncthing_entrypoint
-
 # Shared ACS app definition for blue/green slots. Only one slot receives traffic
 # (caddy/acs_upstream.caddyfile). Deploy brings up the idle slot, waits healthy,
 # reloads Caddy upstream, then stops the previous slot.
@@ -60,8 +47,6 @@ x-steward-acs: &steward_acs
     AUTH0_WEB_REDIRECT_URI: "${AUTH0_WEB_REDIRECT_URI:-https://prod.stewardacs.xyz/auth/callback}"
     SELF_SERVICE_ORGS_ENABLED: "${SELF_SERVICE_ORGS_ENABLED:-true}"
     OLLAMA_URL: http://ollama:11434
-    # Vault remains mounted for skills/specs/prompts only. Company memories are DB-canonical.
-    OBSIDIAN_VAULT_PATH: /vaults
     MEMORY_STORE: database
     # LLM providers (Infisical). Compose --env-file alone does not inject into
     # the container — each key must be listed here for memory/skill auditing.
@@ -84,7 +69,6 @@ x-steward-acs: &steward_acs
     RESEND_FROM_EMAIL: "${RESEND_FROM_EMAIL:-}"
   volumes:
     - acs_data:/data
-    - vaults:/vaults
   healthcheck:
     test: ["CMD", "curl", "-f", "http://localhost:4001/mcp/health"]
     interval: 10s
@@ -151,57 +135,7 @@ services:
       retries: 3
       start_period: 120s
 
-  syncthing_default:
-    <<: *syncthing_base
-    container_name: syncthing_default
-    hostname: syncthing_default
-    # Admin UI: loopback/SSH only. Device sync ports published for Obsidian clients.
-    ports:
-      - "127.0.0.1:8384:8384"
-      - "22000:22000"
-      - "21027:21027/udp"
-    volumes:
-      - syncthing_config_default:/var/syncthing/config
-      - vaults:/var/syncthing/vaults
-    environment:
-      STGUIAPIKEY: ${SYNCTHING_DEFAULT_API_KEY:?Set SYNCTHING_DEFAULT_API_KEY}
-
-  syncthing_prod:
-    <<: *syncthing_base
-    container_name: syncthing_prod
-    hostname: syncthing_prod
-    volumes:
-      - syncthing_config_prod:/var/syncthing/config
-      - vaults:/var/syncthing/vaults
-    environment:
-      STGUIAPIKEY: ${SYNCTHING_PROD_API_KEY:?Set SYNCTHING_PROD_API_KEY}
-
-  syncthing_fsgbhutan:
-    <<: *syncthing_base
-    container_name: syncthing_fsgbhutan
-    hostname: syncthing_fsgbhutan
-    volumes:
-      - syncthing_config_fsgbhutan:/var/syncthing/config
-      - vaults:/var/syncthing/vaults
-    environment:
-      STGUIAPIKEY: ${SYNCTHING_FSGBHUTAN_API_KEY:?Set SYNCTHING_FSGBHUTAN_API_KEY}
-
-  syncthing_safetyconnect:
-    <<: *syncthing_base
-    container_name: syncthing_safetyconnect
-    hostname: syncthing_safetyconnect
-    volumes:
-      - syncthing_config_safetyconnect:/var/syncthing/config
-      - vaults:/var/syncthing/vaults
-    environment:
-      STGUIAPIKEY: ${SYNCTHING_SAFETYCONNECT_API_KEY:?Set SYNCTHING_SAFETYCONNECT_API_KEY}
-
 volumes:
   acs_data:
   caddy_data:
-  vaults:
   ollama_data:
-  syncthing_config_default:
-  syncthing_config_prod:
-  syncthing_config_fsgbhutan:
-  syncthing_config_safetyconnect:

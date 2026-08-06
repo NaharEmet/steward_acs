@@ -1,9 +1,11 @@
 defmodule Acs.Application do
-  @moduledoc false
-  # Standard OTP Application callback. Starts the ACS supervision tree
-  # including Repo, MCP ToolRegistry, memory system (cache, sweeper,
-  # auditor, indexer), log store, web endpoint, and background tasks
-  # for file watching and retention sweeping.
+  @moduledoc """
+  Starts the ACS supervision tree.
+
+  Multi-tenant deployments do not start filesystem watchers for specs or MCP
+  tools; they retain the auditors. Single-tenant deployments retain their
+  existing vault-backed watcher behavior.
+  """
   use Application
 
   require Logger
@@ -70,9 +72,10 @@ defmodule Acs.Application do
         ]
 
     background_workers? = Application.get_env(:steward_acs, :start_background_workers, true)
+    multi_tenant? = Acs.Org.multi_tenant?()
 
     tools_watcher_children =
-      if background_workers? and vault_configured?() do
+      if background_workers? and not multi_tenant? and vault_configured?() do
         [Acs.MCP.Tools.FileWatcher]
       else
         []
@@ -82,13 +85,21 @@ defmodule Acs.Application do
     # to avoid background tasks conflicting with Ecto sandbox connections.
     children =
       if background_workers? do
-        memory_background_children(Acs.Org.multi_tenant?(), true) ++
-          [
-            Acs.Specs.FileWatcher,
-            Acs.Specs.Auditor,
-            {Acs.Log.RetentionSweeper, []},
-            Acs.Skills.Auditor | children
-          ] ++ tools_watcher_children
+        memory_background_children(multi_tenant?, true) ++
+          if multi_tenant? do
+            [
+              Acs.Specs.Auditor,
+              {Acs.Log.RetentionSweeper, []},
+              Acs.Skills.Auditor | children
+            ]
+          else
+            [
+              Acs.Specs.FileWatcher,
+              Acs.Specs.Auditor,
+              {Acs.Log.RetentionSweeper, []},
+              Acs.Skills.Auditor | children
+            ]
+          end ++ tools_watcher_children
       else
         children
       end

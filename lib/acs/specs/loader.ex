@@ -10,6 +10,7 @@ defmodule Acs.Specs.Loader do
   """
 
   require Logger
+  import Ecto.Query
 
   @doc """
   Resolve the canonical specs write root.
@@ -132,27 +133,37 @@ defmodule Acs.Specs.Loader do
   def list(opts \\ []) do
     app = opts[:app]
 
-    case Acs.FileCache.get(:specs_cache, specs_path(), {:list, app}) do
-      {:ok, results} ->
-        {:ok, results}
-
-      :miss ->
-        with :ok <- validate_app_filter(app) do
-          results =
-            specs_dirs()
-            |> Enum.flat_map(fn base ->
-              if is_nil(app) do
-                apps_dir(base)
-                |> Enum.flat_map(fn {sub_app, dir} -> list_in_dir(dir, sub_app, base) end)
-              else
-                list_in_dir(Path.join(base, app), app, base)
-              end
-            end)
-            |> Enum.uniq_by(&{&1.app, &1.path})
-
-          Acs.FileCache.put(:specs_cache, specs_path(), {:list, app}, results)
+    if Acs.Org.multi_tenant?() do
+      with :ok <- validate_app_filter(app) do
+        {:ok,
+         app
+         |> spec_projections()
+         |> Acs.Repo.all()
+         |> Enum.map(&spec_metadata/1)}
+      end
+    else
+      case Acs.FileCache.get(:specs_cache, specs_path(), {:list, app}) do
+        {:ok, results} ->
           {:ok, results}
-        end
+
+        :miss ->
+          with :ok <- validate_app_filter(app) do
+            results =
+              specs_dirs()
+              |> Enum.flat_map(fn base ->
+                if is_nil(app) do
+                  apps_dir(base)
+                  |> Enum.flat_map(fn {sub_app, dir} -> list_in_dir(dir, sub_app, base) end)
+                else
+                  list_in_dir(Path.join(base, app), app, base)
+                end
+              end)
+              |> Enum.uniq_by(&{&1.app, &1.path})
+
+            Acs.FileCache.put(:specs_cache, specs_path(), {:list, app}, results)
+            {:ok, results}
+          end
+      end
     end
   end
 
@@ -165,14 +176,21 @@ defmodule Acs.Specs.Loader do
   def load(app, path) do
     with :ok <- validate_app(app),
          :ok <- validate_path(path) do
-      specs_dirs()
-      |> Enum.flat_map(fn root ->
-        Enum.map([".yaml", ".yml", ".md"], fn ext -> Path.join([root, app, "#{path}#{ext}"]) end)
-      end)
-      |> Enum.find(&File.exists?/1)
-      |> case do
-        nil -> {:error, :not_found}
-        file -> load_file(file)
+      if Acs.Org.multi_tenant?() do
+        case Acs.Repo.one(spec_projection(app, path)) do
+          nil -> {:error, :not_found}
+          spec -> decode_spec_snapshot(spec)
+        end
+      else
+        specs_dirs()
+        |> Enum.flat_map(fn root ->
+          Enum.map([".yaml", ".yml", ".md"], fn ext -> Path.join([root, app, "#{path}#{ext}"]) end)
+        end)
+        |> Enum.find(&File.exists?/1)
+        |> case do
+          nil -> {:error, :not_found}
+          file -> load_file(file)
+        end
       end
     end
   end
@@ -238,22 +256,27 @@ defmodule Acs.Specs.Loader do
   Save a spec entry to its YAML file. Creates directories as needed.
   Returns `:ok` or `{:error, reason}`.
   """
-  def save(%Acs.Specs.Entry{} = entry) do
-    ext =
-      if entry.document_type && Application.get_env(:steward_acs, :memory_store) == "obsidian",
-        do: ".md",
-        else: ".yaml"
-
+  def save(%Acs.Specs.Entry{} = entry, opts \\ []) do
     case Acs.Specs.Entry.validate(entry) do
       :ok ->
-        with {:ok, file} <- spec_file_path(entry.app, entry.id, ext) do
-          File.mkdir_p!(Path.dirname(file))
-          content = to_file_content(entry, ext)
-          File.write!(file, content)
-          Logger.info("Saved cognition entry: #{file}")
-          invalidate_cache(entry.app)
-          Acs.broadcast(:specs_updated, %{app: entry.app, id: entry.id})
-          :ok
+        if Acs.Org.multi_tenant?() do
+          save_to_ledger(entry, opts)
+        else
+          ext =
+            if entry.document_type &&
+                 Application.get_env(:steward_acs, :memory_store) == "obsidian",
+               do: ".md",
+               else: ".yaml"
+
+          with {:ok, file} <- spec_file_path(entry.app, entry.id, ext) do
+            File.mkdir_p!(Path.dirname(file))
+            content = to_file_content(entry, ext)
+            File.write!(file, content)
+            Logger.info("Saved cognition entry: #{file}")
+            invalidate_cache(entry.app)
+            Acs.broadcast(:specs_updated, %{app: entry.app, id: entry.id})
+            :ok
+          end
         end
 
       {:error, reasons} ->
@@ -279,27 +302,33 @@ defmodule Acs.Specs.Loader do
   Delete a spec file. Returns `:ok` or `{:error, reason}`.
   """
   def delete(app, path) do
-    with :ok <- validate_app(app),
-         :ok <- validate_path(path) do
-      file =
-        Enum.find_value([".yaml", ".yml", ".md"], fn ext ->
-          candidate = Path.expand(Path.join([specs_path(), app, path <> ext]))
-          if path_within_root?(candidate, specs_path()) and File.exists?(candidate), do: candidate
-        end)
+    if Acs.Org.multi_tenant?() do
+      {:error, :immutable_store}
+    else
+      with :ok <- validate_app(app),
+           :ok <- validate_path(path) do
+        file =
+          Enum.find_value([".yaml", ".yml", ".md"], fn ext ->
+            candidate = Path.expand(Path.join([specs_path(), app, path <> ext]))
 
-      cond do
-        file ->
-          File.rm!(file)
-          Logger.info("Deleted cognition spec: #{file}")
-          invalidate_cache(app)
-          Acs.broadcast(:specs_updated, %{app: app, id: path})
-          if legacy_spec_exists?(app, path), do: {:ok, :legacy_shadow}, else: :ok
+            if path_within_root?(candidate, specs_path()) and File.exists?(candidate),
+              do: candidate
+          end)
 
-        legacy_spec_exists?(app, path) ->
-          {:error, :legacy_read_only}
+        cond do
+          file ->
+            File.rm!(file)
+            Logger.info("Deleted cognition spec: #{file}")
+            invalidate_cache(app)
+            Acs.broadcast(:specs_updated, %{app: app, id: path})
+            if legacy_spec_exists?(app, path), do: {:ok, :legacy_shadow}, else: :ok
 
-        true ->
-          {:error, :not_found}
+          legacy_spec_exists?(app, path) ->
+            {:error, :legacy_read_only}
+
+          true ->
+            {:error, :not_found}
+        end
       end
     end
   end
@@ -309,25 +338,105 @@ defmodule Acs.Specs.Loader do
   Returns {:ok, [%Entry{}]}.
   """
   def load_all(opts \\ []) do
-    case Acs.FileCache.get(:specs_cache, specs_path(), {:load_all, opts[:app]}) do
-      {:ok, entries} ->
-        {:ok, entries}
+    app = opts[:app]
 
-      :miss ->
-        with {:ok, specs} <- list(opts) do
-          entries =
-            specs
-            |> Enum.reduce([], fn spec, acc ->
-              case load_file(spec.file_path) do
-                {:ok, entry} -> [entry | acc]
-                _ -> acc
-              end
-            end)
-            |> Enum.reverse()
-
-          Acs.FileCache.put(:specs_cache, specs_path(), {:load_all, opts[:app]}, entries)
+    if Acs.Org.multi_tenant?() do
+      with :ok <- validate_app_filter(app) do
+        {:ok,
+         app
+         |> spec_projections()
+         |> Acs.Repo.all()
+         |> Enum.reduce([], fn spec, entries ->
+           case decode_spec_snapshot(spec) do
+             {:ok, entry} -> [entry | entries]
+             _ -> entries
+           end
+         end)
+         |> Enum.reverse()}
+      end
+    else
+      case Acs.FileCache.get(:specs_cache, specs_path(), {:load_all, app}) do
+        {:ok, entries} ->
           {:ok, entries}
-        end
+
+        :miss ->
+          with {:ok, specs} <- list(opts) do
+            entries =
+              specs
+              |> Enum.reduce([], fn spec, acc ->
+                case load_file(spec.file_path) do
+                  {:ok, entry} -> [entry | acc]
+                  _ -> acc
+                end
+              end)
+              |> Enum.reverse()
+
+            Acs.FileCache.put(:specs_cache, specs_path(), {:load_all, app}, entries)
+            {:ok, entries}
+          end
+      end
+    end
+  end
+
+  defp save_to_ledger(entry, opts) do
+    ledger_opts =
+      [
+        org: Acs.Org.current(),
+        expected_head_revision_id: spec_head_revision_id(entry.app, entry.id)
+      ] ++ Keyword.take(opts, [:actor, :source, :message, :request_id, :operation, :metadata])
+
+    with :ok <- validate_app(entry.app),
+         :ok <- validate_path(entry.id),
+         {:ok, _} <-
+           Acs.Artifacts.Ledger.save(
+             :spec,
+             "#{entry.app}/#{entry.id}",
+             Acs.Specs.Entry.to_map(entry),
+             ledger_opts
+           ) do
+      invalidate_cache(entry.app)
+      Acs.broadcast(:specs_updated, %{app: entry.app, id: entry.id})
+      :ok
+    end
+  end
+
+  defp spec_projections(app) do
+    query =
+      from spec in Acs.Artifacts.Spec,
+        join: organization in Acs.Orgs.Organization,
+        on: organization.id == spec.organization_id,
+        where: organization.slug == ^Acs.Org.current(),
+        order_by: [asc: spec.app, asc: spec.spec_id]
+
+    if app, do: from(spec in query, where: spec.app == ^app), else: query
+  end
+
+  defp spec_projection(app, path) do
+    spec_projections(app)
+    |> where([spec, _organization], spec.spec_id == ^path)
+  end
+
+  defp spec_head_revision_id(app, path) do
+    case Acs.Repo.one(spec_projection(app, path)) do
+      nil -> nil
+      spec -> spec.head_revision_id
+    end
+  end
+
+  defp spec_metadata(spec) do
+    %{
+      app: spec.app,
+      path: spec.spec_id,
+      file_path: nil,
+      relative_path: "#{spec.spec_id}.yaml",
+      ext: ".yaml"
+    }
+  end
+
+  defp decode_spec_snapshot(%{snapshot_json: snapshot_json}) do
+    case Jason.decode(snapshot_json) do
+      {:ok, snapshot} when is_map(snapshot) -> {:ok, Acs.Specs.Entry.from_map(snapshot)}
+      _ -> {:error, :invalid_snapshot}
     end
   end
 

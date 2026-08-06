@@ -1,7 +1,5 @@
 # AUTH0_DOMAIN must match steward_acs AUTH0_* env vars.
 # Authorize redirects use per-host audience https://{host}/mcp/sse (multi-tenant).
-# Syncthing admin UI is not published here — use SSH tunnel or loopback only.
-
 # OAuth routes for Auth0 MCP connector integration
 (oauth_routes) {
     # Serve OAUTH authorization server metadata (Claude discovers endpoints here)

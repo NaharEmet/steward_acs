@@ -21,6 +21,12 @@ defmodule Acs.Skills.Store do
   @builtin_dir "priv/skills"
   @governance_statuses ~w(proposed approved rejected)
 
+  import Ecto.Query
+
+  alias Acs.Artifacts.{Ledger, Skill}
+  alias Acs.Orgs.Organization
+  alias Acs.Repo
+
   def skill_dir, do: Acs.Org.skills_dir()
 
   defp invalidate_cache do
@@ -28,9 +34,13 @@ defmodule Acs.Skills.Store do
   end
 
   def all_skills do
-    case Acs.FileCache.get(:skills_cache, skill_dir(), :all_skills) do
-      {:ok, skills} -> skills
-      :miss -> load_all_skills_and_cache(skill_dir())
+    if Acs.Org.multi_tenant?() do
+      database_skills()
+    else
+      case Acs.FileCache.get(:skills_cache, skill_dir(), :all_skills) do
+        {:ok, skills} -> skills
+        :miss -> load_all_skills_and_cache(skill_dir())
+      end
     end
   end
 
@@ -94,32 +104,47 @@ defmodule Acs.Skills.Store do
       %{"status" => status, "reviewed_by" => reviewer, "reviewed_at" => now}
       |> maybe_add_decision_fields(status, reviewer, now)
 
-    case update_frontmatter(id, fields) do
-      :ok ->
-        invalidate_cache()
-        :ok
+    if Acs.Org.multi_tenant?() do
+      update_database_skill(id, fields,
+        actor: %{type: "user", id: reviewer},
+        operation: "transition",
+        message: "Transition skill #{id} to #{status}"
+      )
+    else
+      case update_frontmatter(id, fields) do
+        :ok ->
+          invalidate_cache()
+          :ok
 
-      other ->
-        other
+        other ->
+          other
+      end
     end
   end
 
   def update_status(_id, _status, _reviewer), do: {:error, :invalid_status}
 
   def write_audit_fields(id_or_name, fields) do
-    case find_skill(id_or_name) do
-      nil ->
-        {:error, :not_found}
+    if Acs.Org.multi_tenant?() do
+      update_database_skill(id_or_name, stringify_keys(fields),
+        operation: "transition",
+        message: "Update skill audit fields for #{id_or_name}"
+      )
+    else
+      case find_skill(id_or_name) do
+        nil ->
+          {:error, :not_found}
 
-      skill ->
-        case update_file_frontmatter(skill.file, fields) do
-          :ok ->
-            invalidate_cache()
-            :ok
+        skill ->
+          case update_file_frontmatter(skill.file, fields) do
+            :ok ->
+              invalidate_cache()
+              :ok
 
-          other ->
-            other
-        end
+            other ->
+              other
+          end
+      end
     end
   end
 
@@ -131,6 +156,13 @@ defmodule Acs.Skills.Store do
   """
   def save_skill(name, content, opts \\ []) when is_binary(name) and is_binary(content) do
     opts = normalize_opts(opts)
+
+    if Acs.Org.multi_tenant?(),
+      do: save_database_skill(name, content, opts),
+      else: save_file_skill(name, content, opts)
+  end
+
+  defp save_file_skill(name, content, opts) do
     dir = skill_dir()
     safe = safe_name(name)
     path = Path.join(dir, "#{safe}.md")
@@ -164,11 +196,144 @@ defmodule Acs.Skills.Store do
     end
   end
 
+  defp save_database_skill(name, content, opts) do
+    name = String.trim(name)
+
+    if name == "" do
+      {:error, :invalid_name}
+    else
+      id = safe_name(name)
+      status = normalize_status(opts["status"] || "proposed")
+
+      snapshot =
+        %{
+          "name" => name,
+          "description" => scalar(opts["description"]),
+          "when_to_use" => scalar(opts["when_to_use"]),
+          "tags" => string_list(opts["tags"]),
+          "scope_paths" => string_list(opts["scope_paths"]),
+          "status" => status,
+          "proposed_by" => scalar(opts["proposed_by"]),
+          "authority_sort_order" => int_value(opts["authority_sort_order"]),
+          "content" => String.trim(content)
+        }
+        |> Enum.reject(fn {_key, value} -> is_nil(value) or value == "" end)
+        |> Map.new()
+
+      ledger_opts =
+        [org: Acs.Org.current()]
+        |> put_ledger_opt(opts, :actor)
+        |> put_ledger_opt(opts, :source)
+        |> put_ledger_opt(opts, :operation)
+        |> put_ledger_opt(opts, :message)
+        |> put_ledger_opt(opts, :request_id)
+        |> put_ledger_opt(opts, :metadata)
+        |> put_expected_head(database_projection(name))
+
+      case Ledger.save(:skill, name, snapshot, ledger_opts) do
+        {:ok, _} -> {:ok, %{name: name, id: id, path: nil, status: status}}
+        other -> other
+      end
+    end
+  end
+
+  defp put_ledger_opt(ledger_opts, opts, key) do
+    case Map.fetch(opts, Atom.to_string(key)) do
+      {:ok, value} -> Keyword.put(ledger_opts, key, value)
+      :error -> ledger_opts
+    end
+  end
+
+  defp put_expected_head(ledger_opts, nil), do: ledger_opts
+
+  defp put_expected_head(ledger_opts, projection),
+    do: Keyword.put(ledger_opts, :expected_head_revision_id, projection.head_revision_id)
+
   defp normalize_opts(opts) when is_list(opts),
     do: Map.new(opts, fn {k, v} -> {to_string(k), v} end)
 
   defp normalize_opts(opts) when is_map(opts),
     do: Map.new(opts, fn {k, v} -> {to_string(k), v} end)
+
+  defp database_skills do
+    database_projections()
+    |> Enum.map(&database_skill/1)
+  end
+
+  defp database_projections do
+    Repo.all(
+      from skill in Skill,
+        join: organization in Organization,
+        on: skill.organization_id == organization.id,
+        where: organization.slug == ^Acs.Org.current(),
+        order_by: [asc: skill.public_id]
+    )
+  rescue
+    DBConnection.OwnershipError -> []
+  end
+
+  defp database_projection(id_or_name) do
+    Enum.find(database_projections(), fn projection ->
+      projection.public_id == id_or_name or projection.name == id_or_name or
+        safe_name(projection.name) == id_or_name
+    end)
+  end
+
+  defp database_skill(projection) do
+    metadata = decoded_snapshot(projection)
+    name = scalar(metadata["name"]) || projection.name
+    id = safe_name(name)
+    status = normalize_status(metadata["status"] || projection.status)
+
+    %{
+      id: id,
+      name: name,
+      content: scalar(metadata["content"]) || projection.content || "",
+      description: scalar(metadata["description"]) || projection.description,
+      when_to_use: scalar(metadata["when_to_use"]),
+      tags: string_list(metadata["tags"]),
+      scope_paths: string_list(metadata["scope_paths"]),
+      status: status,
+      authority_sort_order: int_value(metadata["authority_sort_order"]),
+      group: scalar(metadata["group"]) || group_for(id),
+      file: nil,
+      metadata: metadata |> Map.put("name", name) |> Map.put("status", status)
+    }
+  end
+
+  defp update_database_skill(id_or_name, fields, opts) do
+    with projection when not is_nil(projection) <- database_projection(id_or_name),
+         {:ok, snapshot} <- decode_snapshot(projection) do
+      case Ledger.save(
+             :skill,
+             projection.public_id,
+             Map.merge(snapshot, stringify_keys(fields)),
+             opts
+             |> Keyword.put(:org, Acs.Org.current())
+             |> Keyword.put(:expected_head_revision_id, projection.head_revision_id)
+           ) do
+        {:ok, _} -> :ok
+        other -> other
+      end
+    else
+      nil -> {:error, :not_found}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp decoded_snapshot(projection) do
+    case decode_snapshot(projection) do
+      {:ok, snapshot} -> snapshot
+      {:error, _} -> %{}
+    end
+  end
+
+  defp decode_snapshot(%{snapshot_json: snapshot_json}) do
+    case Jason.decode(snapshot_json || "{}") do
+      {:ok, snapshot} when is_map(snapshot) -> {:ok, snapshot}
+      _ -> {:error, :invalid_snapshot}
+    end
+  end
 
   defp safe_name(name) do
     name

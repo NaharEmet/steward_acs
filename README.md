@@ -123,7 +123,7 @@ export MEMORY_STORE=obsidian
 export OBSIDIAN_VAULT_PATH=/path/to/your/vault
 ```
 
-The file watcher debounces events (1000ms) and excludes `.obsidian/` internal files. See [stewardacs.xyz](https://stewardacs.xyz) for remote Syncthing setup.
+The file watcher debounces events (1000ms) and excludes `.obsidian/` internal files. Single-tenant remote deployments can use Syncthing for vault synchronization.
 
 ---
 

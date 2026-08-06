@@ -1,8 +1,10 @@
 defmodule Acs.Prompts do
   @moduledoc """
-  Loads editable prompt and instruction files from `priv/prompts/` or the
-  Obsidian vault (`<vault>/orgs/<org>/prompts/`). Vault paths take priority so humans
-  can edit prompts in Obsidian and have agents pick them up on the next read.
+  Loads prompt and instruction files.
+
+  Single-tenant deployments load editable vault prompts first, followed by
+  legacy vault locations and bundled `priv/prompts/`. Multi-tenant deployments
+  load only bundled `priv/prompts/` files.
   """
 
   @doc """
@@ -46,7 +48,14 @@ defmodule Acs.Prompts do
       file = "#{name}.md"
       builtin = Path.join([Application.app_dir(:steward_acs), "priv/prompts"])
 
-      [Acs.Org.prompts_dir() | Acs.Org.legacy_prompts_dirs() ++ [builtin]]
+      roots =
+        if Acs.Org.multi_tenant?() do
+          [builtin]
+        else
+          [Acs.Org.prompts_dir() | Acs.Org.legacy_prompts_dirs() ++ [builtin]]
+        end
+
+      roots
       |> Enum.uniq()
       |> Enum.map(fn root -> {root, Path.join([root, category, file])} end)
       |> Enum.filter(fn {root, path} ->

@@ -16,13 +16,6 @@ else
   exit 1
 fi
 
-OBSIDIAN_VAULT_PATH="${OBSIDIAN_VAULT_PATH:-}"
-if [ -n "$OBSIDIAN_VAULT_PATH" ] && [ -d "$OBSIDIAN_VAULT_PATH" ]; then
-  memories_dir="${OBSIDIAN_VAULT_PATH}/private/memories"
-  mkdir -p "$memories_dir"
-  chown -R acs:acs "$memories_dir"
-fi
-
 if [ -f /app/bin/steward_acs ]; then
   if [ -n "${DATABASE_URL:-}" ]; then
     adapter=$(su-exec acs /app/bin/steward_acs eval 'IO.write(inspect(Acs.Repo.__adapter__()))')
