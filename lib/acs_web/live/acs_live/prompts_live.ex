@@ -80,7 +80,8 @@ defmodule AcsWeb.AcsLive.PromptsLive do
         selected: nil,
         editor_content: "",
         original_content: "",
-        saving: false
+        saving: false,
+        read_only: Org.multi_tenant?()
       )
 
     {:ok, load_data(socket)}
@@ -134,6 +135,10 @@ defmodule AcsWeb.AcsLive.PromptsLive do
   def handle_event("editor-input", _params, socket), do: {:noreply, socket}
 
   @impl true
+  def handle_event("save", _params, %{assigns: %{read_only: true}} = socket) do
+    {:noreply, put_flash(socket, :error, "Prompts are code-owned files in multi-tenant mode")}
+  end
+
   def handle_event("save", params, socket) do
     prompt = socket.assigns.selected
     content = Map.get(params, "content", socket.assigns.editor_content)
@@ -169,6 +174,10 @@ defmodule AcsWeb.AcsLive.PromptsLive do
   end
 
   @impl true
+  def handle_event("revert", _params, %{assigns: %{read_only: true}} = socket) do
+    {:noreply, put_flash(socket, :error, "Prompts are code-owned files in multi-tenant mode")}
+  end
+
   def handle_event("revert", _params, socket) do
     prompt = socket.assigns.selected
     file_path = override_path(prompt.category, prompt.name)
@@ -236,9 +245,13 @@ defmodule AcsWeb.AcsLive.PromptsLive do
   end
 
   defp override_dir(category) do
-    case Org.prompts_dir() do
-      nil -> nil
-      dir -> Path.join(dir, category)
+    if Org.multi_tenant?() do
+      nil
+    else
+      case Org.prompts_dir() do
+        nil -> nil
+        dir -> Path.join(dir, category)
+      end
     end
   end
 
@@ -289,8 +302,12 @@ defmodule AcsWeb.AcsLive.PromptsLive do
         <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Workspace</span> / Prompts</p>
         <h1 style="font-size: 1.3rem; margin-bottom: 6px;">Prompt editor</h1>
         <p style="font-size: 0.82rem;">
-          Edit org prompts (memory intake, auditors, instructions). Overrides go to your vault
-          <code>prompts/</code> and take effect on the next load; builtin defaults remain until you save.
+          <%= if @read_only do %>
+            Multi-tenant prompts are code-owned files shipped from <code>priv/prompts/</code> and are read-only here.
+          <% else %>
+            Edit org prompts (memory intake, auditors, instructions). Overrides go to your vault
+            <code>prompts/</code> and take effect on the next load; builtin defaults remain until you save.
+          <% end %>
         </p>
       </div>
 
@@ -333,7 +350,7 @@ defmodule AcsWeb.AcsLive.PromptsLive do
                     type="button"
                     phx-click="revert"
                     class="btn btn-ghost btn-sm"
-                    disabled={not @override_exists}
+                    disabled={@read_only or not @override_exists}
                     data-confirm="Revert to the builtin prompt? Your custom override will be deleted."
                   >
                     Revert
@@ -341,7 +358,7 @@ defmodule AcsWeb.AcsLive.PromptsLive do
                   <button
                     type="submit"
                     class="btn btn-primary btn-sm"
-                    disabled={@saving or @editor_content == @original_content}
+                    disabled={@read_only or @saving or @editor_content == @original_content}
                   >
                     <%= if @saving, do: "Saving…", else: "Save override" %>
                   </button>
@@ -355,6 +372,7 @@ defmodule AcsWeb.AcsLive.PromptsLive do
                   class="form-control prompt-textarea"
                   phx-debounce="300"
                   spellcheck="false"
+                  readonly={@read_only}
                 ><%= @editor_content %></textarea>
               </div>
 

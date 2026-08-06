@@ -14,7 +14,7 @@ defmodule Acs.VaultOverlayTest do
     original_specs_config = Application.get_env(:steward_acs, SpecsLoader)
 
     Application.put_env(:steward_acs, :obsidian_vault_path, vault)
-    Application.put_env(:steward_acs, :multi_tenant, true)
+    Application.put_env(:steward_acs, :multi_tenant, false)
     Application.put_env(:steward_acs, :org_name, "prod")
     Application.delete_env(:steward_acs, SpecsLoader)
     System.delete_env("SPECS_PATH")
@@ -86,14 +86,10 @@ defmodule Acs.VaultOverlayTest do
   test "non-configured tenants retain their exact legacy read locations", %{vault: vault} do
     Acs.Org.put_current("acme")
     legacy_skills = Path.join([vault, "skills", "orgs", "acme"])
-    legacy_prompts = Path.join([vault, "acme", "prompts", "skills"])
     File.mkdir_p!(legacy_skills)
-    File.mkdir_p!(legacy_prompts)
     write_skill(Path.join(legacy_skills, "tenant.md"), "Tenant legacy")
-    File.write!(Path.join(legacy_prompts, "instructions.md"), "tenant prompt")
 
     assert Store.get_skill("tenant").name == "Tenant legacy"
-    assert Acs.Prompts.instructions("skills") == "tenant prompt"
   end
 
   test "specs and prompts use per-file canonical then legacy precedence", %{vault: vault} do
@@ -110,7 +106,7 @@ defmodule Acs.VaultOverlayTest do
     assert Enum.any?(specs, &(&1.path == "shared" and &1.file_path =~ canonical_specs))
     refute Enum.any?(specs, &(&1.path == "shared" and &1.file_path =~ legacy_specs))
 
-    legacy_prompts = Path.join([vault, "prod", "prompts", "skills"])
+    legacy_prompts = Path.join([vault, "prompts", "skills"])
     canonical_prompts = Path.join(Acs.Org.prompts_dir("prod"), "skills")
     File.mkdir_p!(legacy_prompts)
     File.mkdir_p!(canonical_prompts)

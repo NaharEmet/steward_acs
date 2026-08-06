@@ -27,9 +27,19 @@ defmodule Acs.MCP.Tools.DynamicTools do
           {:ok, Map.put(result, :reloaded, true)}
 
         {:error, reason} ->
-          :ok = rollback_tool(rollback)
+          rollback_result = rollback_tool(rollback)
           _ = Acs.MCP.ToolRegistry.refresh()
-          {:error, "Tool validation failed; write rolled back: #{reason}"}
+
+          case rollback_result do
+            :ok ->
+              {:error, "Tool validation failed; write rolled back: #{reason}"}
+
+            {:error, rollback_reason} ->
+              Logger.error("Tenant tool rollback failed: #{inspect(rollback_reason)}")
+
+              {:error,
+               "Tool validation failed and rollback failed: #{reason}; #{inspect(rollback_reason)}"}
+          end
       end
     end
   end
@@ -39,14 +49,44 @@ defmodule Acs.MCP.Tools.DynamicTools do
   @doc false
   def persist_tool(args) do
     with {:ok, credential_org} <- credential_org(args),
-         :ok <- validate_write_tool(args),
-         yaml <- build_yaml(args),
-         {:ok, path, previous} <- write_tool_file(args, yaml, credential_org) do
-      {:ok, %{tool: args["name"], path: path}, {path, previous}}
+         :ok <- validate_write_tool(args) do
+      config = build_config(args)
+
+      if Acs.Org.multi_tenant?() do
+        persist_database_tool(args, config, credential_org)
+      else
+        yaml = encode_yaml(config)
+
+        with {:ok, path, previous} <- write_tool_file(args, yaml, credential_org) do
+          {:ok, %{tool: args["name"], path: path}, {path, previous}}
+        end
+      end
     end
   end
 
   @doc false
+  def rollback_tool({:database, org, public_id, previous, written_head}) do
+    with {:ok, current} <- database_tool_snapshot(org, public_id) do
+      snapshot =
+        case previous do
+          :missing -> Map.put(current.snapshot, "active", false)
+          {:existing, snapshot} -> snapshot
+        end
+
+      case Acs.Artifacts.Ledger.save(:tool, public_id, snapshot,
+             org: org,
+             expected_head_revision_id: written_head,
+             operation: "restore",
+             actor: %{type: "system", id: "tool_refresh_rollback"},
+             source: "system",
+             message: "Rollback tenant tool #{public_id} after refresh failure"
+           ) do
+        {:ok, _} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
   def rollback_tool({path, :missing}), do: File.rm(path)
 
   def rollback_tool({path, {:existing, content}}) do
@@ -136,7 +176,7 @@ defmodule Acs.MCP.Tools.DynamicTools do
 
   defp valid_tool_name?(_), do: false
 
-  defp build_yaml(args) do
+  defp build_config(args) do
     tool_name = args["name"]
     app = args["app"] || "custom"
 
@@ -164,15 +204,13 @@ defmodule Acs.MCP.Tools.DynamicTools do
     {tool, base_url} = add_endpoint(tool, args)
 
     # Build the full app config
-    config = %{
+    %{
       "app" => app,
       "base_url" => base_url,
       "prefix" => false,
       "description" => args["description"],
       "tools" => [tool]
     }
-
-    encode_yaml(config)
   end
 
   defp add_endpoint(tool, args) do
@@ -186,6 +224,87 @@ defmodule Acs.MCP.Tools.DynamicTools do
         {:ok, base_url, endpoint_path} -> {Map.put(tool, "endpoint", endpoint_path), base_url}
         :error -> {Map.put(tool, "endpoint", endpoint), ""}
       end
+    end
+  end
+
+  defp persist_database_tool(args, config, org) do
+    app = config["app"]
+    tool = hd(config["tools"])
+    public_id = "#{app}/#{tool["name"]}"
+
+    with :ok <- Acs.MCP.ToolLoader.validate_config(config, {:tenant_db, org}),
+         {:ok, previous} <- database_tool_snapshot(org, public_id, allow_missing: true) do
+      snapshot = %{
+        "app" => app,
+        "name" => tool["name"],
+        "description" => tool["description"],
+        "category" => tool["category"],
+        "definition" => config,
+        "active" => true
+      }
+
+      ledger_opts = [
+        org: org,
+        actor: database_actor(args),
+        source: "mcp",
+        message: "Write tenant tool #{public_id}"
+      ]
+
+      ledger_opts =
+        case previous do
+          :missing -> ledger_opts
+          %{head_revision_id: head} -> Keyword.put(ledger_opts, :expected_head_revision_id, head)
+        end
+
+      case Acs.Artifacts.Ledger.save(:tool, public_id, snapshot, ledger_opts) do
+        {:ok, %{revision: revision}} ->
+          rollback_previous =
+            case previous do
+              :missing -> :missing
+              %{snapshot: old_snapshot} -> {:existing, old_snapshot}
+            end
+
+          {:ok, %{tool: tool["name"], path: "db://#{org}/#{public_id}"},
+           {:database, org, public_id, rollback_previous, revision.id}}
+
+        {:error, reason} ->
+          {:error, "Failed to persist tenant tool: #{inspect(reason)}"}
+      end
+    end
+  end
+
+  defp database_tool_snapshot(org, public_id, opts \\ []) do
+    import Ecto.Query
+
+    projection =
+      Acs.Repo.one(
+        from tool in Acs.Artifacts.TenantTool,
+          join: organization in Acs.Orgs.Organization,
+          on: tool.organization_id == organization.id,
+          where: organization.slug == ^org and tool.public_id == ^public_id
+      )
+
+    allow_missing? = Keyword.get(opts, :allow_missing, false)
+
+    case projection do
+      nil ->
+        if allow_missing?, do: {:ok, :missing}, else: {:error, :not_found}
+
+      projection ->
+        case Jason.decode(projection.snapshot_json) do
+          {:ok, snapshot} when is_map(snapshot) ->
+            {:ok, %{snapshot: snapshot, head_revision_id: projection.head_revision_id}}
+
+          _ ->
+            {:error, :invalid_snapshot}
+        end
+    end
+  end
+
+  defp database_actor(args) do
+    case args["_auth_agent_id"] do
+      id when is_binary(id) and id != "" -> %{type: "developer_key", id: id}
+      _ -> %{type: "system", id: "dynamic_tools"}
     end
   end
 

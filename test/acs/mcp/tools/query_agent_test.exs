@@ -125,7 +125,10 @@ defmodule Acs.MCP.Tools.QueryAgentTest do
     assert rendered =~ "fetch required"
     assert rendered =~ "Excerpt:"
     assert rendered =~ "When to use: Before creating Linear tickets"
-    assert rendered =~ ~s|steward_ask(action:"skill", name:"linear-pm")|
-    assert rendered =~ "must fetch"
+
+    assert rendered =~
+             ~s|steward_ask(action:"skill", name:"linear-pm", include_content: true)|
+
+    assert rendered =~ "required before following this procedure"
   end
 end

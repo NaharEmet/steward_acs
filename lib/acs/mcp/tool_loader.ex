@@ -2,7 +2,8 @@ defmodule Acs.MCP.ToolLoader do
   @moduledoc false
 
   @type scope :: {:tenant, String.t()} | :shared
-  @type source :: {:tenant, String.t(), String.t()} | {:shared, String.t()}
+  @type source ::
+          {:tenant, String.t(), String.t()} | {:tenant_db, String.t()} | {:shared, String.t()}
 
   @doc "Returns legacy shared tool paths for internal callers."
   def tools_paths do
@@ -14,9 +15,13 @@ defmodule Acs.MCP.ToolLoader do
   @spec sources() :: [source()]
   def sources do
     tenant_sources =
-      known_orgs()
-      |> Enum.map(fn org -> {:tenant, org, Acs.Org.tools_dir(org)} end)
-      |> Enum.filter(fn {:tenant, _org, path} -> trusted_dir?(path) end)
+      if Acs.Org.multi_tenant?() do
+        Enum.map(known_orgs(), &{:tenant_db, &1})
+      else
+        known_orgs()
+        |> Enum.map(fn org -> {:tenant, org, Acs.Org.tools_dir(org)} end)
+        |> Enum.filter(fn {:tenant, _org, path} -> trusted_dir?(path) end)
+      end
 
     shared_sources =
       shared_paths()
@@ -184,6 +189,8 @@ defmodule Acs.MCP.ToolLoader do
   end
 
   @doc false
+  def load_source({:tenant_db, org}), do: load_database_source(org)
+
   def load_source(source) do
     source
     |> source_path()
@@ -195,6 +202,55 @@ defmodule Acs.MCP.ToolLoader do
       end
     end)
   end
+
+  defp load_database_source(org) do
+    import Ecto.Query
+
+    rows =
+      Acs.Repo.all(
+        from tool in Acs.Artifacts.TenantTool,
+          join: organization in Acs.Orgs.Organization,
+          on: tool.organization_id == organization.id,
+          where: organization.slug == ^org,
+          order_by: [asc: tool.app, asc: tool.name]
+      )
+
+    Enum.reduce_while(rows, {:ok, []}, fn row, {:ok, configs} ->
+      with {:ok, snapshot} <- Jason.decode(row.snapshot_json),
+           true <- Map.get(snapshot, "active", true),
+           {:ok, config} <- database_definition(snapshot, row),
+           :ok <- validate_config(config, {:tenant_db, org}) do
+        source = %{
+          path: "db://#{org}/#{row.public_id}",
+          scope: {:tenant, org},
+          digest: row.head_revision_id
+        }
+
+        config =
+          config
+          |> Map.put("_scope", {:tenant, org})
+          |> Map.put("_source", source)
+
+        {:cont, {:ok, configs ++ [config]}}
+      else
+        false ->
+          {:cont, {:ok, configs}}
+
+        {:error, reason} ->
+          {:halt, {:error, "Invalid tenant tool #{row.public_id}: #{inspect(reason)}"}}
+      end
+    end)
+  rescue
+    error -> {:error, "Failed to load tenant tools for #{org}: #{Exception.message(error)}"}
+  end
+
+  defp database_definition(%{"definition" => %{"tools" => _} = config}, _row),
+    do: {:ok, config}
+
+  defp database_definition(%{"definition" => tool}, row) when is_map(tool),
+    do: {:ok, %{"app" => row.app, "prefix" => false, "tools" => [tool]}}
+
+  defp database_definition(_, _row), do: {:error, :invalid_definition}
 
   defp tool_files(path) do
     [Path.join(path, "*.yaml"), Path.join(path, "*.yml")]
@@ -450,8 +506,10 @@ defmodule Acs.MCP.ToolLoader do
   defp source_path({:tenant, _org, path}), do: path
   defp source_path({:shared, path}), do: path
   defp source_scope({:tenant, org, _path}), do: {:tenant, org}
+  defp source_scope({:tenant_db, org}), do: {:tenant, org}
   defp source_scope({:shared, _path}), do: :shared
   defp source_sort_key({:tenant, org, path}), do: {0, org, Path.expand(path)}
+  defp source_sort_key({:tenant_db, org}), do: {0, org, "db"}
   defp source_sort_key({:shared, path}), do: {1, "", Path.expand(path)}
   defp scope_sort_key(:shared), do: {1, ""}
   defp scope_sort_key({:tenant, org}), do: {0, org}

@@ -118,48 +118,24 @@ When you want Postgres on the host instead of Neon:
 | Caddy upstream | `caddy/acs_upstream.caddyfile` (reload on flip; recreate only when Caddyfile/certs change) |
 | DB | Neon Postgres via `DATABASE_URL` (optional local Postgres override) |
 | Memory | Immutable PostgreSQL ledger (`MEMORY_STORE=database`); no tenant memory files |
+| Artifacts | Skills, specs/documents, and tenant tool definitions use the PostgreSQL artifact ledger; prompts are shipped read-only from `priv/prompts` |
 | Auth | API/developer keys for services; Auth0 OIDC for individual dashboard users and human MCP access |
-| Syncthing admin | **Not** on public HTTPS — SSH tunnel to `127.0.0.1:8384` |
 | Email (optional) | Set `RESEND_API_KEY` + `RESEND_FROM_EMAIL` for invitation email; omit to keep copy-link only |
 
-### Per-organization vault folders
+### Artifact ledger cutover
 
-Every organization, including the configured `ACS_ORG_NAME`, has a non-overlapping vault root for non-memory artifacts:
+In multi-tenant production, skills, specs/documents, and tenant tool definitions are database-ledger records. Prompts remain read-only files shipped in `priv/prompts`; multi-tenant runtime does not mount a vault.
 
-```text
-/vaults/orgs/<slug>/
-  skills/
-  specs/
-  prompts/
-  acstools/
-```
-
-Company memories are not stored or synchronized below this tree. In multi-tenant mode, `Memory.Loader` rejects writes/deletes, memory file watchers and sweepers are not supervised, and startup does not import memory files. Single-tenant installations retain their YAML/Obsidian memory workflow.
-
-Point each Syncthing folder at exactly `/var/syncthing/vaults/orgs/<slug>`. Never point an organization at the parent `/var/syncthing/vaults`: that parent contains every tenant and would disclose their files. `SPECS_PATH`, when set, remains a compatibility base but still partitions every organization beneath `SPECS_PATH/orgs/<slug>`; unset it to use the unified vault tree.
-
-For an existing deployment, migrate the database and import the existing `acs_memories` projection **before** enabling `MULTI_TENANT=true` with `MEMORY_STORE=database`:
+For an existing deployment, first back up the vault and freeze artifact writes on the old file-canonical release. Run the new release with the old vault mounted **read-only at `/vaults`** for the cutover only, then migrate and import:
 
 ```bash
-# Freeze memory writes and take DB + vault backups first.
 /app/bin/steward_acs eval "Acs.Release.migrate"
-/app/bin/steward_acs eval 'IO.inspect(Acs.Memory.Ledger.backfill_projection())'
+/app/bin/steward_acs eval 'Acs.Release.import_artifacts()'
 ```
 
-The import is idempotent: only projection rows without ledger pointers are imported. Require `{:ok, count}`, run `Acs.Memory.Ledger.verify(org_slug)` for every organization, and compare projection counts before cutover. After verification, remove `private/memories` from tenant Syncthing shares. Keep the backed-up files read-only through the rollback window; do not restart an old file-canonical release after accepting new ledger commits.
+The importer fails closed when `/vaults/orgs` is missing or empty, when a source organization is unknown to the database, when an existing ledger snapshot differs, or when ledger verification fails. Compare the reported imported/skipped counts with the backed-up source inventory for every organization. Only after that verification may you deploy the final Compose topology (which has no vault mount) and retire Syncthing. Do not restart a file-canonical release after accepting new ledger commits.
 
-Non-memory vault artifacts can still be migrated with `rsync`:
-
-```bash
-slug=acme
-mkdir -p "/vaults/orgs/$slug"/{skills,specs,prompts,acstools}
-rsync -a --dry-run "/vaults/skills/orgs/$slug/" "/vaults/orgs/$slug/skills/"
-rsync -a --dry-run "/vaults/specs/orgs/$slug/"  "/vaults/orgs/$slug/specs/"
-rsync -a --dry-run "/vaults/$slug/prompts/"      "/vaults/orgs/$slug/prompts/"
-# Remove --dry-run only after reviewing the file list, then compare counts/hashes.
-```
-
-`MCP_TOOLS_PATH` and `EXTERNAL_TOOLS_PATH` are read-only shared/plugin sources; tenant writes never target them. Tenant YAML may define HTTP endpoints only. Shared YAML handlers are disabled unless each module is explicitly listed in the comma-separated `TRUSTED_MCP_HANDLER_MODULES` allowlist.
+`MCP_TOOLS_PATH` and `EXTERNAL_TOOLS_PATH` remain read-only shared/plugin sources. Tenant tools are ledger records and may define HTTP endpoints only. Shared YAML handlers are disabled unless each module is explicitly listed in the comma-separated `TRUSTED_MCP_HANDLER_MODULES` allowlist.
 
 ### Org registry
 

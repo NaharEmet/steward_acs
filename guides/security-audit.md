@@ -7,7 +7,7 @@
 
 The application-level critical and high-severity findings discovered during this review are remediated in this branch and covered by regression tests. The code passes the full test suite, strict compilation, Credo, and Hex advisory audit.
 
-Production deployment remains **conditional** until the operational items in “Remaining deployment risks” are completed. In particular, the canonical multi-tenant Compose topology still gives each Syncthing container access to the shared vault volume, and third-party container images are not pinned by digest. Do not describe a deployment as fully hardened until those controls are addressed and verified in the target environment.
+Production deployment remains **conditional** until the operational items in “Remaining deployment risks” are completed. In particular, third-party container images are not pinned by digest. Do not describe a deployment as fully hardened until those controls are addressed and verified in the target environment.
 
 ## Remediated findings
 
@@ -32,6 +32,7 @@ Production deployment remains **conditional** until the operational items in “
 | High | Optional Fluent Bit setup mounted the Docker socket | The socket and Docker metadata filter were removed. Fluent Bit reads only container log files. |
 | High | Deploys could label a dirty build as a reviewed commit | Deploys refuse dirty working trees and publish/deploy only the commit-addressed tag, not the mutable `multitenant` tag. |
 | High | Locked HTTP/framework packages had published advisories | Phoenix, Plug, Req, Mint, HPAX, and related dependencies were updated. Stale unused Hackney and related lock entries were removed. `mix hex.audit` is enforced in CI. |
+| High | Syncthing containers shared the multi-tenant vault | Retired the multi-tenant Syncthing services and vault mount. Multi-tenant artifacts are database-ledger records, so this shared-volume exposure no longer exists. |
 
 ## Verification performed
 
@@ -48,15 +49,9 @@ Docker Compose validation could not be executed in the audit environment because
 
 ## Remaining deployment risks
 
-### High — Syncthing containers share the entire multi-tenant vault
-
-All Syncthing services mount the same `vaults` volume and run their initialization as root. Compromise or misconfiguration of one instance can expose another tenant’s files.
-
-**Required before a hardened multi-tenant release:** migrate each tenant to a distinct named volume (mounted into ACS at that tenant’s expected path), run Syncthing as an unprivileged UID/GID after provisioning, and test migration/rollback against a production backup. This needs an explicit data migration; changing volume declarations without migrating would risk data loss.
-
 ### High — Container supply chain is not immutable
 
-Syncthing and Ollama use `latest`; other images and Dockerfile bases use mutable tags. The application deploy uses a commit-addressed tag but not a signed manifest digest.
+Ollama and other images and Dockerfile bases use mutable tags. The application deploy uses a commit-addressed tag but not a signed manifest digest.
 
 **Required:** pin all images and build bases by digest, build from protected CI, generate an SBOM/provenance, sign with Cosign (or equivalent), verify before deployment, enable registry tag immutability, and retain a tested rollback digest. Add Trivy/Grype or an equivalent image/filesystem scan.
 
@@ -75,14 +70,14 @@ The supervised ETS limiter is appropriate for a single node. A multi-node deploy
 - Run `docker compose -f docker-compose.multitenant.yml config` with the production environment.
 - Verify secret-file ownership/modes, TLS, database transport, host firewall, Auth0 tenant settings, and trusted proxy behavior on the actual host.
 - Perform and document a full backup restore drill.
-- Validate externally mounted MCP YAML definitions and synchronized vault contents; they were not available to the static audit.
+- Validate externally mounted MCP YAML definitions; they were not available to the static audit.
 - Add secret scanning and container/SBOM scanning to protected CI.
 
 ## Maintenance guidance
 
 - Keep authorization context server-injected; never trust `_auth_*` fields from tool arguments.
 - Any future cross-org capability must use an explicit platform permission and a read-only allowlist.
-- Treat LLM output and synchronized Markdown/YAML as untrusted input. Models may recommend but must not authorize or mutate server-owned security metadata.
+- Treat LLM output and externally supplied Markdown/YAML as untrusted input. Models may recommend but must not authorize or mutate server-owned security metadata.
 - Keep outbound requests on the centralized URL-safety path with redirects disabled.
 - Put mutable shared state under supervised ownership and test cross-process lifecycle behavior.
 - Run tests, strict compilation, Credo, Hex audit, secret scanning, and image scanning for every release.

@@ -147,7 +147,15 @@ defmodule Acs.MCP.Tools.SkillHandlers do
              proposed_by:
                blank_to_nil(args["_auth_attribution"]) ||
                  blank_to_nil(args["_auth_agent_id"]) ||
-                 blank_to_nil(args["agent_id"])
+                 blank_to_nil(args["agent_id"]),
+             actor: %{
+               type: "developer_key",
+               id:
+                 blank_to_nil(args["_auth_attribution"]) ||
+                   blank_to_nil(args["_auth_agent_id"]) || "unknown"
+             },
+             source: "mcp",
+             message: "Save skill #{name}"
            ) do
         {:ok, saved} ->
           # Post-save LLM quality audit (evaluate.md) — feeds governance UI + meta loops

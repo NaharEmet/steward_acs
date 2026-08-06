@@ -16,13 +16,11 @@ else
   exit 1
 fi
 
-# Named Docker volumes start root-owned; the release runs as acs (uid 1000).
-# If /vaults stays root:root 755, skill_save / specs_propose mkdir_p fails —
-# Elixir often surfaces that as :enoent rather than :eacces.
+# Optional vault: only when mounted (e.g. one-time artifact import cutover).
+# Final multi-tenant compose has no /vaults — this block is a no-op then.
 OBSIDIAN_VAULT_PATH="${OBSIDIAN_VAULT_PATH:-}"
-if [ -n "$OBSIDIAN_VAULT_PATH" ]; then
-  mkdir -p "${OBSIDIAN_VAULT_PATH}/orgs" \
-    "${OBSIDIAN_VAULT_PATH}/private/memories"
+if [ -n "$OBSIDIAN_VAULT_PATH" ] && [ -d "$OBSIDIAN_VAULT_PATH" ]; then
+  mkdir -p "${OBSIDIAN_VAULT_PATH}/orgs"
   chown -R acs:acs "$OBSIDIAN_VAULT_PATH"
 fi
 

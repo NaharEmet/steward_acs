@@ -55,13 +55,13 @@ defmodule Acs.Orgs.Provisioner do
   end
 
   defp provision_paths? do
-    Acs.Org.multi_tenant?() or
-      configured_path?(Application.get_env(:steward_acs, :obsidian_vault_path)) or
-      configured_path?(System.get_env("SPECS_PATH")) or
-      configured_path?(
-        Application.get_env(:steward_acs, Acs.Specs.Loader, [])
-        |> Keyword.get(:specs_path)
-      )
+    not Acs.Org.multi_tenant?() and
+      (configured_path?(Application.get_env(:steward_acs, :obsidian_vault_path)) or
+         configured_path?(System.get_env("SPECS_PATH")) or
+         configured_path?(
+           Application.get_env(:steward_acs, Acs.Specs.Loader, [])
+           |> Keyword.get(:specs_path)
+         ))
   end
 
   defp configured_path?(path), do: is_binary(path) and path != ""

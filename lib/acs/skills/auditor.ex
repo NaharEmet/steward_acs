@@ -31,7 +31,7 @@ defmodule Acs.Skills.Auditor do
   @doc "Queue a single-skill audit after skill_save (best-effort; no-op if auditor down)."
   def audit_soon(name) when is_binary(name) do
     if Process.whereis(__MODULE__) do
-      GenServer.cast(__MODULE__, {:audit_one, name})
+      GenServer.cast(__MODULE__, {:audit_one, Acs.Org.current(), name})
     end
 
     :ok
@@ -56,28 +56,40 @@ defmodule Acs.Skills.Auditor do
   @impl true
   def handle_info(:audit, state) do
     state = %{state | running: true}
-    {_results, audited} = audit_all(nil, state.audited)
+    orgs = if Acs.Org.multi_tenant?(), do: Acs.Org.all(), else: [Acs.Org.current()]
+
+    audited =
+      Enum.reduce(orgs, state.audited, fn org, audited ->
+        {_results, audited} = audit_all_for_org(org, nil, audited, true)
+        audited
+      end)
+
     schedule_audit()
     {:noreply, %{state | running: false, audited: audited}}
   end
 
   @impl true
-  def handle_info({:audit_one, name}, state) do
+  def handle_info({:audit_one, org, name}, state) do
     audited =
-      case Store.get_skill(name) do
-        nil ->
-          Logger.debug("[Acs.Skills.Auditor] skill '#{name}' not found for post-save audit")
-          state.audited
+      Acs.Org.with_current(org, fn ->
+        case Store.get_skill(name) do
+          nil ->
+            Logger.debug(
+              "[Acs.Skills.Auditor] skill '#{name}' not found for post-save audit in #{org}"
+            )
 
-        skill ->
-          # Allow re-audit after skill_save even if cached from a prior cycle.
-          audited = MapSet.delete(state.audited, skill.name)
+            state.audited
 
-          case audit_one(skill) do
-            %{name: n} when is_binary(n) -> MapSet.put(audited, n)
-            _ -> audited
-          end
-      end
+          skill ->
+            key = {org, skill.name}
+            audited = MapSet.delete(state.audited, key)
+
+            case audit_one(skill) do
+              %{name: n} when is_binary(n) -> MapSet.put(audited, {org, n})
+              _ -> audited
+            end
+        end
+      end)
 
     {:noreply, %{state | audited: audited}}
   end
@@ -95,8 +107,8 @@ defmodule Acs.Skills.Auditor do
   end
 
   @impl true
-  def handle_cast({:audit_one, name}, state) do
-    send(self(), {:audit_one, name})
+  def handle_cast({:audit_one, org, name}, state) do
+    send(self(), {:audit_one, org, name})
     {:noreply, state}
   end
 
@@ -110,50 +122,65 @@ defmodule Acs.Skills.Auditor do
   Returns `{results, updated_audited}`.
   """
   def audit_all(skills \\ nil, audited \\ MapSet.new()) do
-    metas = skills || Store.list_skills()
-    backfill_legacy_statuses(metas)
-
-    candidates =
-      metas
-      |> Enum.uniq_by(& &1["name"])
-      |> Enum.reject(fn meta ->
-        already_audited?(meta) or MapSet.member?(audited, meta["name"])
-      end)
-      |> Enum.map(fn meta -> Store.get_skill(meta["id"] || meta["name"]) end)
-      |> Enum.reject(&is_nil/1)
-      # get_skill(id) can still collide on name across duplicate trees — one LLM call each
-      |> Enum.uniq_by(& &1.name)
-
-    Logger.info("[Acs.Skills.Auditor] Auditing #{length(candidates)} skills")
-
-    max_conc =
-      Application.get_env(:steward_acs, :skill_auditor_max_concurrency, 5)
-
-    results =
-      candidates
-      |> Task.async_stream(&audit_one/1, max_concurrency: max_conc, timeout: :infinity)
-      |> Enum.map(fn
-        {:ok, result} -> result
-        {:error, reason} -> %{audit_status: "error", audit_reasoning: inspect(reason)}
-      end)
-      |> Enum.reject(&is_nil/1)
-
-    ok = Enum.count(results, fn r -> r.audit_status == "ok" end)
-    needs = Enum.count(results, fn r -> r.audit_status == "needs_improvement" end)
-    failing = Enum.count(results, fn r -> r.audit_status == "failing" end)
-
-    Logger.info(
-      "[Acs.Skills.Auditor] Audit complete: #{ok} ok, #{needs} needs_improvement, #{failing} failing"
-    )
-
-    audited =
-      Enum.reduce(results, audited, fn
-        %{name: name}, acc when is_binary(name) -> MapSet.put(acc, name)
-        _, acc -> acc
-      end)
-
-    {results, audited}
+    audit_all_for_org(Acs.Org.current(), skills, audited, false)
   end
+
+  defp audit_all_for_org(org, skills, audited, tenant_keys?) do
+    Acs.Org.with_current(org, fn ->
+      metas = skills || Store.list_skills()
+      backfill_legacy_statuses(metas)
+
+      candidates =
+        metas
+        |> Enum.uniq_by(& &1["name"])
+        |> Enum.reject(fn meta ->
+          already_audited?(meta) or
+            MapSet.member?(audited, audit_cache_key(org, meta["name"], tenant_keys?))
+        end)
+        |> Enum.map(fn meta -> Store.get_skill(meta["id"] || meta["name"]) end)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq_by(& &1.name)
+
+      Logger.info("[Acs.Skills.Auditor] Auditing #{length(candidates)} skills for #{org}")
+
+      max_conc = Application.get_env(:steward_acs, :skill_auditor_max_concurrency, 5)
+
+      results =
+        candidates
+        |> Task.async_stream(
+          fn skill -> Acs.Org.with_current(org, fn -> audit_one(skill) end) end,
+          max_concurrency: max_conc,
+          timeout: :infinity
+        )
+        |> Enum.map(fn
+          {:ok, result} -> result
+          {:error, reason} -> %{audit_status: "error", audit_reasoning: inspect(reason)}
+        end)
+        |> Enum.reject(&is_nil/1)
+
+      ok = Enum.count(results, fn r -> r.audit_status == "ok" end)
+      needs = Enum.count(results, fn r -> r.audit_status == "needs_improvement" end)
+      failing = Enum.count(results, fn r -> r.audit_status == "failing" end)
+
+      Logger.info(
+        "[Acs.Skills.Auditor] Audit complete: #{ok} ok, #{needs} needs_improvement, #{failing} failing"
+      )
+
+      audited =
+        Enum.reduce(results, audited, fn
+          %{name: name}, acc when is_binary(name) ->
+            MapSet.put(acc, audit_cache_key(org, name, tenant_keys?))
+
+          _, acc ->
+            acc
+        end)
+
+      {results, audited}
+    end)
+  end
+
+  defp audit_cache_key(org, name, true), do: {org, name}
+  defp audit_cache_key(_org, name, false), do: name
 
   defp already_audited?(meta) do
     status = meta["audit_status"]

@@ -16,6 +16,21 @@ defmodule Acs.Release do
     with_repo(fn -> Acs.Orgs.import_yaml() end)
   end
 
+  def import_artifacts do
+    with_repo(fn ->
+      case Acs.Artifacts.Importer.import() do
+        {:ok, summary} ->
+          case Acs.Artifacts.Importer.verify(summary) do
+            :ok -> summary
+            {:error, reason} -> raise "Artifact ledger verification failed: #{inspect(reason)}"
+          end
+
+        {:error, reason} ->
+          raise "Artifact import failed: #{inspect(reason)}"
+      end
+    end)
+  end
+
   def bootstrap_owner(email, organization_slug) do
     with_repo(fn -> Acs.Accounts.bootstrap_owner(email, organization_slug) end)
   end

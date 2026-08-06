@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Backup prod vaults (+ orgs.yaml when present). Neon holds the DB — use Neon PITR / exports for SQL.
+# Backup prod metadata (+ orgs.yaml when present). Neon holds the DB — use Neon PITR / exports for SQL.
 # Legacy SQLite files are copied when still present on the volume. Never prints secrets.
 set -euo pipefail
 
@@ -38,8 +38,6 @@ if [[ -n "${ACS_CTR:-}" ]] && docker exec "$ACS_CTR" test -f /data/steward.sqlit
   chmod 600 "$BK"/steward*.sqlite 2>/dev/null || true
 fi
 
-docker run --rm -v steward_acs_vaults:/vaults:ro -v "$BK":/out alpine:3.22 \
-  tar czf /out/vaults.tar.gz -C /vaults .
 # orgs.yaml may be a bind mount into the container
 if [[ -n "${ACS_CTR:-}" ]] && docker exec "$ACS_CTR" test -f /data/orgs.yaml; then
   docker cp "$ACS_CTR:/data/orgs.yaml" "$BK/orgs.yaml"
