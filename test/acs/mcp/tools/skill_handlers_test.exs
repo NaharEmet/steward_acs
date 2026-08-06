@@ -114,12 +114,13 @@ defmodule Acs.MCP.Tools.SkillHandlersTest do
 
       assert body == %{
                name: "gated-proc",
-               content: String.trim("""
-               ## Steps
-               1. Do the thing
-               2. Verify it worked
-               3. Recover if it failed
-               """)
+               content:
+                 String.trim("""
+                 ## Steps
+                 1. Do the thing
+                 2. Verify it worked
+                 3. Recover if it failed
+                 """)
              }
 
       refute Map.has_key?(body, :status)

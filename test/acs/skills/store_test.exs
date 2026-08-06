@@ -196,7 +196,9 @@ defmodule Acs.Skills.StoreTest do
   test "save_skill error names the skills dir when mkdir cannot create it" do
     original_path = Application.get_env(:steward_acs, :obsidian_vault_path)
     # File where a directory must be created → mkdir_p fails (enotdir / enoent).
-    blocker = Path.join(System.tmp_dir!(), "acs_skills_blocker_#{System.unique_integer([:positive])}")
+    blocker =
+      Path.join(System.tmp_dir!(), "acs_skills_blocker_#{System.unique_integer([:positive])}")
+
     File.write!(blocker, "not-a-directory")
     Application.put_env(:steward_acs, :obsidian_vault_path, blocker)
 
