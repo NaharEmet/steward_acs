@@ -116,16 +116,6 @@ services:
     environment:
       STGUIAPIKEY: ${SYNCTHING_PROD_API_KEY:?Set SYNCTHING_PROD_API_KEY}
 
-  syncthing_fsgbhutan:
-    <<: *syncthing_base
-    container_name: syncthing_fsgbhutan
-    hostname: syncthing_fsgbhutan
-    volumes:
-      - syncthing_config_fsgbhutan:/var/syncthing/config
-      - vaults:/var/syncthing/vaults
-    environment:
-      STGUIAPIKEY: ${SYNCTHING_FSGBHUTAN_API_KEY:?Set SYNCTHING_FSGBHUTAN_API_KEY}
-
   syncthing_safetyconnect:
     <<: *syncthing_base
     container_name: syncthing_safetyconnect
@@ -142,5 +132,4 @@ volumes:
   vaults:
   syncthing_config_default:
   syncthing_config_prod:
-  syncthing_config_fsgbhutan:
   syncthing_config_safetyconnect:

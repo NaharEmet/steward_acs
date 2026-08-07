@@ -4,11 +4,6 @@ orgs:
     slug: default
     subdomain: default
     plan: free
-  fsgbhutan:
-    name: FSG Bhutan
-    slug: fsgbhutan
-    subdomain: fsgbhutan
-    plan: free
   # Do not add slug/subdomain "prod" — ACCOUNT_HOST is prod.stewardacs.xyz; a
   # yaml "prod" org makes ResolveOrg treat the account host as tenant "prod"
   # and reject default/MCP_API_KEY credentials on /mcp/*/sse.
