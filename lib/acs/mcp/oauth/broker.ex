@@ -121,9 +121,18 @@ defmodule Acs.MCP.OAuth.Broker do
     params = conn.params
 
     case params["grant_type"] do
-      "authorization_code" -> handle_auth_code_exchange(conn, params)
-      "refresh_token" -> handle_refresh(conn, params)
-      _ -> token_error(conn, "unsupported_grant_type", "grant_type must be authorization_code or refresh_token")
+      "authorization_code" ->
+        handle_auth_code_exchange(conn, params)
+
+      "refresh_token" ->
+        handle_refresh(conn, params)
+
+      _ ->
+        token_error(
+          conn,
+          "unsupported_grant_type",
+          "grant_type must be authorization_code or refresh_token"
+        )
     end
   end
 
@@ -249,8 +258,11 @@ defmodule Acs.MCP.OAuth.Broker do
   defp client_redirect(client_uri, code, client_state, session_state) do
     sep = if URI.parse(client_uri).query, do: "&", else: "?"
 
-    query = [{"code", code}, {"state", client_state}] ++
-      if is_binary(session_state) and session_state != "", do: [{"session_state", session_state}], else: []
+    query =
+      [{"code", code}, {"state", client_state}] ++
+        if is_binary(session_state) and session_state != "",
+          do: [{"session_state", session_state}],
+          else: []
 
     client_uri <> sep <> URI.encode_query(query)
   end
@@ -259,9 +271,14 @@ defmodule Acs.MCP.OAuth.Broker do
   # redirect) and non-http schemes.
   defp valid_redirect_uri?(uri) when is_binary(uri) and uri != "" do
     case URI.parse(uri) do
-      %URI{scheme: "https", host: host} when is_binary(host) and host != "" -> true
-      %URI{scheme: "http", host: host} -> host in ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]
-      _ -> false
+      %URI{scheme: "https", host: host} when is_binary(host) and host != "" ->
+        true
+
+      %URI{scheme: "http", host: host} ->
+        host in ["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"]
+
+      _ ->
+        false
     end
   end
 
