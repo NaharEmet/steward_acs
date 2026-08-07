@@ -1017,14 +1017,15 @@ defmodule Acs.MCP.Tools do
       ),
       tool_def(
         "revoke_developer_key",
-        "Revoke a developer API key by ID. The key will no longer authenticate. Admin only.",
+        "Revoke a developer API key by developer_name. The key will no longer authenticate. Admin only.",
         %{
-          "id" => %{
+          "developer_name" => %{
             "type" => "string",
-            "description" => "ID of the developer key to revoke"
+            "description" =>
+              "Name of the developer whose key to revoke (from list_developer_keys)"
           }
         },
-        ["id"]
+        ["developer_name"]
       ),
       tool_def(
         "create_org",
@@ -1471,21 +1472,26 @@ defmodule Acs.MCP.Tools do
           ]
 
         "list_tasks" ->
-          todo = Map.get(result, :tasks, []) |> Enum.filter(fn t -> t[:status] == "todo" end)
+          auth_id = Map.get(args, "_auth_agent_id")
+          you = if usable_auth_agent_id?(auth_id), do: auth_id, else: agent_id
 
-          if todo != [] do
+          my_todos =
+            Map.get(result, :tasks, [])
+            |> Enum.filter(fn t -> t[:status] == "todo" and t[:created_by_agent] == you end)
+
+          if my_todos != [] do
             [
               %{
                 tool: "claim_work",
-                prompt: "Claim a todo task to start working",
-                params: %{agent_id: agent_id, task_id: hd(todo)[:id]}
+                prompt: "Claim a todo task you created to start working",
+                params: %{agent_id: agent_id, task_id: hd(my_todos)[:slug]}
               }
             ]
           else
             [
               %{
                 tool: "create_work",
-                prompt: "No todo tasks — create one for the current request",
+                prompt: "No todo tasks from you — create one for the current request",
                 params: %{agent_id: agent_id, title: "...", claim: true}
               }
             ]
@@ -1569,21 +1575,7 @@ defmodule Acs.MCP.Tools do
               ]
 
             true ->
-              [
-                %{
-                  tool: "query_memories",
-                  prompt: "Verify the saved memory is findable by search",
-                  params: %{
-                    query: Map.get(args, "title", ""),
-                    scope_path: Map.get(args, "scope_path", "")
-                  }
-                },
-                %{
-                  tool: "set_memory_status",
-                  prompt: "No conflicts? Approve to make visible to all agents",
-                  params: %{memory_id: Map.get(result, :id, ""), status: "approved"}
-                }
-              ]
+              memory_save_next_steps(args, result)
           end
 
         "query_memories" ->
@@ -2016,6 +2008,33 @@ defmodule Acs.MCP.Tools do
     maybe_chat_next_steps(steps, args)
   end
 
+  defp memory_save_next_steps(args, result) do
+    verification = %{
+      tool: "query_memories",
+      prompt: "Verify the saved memory is findable by search",
+      params: %{
+        query: Map.get(args, "title", ""),
+        scope_path: Map.get(args, "scope_path", "")
+      }
+    }
+
+    # Chat's consolidated memory_status schema only exposes stale/deprecated.
+    # Approval is an admin-only coding operation, so never suggest the invalid
+    # approved transition to chat clients.
+    if chat_audience?(args) do
+      [verification]
+    else
+      [
+        verification,
+        %{
+          tool: "set_memory_status",
+          prompt: "No conflicts? Approve to make visible to all agents",
+          params: %{memory_id: Map.get(result, :id, ""), status: "approved"}
+        }
+      ]
+    end
+  end
+
   # Chat surface uses documents_propose; rewrite / filter `_next` so chat never sees specs_*.
   # Attach memory_protocol to any save_memory suggestion so agents see consent rules before saving.
   defp maybe_chat_next_steps(steps, args) do
@@ -2197,6 +2216,8 @@ defmodule Acs.MCP.Tools do
   defp documents_propose_description do
     "Save or update a long **document** in Steward (policy, brief, marketing, knowledge, process). " <>
       "Pass document_type + title + content. Prefer path under documents/<type>/<slug>. " <>
+      "Missing app/path directories are created automatically; if a target cannot be used, " <>
+      "call query_specs to discover valid existing app/path options. " <>
       "Chat-facing name for the document store (same backend as coding specs_propose). " <>
       "USE WHEN: user pastes/uploads a doc to keep, or after producing long shareable text. " <>
       "NOT for short eternal truths (save_memory) or step-by-step how-tos (skill_save)."
@@ -2209,7 +2230,9 @@ defmodule Acs.MCP.Tools do
         "(deploy, secrets, install, MCP sequence, debug playbook, ingest, review, support) — not a one-off patch note. " <>
         "NOT for one-line truths (use save_memory) or long shareable docs (use specs_propose/documents_propose). " <>
         "REQUIRES: name, description (one sentence, distinct from name), tags, scope_paths, " <>
-        "and markdown content with numbered steps, prerequisites, verification, and failure recovery. " <>
+        "In local file-backed mode, the skills directory is created automatically when missing; " <>
+        "database-backed mode does not require a skills directory. Provide markdown content with numbered " <>
+        "steps, prerequisites, verification, and failure recovery. " <>
         "Intake is single-pass and defaults to allow; only returns needs_input for secrets, unusable content, or no followable steps. " <>
         "Retry once with fixes (or intake_confirmed: true). Lands as status: proposed for governance."
 

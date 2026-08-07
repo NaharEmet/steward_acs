@@ -193,6 +193,15 @@ defmodule Acs.Skills.StoreTest do
     assert File.read!(path) =~ "when_to_use:"
   end
 
+  test "save_skill creates a missing skills directory", %{skills_dir: skills_dir} do
+    File.rm_rf!(skills_dir)
+
+    assert {:ok, %{status: "proposed"}} =
+             Store.save_skill("creates-missing-dir", "## Steps\n1. Save\n2. Verify\n")
+
+    assert File.exists?(Path.join(skills_dir, "creates-missing-dir.md"))
+  end
+
   test "save_skill error names the skills dir when mkdir cannot create it" do
     original_path = Application.get_env(:steward_acs, :obsidian_vault_path)
     # File where a directory must be created → mkdir_p fails (enotdir / enoent).

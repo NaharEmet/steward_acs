@@ -109,7 +109,7 @@ defmodule Acs.MCP.Tools.UserTasksHandlersTest do
                })
              )
 
-    refute Enum.any?(UserTasks.pending_reminders("Nahar", org), &(&1.id == task_id))
+    refute Enum.any?(UserTasks.pending_reminders("Nahar", org), &(&1.slug == task_id))
 
     assert {:ok, %{outcome: "done", task_status: "done"}} =
              Tools.call_tool(

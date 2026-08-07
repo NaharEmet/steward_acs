@@ -1,0 +1,42 @@
+# Project-local Codex MCP configuration.
+# Activate this file with: CODEX_HOME="$PWD/.codex" codex
+
+[mcp_servers.acs]
+url = "http://localhost:4001/mcp/v1/messages"
+
+[mcp_servers.acs.http_headers]
+"x-api-key" = "{env:MCP_API_KEY}"
+
+[mcp_servers.acs.tools.claim_work]
+approval_mode = "approve"
+
+[mcp_servers.acs.tools.connection_diagnostic]
+approval_mode = "approve"
+
+[mcp_servers.acs.tools.specs_propose]
+approval_mode = "approve"
+
+[mcp_servers.steward]
+url = "https://anantha.stewardacs.xyz/mcp/sse"
+
+[mcp_servers.steward.tools.claim_work]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.connection_diagnostic]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.specs_propose]
+approval_mode = "approve"
+
+[mcp_servers.axiom]
+url = "https://mcp.axiom.co/mcp"
+
+[mcp_servers.infisical]
+command = "npx"
+args = ["-y", "@infisical/mcp"]
+
+[mcp_servers.infisical.env]
+INFISICAL_HOST_URL = "https://app.infisical.com"
+INFISICAL_AUTH_METHOD = "universal-auth"
+INFISICAL_UNIVERSAL_AUTH_CLIENT_ID = "{env:INFISICAL_UNIVERSAL_AUTH_CLIENT_ID}"
+INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET = "{env:INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET}"

@@ -21,6 +21,14 @@ defmodule Acs.Observability.VmMetrics do
 
   @default_interval_ms 30_000
 
+  @default_jump_thresholds [
+    %{metric: "scheduler_utilization", type: :delta, threshold: 0.5},
+    %{metric: "cgroup_cpu_utilization", type: :delta, threshold: 0.8},
+    %{metric: "memory_total_bytes", type: :pct, threshold: 20.0},
+    %{metric: "memory_processes_bytes", type: :pct, threshold: 50.0},
+    %{metric: "process_count", type: :pct, threshold: 50.0}
+  ]
+
   def child_spec(opts) do
     %{
       id: __MODULE__,
@@ -64,7 +72,57 @@ defmodule Acs.Observability.VmMetrics do
       }
       |> Map.merge(host_fields)
 
-    {event, %{schedulers: schedulers, host: host_prev}}
+    {event, %{schedulers: schedulers, host: host_prev, event: event}}
+  end
+
+  @doc false
+  def jump_config do
+    Application.get_env(:steward_acs, :vm_jump_thresholds, @default_jump_thresholds)
+  end
+
+  @doc false
+  def jump_events(prev_event, event, config \\ jump_config())
+      when is_map(event) and is_list(config) do
+    Enum.flat_map(config, fn %{metric: metric, type: type, threshold: threshold} ->
+      case jump(type, threshold, prev_event && prev_event[metric], event[metric]) do
+        nil -> []
+        info -> [build_jump_event(metric, type, threshold, info, event)]
+      end
+    end)
+  end
+
+  defp jump(:delta, threshold, prev, curr)
+       when is_number(prev) and is_number(curr) and abs(curr - prev) >= threshold do
+    %{delta: curr - prev, value: curr, prev_value: prev}
+  end
+
+  defp jump(:pct, threshold, prev, curr)
+       when is_number(prev) and is_number(curr) and prev != 0 do
+    pct = abs(curr - prev) / abs(prev) * 100
+
+    if pct >= threshold,
+      do: %{delta: curr - prev, pct_change: pct, value: curr, prev_value: prev}
+  end
+
+  defp jump(_type, _threshold, _prev, _curr), do: nil
+
+  defp build_jump_event(metric, type, threshold, info, event) do
+    %{
+      "_time" => event["_time"],
+      "message" => "vm.jump",
+      "event" => "vm.jump",
+      "level" => "warning",
+      "severity" => "WARN",
+      "service" => "steward_acs",
+      "module" => "Acs.Observability.VmMetrics",
+      "metric" => metric,
+      "jump_type" => type,
+      "threshold" => threshold,
+      "value" => info.value,
+      "prev_value" => info.prev_value,
+      "delta" => info.delta
+    }
+    |> maybe_put("pct_change", info[:pct_change])
   end
 
   @impl true
@@ -74,10 +132,12 @@ defmodule Acs.Observability.VmMetrics do
 
     interval_ms = Keyword.get(opts, :interval_ms, @default_interval_ms)
     exporter = Keyword.get(opts, :exporter, AxiomLogExporter)
+    jump_config = Keyword.get(opts, :jump_config, jump_config())
 
     state = %{
       interval_ms: interval_ms,
       exporter: exporter,
+      jump_config: jump_config,
       prev: %{schedulers: scheduler_wall_time(), host: host_baseline()},
       timer: schedule_tick(interval_ms)
     }
@@ -89,6 +149,10 @@ defmodule Acs.Observability.VmMetrics do
   def handle_info(:tick, state) do
     {event, prev} = sample(state.prev)
     _ = enqueue(state.exporter, event)
+
+    for jump <- jump_events(state.prev.event, event, state.jump_config) do
+      _ = enqueue(state.exporter, jump)
+    end
 
     {:noreply, %{state | prev: prev, timer: schedule_tick(state.interval_ms)}}
   end
@@ -118,6 +182,7 @@ defmodule Acs.Observability.VmMetrics do
   defp normalize_prev(schedulers) when is_list(schedulers),
     do: %{schedulers: schedulers, host: nil}
 
+  defp normalize_prev(%{schedulers: _, host: _, event: _} = prev), do: prev
   defp normalize_prev(%{schedulers: _, host: _} = prev), do: prev
   defp normalize_prev(%{schedulers: schedulers}), do: %{schedulers: schedulers, host: nil}
 

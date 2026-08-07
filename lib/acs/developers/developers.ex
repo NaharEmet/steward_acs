@@ -139,6 +139,21 @@ defmodule Acs.Developers do
   end
 
   @doc """
+  Revoke a developer's key by developer_name (public identifier, no DB id needed).
+  """
+  def revoke_by_name(developer_name, org \\ Acs.Org.current()) do
+    case Repo.get_by(DeveloperApiKey, developer_name: developer_name, org: org) do
+      nil ->
+        {:error, :not_found}
+
+      dev ->
+        dev
+        |> Ecto.Changeset.change(%{active: false})
+        |> Repo.update()
+    end
+  end
+
+  @doc """
   Hash a raw key using SHA-256.
   Returns hex-encoded digest.
   """

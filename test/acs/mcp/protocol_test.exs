@@ -195,4 +195,67 @@ defmodule Acs.MCP.ProtocolTest do
       assert {:ok, nil} = Protocol.handle_message(msg, nil)
     end
   end
+
+  describe "local mode coding identity (single-tenant admin self-identifies)" do
+    test "instructions and get_started expose no default agent identity" do
+      initialize = %{
+        "jsonrpc" => "2.0",
+        "id" => 30,
+        "method" => "initialize",
+        "params" => %{"clientInfo" => %{"name" => "cursor", "version" => "1"}}
+      }
+
+      assert {:ok, %{"result" => %{"instructions" => instructions}}} =
+               Protocol.handle_message(initialize, "admin", "acme", [], nil, nil, "Nahar")
+
+      assert instructions =~ "no default agent identity"
+      assert instructions =~ "get_present_status(agent_id: your_name)"
+
+      call = %{
+        "jsonrpc" => "2.0",
+        "id" => 31,
+        "method" => "tools/call",
+        "params" => %{"name" => "get_started", "arguments" => %{}}
+      }
+
+      assert {:ok, %{"result" => %{"content" => [%{"text" => text}]}}} =
+               Protocol.handle_message(call, "admin", "acme", [], nil, nil, "Nahar")
+
+      decoded = Jason.decode!(text)
+      assert decoded["connected_user"] == nil
+      assert decoded["authenticated_as"] == nil
+      assert decoded["your_agent_id"] == nil
+      assert decoded["agent_identity"] =~ "self-identify"
+      assert decoded["get_started"] =~ "your_name"
+    end
+
+    test "local admin coding agent can create_work under its own agent_id" do
+      initialize = %{
+        "jsonrpc" => "2.0",
+        "id" => 32,
+        "method" => "initialize",
+        "params" => %{"clientInfo" => %{"name" => "cursor", "version" => "1"}}
+      }
+
+      assert {:ok, %{"result" => _}} =
+               Protocol.handle_message(initialize, "admin", "acme", [], nil, nil, "Nahar")
+
+      call = %{
+        "jsonrpc" => "2.0",
+        "id" => 33,
+        "method" => "tools/call",
+        "params" => %{
+          "name" => "create_work",
+          "arguments" => %{"agent_id" => "opencode", "title" => "Local self-identified task"}
+        }
+      }
+
+      assert {:ok, %{"result" => %{"content" => [%{"text" => text}]}}} =
+               Protocol.handle_message(call, "admin", "acme", [], nil, nil, "Nahar")
+
+      assert %{"task_id" => task_id} = Jason.decode!(text)
+      task = Acs.Org.with_current("acme", fn -> Acs.get_task(task_id) end)
+      assert task.created_by_agent == "opencode"
+    end
+  end
 end

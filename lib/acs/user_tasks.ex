@@ -316,7 +316,6 @@ defmodule Acs.UserTasks do
 
   def to_map(%AcsTask{} = t) do
     %{
-      id: t.id,
       slug: t.slug,
       title: t.title,
       description: t.description,

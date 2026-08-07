@@ -41,6 +41,10 @@ priv/acs_next_agent.txt
 .infisical.env
 .env.infisical
 
+# opencode Infisical machine identity (same creds as .cursor/mcp.json — never commit)
+.opencode/infisical-client-id
+.opencode/infisical-client-secret
+
 # Server credentials
 serverpass.md
 

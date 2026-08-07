@@ -83,10 +83,10 @@ defmodule Acs.UserTasksTest do
              )
 
     assert {:ok, dismissed} =
-             UserTasks.resolve(task.id, "Alice", "dismiss", org: org, viewer_sort_order: 1)
+             UserTasks.resolve(task.slug, "Alice", "dismiss", org: org, viewer_sort_order: 1)
 
     assert dismissed.status == "dismissed"
-    refute Enum.any?(UserTasks.pending_reminders("Alice", org), &(&1.id == task.id))
+    refute Enum.any?(UserTasks.pending_reminders("Alice", org), &(&1.slug == task.slug))
   end
 
   test "create self task and pending_reminders after remind_at", %{org: org} do
@@ -110,7 +110,7 @@ defmodule Acs.UserTasksTest do
     assert task.status == "todo"
 
     pending = UserTasks.pending_reminders("Alice", org)
-    assert Enum.any?(pending, &(&1.id == task.id))
+    assert Enum.any?(pending, &(&1.slug == task.slug))
   end
 
   test "future remind_at is not pending yet", %{org: org} do
@@ -128,7 +128,7 @@ defmodule Acs.UserTasksTest do
                viewer_sort_order: 1
              )
 
-    refute Enum.any?(UserTasks.pending_reminders("Alice", org), &(&1.id == task.id))
+    refute Enum.any?(UserTasks.pending_reminders("Alice", org), &(&1.slug == task.slug))
   end
 
   test "higher clearance can assign to lower; peers cannot", %{org: org} do
@@ -208,24 +208,24 @@ defmodule Acs.UserTasksTest do
              )
 
     assert {:error, msg} =
-             UserTasks.resolve(task.id, "Alice", "remind_later", org: org, viewer_sort_order: 1)
+             UserTasks.resolve(task.slug, "Alice", "remind_later", org: org, viewer_sort_order: 1)
 
     assert msg =~ "remind_at"
 
     later = DateTime.utc_now() |> DateTime.add(7200, :second) |> DateTime.truncate(:second)
 
     assert {:ok, snoozed} =
-             UserTasks.resolve(task.id, "Alice", "remind_later",
+             UserTasks.resolve(task.slug, "Alice", "remind_later",
                org: org,
                viewer_sort_order: 1,
                remind_at: DateTime.to_iso8601(later)
              )
 
     assert snoozed.status == "todo"
-    refute Enum.any?(UserTasks.pending_reminders("Alice", org), &(&1.id == task.id))
+    refute Enum.any?(UserTasks.pending_reminders("Alice", org), &(&1.slug == task.slug))
 
     assert {:ok, done} =
-             UserTasks.resolve(task.id, "Alice", "done", org: org, viewer_sort_order: 1)
+             UserTasks.resolve(task.slug, "Alice", "done", org: org, viewer_sort_order: 1)
 
     assert done.status == "done"
   end

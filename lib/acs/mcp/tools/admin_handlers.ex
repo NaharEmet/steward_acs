@@ -26,8 +26,7 @@ defmodule Acs.MCP.Tools.AdminHandlers do
                key_prefix: dev.key_prefix,
                developer_name: dev.developer_name,
                role: dev.role,
-               org: dev.org,
-               id: dev.id
+               org: dev.org
              }}
 
           {:error, reason} ->
@@ -43,7 +42,6 @@ defmodule Acs.MCP.Tools.AdminHandlers do
     entries =
       Enum.map(developers, fn dev ->
         %{
-          id: dev.id,
           developer_name: dev.developer_name,
           role: dev.role,
           org: dev.org,
@@ -58,16 +56,18 @@ defmodule Acs.MCP.Tools.AdminHandlers do
   end
 
   def revoke_key(args) do
-    id = Map.get(args, "id")
+    developer_name = Map.get(args, "developer_name")
 
-    if is_nil(id) or id == "" do
-      {:error, "id is required"}
+    if is_nil(developer_name) or developer_name == "" do
+      {:error, "developer_name is required"}
     else
-      case Developers.revoke(id, Map.get(args, "_auth_org_id", Acs.Org.current())) do
+      case Developers.revoke_by_name(
+             developer_name,
+             Map.get(args, "_auth_org_id", Acs.Org.current())
+           ) do
         {:ok, dev} ->
           {:ok,
            %{
-             id: dev.id,
              developer_name: dev.developer_name,
              active: dev.active,
              status: "revoked"
@@ -100,7 +100,6 @@ defmodule Acs.MCP.Tools.AdminHandlers do
           {:ok, org} ->
             {:ok,
              %{
-               id: org.id,
                name: org.name,
                slug: org.slug,
                subdomain: org.subdomain,

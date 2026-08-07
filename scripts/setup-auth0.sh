@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Configure Auth0 tenant for Claude + ChatGPT MCP Connectors (Steward ACS).
+# Configure Auth0 tenant for Claude + ChatGPT + OpenCode MCP Connectors (Steward ACS).
 #
 # Required env:
 #   AUTH0_M2M_CLIENT_ID      Machine-to-Machine app client ID
@@ -12,7 +12,7 @@
 #   AUTH0_USER_PASSWORD        ignored for passwordless; only used if AUTH0_DB_CONNECTION is a DB conn
 #   AUTH0_DB_CONNECTION        default: email (passwordless OTP via New Universal Login)
 #   SKIP_CLAUDE_APP            set to 1 to skip manual Claude OAuth app creation
-#   OAUTH_FIXED_DCR_CLIENT_ID  ACS fixed DCR Auth0 app — ChatGPT/Claude callbacks synced here
+#   OAUTH_FIXED_DCR_CLIENT_ID  ACS fixed DCR Auth0 app — ChatGPT/Claude/OpenCode callbacks synced here
 #   CHATGPT_EXTRA_CALLBACKS    space-separated extra ChatGPT redirect URIs (Apps SDK per-app URLs)
 #
 # Login model (Claude/ChatGPT Connectors + Steward web):
@@ -24,7 +24,7 @@
 # Fixed DCR note:
 #   ACS `/oidc/register` returns OAUTH_FIXED_DCR_CLIENT_ID for every connector.
 #   Auth0 still validates redirect_uri against that app's Allowed Callback URLs.
-#   Claude alone is not enough — ChatGPT must be allowlisted on the same client.
+#   Claude alone is not enough — ChatGPT and OpenCode must be allowlisted too.
 #
 set -euo pipefail
 
@@ -33,6 +33,8 @@ AUDIENCE="${AUTH0_AUDIENCE:-https://prod.stewardacs.xyz/mcp/sse}"
 MGMT_AUDIENCE="https://${DOMAIN}/api/v2/"
 DB_CONNECTION="${AUTH0_DB_CONNECTION:-email}"
 CLAUDE_CALLBACK="https://claude.ai/api/mcp/auth_callback"
+# OpenCode remote MCP OAuth redirect (fixed port 19876, path /mcp/oauth/callback).
+OPENCODE_CALLBACK="http://127.0.0.1:19876/mcp/oauth/callback"
 # ChatGPT connector + Apps manage redirects (OpenAI docs / Auth0 MCP guides).
 # Per-app Apps SDK URLs look like https://chatgpt.com/connector/oauth/{id} —
 # Auth0 has no path wildcards; pass those via CHATGPT_EXTRA_CALLBACKS.
@@ -42,7 +44,7 @@ CHATGPT_CALLBACKS=(
 )
 # shellcheck disable=SC2206
 CHATGPT_EXTRA_CALLBACKS=( ${CHATGPT_EXTRA_CALLBACKS:-} )
-CONNECTOR_CALLBACKS=("$CLAUDE_CALLBACK" "${CHATGPT_CALLBACKS[@]}" "${CHATGPT_EXTRA_CALLBACKS[@]}")
+CONNECTOR_CALLBACKS=("$CLAUDE_CALLBACK" "$OPENCODE_CALLBACK" "${CHATGPT_CALLBACKS[@]}" "${CHATGPT_EXTRA_CALLBACKS[@]}")
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; NC='\033[0m'
 info()  { echo -e "${CYAN}[auth0]${NC} $*"; }
@@ -326,7 +328,7 @@ for c in json.load(sys.stdin):
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi
 
-info "Ensuring Claude + ChatGPT callbacks on fixed/connector Auth0 apps..."
+info "Ensuring Claude + ChatGPT + OpenCode callbacks on fixed/connector Auth0 apps..."
 for CID in $(api GET "/clients?fields=client_id,name&include_fields=true&per_page=100" | python3 -c "
 import sys, json
 names = {'Claude.ai MCP', 'steward_acs_mcp'}
@@ -427,7 +429,7 @@ echo ""
 ok "Auth0 setup complete for ${DOMAIN}"
 echo "  MCP API:     ${AUDIENCE}"
 echo "  DCR:         enabled"
-echo "  Callbacks:   Claude + ChatGPT (fixed DCR client must allow both)"
+echo "  Callbacks:   Claude + ChatGPT + OpenCode (fixed DCR client must allow all)"
 echo "  Login:       Identifier First + email OTP and/or Google (no connection= pin)"
 echo "  Identity:    ACS relinks by verified email across Auth0 connections"
 echo "  RBAC:        enabled with mcp:tools"

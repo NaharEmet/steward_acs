@@ -70,4 +70,20 @@ defmodule Acs.MCP.Tools.AgentIdentityTest do
     assert packet.agent_identity =~ "nahar-dev"
     assert packet.get_started =~ "Connected user: \"nahar-dev\""
   end
+
+  test "local mode coding get_started has no default agent identity (self-identify)" do
+    assert {:ok, packet} =
+             Tools.call_tool("get_started", %{
+               "audience" => "coding",
+               "_auth_role" => "admin",
+               "_auth_audience" => "coding"
+             })
+
+    assert packet.connected_user == nil
+    assert packet.authenticated_as == nil
+    assert packet.your_agent_id == nil
+    assert packet.agent_identity =~ "self-identify"
+    assert packet.agent_identity =~ "your_name"
+    assert packet.get_started =~ "your_name"
+  end
 end

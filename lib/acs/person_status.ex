@@ -102,7 +102,6 @@ defmodule Acs.PersonStatus do
     level = AuthorityLevels.get_by_slug(p.org, p.rank)
 
     %{
-      id: p.id,
       org: p.org,
       email: p.email,
       name: p.name,

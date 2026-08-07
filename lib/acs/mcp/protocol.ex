@@ -331,17 +331,32 @@ defmodule Acs.MCP.Protocol do
         do: analysis_org(name, requested_arguments, agent_org_id, agent_permissions),
         else: agent_org_id
 
+    coding_self_identify? =
+      audience == :coding and not Acs.Org.multi_tenant?() and agent_role == "admin"
+
     agent_id =
-      if usable_agent_identity?(agent_identity) do
-        agent_identity
-      else
-        Acs.MCP.ClientSession.get_or_assign_agent_name()
+      cond do
+        coding_self_identify? ->
+          nil
+
+        usable_agent_identity?(agent_identity) ->
+          agent_identity
+
+        true ->
+          Acs.MCP.ClientSession.get_or_assign_agent_name()
       end
 
     attribution_id =
-      if usable_agent_identity?(agent_identity),
-        do: agent_identity,
-        else: Acs.Org.developer_name()
+      cond do
+        coding_self_identify? ->
+          Acs.Org.usable_developer_name() || Acs.Org.developer_name()
+
+        usable_agent_identity?(agent_identity) ->
+          agent_identity
+
+        true ->
+          Acs.Org.developer_name()
+      end
 
     auth_context = %{
       credential_org: agent_org_id,
@@ -491,11 +506,27 @@ defmodule Acs.MCP.Protocol do
       """
       |> String.trim()
 
-    if usable_agent_identity?(agent_identity) do
-      base <>
-        " Connected as \"#{agent_identity}\" (acs_dev_ developer_name or OAuth display name). get_started returns connected_user — use that name when asking for this person's memories."
-    else
-      base
+    cond do
+      not Acs.Org.multi_tenant?() ->
+        owner =
+          case Acs.Org.usable_developer_name() do
+            name when is_binary(name) ->
+              " Workspace owner: \"#{name}\" (attribution; use it when asking for this person's memories)."
+
+            _ ->
+              ""
+          end
+
+        base <>
+          " Local mode: no default agent identity — register via get_present_status(agent_id: your_name) and pass that agent_id to task tools." <>
+          owner
+
+      usable_agent_identity?(agent_identity) ->
+        base <>
+          " Connected as \"#{agent_identity}\" (acs_dev_ developer_name or OAuth display name). get_started returns connected_user — use that name when asking for this person's memories."
+
+      true ->
+        base
     end
   end
 

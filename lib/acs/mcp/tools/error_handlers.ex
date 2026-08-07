@@ -21,6 +21,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
   """
   alias Acs.Acs.TaskCompletionFeedback, as: FeedbackSchema
 
+  import Ecto.Query, only: [from: 2]
   require Logger
 
   def acs_submit_task_feedback(args) do
@@ -89,7 +90,6 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
 
         {:ok,
          %{
-           feedback_id: feedback.id,
            message: "Feedback submitted. Thanks for helping improve Steward."
          }}
 
@@ -113,6 +113,7 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
       |> maybe_put_option(:limit, args["limit"])
 
     traces = Acs.MCP.ErrorTrace.list_traces(opts)
+    slug_by_id = task_slug_by_id(Enum.map(traces, & &1.task_id))
 
     formatted =
       Enum.map(traces, fn t ->
@@ -125,13 +126,30 @@ defmodule Acs.MCP.Tools.ErrorHandlers do
           sample_message: t.sample_message,
           count: t.count,
           status: t.status,
-          task_id: t.task_id,
+          task_id: Map.get(slug_by_id, t.task_id),
           level: t.level,
           last_seen_at: t.last_seen_at
         }
       end)
 
     {:ok, %{traces: formatted, total: length(formatted)}}
+  end
+
+  # Resolve raw task UUIDs to their public slugs so agents never see DB ids.
+  # Unresolvable/missing task references return nil instead of the internal id.
+  defp task_slug_by_id(task_ids) when is_list(task_ids) do
+    ids = Enum.reject(task_ids, &is_nil/1)
+
+    if ids == [] do
+      %{}
+    else
+      Acs.Repo.all(
+        from t in Acs.Acs.Task,
+          where: t.id in ^ids and t.org == ^Acs.Org.current(),
+          select: {t.id, t.slug}
+      )
+      |> Map.new()
+    end
   end
 
   @doc """

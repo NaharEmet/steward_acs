@@ -508,7 +508,7 @@ defmodule Acs.MCP.Tools.ChatSurface do
   defp resolve_reminder_properties do
     %{
       "action" => enum("resolve_reminder"),
-      "task_id" => string("Reminder task ID"),
+      "task_id" => string("Reminder task slug"),
       "outcome" => %{"type" => "string", "enum" => ["done", "dismiss", "remind_later"]},
       "remind_at" => string("Required for remind_later")
     }

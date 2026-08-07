@@ -410,15 +410,25 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   end
 
   defp coding_identity_guidance(_nil) do
-    case Acs.Org.usable_developer_name() do
-      name when is_binary(name) ->
-        "Using developer name \"#{name}\" (from ACS_DEVELOPER_NAME / signup / Settings). Prod equivalent: acs_dev_ key with that developer_name."
+    if Acs.Org.multi_tenant?() do
+      case Acs.Org.usable_developer_name() do
+        name when is_binary(name) ->
+          "Using developer name \"#{name}\" (from ACS_DEVELOPER_NAME / signup / Settings). Prod equivalent: acs_dev_ key with that developer_name."
 
-      nil ->
-        """
-        No named coding identity yet. Do NOT invent or reuse one — \"unknown\" is rejected. Ask the human their name, then tell them to set it and restart: (1) set ACS_DEVELOPER_NAME=TheirName in their .env (or bin/setup.sh) and restart the server, or (2) use the web UI Settings → Coding identity → enter their name → Save name. Prod/remote path: mint an acs_dev_ key with that developer_name (generate_developer_key(name:, role: \"admin\")) and put it in Cursor mcp.json as x-api-key. Until they set one, get_present_status assigns a pool name (Alice/Yara/…).
-        """
-        |> String.trim()
+        nil ->
+          """
+          No named coding identity yet. Do NOT invent or reuse one — \"unknown\" is rejected. Ask the human their name, then tell them to set it and restart: (1) set ACS_DEVELOPER_NAME=TheirName in their .env (or bin/setup.sh) and restart the server, or (2) use the web UI Settings → Coding identity → enter their name → Save name. Prod/remote path: mint an acs_dev_ key with that developer_name (generate_developer_key(name:, role: \"admin\")) and put it in Cursor mcp.json as x-api-key. Until they set one, get_present_status assigns a pool name (Alice/Yara/…).
+          """
+          |> String.trim()
+      end
+    else
+      owner =
+        case Acs.Org.usable_developer_name() do
+          name when is_binary(name) -> name
+          _ -> "not set"
+        end
+
+      "Local mode: agents self-identify — there is no default agent identity. Register with get_present_status(agent_id: your_name) and pass that agent_id to every task tool. Workspace owner: \"#{owner}\" — include it in ask()/content_query when retrieving that person's memories (saved learnings attribute to the workspace owner)."
     end
   end
 
@@ -427,7 +437,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
   end
 
   defp coding_get_started_steps(_nil) do
-    "1) `get_present_status(agent_id: \"\")` — register (use returned assigned_agent_id)  2) `create_work(agent_id, title, claim: true)` — create + claim  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check specs/documents  5) `lock_file` files  6) do work  7) pick one save: `skill_save` (how-to) | `specs_propose` document_type+content (long doc) | `specs_propose` purpose/invariants (code spec) | `save_memory` (short truth)  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last"
+    "1) `get_present_status(agent_id: \"your_name\")` — register under your own agent name (or \"\" for a pool-assigned name; returns assigned_agent_id)  2) `create_work(agent_id, title, claim: true)` — create + claim, passing your registered agent_id on every task tool  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check specs/documents  5) `lock_file` files  6) do work  7) pick one save: `skill_save` (how-to) | `specs_propose` document_type+content (long doc) | `specs_propose` purpose/invariants (code spec) | `save_memory` (short truth)  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last"
   end
 
   defp connected_user_from_args(args) when is_map(args) do
@@ -572,12 +582,11 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     {:ok,
      Enum.map(locks, fn l ->
        %{
-         id: l.id,
          file_path: l.file_path,
          locked_by_agent: l.locked_by_agent,
          locked_at: l.locked_at,
          auto_release_at: l.auto_release_at,
-         task_id: Map.get(slug_by_id, l.task_id, l.task_id)
+         task_id: Map.get(slug_by_id, l.task_id)
        }
      end)}
   end
@@ -623,6 +632,7 @@ defmodule Acs.MCP.Tools.CoreHandlers do
             description: t.description,
             status: t.status,
             kind: Map.get(t, :kind) || "coordination",
+            created_by_agent: t.created_by_agent,
             locked_by_agent: t.locked_by_agent
           }
         end)

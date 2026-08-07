@@ -7,6 +7,10 @@
         "x-api-key": "<local-acs-api-key>"
       }
     },
+    "steward": {
+      "type": "http",
+      "url": "https://anantha.stewardacs.xyz/mcp/sse"
+    },
     "infisical": {
       "command": "npx",
       "args": ["-y", "@infisical/mcp"],

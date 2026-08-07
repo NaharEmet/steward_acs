@@ -243,7 +243,6 @@ defmodule Acs.AuthorityLevels do
 
   def to_map(%AuthorityLevel{} = level) do
     %{
-      id: level.id,
       org: level.org,
       slug: level.slug,
       label: level.label,

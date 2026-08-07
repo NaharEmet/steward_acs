@@ -1,6 +1,6 @@
 {
   "name": "Steward ACS \u2014 server",
-  "description": "Host CPU/memory/disk/network (OTel hostmetrics) plus BEAM vm.metrics from the ACS Events dataset.",
+  "description": "Host CPU/memory/disk/network (OTel hostmetrics) plus BEAM vm.metrics from the ACS Events dataset. Heartbeat gaps = downtime; vm.jump events = sudden metric jumps.",
   "owner": "X-AXIOM-EVERYONE",
   "refreshTime": 60,
   "schemaVersion": 2,
@@ -77,6 +77,31 @@
       "query": {
         "apl": "['__EVENTS_DATASET__']\n| where ['message'] == \"vm.metrics\"\n| summarize v=avg(['cgroup_cpu_utilization'])"
       }
+    },
+    {
+      "id": "heartbeat",
+      "type": "TimeSeries",
+      "name": "Heartbeat (vm.metrics count) \u2014 gaps = downtime",
+      "query": {
+        "apl": "['__EVENTS_DATASET__']\n| where ['message'] == \"vm.metrics\"\n| summarize c=count() by bin(_time, 1m)"
+      }
+    },
+    {
+      "id": "heartbeat_latest",
+      "type": "Statistic",
+      "name": "Latest heartbeat (freeze = down)",
+      "colorScheme": "Green",
+      "query": {
+        "apl": "['__EVENTS_DATASET__']\n| where ['message'] == \"vm.metrics\"\n| summarize v=max(_time)"
+      }
+    },
+    {
+      "id": "jumps",
+      "type": "TimeSeries",
+      "name": "Metric jumps (vm.jump)",
+      "query": {
+        "apl": "['__EVENTS_DATASET__']\n| where ['message'] == \"vm.jump\"\n| summarize c=count() by bin(_time, 1m)"
+      }
     }
   ],
   "layout": [
@@ -133,6 +158,27 @@
       "i": "cgroup_stat",
       "x": 10,
       "y": 6,
+      "w": 2,
+      "h": 3
+    },
+    {
+      "i": "heartbeat",
+      "x": 0,
+      "y": 9,
+      "w": 8,
+      "h": 3
+    },
+    {
+      "i": "heartbeat_latest",
+      "x": 8,
+      "y": 9,
+      "w": 2,
+      "h": 3
+    },
+    {
+      "i": "jumps",
+      "x": 10,
+      "y": 9,
       "w": 2,
       "h": 3
     }

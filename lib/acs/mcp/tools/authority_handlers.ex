@@ -95,7 +95,6 @@ defmodule Acs.MCP.Tools.AuthorityHandlers do
           {:ok,
            %{
              status: "ok",
-             user_id: user.id,
              email: user.email,
              authority_level_slug: user.authority_level_slug
            }}

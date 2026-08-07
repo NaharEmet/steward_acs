@@ -91,6 +91,7 @@ defmodule Acs.Specs.ToolsTest do
       refute Map.has_key?(doc, "tags")
       refute Map.has_key?(doc, "status")
       refute Map.has_key?(doc, "document_type")
+      assert File.exists?(Acs.Specs.Loader.file_path("test", "documents/policy/fetch-clean"))
     end
 
     test "returns nil for non-existent spec" do

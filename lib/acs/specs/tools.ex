@@ -158,7 +158,7 @@ defmodule Acs.Specs.Tools do
   defp specs_propose(args) do
     ctx = Abac.from_args(args)
 
-    with :ok <- require_params!(args, ~w(app path)),
+    with :ok <- require_write_params!(args),
          attrs =
            args
            |> Map.drop(["app", "path"])
@@ -558,6 +558,18 @@ defmodule Acs.Specs.Tools do
           {:cont, :ok}
       end
     end)
+  end
+
+  defp require_write_params!(args) do
+    case require_params!(args, ~w(app path)) do
+      :ok ->
+        :ok
+
+      {:error, message} ->
+        {:error,
+         "#{message}. Missing app/path directories are created automatically; " <>
+           "use query_specs to discover valid existing app/path options."}
+    end
   end
 
   defp default_lib_dir do

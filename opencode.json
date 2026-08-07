@@ -1,4 +1,27 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["./.opencode/plugins/ponytail.mjs"]
+  "plugin": ["./.opencode/plugins/ponytail.mjs"],
+  "mcp": {
+    "axiom": {
+      "type": "remote",
+      "url": "https://mcp.axiom.co/mcp",
+      "enabled": true
+    },
+    "neon": {
+      "type": "remote",
+      "url": "https://mcp.neon.tech/mcp",
+      "enabled": true
+    },
+    "infisical": {
+      "type": "local",
+      "command": ["npx", "-y", "@infisical/mcp"],
+      "enabled": true,
+      "environment": {
+        "INFISICAL_HOST_URL": "https://app.infisical.com",
+        "INFISICAL_AUTH_METHOD": "universal-auth",
+        "INFISICAL_UNIVERSAL_AUTH_CLIENT_ID": "{file:.opencode/infisical-client-id}",
+        "INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET": "{file:.opencode/infisical-client-secret}"
+      }
+    }
+  }
 }
