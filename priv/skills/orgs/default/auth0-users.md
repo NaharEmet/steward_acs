@@ -29,7 +29,7 @@ Prod tenant: `dev-jw5wgp2b.us.auth0.com`
 MCP API audience: `https://prod.stewardacs.xyz/mcp/sse`  
 Required permission: `mcp:tools` (via **MCP User** role)
 
-**Fixed DCR:** ACS `/oidc/register` always returns `OAUTH_FIXED_DCR_CLIENT_ID` (prod: `0Qt3zP1YbyjtVN9zRf2cN7Pt39NhkHp0`). Auth0 still checks `redirect_uri` against that app's Allowed Callback URLs — Claude alone is not enough for ChatGPT.
+**Fixed DCR:** ACS `/oidc/register` always returns `OAUTH_FIXED_DCR_CLIENT_ID` (prod: `0Qt3zP1YbyjtVN9zRf2cN7Pt39NhkHp0`). Auth0 still checks `redirect_uri` against that app's Allowed Callback URLs — every connector's URI must be in the **Connector Callback Registry** in `scripts/setup-auth0.sh` (see Fix section).
 
 ## Login model
 
@@ -97,25 +97,26 @@ Script enables `google-oauth2` on web + Claude named apps + fixed DCR client. It
 
 ---
 
-## Fix ChatGPT "Callback URL mismatch" (prod)
+## Fix "Callback URL mismatch" (any connector, prod)
+
+Auth0 validates `redirect_uri` against the **fixed DCR** app's Allowed Callback URLs — the DCR-echoed `redirect_uris` are ignored. Every connector (Claude, ChatGPT, OpenCode, new IDEs) must be in the **Connector Callback Registry** in `scripts/setup-auth0.sh`.
 
 ### Steps
 
 1. Confirm the fixed client: `curl -sS -X POST https://prod.stewardacs.xyz/oidc/register -H 'content-type: application/json' -d '{"client_name":"diag","redirect_uris":["https://chatgpt.com/connector_platform_oauth_redirect"]}'` → note `client_id`.
-2. Auth0 Dashboard → **Applications** → that client (or search by client_id) → **Settings** → **Allowed Callback URLs**.
-3. Ensure these are present (comma-separated with Claude's URL):
-   - `https://claude.ai/api/mcp/auth_callback`
-   - `https://chatgpt.com/connector_platform_oauth_redirect`
-   - `https://platform.openai.com/apps-manage/oauth`
-4. If ChatGPT shows a per-app URL like `https://chatgpt.com/connector/oauth/<id>`, add that exact URL too (Auth0 has no path wildcards).
-5. Save → remove + re-add the ChatGPT connector → sign in again.
+2. Verify the exact `redirect_uri` the client sent in Auth0 logs (`Monitoring → Logs`, type `f`).
+3. Add it to the registry in `scripts/setup-auth0.sh`, or pass it ad-hoc: `EXTRA_CONNECTOR_CALLBACKS='<uri>' ./scripts/setup-auth0.sh`.
+4. Known URIs: `https://claude.ai/api/mcp/auth_callback`, `https://chatgpt.com/connector_platform_oauth_redirect`, `https://platform.openai.com/apps-manage/oauth`, OpenCode `http://127.0.0.1:19876/mcp/oauth/callback`. ChatGPT per-app URLs look like `https://chatgpt.com/connector/oauth/<id>` (Auth0 has no path wildcards — add the exact URL).
+5. Re-run `./scripts/setup-auth0.sh` (idempotent) → remove + re-add the connector → sign in again.
 
 ### Script path (when M2M works)
 
 ```bash
 export OAUTH_FIXED_DCR_CLIENT_ID=0Qt3zP1YbyjtVN9zRf2cN7Pt39NhkHp0
-# optional Apps SDK URL:
-# export CHATGPT_EXTRA_CALLBACKS='https://chatgpt.com/connector/oauth/<id>'
+# dry-run (no changes): verify all connector callbacks are allowlisted
+SKIP_CLAUDE_APP=1 ./scripts/setup-auth0.sh --check
+# optional per-app URL (ChatGPT Apps SDK etc.):
+# export EXTRA_CONNECTOR_CALLBACKS='https://chatgpt.com/connector/oauth/<id>'
 SKIP_CLAUDE_APP=1 ./scripts/setup-auth0.sh
 ```
 
@@ -205,7 +206,7 @@ Revoke active sessions: disconnect the connector in Claude/ChatGPT; tokens expir
 | No Google button on Universal Login | Create/enable Google social connection; enable it on **web** + **fixed DCR** apps; leave `AUTH0_CONNECTION` unset. See Enable Google section. |
 | `the connection is not enabled` for Google | Enable `google-oauth2` on that Auth0 application (Applications tab on the connection). |
 | Google works on web but not MCP (or reverse) | Different Auth0 apps — enable Google on **both** `AUTH0_WEB_CLIENT_ID` and `OAUTH_FIXED_DCR_CLIENT_ID`. |
-| Auth0 **Callback URL mismatch** / redirect_uri not allowed (esp. ChatGPT, OpenCode) | Add the client's redirect URI to the **fixed DCR** Auth0 app (`OAUTH_FIXED_DCR_CLIENT_ID`). See section above. ACS DCR echoes redirect_uris but Auth0 enforces the app allowlist. ChatGPT Apps SDK URLs look like `https://chatgpt.com/connector/oauth/<id>`; **OpenCode** uses the fixed `http://127.0.0.1:19876/mcp/oauth/callback`. Check Auth0 logs `type:f` for the exact URI. |
+| Auth0 **Callback URL mismatch** / redirect_uri not allowed (any connector) | Add the client's redirect URI to the **Connector Callback Registry** in `scripts/setup-auth0.sh` (or `EXTRA_CONNECTOR_CALLBACKS='<uri>'`), then re-run it; verify with `./scripts/setup-auth0.sh --check`. Auth0 enforces the allowlist on the fixed DCR app (`OAUTH_FIXED_DCR_CLIENT_ID`), not the echoed DCR redirect_uris. Known URIs: ChatGPT `https://chatgpt.com/connector_platform_oauth_redirect` (+ per-app `https://chatgpt.com/connector/oauth/<id>`), OpenCode `http://127.0.0.1:19876/mcp/oauth/callback`. Check Auth0 logs `type:f` for the exact URI. |
 | Auth0 “Oops” / `Service not found: https://{org}.stewardacs.xyz/mcp/sse` | Self-serve orgs are **not** in `priv/orgs.yaml`. Caddy still sends that host as `audience`, so Auth0 needs an API for every org. Fix now: `EXTRA_ORG_SLUGS=anantha ./scripts/ensure-auth0-org-audiences.sh`. Going forward: set `AUTH0_MGMT_*` in Infisical — `Acs.Auth0.OrgAudience` runs on org provision. |
 | `invalid_request: ID First not enabled for the client` | Enable Identifier First: Auth0 → Authentication → Authentication Profile, or `PATCH /api/v2/prompts` with `identifier_first: true`. Re-run `./scripts/setup-auth0.sh`. |
 | Auth0 “Oops” + password form | Password DB must **not** be domain-level; email passwordless **must** be. Do not enable Username-Password for connector/web clients. |

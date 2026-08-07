@@ -13,6 +13,8 @@ defmodule Acs.Memory.Indexer do
 
   require Logger
 
+  @status_types Acs.Governance.Status.primary_statuses() ++ ~w(stale archived parse_error)
+
   @doc """
   Syncs all memory files into the SQLite index.
   Returns {:ok, count, quarantined} where count is number of synced
@@ -224,7 +226,7 @@ defmodule Acs.Memory.Indexer do
   Optionally scoped to an org.
   """
   def update_status(memory_id, new_status, org \\ Acs.Org.current())
-      when new_status in ~w(proposed approved rejected stale deprecated archived parse_error) do
+      when new_status in @status_types do
     if Acs.Org.multi_tenant?() do
       {:error, "Direct status updates are disabled in multi-tenant mode"}
     else

@@ -9,6 +9,8 @@ defmodule Acs.Memory.Store do
 
   alias Acs.Memory.{Indexer, Ledger, Loader}
 
+  @status_types Acs.Governance.Status.primary_statuses() ++ ~w(stale archived parse_error)
+
   @doc "Persist a memory through the backend selected by deployment mode."
   def save(%Acs.Memory{} = memory, opts \\ []) do
     if Acs.Org.multi_tenant?() do
@@ -41,11 +43,12 @@ defmodule Acs.Memory.Store do
 
   @doc "Create an immutable status transition (or update the canonical file locally)."
   def transition(memory_id, status, opts \\ [])
-      when status in ~w(proposed approved rejected stale deprecated archived parse_error) do
+      when status in @status_types do
     org = Keyword.get(opts, :org, Acs.Org.current())
 
     with %Acs.Memory.Schema{} = schema <-
            Indexer.get_memory(memory_id, org) || {:error, :not_found},
+         :ok <- validate_transition(schema.status, status),
          :ok <- require_ledger_head(schema) do
       now = DateTime.utc_now() |> DateTime.to_iso8601()
       reason = Keyword.get(opts, :reason)
@@ -103,6 +106,15 @@ defmodule Acs.Memory.Store do
           &Map.merge(&1, %{status: status, reason: reason})
         )
       )
+    end
+  end
+
+  defp validate_transition(from, to) do
+    if Acs.Governance.Status.primary?(from) and Acs.Governance.Status.primary?(to) and
+         not Acs.Governance.Status.transition_allowed?(from, to) do
+      {:error, :invalid_governance_transition}
+    else
+      :ok
     end
   end
 

@@ -56,26 +56,73 @@ defmodule Acs.MCP.ClientSession do
     get_or_assign_agent_name(current_id())
   end
 
-  def get_or_assign_agent_name(session_id) when is_binary(session_id) do
-    with {:ok, data} <- fetch(session_id),
+  def get_or_assign_agent_name(key) when is_binary(key) do
+    pool_agent_name(key)
+  end
+
+  def get_or_assign_agent_name(_), do: nil
+
+  @doc """
+  Get or assign a pool-based agent name qualified with the human user's
+  name (e.g. `nahar_alice`) for the current session.
+
+  Used in multi-tenant prod so a single human can run several coding
+  agents at a time — each session gets its own `user_pool` agent name.
+  """
+  def get_or_assign_qualified_agent_name(prefix) when is_binary(prefix) and prefix != "" do
+    get_or_assign_qualified_agent_name(prefix, current_id() || agent_key(prefix))
+  end
+
+  def get_or_assign_qualified_agent_name(prefix, key)
+      when (is_binary(key) or is_tuple(key)) and not is_nil(key) do
+    with {:ok, data} <- fetch(key),
+         name when is_binary(name) and name != "" <- Map.get(data, :qualified_agent_name) do
+      name
+    else
+      _ ->
+        pool_name = pool_agent_name(key)
+        qualified = "#{normalize_user_prefix(prefix)}_#{pool_name}"
+
+        with {:ok, data} <- fetch(key) do
+          put(key, Map.put(data, :qualified_agent_name, qualified))
+        else
+          _ -> put(key, %{qualified_agent_name: qualified})
+        end
+
+        qualified
+    end
+  end
+
+  def get_or_assign_qualified_agent_name(_prefix, _key), do: nil
+
+  defp pool_agent_name(key) do
+    with {:ok, data} <- fetch(key),
          name when is_binary(name) and name != "" <- Map.get(data, :agent_name) do
       name
     else
       _ ->
         pool_name = Acs.Acs.Cache.get_and_increment_agent_index()
 
-        with {:ok, data} <- fetch(session_id) do
-          merged = Map.put(data, :agent_name, pool_name)
-          put(session_id, merged)
+        with {:ok, data} <- fetch(key) do
+          put(key, Map.put(data, :agent_name, pool_name))
         else
-          _ -> put(session_id, %{agent_name: pool_name})
+          _ -> put(key, %{agent_name: pool_name})
         end
 
         pool_name
     end
   end
 
-  def get_or_assign_agent_name(_), do: nil
+  defp normalize_user_prefix(prefix) do
+    case prefix
+         |> String.trim()
+         |> String.downcase()
+         |> String.replace(~r/[^a-z0-9]+/, "_")
+         |> String.trim("_") do
+      "" -> "user"
+      normalized -> normalized
+    end
+  end
 
   @doc """
   Resolve audience for the current request.

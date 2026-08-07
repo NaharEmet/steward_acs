@@ -217,7 +217,7 @@ defmodule Acs.Specs.ToolsTest do
   end
 
   describe "specs_reject" do
-    test "rejects a proposed spec back to under_review" do
+    test "rejects a proposed spec" do
       propose_spec()
 
       assert {:ok, entry} =
@@ -226,7 +226,7 @@ defmodule Acs.Specs.ToolsTest do
                  "path" => "my/module"
                })
 
-      assert entry["status"] == "under_review"
+      assert entry["status"] == "rejected"
     end
 
     test "returns error for non-existent spec" do

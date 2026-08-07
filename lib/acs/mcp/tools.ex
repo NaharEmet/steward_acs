@@ -354,7 +354,7 @@ defmodule Acs.MCP.Tools do
       # Memory System Tools
       tool_def(
         "save_memory",
-        "Create a new proposed memory entry. Memories are ETERNAL TRUTHS — principles, invariants, or axioms that remain true and useful indefinitely. NOT events, not historical facts, not one-time occurrences. USE WHEN: you discover something that will stay relevant — a reusable learning, decision, pattern, invariant, or truth that other agents should know about forever. After completing significant work, save key insights so the collective knowledge grows. Returns proposed memory id and any conflict flags.\n\nTitle quality is critical: use a complete, specific statement that is self-explanatory without reading the content. Bad: \"Key learning from task abc123\" (tells you nothing). Good: \"HubSpot search API page_size = 200\" (tells you exactly what).\n\nContent must explain WHY, not just WHAT. A good memory reveals a non-obvious truth — something an agent would waste time discovering on their own. Content that just restates obvious code structure is noise.\n\nScope should match where the knowledge applies. Prefer specific code paths (lib/anantha_os/crm) over generic ones. One memory = one fact. Do not batch multiple unrelated learnings into one entry.\n\nExamples of GOOD memory topics:\n- \"LiveViews subscribing to PubSub must have catch-all handle_info to avoid crashes from unhandled messages\" — specific, actionable, explains why\n- \"The ACS loader extracts and indexes semantic content; it does NOT parse structural relationships\" — non-obvious, defines boundary\n- \"DynamicSupervisor children must have unique names or identical child specs will conflict\" — root cause pattern\n- \"HubSpot search API page_size = 200\" — exact number, saves debugging time\n- \"CRM error tuples must be propagated, not pattern-matched with _\" — concrete rule with rationale\n\nExamples of BAD memory topics (these are EVENTS, not eternal truths):\n- \"Fixed GenServer crashes in 3 ACS LiveViews\" (this is what you DID, not what you LEARNED)\n- \"Updated the memory schema on 2024-01-15\" (historical fact, will become stale)\n- \"Added new save_memory endpoint\" (one-time event, not a reusable principle)\n- \"Key learning from task abc123\" (vague — what was learned?)\n- \"ACS memory cleanup 2026-06-20\" (one-time event, not an eternal truth)\n\nWhat NOT to write:\n- Task feedback artifacts: \"Guidance rated as useful\" or \"Information gap identified\" — these belong in submit_task_feedback, not as eternal truths\n- Event logs: \"Fixed bug in X\", \"Added Y feature\", \"Cleanup on date Z\" — these are what happened, not what was learned\n- Obvious-from-code statements: restating what the code already makes clear (e.g., \"The function returns a tuple\") adds no value\n- Content too short to be useful: a single sentence with no why or context\n- Trivial or test-only content: patterns from test harnesses that don't apply to production code\n- Batch dumps: multiple unrelated learnings crammed into one entry — split them\n\nThe 'kind' field (e.g., observation, learning, warning, pattern, bug, decision, invariant, axiom) describes the TYPE of learning, but the CONTENT must always be an eternal truth or principle. Use `learning` for facts, `bug` for root cause patterns (not one-time fix notes), `pattern` for reusable approaches, `warning` for pitfalls, `decision` for tradeoffs, `axiom` only for truly foundational truths (rare).",
+        "Create a new proposed memory entry. Memories are stored in the database (append-only ledger); no filesystem directory setup is needed. Memories are ETERNAL TRUTHS — principles, invariants, or axioms that remain true and useful indefinitely. NOT events, not historical facts, not one-time occurrences. USE WHEN: you discover something that will stay relevant — a reusable learning, decision, pattern, invariant, or truth that other agents should know about forever. After completing significant work, save key insights so the collective knowledge grows. Returns proposed memory id and any conflict flags.\n\nTitle quality is critical: use a complete, specific statement that is self-explanatory without reading the content. Bad: \"Key learning from task abc123\" (tells you nothing). Good: \"HubSpot search API page_size = 200\" (tells you exactly what).\n\nContent must explain WHY, not just WHAT. A good memory reveals a non-obvious truth — something an agent would waste time discovering on their own. Content that just restates obvious code structure is noise.\n\nScope should match where the knowledge applies. Prefer specific code paths (lib/anantha_os/crm) over generic ones. One memory = one fact. Do not batch multiple unrelated learnings into one entry.\n\nExamples of GOOD memory topics:\n- \"LiveViews subscribing to PubSub must have catch-all handle_info to avoid crashes from unhandled messages\" — specific, actionable, explains why\n- \"The ACS loader extracts and indexes semantic content; it does NOT parse structural relationships\" — non-obvious, defines boundary\n- \"DynamicSupervisor children must have unique names or identical child specs will conflict\" — root cause pattern\n- \"HubSpot search API page_size = 200\" — exact number, saves debugging time\n- \"CRM error tuples must be propagated, not pattern-matched with _\" — concrete rule with rationale\n\nExamples of BAD memory topics (these are EVENTS, not eternal truths):\n- \"Fixed GenServer crashes in 3 ACS LiveViews\" (this is what you DID, not what you LEARNED)\n- \"Updated the memory schema on 2024-01-15\" (historical fact, will become stale)\n- \"Added new save_memory endpoint\" (one-time event, not a reusable principle)\n- \"Key learning from task abc123\" (vague — what was learned?)\n- \"ACS memory cleanup 2026-06-20\" (one-time event, not an eternal truth)\n\nWhat NOT to write:\n- Task feedback artifacts: \"Guidance rated as useful\" or \"Information gap identified\" — these belong in submit_task_feedback, not as eternal truths\n- Event logs: \"Fixed bug in X\", \"Added Y feature\", \"Cleanup on date Z\" — these are what happened, not what was learned\n- Obvious-from-code statements: restating what the code already makes clear (e.g., \"The function returns a tuple\") adds no value\n- Content too short to be useful: a single sentence with no why or context\n- Trivial or test-only content: patterns from test harnesses that don't apply to production code\n- Batch dumps: multiple unrelated learnings crammed into one entry — split them\n\nThe 'kind' field (e.g., observation, learning, warning, pattern, bug, decision, invariant, axiom) describes the TYPE of learning, but the CONTENT must always be an eternal truth or principle. Use `learning` for facts, `bug` for root cause patterns (not one-time fix notes), `pattern` for reusable approaches, `warning` for pitfalls, `decision` for tradeoffs, `axiom` only for truly foundational truths (rare).",
         %{
           "kind" => %{
             "type" => "string",
@@ -2206,6 +2206,7 @@ defmodule Acs.MCP.Tools do
       "Create or update a **spec** (code) or **document** (non-code); status → proposed. " <>
         "SPECS (code): purpose, invariants, workflows, failure_modes — or document_type \"spec\" + content. " <>
         "DOCUMENTS (outside code): document_type + title + content for policy, marketing, project briefs, knowledge files. " <>
+        specs_documents_storage_note() <>
         "USE WHEN: after code changes (spec) or when the user produced output to keep (document). " <>
         "When code and a module spec disagree, ask the user which to update."
 
@@ -2216,22 +2217,36 @@ defmodule Acs.MCP.Tools do
   defp documents_propose_description do
     "Save or update a long **document** in Steward (policy, brief, marketing, knowledge, process). " <>
       "Pass document_type + title + content. Prefer path under documents/<type>/<slug>. " <>
-      "Missing app/path directories are created automatically; if a target cannot be used, " <>
-      "call query_specs to discover valid existing app/path options. " <>
+      specs_documents_storage_note() <>
       "Chat-facing name for the document store (same backend as coding specs_propose). " <>
       "USE WHEN: user pastes/uploads a doc to keep, or after producing long shareable text. " <>
       "NOT for short eternal truths (save_memory) or step-by-step how-tos (skill_save)."
   end
 
+  defp specs_documents_storage_note do
+    if Acs.Org.multi_tenant?() do
+      "Specs and documents are stored in the database; no filesystem directory setup is needed. Use query_specs to discover valid existing app/path options. "
+    else
+      "Specs and documents are stored as local files; missing app/path directories are created automatically, so no manual directory setup is needed. If a target cannot be used, call query_specs to discover valid existing app/path options. "
+    end
+  end
+
   defp skill_save_description do
+    storage =
+      if Acs.Org.multi_tenant?() do
+        "Skills are stored as database records; no filesystem directory setup is needed. "
+      else
+        "Skills are stored as local Markdown files; the skills directory is created automatically when missing, so no manual directory setup is needed. If storage is unavailable, the error identifies the directory to use. "
+      end
+
     base =
       "Create or update a skill — a reusable step-by-step workflow for other agents. " <>
         "USE WHEN: you followed a repeatable multi-step procedure worth re-running " <>
         "(deploy, secrets, install, MCP sequence, debug playbook, ingest, review, support) — not a one-off patch note. " <>
         "NOT for one-line truths (use save_memory) or long shareable docs (use specs_propose/documents_propose). " <>
         "REQUIRES: name, description (one sentence, distinct from name), tags, scope_paths, " <>
-        "In local file-backed mode, the skills directory is created automatically when missing; " <>
-        "database-backed mode does not require a skills directory. Provide markdown content with numbered " <>
+        storage <>
+        "Provide markdown content with numbered " <>
         "steps, prerequisites, verification, and failure recovery. " <>
         "Intake is single-pass and defaults to allow; only returns needs_input for secrets, unusable content, or no followable steps. " <>
         "Retry once with fixes (or intake_confirmed: true). Lands as status: proposed for governance."

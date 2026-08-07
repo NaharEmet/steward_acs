@@ -10,6 +10,8 @@ defmodule Acs.Memory.Schema do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @status_types Acs.Governance.Status.primary_statuses() ++ ~w(stale archived parse_error)
+
   @derive {Jason.Encoder,
            only: [:id, :kind, :status, :title, :summary, :content, :scope_path, :importance]}
   @primary_key {:id, :string, []}
@@ -81,7 +83,7 @@ defmodule Acs.Memory.Schema do
     )
     |> validate_inclusion(
       :status,
-      ~w(proposed approved rejected stale deprecated archived parse_error)
+      @status_types
     )
   end
 end

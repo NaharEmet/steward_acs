@@ -15,9 +15,12 @@ defmodule Acs.Specs.Entry do
   (file path, URL, asset folder).
 
   Status lifecycle:
-    proposed → under_review → approved → deprecated
-                    ↓                    ↓
-               rejected           contradicted / runtime_divergent / historical
+    proposed → approved → deprecated
+         ↓
+      rejected
+
+  Audit-only states such as under_review, contradicted, runtime_divergent, and
+  historical may describe a document without being primary governance stages.
 
   Verification status per-spec confidence:
     confirmed | inferred | proposed | contested | unknown
@@ -141,7 +144,8 @@ defmodule Acs.Specs.Entry do
           quality_score: integer() | nil
         }
 
-  @valid_statuses ~w(proposed under_review approved deprecated contradicted runtime_divergent historical rejected)
+  @valid_statuses Acs.Governance.Status.primary_statuses() ++
+                    ~w(under_review contradicted runtime_divergent historical)
   @valid_verification_statuses ~w(confirmed inferred proposed contested unknown)
 
   @doc """

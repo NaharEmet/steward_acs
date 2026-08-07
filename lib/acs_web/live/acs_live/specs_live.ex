@@ -13,6 +13,7 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   require Logger
 
   alias Acs.Specs.Entry
+  alias Acs.Specs.Lineage
   alias Acs.Specs.Loader
   alias Acs.Specs.Search
   alias Acs.Abac
@@ -31,8 +32,11 @@ defmodule AcsWeb.AcsLive.SpecsLive do
         specs: [],
         stats: %{},
         selected_spec: nil,
+        selected_spec_keys: MapSet.new(),
+        replacement_candidates: [],
         status_filter: nil,
-        search_query: ""
+        search_query: "",
+        loading: connected?(socket)
       )
 
     socket =
@@ -100,8 +104,8 @@ defmodule AcsWeb.AcsLive.SpecsLive do
 
               {:noreply, socket}
 
-            {:error, reason} ->
-              {:noreply, put_flash(socket, :error, "Failed to approve: #{inspect(reason)}")}
+            {:error, _reason} ->
+              {:noreply, put_flash(socket, :error, "Could not approve this document. Try again.")}
           end
         else
           {:noreply,
@@ -112,8 +116,8 @@ defmodule AcsWeb.AcsLive.SpecsLive do
            )}
         end
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to load spec: #{inspect(reason)}")}
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not load this document. Try again.")}
     end
   end
 
@@ -123,20 +127,20 @@ defmodule AcsWeb.AcsLive.SpecsLive do
       {:ok, entry} ->
         if Abac.can_edit?(viewer_abac(socket), entry) do
           now = DateTime.utc_now() |> DateTime.to_iso8601()
-          updated = %{entry | status: "under_review", updated_at: now}
+          updated = %{entry | status: "rejected", updated_at: now}
 
           case Loader.save(updated) do
             :ok ->
               socket =
                 socket
-                |> put_flash(:info, "Spec '#{app}/#{id}' rejected (moved to under_review) ✗")
+                |> put_flash(:info, "Spec '#{app}/#{id}' rejected ✗")
                 |> assign(selected_spec: nil)
                 |> load_data()
 
               {:noreply, socket}
 
-            {:error, reason} ->
-              {:noreply, put_flash(socket, :error, "Failed to reject: #{inspect(reason)}")}
+            {:error, _reason} ->
+              {:noreply, put_flash(socket, :error, "Could not reject this document. Try again.")}
           end
         else
           {:noreply,
@@ -147,32 +151,17 @@ defmodule AcsWeb.AcsLive.SpecsLive do
            )}
         end
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to load spec: #{inspect(reason)}")}
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not load this document. Try again.")}
     end
   end
 
   @impl true
-  def handle_event("deprecate-spec", %{"app" => app, "id" => id}, socket) do
+  def handle_event("deprecate-spec", %{"app" => app, "id" => id} = params, socket) do
     case Loader.load(app, id) do
       {:ok, entry} ->
         if Abac.can_edit?(viewer_abac(socket), entry) do
-          now = DateTime.utc_now() |> DateTime.to_iso8601()
-          updated = %{entry | status: "deprecated", updated_at: now}
-
-          case Loader.save(updated) do
-            :ok ->
-              socket =
-                socket
-                |> put_flash(:info, "Spec '#{app}/#{id}' marked deprecated ⟳")
-                |> assign(selected_spec: nil)
-                |> load_data()
-
-              {:noreply, socket}
-
-            {:error, reason} ->
-              {:noreply, put_flash(socket, :error, "Failed to deprecate: #{inspect(reason)}")}
-          end
+          deprecate_with_replacement(socket, entry, params["replacement_id"])
         else
           {:noreply,
            put_flash(
@@ -182,15 +171,68 @@ defmodule AcsWeb.AcsLive.SpecsLive do
            )}
         end
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to load spec: #{inspect(reason)}")}
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not load this document. Try again.")}
+    end
+  end
+
+  defp deprecate_with_replacement(socket, entry, replacement_id) do
+    replacement =
+      Enum.find(socket.assigns.replacement_candidates, fn candidate ->
+        candidate.app <> "|" <> candidate.id == replacement_id
+      end)
+
+    case replacement do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Choose an approved replacement first.")}
+
+      replacement ->
+        if Abac.can_edit?(viewer_abac(socket), replacement) do
+          case Lineage.deprecate(entry, replacement) do
+            {:ok, deprecated, replacement} ->
+              case Loader.save(replacement) do
+                :ok ->
+                  case Loader.save(deprecated) do
+                    :ok ->
+                      {:noreply,
+                       socket
+                       |> put_flash(:info, "Document deprecated and linked to its replacement ⟳")
+                       |> assign(selected_spec: nil)
+                       |> load_data()}
+
+                    {:error, _reason} ->
+                      {:noreply,
+                       put_flash(socket, :error, "Could not save the deprecated document.")}
+                  end
+
+                {:error, _reason} ->
+                  {:noreply, put_flash(socket, :error, "Could not save the replacement link.")}
+              end
+
+            {:error, :entry_not_approved} ->
+              {:noreply, put_flash(socket, :error, "Only approved documents can be deprecated.")}
+
+            {:error, :replacement_not_approved} ->
+              {:noreply, put_flash(socket, :error, "The replacement must be approved first.")}
+
+            {:error, _reason} ->
+              {:noreply, put_flash(socket, :error, "Choose a different replacement document.")}
+          end
+        else
+          {:noreply,
+           put_flash(socket, :error, "Access denied: cannot edit the replacement document.")}
+        end
     end
   end
 
   @impl true
   def handle_event("filter-status", %{"status" => status}, socket) do
     filter = if status == "", do: nil, else: status
-    socket = assign(socket, status_filter: filter, selected_spec: nil) |> load_data()
+
+    socket =
+      assign(socket, status_filter: filter, selected_spec: nil, selected_spec_keys: MapSet.new())
+      |> load_data()
+
     count = length(socket.assigns.specs)
     socket = put_flash(socket, :info, "Filter: #{filter || "all"} — #{count} specs")
     {:noreply, socket}
@@ -198,8 +240,57 @@ defmodule AcsWeb.AcsLive.SpecsLive do
 
   @impl true
   def handle_event("search", %{"query" => query}, socket) do
-    socket = assign(socket, search_query: query, selected_spec: nil) |> load_data()
+    socket =
+      assign(socket, search_query: query, selected_spec: nil, selected_spec_keys: MapSet.new())
+      |> load_data()
+
     {:noreply, socket}
+  end
+
+  def handle_event("toggle-select", %{"app" => app, "id" => id}, socket) do
+    key = spec_key(app, id)
+    selected = socket.assigns.selected_spec_keys
+
+    selected =
+      if MapSet.member?(selected, key),
+        do: MapSet.delete(selected, key),
+        else: MapSet.put(selected, key)
+
+    {:noreply, assign(socket, selected_spec_keys: selected)}
+  end
+
+  def handle_event("clear-selection", _params, socket) do
+    {:noreply, assign(socket, selected_spec_keys: MapSet.new())}
+  end
+
+  def handle_event("approve-selected", _params, socket) do
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+    ctx = viewer_abac(socket)
+
+    approved =
+      socket.assigns.selected_spec_keys
+      |> MapSet.to_list()
+      |> Enum.map(&load_spec_key/1)
+      |> Enum.filter(fn
+        {:ok, entry} ->
+          entry.status in ["proposed", "under_review"] and Abac.can_edit?(ctx, entry)
+
+        _ ->
+          false
+      end)
+      |> Enum.count(fn {:ok, entry} ->
+        updated = %{entry | status: "approved", approved_by: "human", updated_at: now}
+        Loader.save(%{updated | spec_hash: Entry.compute_spec_hash(updated)}) == :ok
+      end)
+
+    {:noreply,
+     socket
+     |> assign(selected_spec_keys: MapSet.new(), selected_spec: nil)
+     |> put_flash(
+       :info,
+       "Approved #{approved} selected document#{if approved == 1, do: "", else: "s"}"
+     )
+     |> load_data()}
   end
 
   @impl true
@@ -239,8 +330,8 @@ defmodule AcsWeb.AcsLive.SpecsLive do
         socket = socket |> put_flash(:info, flash_msg) |> load_data()
         {:noreply, socket}
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to load specs: #{inspect(reason)}")}
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not refresh documents. Try again.")}
     end
   end
 
@@ -292,9 +383,9 @@ defmodule AcsWeb.AcsLive.SpecsLive do
     search_query = socket.assigns.search_query
     ctx = viewer_abac(socket)
 
-    specs =
+    all_specs =
       if search_query && search_query != "" do
-        case Search.search(search_query, status: socket.assigns.status_filter) do
+        case Search.search(search_query) do
           {:ok, entries} -> Abac.filter(entries, ctx)
           _ -> []
         end
@@ -303,14 +394,17 @@ defmodule AcsWeb.AcsLive.SpecsLive do
           {:ok, entries} ->
             entries
             |> Abac.filter(ctx)
-            |> maybe_filter_by_status_in_view(socket.assigns.status_filter)
 
           _ ->
             []
         end
       end
 
-    stats = compute_stats(specs)
+    specs = maybe_filter_by_status_in_view(all_specs, socket.assigns.status_filter)
+    stats = compute_stats(all_specs)
+
+    replacement_candidates =
+      Enum.filter(all_specs, fn entry -> entry.status == "approved" end)
 
     selected_spec =
       if socket.assigns.selected_spec do
@@ -319,10 +413,20 @@ defmodule AcsWeb.AcsLive.SpecsLive do
         end)
       end
 
-    assign(socket, specs: specs, stats: stats, selected_spec: selected_spec)
+    assign(socket,
+      specs: specs,
+      stats: stats,
+      selected_spec: selected_spec,
+      replacement_candidates: replacement_candidates,
+      loading: false
+    )
   end
 
   defp maybe_filter_by_status_in_view(entries, nil), do: entries
+
+  defp maybe_filter_by_status_in_view(entries, "proposed") do
+    Enum.filter(entries, fn e -> e.status in ["proposed", "under_review"] end)
+  end
 
   defp maybe_filter_by_status_in_view(entries, status) do
     Enum.filter(entries, fn e -> e.status == status end)
@@ -330,14 +434,45 @@ defmodule AcsWeb.AcsLive.SpecsLive do
 
   defp compute_stats(specs) do
     statuses =
-      ~w(proposed under_review approved deprecated contradicted runtime_divergent historical)
+      ~w(proposed under_review approved rejected deprecated contradicted runtime_divergent historical)
 
     base = Map.new(statuses, fn s -> {s, 0} end)
 
-    Enum.reduce(specs, Map.put(base, "total", length(specs)), fn entry, acc ->
-      status = entry.status || "unknown"
-      Map.update(acc, status, 1, &(&1 + 1))
-    end)
+    stats =
+      Enum.reduce(specs, Map.put(base, "total", length(specs)), fn entry, acc ->
+        status = entry.status || "unknown"
+        Map.update(acc, status, 1, &(&1 + 1))
+      end)
+
+    Map.update!(stats, "proposed", &(&1 + stats["under_review"]))
+  end
+
+  defp spec_key(app, id), do: app <> "\u0000" <> id
+
+  defp load_spec_key(key) do
+    case String.split(key, "\u0000", parts: 2) do
+      [app, id] -> Loader.load(app, id)
+      _ -> {:error, :invalid_key}
+    end
+  end
+
+  defp selected_spec_count(specs, selected_keys) do
+    Enum.count(specs, &MapSet.member?(selected_keys, spec_key(&1.app, &1.id)))
+  end
+
+  attr :label, :string, required: true
+  attr :value, :integer, required: true
+  attr :status, :string, required: true
+  attr :color, :string, default: nil
+  attr :selected, :boolean, default: false
+
+  defp stat_card(assigns) do
+    ~H"""
+    <button type="button" phx-click="filter-status" phx-value-status={@status} class={"stat-card-button #{if @selected, do: "active"}"} style={if @color, do: "border-left-color: #{@color};", else: nil} aria-pressed={@selected}>
+      <div class="stat-card-label"><%= @label %></div>
+      <div class="stat-card-value"><%= @value || 0 %></div>
+    </button>
+    """
   end
 
   # List-row snippet: purpose for module specs, content for documents.
@@ -362,105 +497,61 @@ defmodule AcsWeb.AcsLive.SpecsLive do
   def render(assigns) do
     ~H"""
     <div class="documents-governance">
-      <section class="account-intro animate-in" aria-labelledby="documents-title">
+      <section class="account-intro page-intro animate-in" aria-labelledby="documents-title">
         <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Knowledge</span> / Documents</p>
-        <h2 id="documents-title" style="font-size: 1.3rem; margin-bottom: 6px;">Documents</h2>
-        <p style="font-size: 0.82rem;">Specifications, knowledge files, and shared artifacts for the workspace.</p>
+        <h1 id="documents-title" class="page-title">Documents</h1>
+        <p class="page-description">Specifications, knowledge files, and shared artifacts for the workspace.</p>
       </section>
 
       <!-- Header with stats -->
-      <div style="display: flex; gap: 24px; margin-bottom: 20px; flex-wrap: wrap;">
-        <div class="card" style="padding: 16px 20px; min-width: 100px;">
-          <div class="stat-card-label">Total</div>
-          <div class="stat-card-value"><%= @stats["total"] || 0 %></div>
-        </div>
-        <div class="card" style="padding: 16px 20px; min-width: 100px; border-left: 3px solid var(--amber);">
-          <div class="stat-card-label">Proposed</div>
-          <div class="stat-card-value"><%= @stats["proposed"] || 0 %></div>
-        </div>
-        <div class="card" style="padding: 16px 20px; min-width: 100px; border-left: 3px solid var(--green);">
-          <div class="stat-card-label">Approved</div>
-          <div class="stat-card-value"><%= @stats["approved"] || 0 %></div>
-        </div>
-        <div class="card" style="padding: 16px 20px; min-width: 100px; border-left: 3px solid var(--muted);">
-          <div class="stat-card-label">Deprecated</div>
-          <div class="stat-card-value"><%= @stats["deprecated"] || 0 %></div>
-        </div>
+      <div class="stats-grid">
+        <.stat_card label="Total" value={@stats["total"]} status="" selected={is_nil(@status_filter)} />
+        <.stat_card label="Proposed" value={@stats["proposed"]} status="proposed" color="var(--amber)" selected={@status_filter == "proposed"} />
+        <.stat_card label="Approved" value={@stats["approved"]} status="approved" color="var(--green)" selected={@status_filter == "approved"} />
+        <.stat_card label="Deprecated" value={@stats["deprecated"]} status="deprecated" color="var(--muted)" selected={@status_filter == "deprecated"} />
+        <.stat_card label="Rejected" value={@stats["rejected"]} status="rejected" color="var(--red)" selected={@status_filter == "rejected"} />
       </div>
 
       <!-- Search -->
-      <div style="margin-bottom: 16px;">
+      <div class="page-search">
         <form phx-change="search">
           <input
             name="query"
             type="text"
             class="search-input"
             placeholder="Search documents by title, purpose, invariants..."
+            aria-label="Search documents"
             value={@search_query}
-            style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: 0.85rem; outline: none;"
           />
         </form>
       </div>
 
       <!-- Filters + Refresh -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <div class="filter-tabs">
-          <button
-            phx-click="filter-status"
-            phx-value-status=""
-            class={"filter-tab #{if is_nil(@status_filter), do: "active"}"}
-          >
-            All
-          </button>
-          <button
-            phx-click="filter-status"
-            phx-value-status="proposed"
-            class={"filter-tab #{if @status_filter == "proposed", do: "active"}"}
-          >
-            Proposed
-          </button>
-          <button
-            phx-click="filter-status"
-            phx-value-status="under_review"
-            class={"filter-tab #{if @status_filter == "under_review", do: "active"}"}
-          >
-            Under Review
-          </button>
-          <button
-            phx-click="filter-status"
-            phx-value-status="approved"
-            class={"filter-tab #{if @status_filter == "approved", do: "active"}"}
-          >
-            Approved
-          </button>
-          <button
-            phx-click="filter-status"
-            phx-value-status="deprecated"
-            class={"filter-tab #{if @status_filter == "deprecated", do: "active"}"}
-          >
-            Deprecated
-          </button>
+      <div class="page-toolbar">
+        <div class="page-toolbar-actions">
+          <%= if selected_spec_count(@specs, @selected_spec_keys) > 0 do %>
+            <button phx-click="approve-selected" class="btn btn-primary compact-button">
+              ✓ Approve selected (<%= selected_spec_count(@specs, @selected_spec_keys) %>)
+            </button>
+            <button phx-click="clear-selection" class="btn btn-ghost compact-button">Clear</button>
+          <% end %>
+          <button phx-click="refresh" class="btn btn-ghost compact-button">↻ Refresh</button>
+          <%= if (@stats["proposed"] || 0) > 0 do %>
+            <button phx-click="approve-all-proposed" class="btn btn-primary compact-button" title={"Approve all #{@stats["proposed"]} proposed documents"}>
+              ✓ Approve All (<%= @stats["proposed"] %>)
+            </button>
+          <% end %>
         </div>
-        <button phx-click="refresh" class="btn btn-ghost" style="padding: 6px 14px; font-size: 0.72rem;">
-          ↻ Refresh
-        </button>
-        <%= if (@stats["proposed"] || 0) > 0 do %>
-          <button
-            phx-click="approve-all-proposed"
-            class="btn btn-primary"
-            style="padding: 6px 14px; font-size: 0.72rem;"
-            title={"Approve all #{@stats["proposed"]} proposed documents"}
-          >
-            ✓ Approve All (<%= @stats["proposed"] %>)
-          </button>
-        <% end %>
       </div>
 
       <!-- Document list -->
-      <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="governance-list">
         <%= if Enum.empty?(@specs) do %>
-          <div class="card" style="padding: 48px;">
-            <div class="empty-state">
+          <div class="card empty-card">
+            <%= if assigns[:loading] == true do %>
+              <div class="loading-state" role="status">Loading documents</div>
+            <% else %>
+              <div class="empty-state">
               <div class="empty-state-icon">◈</div>
               <p class="empty-state-title">
                 <%= if @search_query != "" do %>
@@ -472,18 +563,24 @@ defmodule AcsWeb.AcsLive.SpecsLive do
               <p class="empty-state-desc">
                 Use the document tools via agents or create documents manually.
               </p>
-            </div>
+              </div>
+            <% end %>
           </div>
         <% else %>
           <%= for entry <- @specs do %>
             <div
               phx-click="select-spec-detail"
+              phx-keydown="select-spec-detail"
+              phx-key="Enter"
               phx-value-app={entry.app}
               phx-value-id={entry.id}
               class={"tool-row #{if @selected_spec && @selected_spec.app == entry.app && @selected_spec.id == entry.id, do: "selected"}"}
-              style="cursor: pointer;"
-            >
-              <div style="display: flex; align-items: center; gap: 10px;">
+              role="button"
+              tabindex="0"
+              aria-pressed={to_string(@selected_spec && @selected_spec.app == entry.app && @selected_spec.id == entry.id)}
+              >
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <input class="selection-checkbox" type="checkbox" checked={MapSet.member?(@selected_spec_keys, spec_key(entry.app, entry.id))} phx-click="toggle-select" phx-value-app={entry.app} phx-value-id={entry.id} phx-stopPropagation aria-label={"Select #{entry.title || entry.id}"} />
                 <span class={"status-dot status-#{entry.status || "unknown"}"}></span>
                 <span class="category-badge"><%= entry.app %></span>
                 <%= if entry.document_type do %>
@@ -582,15 +679,25 @@ defmodule AcsWeb.AcsLive.SpecsLive do
                   </button>
                 <% end %>
                 <%= if @selected_spec.status == "approved" do %>
-                  <button
-                    phx-click="deprecate-spec"
-                    phx-value-app={@selected_spec.app}
-                    phx-value-id={@selected_spec.id}
-                    class="btn btn-ghost"
-                    style="padding: 6px 14px; font-size: 0.72rem;"
-                  >
-                    ⟳ Deprecate
-                  </button>
+                  <%= if Enum.any?(@replacement_candidates, &(&1.id != @selected_spec.id)) do %>
+                    <form phx-submit="deprecate-spec" style="display: flex; gap: 6px; align-items: center;">
+                      <input type="hidden" name="app" value={@selected_spec.app} />
+                      <input type="hidden" name="id" value={@selected_spec.id} />
+                      <select name="replacement_id" required class="form-control form-control-sm" aria-label="Replacement document">
+                        <option value="">Replacement…</option>
+                        <%= for candidate <- @replacement_candidates, candidate.id != @selected_spec.id do %>
+                          <option value={candidate.app <> "|" <> candidate.id}>
+                            <%= candidate.title || candidate.id %>
+                          </option>
+                        <% end %>
+                      </select>
+                      <button type="submit" class="btn btn-ghost" style="padding: 6px 14px; font-size: 0.72rem;">
+                        ⟳ Deprecate
+                      </button>
+                    </form>
+                  <% else %>
+                    <span class="table-muted" title="Approve a replacement document first">Approve a replacement first</span>
+                  <% end %>
                 <% end %>
                 <button
                   phx-click="deselect-spec"

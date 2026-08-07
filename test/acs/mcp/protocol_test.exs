@@ -258,4 +258,94 @@ defmodule Acs.MCP.ProtocolTest do
       assert task.created_by_agent == "opencode"
     end
   end
+
+  describe "multi-tenant coding agents get qualified user_name + pool names" do
+    setup do
+      original = Application.get_env(:steward_acs, :multi_tenant)
+
+      Application.put_env(:steward_acs, :multi_tenant, true)
+
+      on_exit(fn ->
+        restore_multi_tenant(original)
+        Acs.Org.clear_request_org()
+      end)
+
+      :ok
+    end
+
+    defp restore_multi_tenant(original) do
+      case original do
+        nil -> Application.delete_env(:steward_acs, :multi_tenant)
+        _ -> Application.put_env(:steward_acs, :multi_tenant, original)
+      end
+    end
+
+    test "coding initialize instructions include qualified agent name" do
+      initialize = %{
+        "jsonrpc" => "2.0",
+        "id" => 40,
+        "method" => "initialize",
+        "params" => %{"clientInfo" => %{"name" => "cursor", "version" => "1"}}
+      }
+
+      assert {:ok, %{"result" => %{"instructions" => instructions}}} =
+               Protocol.handle_message(initialize, "admin", "acme", [], nil, nil, "Nahar Emet")
+
+      assert instructions =~ ~s(Connected as "Nahar Emet")
+      assert instructions =~ ~s(Your agent name this session: "nahar_emet_)
+      assert instructions =~ "user_name + pool"
+      assert instructions =~ "pass it as agent_id on task tools"
+    end
+
+    test "coding get_started returns human connected_user and qualified your_agent_id" do
+      initialize = %{
+        "jsonrpc" => "2.0",
+        "id" => 41,
+        "method" => "initialize",
+        "params" => %{"clientInfo" => %{"name" => "cursor", "version" => "1"}}
+      }
+
+      assert {:ok, %{"result" => _}} =
+               Protocol.handle_message(initialize, "admin", "acme", [], nil, nil, "Nahar Emet")
+
+      call = %{
+        "jsonrpc" => "2.0",
+        "id" => 42,
+        "method" => "tools/call",
+        "params" => %{"name" => "get_started", "arguments" => %{}}
+      }
+
+      assert {:ok, %{"result" => %{"content" => [%{"text" => text}]}}} =
+               Protocol.handle_message(call, "admin", "acme", [], nil, nil, "Nahar Emet")
+
+      decoded = Jason.decode!(text)
+      assert decoded["connected_user"] == "Nahar Emet"
+      assert decoded["authenticated_as"] == "Nahar Emet"
+      assert decoded["your_agent_id"] =~ ~r/^nahar_emet_/
+      assert decoded["agent_identity"] =~ "user + pool"
+      assert decoded["get_started"] =~ ~s(Connected user: "Nahar Emet")
+      assert decoded["get_started"] =~ ~r/ACS uses "nahar_emet_/
+    end
+
+    test "two sessions of the same user get distinct qualified agent names" do
+      alias Acs.MCP.ClientSession
+
+      session_a = "sess_qual_a_#{System.unique_integer([:positive])}"
+      session_b = "sess_qual_b_#{System.unique_integer([:positive])}"
+
+      name_a =
+        ClientSession.bind(session_a, fn ->
+          ClientSession.get_or_assign_qualified_agent_name("Nahar Emet")
+        end)
+
+      name_b =
+        ClientSession.bind(session_b, fn ->
+          ClientSession.get_or_assign_qualified_agent_name("Nahar Emet")
+        end)
+
+      assert name_a =~ ~r/^nahar_emet_/
+      assert name_b =~ ~r/^nahar_emet_/
+      refute name_a == name_b
+    end
+  end
 end

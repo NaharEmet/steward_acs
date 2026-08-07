@@ -334,10 +334,17 @@ defmodule Acs.MCP.Protocol do
     coding_self_identify? =
       audience == :coding and not Acs.Org.multi_tenant?() and agent_role == "admin"
 
+    coding_qualified_name? =
+      audience == :coding and Acs.Org.multi_tenant?() and usable_agent_identity?(agent_identity)
+
     agent_id =
       cond do
         coding_self_identify? ->
           nil
+
+        coding_qualified_name? ->
+          Acs.MCP.ClientSession.get_or_assign_qualified_agent_name(agent_identity) ||
+            agent_identity
 
         usable_agent_identity?(agent_identity) ->
           agent_identity
@@ -522,8 +529,12 @@ defmodule Acs.MCP.Protocol do
           owner
 
       usable_agent_identity?(agent_identity) ->
+        agent_name =
+          Acs.MCP.ClientSession.get_or_assign_qualified_agent_name(agent_identity) ||
+            agent_identity
+
         base <>
-          " Connected as \"#{agent_identity}\" (acs_dev_ developer_name or OAuth display name). get_started returns connected_user — use that name when asking for this person's memories."
+          " Connected as \"#{agent_identity}\" (acs_dev_ developer_name or OAuth display name). Your agent name this session: \"#{agent_name}\" (user_name + pool) — pass it as agent_id on task tools. get_started returns connected_user — use that human name when asking for this person's memories."
 
       true ->
         base

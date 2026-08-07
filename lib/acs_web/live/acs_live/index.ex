@@ -6,6 +6,7 @@ defmodule AcsWeb.AcsLive.Index do
 
   use AcsWeb, :live_view
   alias Acs
+  alias Acs.Memory.Indexer
 
   def on_mount(_params, _session, socket) do
     # Don't use get_connect_info - it fails on push_navigate reconnections
@@ -25,7 +26,10 @@ defmodule AcsWeb.AcsLive.Index do
         locked_files: [],
         agent_status: %{},
         selected_status: "all",
+        loading: connected?(socket),
         pending_requests_count: Acs.MCP.ToolRequests.pending_count(),
+        memory_review_count: 0,
+        todo_tasks_count: 0,
         getting_started_dismissed: getting_started_dismissed?(socket),
         mcp_endpoints: AcsWeb.McpUrls.endpoints(),
         chat_system_prompt: AcsWeb.McpUrls.chat_system_prompt(:always),
@@ -47,13 +51,20 @@ defmodule AcsWeb.AcsLive.Index do
   end
 
   @impl true
-  def handle_params(_params, url, socket) do
+  def handle_params(params, url, socket) do
     uri = URI.parse(url)
     path = uri.path || "/"
+    selected_status = Map.get(params, "status", socket.assigns.selected_status)
+
+    selected_status =
+      if selected_status in ~w(all todo claimed in_progress done),
+        do: selected_status,
+        else: "all"
 
     {:noreply,
      socket
-     |> assign(:current_path, path)
+     |> assign(current_path: path, selected_status: selected_status)
+     |> load_data()
      |> assign(:mcp_endpoints, AcsWeb.McpUrls.endpoints(uri))}
   end
 
@@ -170,7 +181,10 @@ defmodule AcsWeb.AcsLive.Index do
       tasks: tasks,
       locked_files: locked_files,
       agent_status: agent_status,
-      pending_requests_count: Acs.MCP.ToolRequests.pending_count()
+      pending_requests_count: Acs.MCP.ToolRequests.pending_count(),
+      memory_review_count: Indexer.count_memories_needing_review(socket.assigns.current_org, []),
+      todo_tasks_count: length(Acs.list_tasks("todo")),
+      loading: false
     )
   end
 
@@ -182,6 +196,30 @@ defmodule AcsWeb.AcsLive.Index do
         <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Workspace</span> / Live operations</p>
         <h1 id="dashboard-title" style="font-size: 1.3rem; margin-bottom: 6px;">Workspace overview</h1>
         <p style="font-size: 0.82rem;">Monitor connected agents, active work, and file coordination in one place.</p>
+      </section>
+
+      <section class="review-queue" aria-label="Review queue">
+        <.link navigate="/tools/requests" class="review-queue-card">
+          <span>
+            <span class="review-queue-card-label">Pending requests</span>
+            <span class="review-queue-card-meta">Needs a decision</span>
+          </span>
+          <span class="review-queue-card-count"><%= assigns[:pending_requests_count] || 0 %></span>
+        </.link>
+        <.link navigate="/?status=todo" class="review-queue-card">
+          <span>
+            <span class="review-queue-card-label">Tasks to pick up</span>
+            <span class="review-queue-card-meta">Waiting for an agent</span>
+          </span>
+          <span class="review-queue-card-count"><%= assigns[:todo_tasks_count] || 0 %></span>
+        </.link>
+        <.link navigate="/memories?view=review" class="review-queue-card">
+          <span>
+            <span class="review-queue-card-label">Memory review</span>
+            <span class="review-queue-card-meta">Human attention needed</span>
+          </span>
+          <span class="review-queue-card-count"><%= assigns[:memory_review_count] || 0 %></span>
+        </.link>
       </section>
 
       <details
@@ -353,12 +391,16 @@ defmodule AcsWeb.AcsLive.Index do
         </div>
 
         <%= if Enum.empty?(@agent_status) do %>
-          <div class="card" style="padding: 48px;">
+          <div class="card empty-card">
+            <%= if assigns[:loading] == true do %>
+              <div class="loading-state" role="status">Loading agents</div>
+            <% else %>
             <div class="empty-state">
               <div class="empty-state-icon">◉</div>
               <p class="empty-state-title">No active agents</p>
               <p class="empty-state-desc">Agents will appear here when they connect to the Steward server</p>
             </div>
+            <% end %>
           </div>
         <% else %>
           <div class="agents-grid">
@@ -446,7 +488,10 @@ defmodule AcsWeb.AcsLive.Index do
 
             <div class="scroll-area">
               <%= if Enum.empty?(@tasks) do %>
-                <div class="empty-state" style="padding: 32px;">
+                <div class="empty-state empty-card">
+                  <%= if assigns[:loading] == true do %>
+                    <div class="loading-state" role="status">Loading tasks</div>
+                  <% else %>
                   <div class="empty-state-icon">○</div>
                   <p class="empty-state-title">
                     <%= if @selected_status == "all", do: "No tasks yet", else: "No #{@selected_status |> String.replace("_", " ")} tasks" %>
@@ -456,6 +501,7 @@ defmodule AcsWeb.AcsLive.Index do
                   </p>
                   <%= if @selected_status != "all" do %>
                     <button phx-click="filter-status" phx-value-status="all" class="btn btn-ghost" style="margin-top: 14px;">Clear filter</button>
+                  <% end %>
                   <% end %>
                 </div>
               <% else %>
@@ -501,10 +547,14 @@ defmodule AcsWeb.AcsLive.Index do
 
             <div class="scroll-area">
               <%= if Enum.empty?(@locked_files) do %>
-                <div class="empty-state" style="padding: 32px;">
+                <div class="empty-state empty-card">
+                  <%= if assigns[:loading] == true do %>
+                    <div class="loading-state" role="status">Loading locks</div>
+                  <% else %>
                   <div class="empty-state-icon">🔓</div>
                   <p class="empty-state-title">No files locked</p>
                   <p class="empty-state-desc">File locks will appear here when agents lock files</p>
+                  <% end %>
                 </div>
               <% else %>
                 <div style="display: flex; flex-direction: column; gap: 10px;">

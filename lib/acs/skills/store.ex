@@ -19,7 +19,7 @@ defmodule Acs.Skills.Store do
   """
 
   @builtin_dir "priv/skills"
-  @governance_statuses ~w(proposed approved rejected)
+  @governance_statuses Acs.Governance.Status.primary_statuses()
 
   import Ecto.Query
 
@@ -524,6 +524,9 @@ defmodule Acs.Skills.Store do
 
   defp maybe_add_decision_fields(fields, "rejected", reviewer, now),
     do: Map.merge(fields, %{"rejected_by" => reviewer, "rejected_at" => now})
+
+  defp maybe_add_decision_fields(fields, "deprecated", reviewer, now),
+    do: Map.merge(fields, %{"deprecated_by" => reviewer, "deprecated_at" => now})
 
   defp maybe_add_decision_fields(fields, _status, _reviewer, _now), do: fields
 

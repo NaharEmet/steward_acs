@@ -34,11 +34,16 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         rejected_count: 0,
         quarantined_count: 0,
         review_count: 0,
+        total_count: 0,
+        stale_count: 0,
+        deprecated_count: 0,
         selected_memory: nil,
+        selected_memory_ids: MapSet.new(),
         status_filter: "proposed",
         kind_filter: nil,
         search_query: "",
-        conflict_alerts: %{}
+        conflict_alerts: %{},
+        loading: connected?(socket)
       )
 
     socket =
@@ -97,6 +102,25 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     {:noreply, assign(socket, selected_memory: memory)}
   end
 
+  def handle_event("toggle-select", %{"id" => id}, socket) do
+    selected = socket.assigns.selected_memory_ids
+
+    selected =
+      if MapSet.member?(selected, id),
+        do: MapSet.delete(selected, id),
+        else: MapSet.put(selected, id)
+
+    {:noreply, assign(socket, selected_memory_ids: selected)}
+  end
+
+  def handle_event("clear-selection", _params, socket) do
+    {:noreply, assign(socket, selected_memory_ids: MapSet.new())}
+  end
+
+  def handle_event("select-memory-key", %{"id" => id}, socket) do
+    handle_event("select-memory", %{"id" => id}, socket)
+  end
+
   @impl true
   def handle_event("deselect-memory", _, socket) do
     {:noreply, assign(socket, selected_memory: nil)}
@@ -128,7 +152,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
   @impl true
   def handle_event("search", %{"query" => query}, socket) do
-    socket = assign(socket, search_query: query) |> load_data()
+    socket = assign(socket, search_query: query, selected_memory_ids: MapSet.new()) |> load_data()
     {:noreply, socket}
   end
 
@@ -147,7 +171,10 @@ defmodule AcsWeb.AcsLive.MemoryLive do
           "proposed"
       end
 
-    {:noreply, push_patch(socket, to: "/memories?view=#{view}")}
+    {:noreply,
+     socket
+     |> assign(selected_memory_ids: MapSet.new())
+     |> push_patch(to: "/memories?view=#{view}")}
   end
 
   @impl true
@@ -188,6 +215,36 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
     socket = socket |> put_flash(:info, flash_msg) |> load_data()
     {:noreply, socket}
+  end
+
+  def handle_event("approve-selected", _, socket) do
+    proposed_ids =
+      socket.assigns.memories
+      |> Enum.filter(
+        &(&1.status == "proposed" and MapSet.member?(socket.assigns.selected_memory_ids, &1.id))
+      )
+      |> Enum.map(& &1.id)
+
+    results =
+      Enum.map(proposed_ids, fn id ->
+        Acs.Memory.Store.transition(id, "approved",
+          org: socket.assigns.current_org,
+          actor: web_actor(socket),
+          source: "web",
+          message: "Bulk approve selected memory #{id}"
+        )
+      end)
+
+    approved = Enum.count(results, &match?({:ok, _}, &1))
+
+    {:noreply,
+     socket
+     |> assign(selected_memory_ids: MapSet.new(), selected_memory: nil, status_filter: "all")
+     |> put_flash(
+       :info,
+       "Approved #{approved} selected memor#{if approved == 1, do: "y", else: "ies"}"
+     )
+     |> push_patch(to: "/memories?view=all")}
   end
 
   @impl true
@@ -243,7 +300,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
         Logger.error("[MemoryLive] Failed to #{flash_opts[:action]}: #{inspect(reason)}")
 
         {:noreply,
-         put_flash(socket, :error, "Failed to #{flash_opts[:action]}: #{inspect(reason)}")}
+         put_flash(socket, :error, "Could not #{flash_opts[:action]} this memory. Try again.")}
     end
   end
 
@@ -276,6 +333,9 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     approved_count = Map.get(counts, "approved", 0)
     rejected_count = Map.get(counts, "rejected", 0)
     quarantined_count = Map.get(counts, "parse_error", 0)
+    stale_count = Map.get(counts, "stale", 0)
+    deprecated_count = Map.get(counts, "deprecated", 0)
+    total_count = counts |> Map.values() |> Enum.sum()
     review_count = Indexer.count_memories_needing_review(org, viewer)
 
     memories_opts = [limit: 100, org: org] ++ viewer
@@ -321,6 +381,10 @@ defmodule AcsWeb.AcsLive.MemoryLive do
       rejected_count: rejected_count,
       quarantined_count: quarantined_count,
       review_count: review_count,
+      total_count: total_count,
+      stale_count: stale_count,
+      deprecated_count: deprecated_count,
+      loading: false,
       conflict_alerts: conflict_alerts
     )
   end
@@ -370,110 +434,63 @@ defmodule AcsWeb.AcsLive.MemoryLive do
     end
   end
 
+  defp selected_memory_count(memories, selected_ids) do
+    Enum.count(memories, &MapSet.member?(selected_ids, &1.id))
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
     <div class="memory-governance">
-      <section class="account-intro animate-in" aria-labelledby="memories-title">
+      <section class="account-intro page-intro animate-in" aria-labelledby="memories-title">
         <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Knowledge</span> / Memories</p>
-        <h2 id="memories-title" style="font-size: 1.3rem; margin-bottom: 6px;">Memories</h2>
-        <p style="font-size: 0.82rem;">Agent memories store learnings, patterns, and eternal truths discovered during work.</p>
+        <h1 id="memories-title" class="page-title">Memories</h1>
+        <p class="page-description">Agent memories store learnings, patterns, and eternal truths discovered during work.</p>
       </section>
 
       <!-- Search Bar -->
-      <div style="margin-bottom: 20px;">
+      <div class="page-search">
         <form phx-change="search">
           <input
             name="query"
             type="text"
             class="search-input"
             placeholder="Search memories..."
+            aria-label="Search memories"
             value={@search_query}
-            style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: 0.85rem; outline: none;"
           />
         </form>
       </div>
 
-      <!-- Stats Bar -->
-      <div style="display: flex; gap: 20px; margin-bottom: 16px; font-size: 0.75rem; color: var(--muted);">
-        <span><span style="font-weight: 600; color: var(--text);"><%= @pending_count %></span> Pending</span>
-        <span><span style="font-weight: 600; color: var(--text);"><%= @approved_count %></span> Approved</span>
-        <span><span style="font-weight: 600; color: var(--text);"><%= @rejected_count %></span> Rejected</span>
-        <span><span style="font-weight: 600; color: var(--text);"><%= @quarantined_count %></span> Quarantined</span>
-        <span><span style="font-weight: 600; color: var(--accent);"><%= @review_count %></span> Needs Review</span>
+      <!-- Status cards -->
+      <div class="stats-grid">
+        <.stat_card label="Total" value={@total_count} status="all" selected={@status_filter == "all"} />
+        <.stat_card label="Proposed" value={@pending_count} status="proposed" color="var(--amber)" selected={@status_filter == "proposed"} />
+        <.stat_card label="Approved" value={@approved_count} status="approved" color="var(--green)" selected={@status_filter == "approved"} />
+        <.stat_card label="Deprecated" value={@deprecated_count} status="deprecated" color="var(--muted)" selected={@status_filter == "deprecated"} />
+        <.stat_card label="Rejected" value={@rejected_count} status="rejected" color="var(--red)" selected={@status_filter == "rejected"} />
       </div>
 
       <!-- Memory List + Detail Panel -->
-      <div style="display: flex; gap: 24px; align-items: flex-start;">
+      <div class="governance-layout">
         <!-- Sidebar: Memory list -->
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <div class="filter-tabs">
-              <button
-                phx-click="filter-status"
-                phx-value-status="proposed"
-                class={"filter-tab #{if @status_filter == "proposed", do: "active"}"}
-              >
-                Pending
-              </button>
-              <button
-                phx-click="filter-status"
-                phx-value-status="all"
-                class={"filter-tab #{if @status_filter == "all", do: "active"}"}
-              >
-                All
-              </button>
-              <button
-                phx-click="filter-status"
-                phx-value-status="approved"
-                class={"filter-tab #{if @status_filter == "approved", do: "active"}"}
-              >
-                Approved
-              </button>
-              <button
-                phx-click="filter-status"
-                phx-value-status="stale"
-                class={"filter-tab #{if @status_filter == "stale", do: "active"}"}
-              >
-                Stale
-              </button>
-              <button
-                phx-click="filter-status"
-                phx-value-status="rejected"
-                class={"filter-tab #{if @status_filter == "rejected", do: "active"}"}
-              >
-                Rejected
-              </button>
-              <button
-                phx-click="filter-status"
-                phx-value-status="deprecated"
-                class={"filter-tab #{if @status_filter == "deprecated", do: "active"}"}
-              >
-                Deprecated
-              </button>
-              <button
-                phx-click="filter-status"
-                phx-value-status="parse_error"
-                class={"filter-tab #{if @status_filter == "parse_error", do: "active"}"}
-              >
-                Quarantined
-              </button>
-              <button
-                phx-click="filter-status"
-                phx-value-status="review"
-                class={"filter-tab #{if @status_filter == "review", do: "active"}"}
-              >
-                Needs Review
-              </button>
+        <div class="governance-list">
+          <div class="governance-toolbar">
+            <div class="page-toolbar-actions">
+              <%= if selected_memory_count(@memories, @selected_memory_ids) > 0 do %>
+                <button phx-click="approve-selected" class="btn btn-primary compact-button">
+                  ✓ Approve selected (<%= selected_memory_count(@memories, @selected_memory_ids) %>)
+                </button>
+                <button phx-click="clear-selection" class="btn btn-ghost compact-button">Clear</button>
+              <% end %>
             </div>
-            <button phx-click="refresh" class="btn btn-ghost" style="padding: 6px 14px; font-size: 0.72rem;">
+            <button phx-click="refresh" class="btn btn-ghost compact-button">
               ↻ Refresh
             </button>
             <%= if @pending_count > 0 do %>
               <button
                 phx-click="approve-all-proposed"
-                class="btn btn-primary"
-                style="padding: 6px 14px; font-size: 0.72rem;"
+                class="btn btn-primary compact-button"
                 title={"Approve all #{@pending_count} proposed memories"}
               >
                 ✓ Approve All (<%= @pending_count %>)
@@ -482,7 +499,10 @@ defmodule AcsWeb.AcsLive.MemoryLive do
           </div>
 
           <%= if Enum.empty?(@memories) do %>
-            <div class="card" style="padding: 48px;">
+            <div class="card empty-card">
+              <%= if assigns[:loading] == true do %>
+                <div class="loading-state" role="status">Loading memories</div>
+              <% else %>
               <div class="empty-state">
                 <div class="empty-state-icon">◈</div>
                 <p class="empty-state-title">
@@ -495,19 +515,30 @@ defmodule AcsWeb.AcsLive.MemoryLive do
                   <% end %>
                 </p>
               </div>
+              <% end %>
             </div>
           <% else %>
             <%= for memory <- @memories do %>
               <div
                 phx-click={if @selected_memory && @selected_memory.id == memory.id, do: "deselect-memory", else: "select-memory"}
+                phx-keydown="select-memory-key"
+                phx-key="Enter"
                 phx-value-id={memory.id}
-                class={"tool-row #{if @selected_memory && @selected_memory.id == memory.id, do: "selected"}"}
-                style="cursor: pointer;"
+                class={"tool-row #{if needs_human_review?(memory), do: "memory-review-needed"} #{if @selected_memory && @selected_memory.id == memory.id, do: "selected"}"}
+                role="button"
+                tabindex="0"
+                aria-pressed={to_string(@selected_memory && @selected_memory.id == memory.id)}
               >
                 <div style="display: flex; align-items: center; gap: 10px;">
+                  <input class="selection-checkbox" type="checkbox" checked={MapSet.member?(@selected_memory_ids, memory.id)} phx-click="toggle-select" phx-value-id={memory.id} phx-stopPropagation aria-label={"Select #{memory.title}"} />
                   <span class={"status-dot status-#{memory.status}"}></span>
                   <span class="category-badge"><%= memory.kind %></span>
                   <span style="flex: 1; font-weight: 500; font-size: 0.88rem; color: var(--text);"><%= memory.title %></span>
+                  <%= if needs_human_review?(memory) do %>
+                    <span class="category-badge" style="background: var(--amber-glow); color: var(--amber); border-color: rgba(201, 168, 106, 0.35); font-weight: 600;" title="This memory needs human review">
+                      Needs human review
+                    </span>
+                  <% end %>
                   <span style="font-size: 0.7rem; color: var(--muted); font-family: var(--font-mono);">
                     I<%= memory.importance %>
                   </span>
@@ -575,7 +606,7 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
         <!-- Detail panel -->
         <%= if @selected_memory do %>
-          <div class="card" style="flex: 0 0 420px; padding: 20px; position: sticky; top: 16px;">
+          <div class="card governance-detail" style="padding: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
               <div style="display: flex; gap: 8px; align-items: center;">
                 <span class={"status-dot status-#{@selected_memory.status}"}></span>
@@ -774,6 +805,31 @@ defmodule AcsWeb.AcsLive.MemoryLive do
 
   defp decode_auditor_flags(_), do: nil
 
+  defp needs_human_review?(memory) do
+    case decode_auditor_flags(memory.auditor_flags) do
+      flags when is_map(flags) ->
+        review_flag?(flags["needs_human_review"] || flags["needsHumanReview"]) or
+          audit_errors?(flags["audit_error_count"] || flags["auditErrorCount"])
+
+      _ ->
+        false
+    end
+  end
+
+  defp review_flag?(value), do: value in [true, 1, "1", "true", "TRUE"]
+
+  defp audit_errors?(value) when is_integer(value), do: value > 0
+  defp audit_errors?(value) when is_float(value), do: value > 0
+
+  defp audit_errors?(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {count, ""} -> count > 0
+      _ -> false
+    end
+  end
+
+  defp audit_errors?(_), do: false
+
   defp memory_tags(memory) do
     case parse_tags_json(memory.tags_json) do
       [] -> nil
@@ -797,5 +853,20 @@ defmodule AcsWeb.AcsLive.MemoryLive do
       {:ok, flags} when is_list(flags) and flags != [] -> length(flags)
       _ -> nil
     end
+  end
+
+  attr :label, :string, required: true
+  attr :value, :integer, required: true
+  attr :status, :string, required: true
+  attr :color, :string, default: nil
+  attr :selected, :boolean, default: false
+
+  defp stat_card(assigns) do
+    ~H"""
+    <button type="button" phx-click="filter-status" phx-value-status={@status} class={"stat-card-button #{if @selected, do: "active"}"} style={if @color, do: "border-left-color: #{@color};", else: nil} aria-pressed={@selected}>
+      <div class="stat-card-label"><%= @label %></div>
+      <div class="stat-card-value"><%= @value || 0 %></div>
+    </button>
+    """
   end
 end

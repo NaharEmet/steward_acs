@@ -324,16 +324,17 @@ defmodule Acs.MCP.Tools.CoreHandlers do
 
   defp coding_get_started(args) when is_map(args) do
     you = connected_user_from_args(args)
-    identity = coding_identity_guidance(you)
+    agent_name = agent_name_from_args(args) || you
+    identity = coding_identity_guidance(you, agent_name)
 
     %{
       audience: :coding,
       connected_user: you,
       authenticated_as: you,
-      your_agent_id: you,
+      your_agent_id: agent_name,
       general:
         "ACS coordinates agent work. Create tasks, claim them, lock files, edit, save learnings (skills / documents / specs / memories), then release. Scopes may be code paths or business domains (org/domain/topic). Every response includes `_next` with suggested next tools.",
-      get_started: coding_get_started_steps(you),
+      get_started: coding_get_started_steps(you, agent_name),
       agent_identity: identity,
       org_knowledge_conventions:
         "Structure knowledge with scope_path = org/domain/topic (business) or path/to/module (code). memories=short truths, specs=code module docs via specs_propose, documents=long non-code via specs_propose(document_type,title,content) under documents/<type>/<slug>, skills=procedures via skill_save. End of task pick one primary store.",
@@ -405,11 +406,15 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     }
   end
 
-  defp coding_identity_guidance(you) when is_binary(you) do
-    "Connected as \"#{you}\" (OAuth display name or acs_dev_ developer_name on the MCP token). Use this name in ask/content_query when retrieving that person's memories. Omit agent_id or pass exactly \"#{you}\"."
+  defp coding_identity_guidance(you, agent_name) when is_binary(you) do
+    if is_binary(agent_name) and agent_name != you do
+      "Connected as \"#{you}\" (OAuth display name or acs_dev_ developer_name on the MCP token). Your agent name this session is \"#{agent_name}\" (user + pool). Use \"#{you}\" in ask/content_query when retrieving that person's memories. Pass agent_id exactly \"#{agent_name}\" on task tools."
+    else
+      "Connected as \"#{you}\" (OAuth display name or acs_dev_ developer_name on the MCP token). Use this name in ask/content_query when retrieving that person's memories. Omit agent_id or pass exactly \"#{you}\"."
+    end
   end
 
-  defp coding_identity_guidance(_nil) do
+  defp coding_identity_guidance(_nil, _agent_name) do
     if Acs.Org.multi_tenant?() do
       case Acs.Org.usable_developer_name() do
         name when is_binary(name) ->
@@ -432,15 +437,33 @@ defmodule Acs.MCP.Tools.CoreHandlers do
     end
   end
 
-  defp coding_get_started_steps(you) when is_binary(you) do
-    "Connected user: \"#{you}\". 1) ask(content_query: \"... #{you} ...\") when you need this person's memories  2) create_work(title, claim: true) — omit agent_id (ACS uses \"#{you}\")  3) skill_get / query_specs  4) lock_file → work → save → unlock  5) release_work → submit_task_feedback last"
+  defp coding_get_started_steps(you, agent_name) when is_binary(you) do
+    id = if is_binary(agent_name) and agent_name != "", do: agent_name, else: you
+    "Connected user: \"#{you}\". 1) ask(content_query: \"... #{you} ...\") when you need this person's memories  2) create_work(title, claim: true) — omit agent_id (ACS uses \"#{id}\")  3) skill_get / query_specs  4) lock_file → work → save → unlock  5) release_work → submit_task_feedback last"
   end
 
-  defp coding_get_started_steps(_nil) do
+  defp coding_get_started_steps(_nil, _agent_name) do
     "1) `get_present_status(agent_id: \"your_name\")` — register under your own agent name (or \"\" for a pool-assigned name; returns assigned_agent_id)  2) `create_work(agent_id, title, claim: true)` — create + claim, passing your registered agent_id on every task tool  3) `skill_get(search: title)` — find workflow guides  4) `query_specs(query: title)` — check specs/documents  5) `lock_file` files  6) do work  7) pick one save: `skill_save` (how-to) | `specs_propose` document_type+content (long doc) | `specs_propose` purpose/invariants (code spec) | `save_memory` (short truth)  8) `unlock_file`  9) `release_work`  10) `submit_task_feedback(learned_for_agents:..., had_issues:..., improvements:..., info_needed:...)` last"
   end
 
   defp connected_user_from_args(args) when is_map(args) do
+    agent_id = agent_name_from_args(args)
+
+    if is_nil(agent_id) do
+      nil
+    else
+      case Map.get(args, "_auth_attribution") do
+        id when is_binary(id) ->
+          trimmed = String.trim(id)
+          if trimmed != "" and trimmed != "unknown", do: trimmed, else: agent_id
+
+        _ ->
+          agent_id
+      end
+    end
+  end
+
+  defp agent_name_from_args(args) when is_map(args) do
     case Map.get(args, "_auth_agent_id") do
       id when is_binary(id) ->
         trimmed = String.trim(id)

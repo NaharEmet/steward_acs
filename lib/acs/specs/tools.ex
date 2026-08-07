@@ -450,7 +450,7 @@ defmodule Acs.Specs.Tools do
   end
 
   defp reject_entry(entry, args) do
-    entry = %{entry | status: "under_review"}
+    entry = %{entry | status: "rejected"}
 
     case Loader.save(entry, ledger_opts(args, "Transition spec #{entry.app}/#{entry.id}")) do
       :ok -> {:ok, Entry.to_map(entry)}
@@ -566,9 +566,15 @@ defmodule Acs.Specs.Tools do
         :ok
 
       {:error, message} ->
-        {:error,
-         "#{message}. Missing app/path directories are created automatically; " <>
-           "use query_specs to discover valid existing app/path options."}
+        {:error, "#{message}. #{write_target_guidance()}"}
+    end
+  end
+
+  defp write_target_guidance do
+    if Acs.Org.multi_tenant?() do
+      "Use query_specs to discover valid existing app/path options."
+    else
+      "Missing app/path directories are created automatically; use query_specs to discover valid existing app/path options."
     end
   end
 

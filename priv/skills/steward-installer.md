@@ -16,7 +16,7 @@ When setting up ACS for a new user, walk through these steps in order.
 
 ## Step 1: Check if ACS is Available
 
-Call `acs_get_present_status(agent_id: "YourName")`.
+Call `steward_get_present_status(agent_id: "YourName")`.
 
 **If it works** — ACS is running. Register and claim work. Done.
 
@@ -66,8 +66,8 @@ Launch: `docker compose --env-file steward.env -f steward.docker-compose.yml up 
 
 ## Step 4: After Startup
 
-1. Register: `acs_get_present_status(agent_id: "YourName")`
-2. Claim work: `acs_claim_work(agent_id: "YourName")`
+1. Register: `steward_get_present_status(agent_id: "YourName")`
+2. Claim work: `steward_claim_work(agent_id: "YourName")`
 3. Read the guidance packet
 
 ## Default Config (when user says "just make it work")

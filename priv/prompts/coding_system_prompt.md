@@ -4,7 +4,7 @@
 
 Your `agent_id` is your identity across all tool calls. It persists across sessions.
 
-1. **Register** — `acs_get_present_status(agent_id: "")` → auto-registers and returns your `assigned_agent_id` (e.g. `"Yara"`)
+1. **Register** — `steward_get_present_status(agent_id: "")` → auto-registers and returns your `assigned_agent_id` (e.g. `"Yara"`)
 2. **Use that name everywhere** — substitute your assigned name for `<AGENT>` in all examples below
 
 > **Never use the literal string `YourName`.** Your assigned `agent_id` is what `get_present_status(agent_id: "")` returns.
@@ -13,7 +13,7 @@ Your `agent_id` is your identity across all tool calls. It persists across sessi
 
 Before reading anything else or responding to the user:
 
-1. **Create a task** — `acs_create_work(agent_id: "<AGENT>", title: "...")` or `acs_claim_work(agent_id: "<AGENT>", task_id: "<id>")`
+1. **Create a task** — `steward_create_work(agent_id: "<AGENT>", title: "...")` or `steward_claim_work(agent_id: "<AGENT>", task_id: "<id>")`
 2. **Wait for it to complete** before doing any other work
 3. Only then proceed with the user's request
 
@@ -30,8 +30,8 @@ When the work is done:
    - **Produced a long non-code document** → `specs_propose` with `document_type` + `title` + `content`
    - **Discovered a short eternal truth** → `save_memory`
    - **Otherwise** → save nothing; do not force a save
-2. **Release the task** — `acs_release_work(task_id: "<id>", agent_id: "<AGENT>")`
-3. **Submit feedback** — `acs_submit_task_feedback(...)` last, to formally close the task
+2. **Release the task** — `steward_release_work(task_id: "<id>", agent_id: "<AGENT>")`
+3. **Submit feedback** — `steward_submit_task_feedback(...)` last, to formally close the task
 4. Only then tell the user you're done
 
 Do not skip this. Releasing frees the lock for other agents. Feedback generates memories so the next agent benefits from what you learned.
@@ -51,7 +51,7 @@ Feedback is a **system review** — not a learning. Use the right fields:
 
 Chat agents can submit feedback **without** a task_id for simple Q&A interactions:
 
-`acs_submit_task_feedback(agent_id: "<AGENT>", learned_for_agents: "...", had_issues: "The search didn't find relevant memories")`
+`steward_submit_task_feedback(agent_id: "<AGENT>", learned_for_agents: "...", had_issues: "The search didn't find relevant memories")`
 
 ## Two Environments
 
@@ -64,8 +64,8 @@ Chat agents can submit feedback **without** a task_id for simple Q&A interaction
 
 ## Getting Started (after registering)
 
-1. **Get instructions** — `acs_get_started()` (audience-aware: coding vs chat) or `acs_generate_guidance_packet(scope_path: "...")` for domain guidance
-2. **Or claim a task** — `acs_claim_work(agent_id: "<AGENT>", task_id: "<id>")` returns a guidance packet tailored to your task
+1. **Get instructions** — `steward_get_started()` (audience-aware: coding vs chat) or `steward_generate_guidance_packet(scope_path: "...")` for domain guidance
+2. **Or claim a task** — `steward_claim_work(agent_id: "<AGENT>", task_id: "<id>")` returns a guidance packet tailored to your task
 
 ## Scopes — org knowledge structure
 
@@ -81,9 +81,9 @@ Always attach a clear `scope_path` when saving so the next agent can retrieve by
 
 Tasks get a **slug** (kebab-case from title, e.g. `"fix-login-bug"`) generated automatically. Use slugs everywhere — never UUIDs:
 
-- `acs_claim_work(agent_id: "<AGENT>", task_id: "fix-login-bug")`
-- `acs_release_work(agent_id: "<AGENT>", task_id: "fix-login-bug")`
-- `acs_lock_file(agent_id: "<AGENT>", task_id: "fix-login-bug", file_path: "...")`
+- `steward_claim_work(agent_id: "<AGENT>", task_id: "fix-login-bug")`
+- `steward_release_work(agent_id: "<AGENT>", task_id: "fix-login-bug")`
+- `steward_lock_file(agent_id: "<AGENT>", task_id: "fix-login-bug", file_path: "...")`
 
 All responses return `slug` alongside `task_id`.
 
@@ -93,4 +93,4 @@ All responses return `slug` alongside `task_id`.
 
 ## Tools
 
-Call any tool by its `acs_` name. For a full listing with descriptions: `acs_help()`.
+Call any tool by its `steward_` name. For a full listing with descriptions: `steward_help()`.

@@ -1,6 +1,12 @@
 # Project-local Codex MCP configuration.
 # Activate this file with: CODEX_HOME="$PWD/.codex" codex
 
+# Fixed loopback port for OAuth callback. Codex otherwise binds an ephemeral
+# port per login attempt; Auth0 requires the EXACT redirect_uri be allowlisted
+# (no path wildcards), so the port must be stable. The callback path suffix is a
+# deterministic per-server hash (base64url of sha256(server_url)[0..9]).
+mcp_oauth_callback_port = 19876
+
 [mcp_servers.acs]
 url = "http://localhost:4001/mcp/v1/messages"
 
@@ -26,6 +32,36 @@ approval_mode = "approve"
 approval_mode = "approve"
 
 [mcp_servers.steward.tools.specs_propose]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.create_work]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.app_list]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.release_work]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.submit_task_feedback]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.skill_save]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.get_started]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.query_specs]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.lock_file]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.unlock_file]
+approval_mode = "approve"
+
+[mcp_servers.steward.tools.specs_get]
 approval_mode = "approve"
 
 [mcp_servers.axiom]

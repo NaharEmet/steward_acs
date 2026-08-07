@@ -22,9 +22,11 @@ defmodule AcsWeb.AcsLive.SkillsLive do
       |> assign(
         skills: [],
         selected_skill: nil,
+        selected_skill_ids: MapSet.new(),
         search_query: "",
         status_filter: "proposed",
-        stats: empty_stats()
+        stats: empty_stats(),
+        loading: connected?(socket)
       )
 
     socket =
@@ -46,17 +48,63 @@ defmodule AcsWeb.AcsLive.SkillsLive do
 
   @impl true
   def handle_event("search", %{"query" => query}, socket) do
-    {:noreply, socket |> assign(search_query: query, selected_skill: nil) |> load_data()}
+    {:noreply,
+     socket
+     |> assign(search_query: query, selected_skill: nil, selected_skill_ids: MapSet.new())
+     |> load_data()}
   end
 
   def handle_event("filter-status", %{"status" => status}, socket) do
     filter = if status == "", do: nil, else: status
-    {:noreply, socket |> assign(status_filter: filter, selected_skill: nil) |> load_data()}
+
+    {:noreply,
+     socket
+     |> assign(status_filter: filter, selected_skill: nil, selected_skill_ids: MapSet.new())
+     |> load_data()}
+  end
+
+  def handle_event("toggle-select", %{"id" => id}, socket) do
+    selected = socket.assigns.selected_skill_ids
+
+    selected =
+      if MapSet.member?(selected, id),
+        do: MapSet.delete(selected, id),
+        else: MapSet.put(selected, id)
+
+    {:noreply, assign(socket, selected_skill_ids: selected)}
+  end
+
+  def handle_event("clear-selection", _params, socket) do
+    {:noreply, assign(socket, selected_skill_ids: MapSet.new())}
+  end
+
+  def handle_event("approve-selected", _params, socket) do
+    ids = MapSet.to_list(socket.assigns.selected_skill_ids)
+    ctx = viewer_abac(socket)
+
+    approved =
+      ids
+      |> Enum.map(&Store.get_skill/1)
+      |> Enum.filter(&(&1 && &1.status == "proposed" && Abac.can_edit?(ctx, &1)))
+      |> Enum.count(fn skill -> Store.update_status(skill.id, "approved", "human") == :ok end)
+
+    {:noreply,
+     socket
+     |> assign(selected_skill_ids: MapSet.new(), selected_skill: nil)
+     |> put_flash(
+       :info,
+       "Approved #{approved} selected skill#{if approved == 1, do: "", else: "s"}"
+     )
+     |> load_data()}
   end
 
   def handle_event("select-skill", %{"id" => id}, socket) do
     skill = Enum.find(socket.assigns.skills, &(&1.id == id))
     {:noreply, assign(socket, selected_skill: skill)}
+  end
+
+  def handle_event("select-skill-key", %{"id" => id}, socket) do
+    handle_event("select-skill", %{"id" => id}, socket)
   end
 
   def handle_event("approve", %{"id" => id}, socket),
@@ -90,8 +138,8 @@ defmodule AcsWeb.AcsLive.SkillsLive do
                |> put_flash(:info, "Skill '#{id}' #{verb}")
                |> load_data()}
 
-            {:error, reason} ->
-              {:noreply, put_flash(socket, :error, "Failed to update skill: #{inspect(reason)}")}
+            {:error, _reason} ->
+              {:noreply, put_flash(socket, :error, "Could not update this skill. Try again.")}
           end
         else
           {:noreply,
@@ -146,7 +194,8 @@ defmodule AcsWeb.AcsLive.SkillsLive do
     assign(socket,
       skills: skills,
       selected_skill: selected_skill,
-      stats: compute_stats(all_skills)
+      stats: compute_stats(all_skills),
+      loading: false
     )
   end
 
@@ -172,6 +221,10 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   defp filter_status(skills, nil), do: skills
   defp filter_status(skills, status), do: Enum.filter(skills, &(&1.status == status))
 
+  defp selected_skill_count(skills, selected_ids) do
+    Enum.count(skills, &MapSet.member?(selected_ids, &1.id))
+  end
+
   defp compute_stats(skills) do
     Enum.reduce(skills, empty_stats(), fn skill, stats ->
       stats
@@ -180,7 +233,8 @@ defmodule AcsWeb.AcsLive.SkillsLive do
     end)
   end
 
-  defp empty_stats, do: %{"total" => 0, "proposed" => 0, "approved" => 0, "rejected" => 0}
+  defp empty_stats,
+    do: %{"total" => 0, "proposed" => 0, "approved" => 0, "rejected" => 0, "deprecated" => 0}
 
   defp skill_meta(%{metadata: meta}, key) when is_map(meta) do
     case Map.get(meta, key) do
@@ -202,61 +256,73 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   def render(assigns) do
     ~H"""
     <div class="skills-governance">
-      <section class="account-intro animate-in" aria-labelledby="skills-title">
+      <section class="account-intro page-intro animate-in" aria-labelledby="skills-title">
         <p class="account-kicker" style="font-size: 0.5rem; margin-bottom: 6px;"><span>Knowledge</span> / Skills</p>
-        <h2 id="skills-title" style="font-size: 1.3rem; margin-bottom: 6px;">Skills</h2>
-        <p style="font-size: 0.82rem;">Reusable workflow guides with step-by-step procedures for repeatable tasks.</p>
+        <h1 id="skills-title" class="page-title">Skills</h1>
+        <p class="page-description">Reusable workflow guides with step-by-step procedures for repeatable tasks.</p>
       </section>
 
-      <div style="display: flex; gap: 24px; margin-bottom: 20px; flex-wrap: wrap;">
-        <.stat_card label="Total" value={@stats["total"]} />
-        <.stat_card label="Pending" value={@stats["proposed"]} color="var(--amber)" />
-        <.stat_card label="Approved" value={@stats["approved"]} color="var(--green)" />
-        <.stat_card label="Rejected" value={@stats["rejected"]} color="var(--muted)" />
+      <div class="stats-grid">
+        <.stat_card label="Total" value={@stats["total"]} status="" selected={is_nil(@status_filter)} />
+        <.stat_card label="Proposed" value={@stats["proposed"]} status="proposed" color="var(--amber)" selected={@status_filter == "proposed"} />
+        <.stat_card label="Approved" value={@stats["approved"]} status="approved" color="var(--green)" selected={@status_filter == "approved"} />
+        <.stat_card label="Deprecated" value={@stats["deprecated"]} status="deprecated" color="var(--muted)" selected={@status_filter == "deprecated"} />
+        <.stat_card label="Rejected" value={@stats["rejected"]} status="rejected" color="var(--red)" selected={@status_filter == "rejected"} />
       </div>
 
-      <div style="margin-bottom: 16px;">
+      <div class="page-search">
         <form phx-change="search">
           <input
             name="query"
             type="text"
             class="search-input"
             placeholder="Search skills by name, description, tag, or content..."
+            aria-label="Search skills"
             value={@search_query}
-            style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: 0.85rem; outline: none;"
           />
         </form>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <div class="filter-tabs">
-          <button phx-click="filter-status" phx-value-status="" class={"filter-tab #{if is_nil(@status_filter), do: "active"}"}>All</button>
-          <button phx-click="filter-status" phx-value-status="proposed" class={"filter-tab #{if @status_filter == "proposed", do: "active"}"}>Pending</button>
-          <button phx-click="filter-status" phx-value-status="approved" class={"filter-tab #{if @status_filter == "approved", do: "active"}"}>Approved</button>
-          <button phx-click="filter-status" phx-value-status="rejected" class={"filter-tab #{if @status_filter == "rejected", do: "active"}"}>Rejected</button>
+      <div class="page-toolbar">
+        <div class="page-toolbar-actions">
+          <%= if selected_skill_count(@skills, @selected_skill_ids) > 0 do %>
+            <button phx-click="approve-selected" class="btn btn-primary compact-button">
+              ✓ Approve selected (<%= selected_skill_count(@skills, @selected_skill_ids) %>)
+            </button>
+            <button phx-click="clear-selection" class="btn btn-ghost compact-button">Clear</button>
+          <% end %>
+          <button phx-click="refresh" class="btn btn-ghost compact-button">↻ Refresh</button>
         </div>
-        <button phx-click="refresh" class="btn btn-ghost" style="padding: 6px 14px; font-size: 0.72rem;">↻ Refresh</button>
       </div>
 
-      <div style="display: flex; gap: 24px; align-items: flex-start;">
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+      <div class="governance-layout">
+        <div class="governance-list">
           <%= if Enum.empty?(@skills) do %>
-            <div class="card" style="padding: 48px;">
+            <div class="card empty-card">
+              <%= if assigns[:loading] == true do %>
+                <div class="loading-state" role="status">Loading skills</div>
+              <% else %>
               <div class="empty-state">
                 <div class="empty-state-icon">◇</div>
                 <p class="empty-state-title">No skills found</p>
                 <p class="empty-state-desc">Skill files are managed outside Steward and discovered from the skills directory.</p>
               </div>
+              <% end %>
             </div>
           <% else %>
             <%= for skill <- @skills do %>
               <div
                 phx-click="select-skill"
+                phx-keydown="select-skill-key"
+                phx-key="Enter"
                 phx-value-id={skill.id}
                 class={"tool-row #{if @selected_skill && @selected_skill.id == skill.id, do: "selected", else: ""}"}
-                style="cursor: pointer;"
+                role="button"
+                tabindex="0"
+                aria-pressed={to_string(@selected_skill && @selected_skill.id == skill.id)}
               >
                 <div style="display: flex; align-items: center; gap: 10px;">
+                  <input class="selection-checkbox" type="checkbox" checked={MapSet.member?(@selected_skill_ids, skill.id)} phx-click="toggle-select" phx-value-id={skill.id} phx-stopPropagation aria-label={"Select #{skill.name}"} />
                   <span class={"status-dot status-#{skill.status}"}></span>
                   <span class="category-badge"><%= skill.group %></span>
                   <span style="flex: 1; font-weight: 500; font-size: 0.88rem; color: var(--text);"><%= skill.name %></span>
@@ -279,7 +345,7 @@ defmodule AcsWeb.AcsLive.SkillsLive do
         </div>
 
         <%= if @selected_skill do %>
-          <div class="card" style="flex: 0 0 480px; padding: 24px; position: sticky; top: 16px; max-height: calc(100vh - 140px); overflow-y: auto;">
+          <div class="card governance-detail" style="padding: 24px;">
             <div style="display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px;">
               <div>
                 <div class="agent-task-label">Skill · <%= @selected_skill.group %></div>
@@ -361,13 +427,15 @@ defmodule AcsWeb.AcsLive.SkillsLive do
   attr :label, :string, required: true
   attr :value, :integer, required: true
   attr :color, :string, default: nil
+  attr :status, :string, required: true
+  attr :selected, :boolean, default: false
 
   defp stat_card(assigns) do
     ~H"""
-    <div class="card" style={"padding: 16px 20px; min-width: 110px; #{if @color, do: "border-left: 3px solid #{@color};", else: ""}"}>
+    <button type="button" phx-click="filter-status" phx-value-status={@status} class={"stat-card-button #{if @selected, do: "active"}"} style={if @color, do: "border-left-color: #{@color};", else: nil} aria-pressed={@selected}>
       <div class="stat-card-label"><%= @label %></div>
       <div class="stat-card-value"><%= @value %></div>
-    </div>
+    </button>
     """
   end
 end

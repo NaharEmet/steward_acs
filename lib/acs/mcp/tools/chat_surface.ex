@@ -262,7 +262,7 @@ defmodule Acs.MCP.Tools.ChatSurface do
   def steward_write_def do
     tool_def(
       "steward_write",
-      "Persist knowledge, update status, or send feedback. Choose exactly one kind. For kind=memory, memory_kind is the existing memory classification (decision, invariant, warning, etc.).",
+      "Persist knowledge, update status, or send feedback. Choose exactly one kind. For kind=memory, memory_kind is the existing memory classification (decision, invariant, warning, etc.). Memories, documents, and skills are stored in the database (or local files in single-tenant mode); no manual directory setup is needed.",
       [
         branch(memory_properties(), ["kind", "memory_kind", "title", "content", "scope_path"]),
         branch(document_properties(), ["kind", "app", "path"]),

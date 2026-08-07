@@ -9,7 +9,7 @@ defmodule Acs.Memory do
 
   @kind_types ~w(observation learning warning pattern bug decision invariant axiom
                  context status work_note activity)
-  @status_types ~w(proposed approved rejected stale deprecated archived parse_error)
+  @status_types Acs.Governance.Status.primary_statuses() ++ ~w(stale archived parse_error)
   @valid_verification_statuses ~w(proposed approved rejected)
 
   @auditable_kinds ~w(observation learning warning pattern bug decision invariant axiom)
