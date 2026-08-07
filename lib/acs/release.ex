@@ -31,21 +31,6 @@ defmodule Acs.Release do
     end)
   end
 
-  def import_memories do
-    with_repo(fn ->
-      case Acs.Memory.Importer.import() do
-        {:ok, summary} ->
-          case Acs.Memory.Importer.verify(summary) do
-            :ok -> summary
-            {:error, reason} -> raise "Memory ledger verification failed: #{inspect(reason)}"
-          end
-
-        {:error, reason} ->
-          raise "Memory import failed: #{inspect(reason)}"
-      end
-    end)
-  end
-
   def bootstrap_owner(email, organization_slug) do
     with_repo(fn -> Acs.Accounts.bootstrap_owner(email, organization_slug) end)
   end
