@@ -15,7 +15,12 @@ defmodule Acs.MCP.OAuth.BrokerTest do
     Application.put_env(:steward_acs, :oauth_bearer_enabled, true)
     Application.put_env(:steward_acs, :auth0_domain, "dev-jw5wgp2b.us.auth0.com")
     Application.put_env(:steward_acs, :auth0_audience, "https://anantha.stewardacs.xyz/mcp/sse")
-    Application.put_env(:steward_acs, :oauth_fixed_dcr_client_id, "0Qt3zP1YbyjtVN9zRf2cN7Pt39NhkHp0")
+
+    Application.put_env(
+      :steward_acs,
+      :oauth_fixed_dcr_client_id,
+      "0Qt3zP1YbyjtVN9zRf2cN7Pt39NhkHp0"
+    )
 
     BrokerStore.clear()
 
@@ -197,7 +202,9 @@ defmodule Acs.MCP.OAuth.BrokerTest do
 
       Application.put_env(:steward_acs, :oauth_broker_request_fun, fn url, body ->
         send(test_pid, {:token_exchange, url, body})
-        {:ok, 200, Jason.encode!(%{access_token: "at-1", token_type: "Bearer", expires_in: 86400})}
+
+        {:ok, 200,
+         Jason.encode!(%{access_token: "at-1", token_type: "Bearer", expires_in: 86400})}
       end)
 
       conn =
