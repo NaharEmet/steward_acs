@@ -59,6 +59,7 @@ defmodule Acs.Application do
           Acs.Acs.Cache,
           Acs.Acs.Sweeper,
           Acs.MCP.RateLimitStore,
+          Acs.MCP.OAuth.BrokerStore,
           Acs.MCP.BridgeSessionStore,
           Acs.MCP.ClientSession,
           Acs.MCP.ToolRegistry,

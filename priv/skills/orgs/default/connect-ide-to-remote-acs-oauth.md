@@ -6,13 +6,13 @@ scope_paths: ["guides/development-workflow", "lib/acs/mcp/oauth"]
 status: "approved"
 tags: ["mcp", "oauth", "cursor", "codex", "connector", "acs"]
 when_to_use: "When setting up an IDE/CLI (Cursor, Codex, OpenCode) to use the remote anantha ACS instance via OAuth, or when a connector fails with 401 / missing audience / resource metadata / issuer mismatch."
-audit_reasoning: "The skill is exceptionally well-structured and actionable. It provides clear, step-by-step instructions for a specific, repeatable task (connecting an IDE to a remote ACS instance via OAuth). It includes all required sections: prerequisites, numbered steps, verification, and detailed failure recovery. The content is rich with concrete examples, including exact file paths, configuration snippets, and command-line examples. The description is distinct and accurately summarizes the skill's purpose. The audience fit is perfect, as it targets coding agents with IDE-specific instructions (Cursor, Codex). It is unique and not a duplicate of any existing skill."
+audit_reasoning: "The skill is exceptionally well-structured and actionable. It provides clear, step-by-step instructions for a specific, repeatable task (connecting an IDE to a remote ACS instance via OAuth). It includes all required sections: prerequisites, detailed steps with exact file paths and configuration examples for multiple IDEs (Cursor, Codex, OpenCode), verification steps, and comprehensive failure recovery. The description is distinct and informative, and the content is perfectly tailored for a 'coding' audience, referencing specific IDE configuration files and commands. It is unique among the existing skills and covers a well-defined scope."
 audit_score: 10
 audit_status: "ok"
-audited_at: "2026-08-07T11:38:30.678463Z"
-approved_at: "2026-08-07T11:38:31.021349Z"
+audited_at: "2026-08-07T12:27:47.462730Z"
+approved_at: "2026-08-07T12:27:47.471014Z"
 approved_by: "llm"
-reviewed_at: "2026-08-07T11:38:31.021349Z"
+reviewed_at: "2026-08-07T12:27:47.471014Z"
 reviewed_by: "llm"
 ---
 
@@ -64,9 +64,18 @@ Setting up Cursor or Codex (or OpenCode) to use the **remote anantha** ACS insta
      }
    }
    ```
-   OpenCode runs DCR + the Auth0 browser flow automatically on first use. Trigger manually with `opencode mcp auth steward`; check status with `opencode mcp list`. Its redirect URI is a **fixed** `http://127.0.0.1:19876/mcp/oauth/callback` — see failure recovery if Auth0 rejects it as not allowlisted.
+   OpenCode runs DCR + the Auth0 browser flow automatically on first use. Trigger manually with `opencode mcp auth steward`; check status with `opencode mcp list`.
 5. **Verify** — after connecting, save a memory or create a task on `steward`; confirm it appears in the remote org dashboard (`https://anantha.stewardacs.xyz`). If it only appears locally, you're on the wrong server.
 6. **When both servers are enabled**, both expose the same `acs_*` tools — disable the one you aren't using to avoid duplicate tools and cross-store confusion.
+
+## Adding a new connector (universal — no Auth0 setup)
+
+The remote ACS runs an **OAuth broker** (`lib/acs/mcp/oauth/broker.ex`): ACS serves `/authorize`, `/oauth/callback`, and `/token` and accepts **any** client `redirect_uri` (https, or http on loopback) without Auth0 involvement. Auth0 only ever sees the single broker callback `https://{host}/oauth/callback`. So onboarding any new connector/IDE is just pointing it at the MCP URL — no Auth0 callback registration, no `setup-auth0.sh` changes:
+
+1. Add the connector's MCP server config pointing at `https://anantha.stewardacs.xyz/mcp/sse` (see Steps for format per IDE).
+2. Connect — the connector runs DCR + the browser flow against the broker.
+
+The MCP server URL is the same for every IDE — only the config file format differs (see Steps): Cursor `.cursor/mcp.json`, Codex `.codex/config.toml`, OpenCode `opencode.json`. Chat connectors use `/mcp/chat/sse`. The only redirect URI registered in Auth0 is the broker's `https://{host}/oauth/callback`.
 
 ## Verification
 
@@ -79,6 +88,6 @@ Setting up Cursor or Codex (or OpenCode) to use the **remote anantha** ACS insta
 - **"Protected resource metadata resource mismatch: reference '.../mcp/coding/sse', permitted '.../mcp/sse'"** — the connector URL must be `/mcp/sse`, not the `/mcp/coding/sse` alias. Update `.cursor/mcp.json` / `.codex/config.toml` to `https://anantha.stewardacs.xyz/mcp/sse`.
 - **401 / "Missing or invalid API key"** — the OAuth flow didn't supply a token, or the token expired. Reconnect the connector (fresh JWT). JWT is short-lived; reconnect after any redeploy.
 - **"Service not found: https://anantha.stewardacs.xyz/mcp/sse"** — missing Auth0 API audience. Run `EXTRA_ORG_SLUGS=<slug> ./scripts/ensure-auth0-org-audiences.sh`.
-- **Auth0 "Oops!" / Callback URL mismatch / redirect_uri not allowed (esp. OpenCode)** — OpenCode's redirect URI is a fixed `http://127.0.0.1:19876/mcp/oauth/callback`; Auth0 enforces the allowlist on the **fixed DCR** app (`OAUTH_FIXED_DCR_CLIENT_ID`), not the echoed DCR `redirect_uris`. Add it to that app's Allowed Callback URLs (run `./scripts/setup-auth0.sh` or PATCH `/api/v2/clients/{id}` `callbacks`). Verify the exact URI the client sent in Auth0 logs (`Monitoring → Logs`, type `f`).
+- **Auth0 "Oops!" / Callback URL mismatch / redirect_uri not allowed (any connector)** — this should no longer happen for new connectors because the ACS broker accepts any client `redirect_uri` and relays to Auth0 with the single fixed callback `https://{host}/oauth/callback`. If it still occurs, verify the broker is live (deployed + Caddy routes `/authorize` + `/token` to ACS, not Auth0) and that `https://{host}/oauth/callback` is on the fixed DCR app's allowlist (`scripts/setup-auth0.sh` **Connector Callback Registry**). Legacy per-connector entries can stay in the registry harmlessly.
 - **Duplicated tools** — disable the unused server in the IDE's MCP settings.
 - **Local won't boot** — see `guides/deployment.md` (SQLite, port 4001, `OAUTH_BEARER_ENABLED=false` locally).

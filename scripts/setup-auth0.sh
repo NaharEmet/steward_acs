@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Configure Auth0 tenant for Claude + ChatGPT + OpenCode MCP Connectors (Steward ACS).
+# Configure Auth0 tenant for MCP connectors — Claude, ChatGPT, OpenCode + any via EXTRA_CONNECTOR_CALLBACKS.
 #
 # Required env:
 #   AUTH0_M2M_CLIENT_ID      Machine-to-Machine app client ID
@@ -12,8 +12,8 @@
 #   AUTH0_USER_PASSWORD        ignored for passwordless; only used if AUTH0_DB_CONNECTION is a DB conn
 #   AUTH0_DB_CONNECTION        default: email (passwordless OTP via New Universal Login)
 #   SKIP_CLAUDE_APP            set to 1 to skip manual Claude OAuth app creation
-#   OAUTH_FIXED_DCR_CLIENT_ID  ACS fixed DCR Auth0 app — ChatGPT/Claude/OpenCode callbacks synced here
-#   CHATGPT_EXTRA_CALLBACKS    space-separated extra ChatGPT redirect URIs (Apps SDK per-app URLs)
+#   OAUTH_FIXED_DCR_CLIENT_ID   ACS fixed DCR Auth0 app — connector callbacks are synced here (see registry)
+#   EXTRA_CONNECTOR_CALLBACKS   space-separated extra redirect URIs for any connector (CHATGPT_EXTRA_CALLBACKS alias)
 #
 # Login model (Claude/ChatGPT Connectors + Steward web):
 #   New Universal Login + Identifier First. Email passwordless OTP and/or
@@ -21,30 +21,52 @@
 #   verified email when Auth0 `sub` differs across connections. True Auth0
 #   "magic links" require Classic Login and are not used here.
 #
-# Fixed DCR note:
-#   ACS `/oidc/register` returns OAUTH_FIXED_DCR_CLIENT_ID for every connector.
-#   Auth0 still validates redirect_uri against that app's Allowed Callback URLs.
-#   Claude alone is not enough — ChatGPT and OpenCode must be allowlisted too.
+# Fixed DCR note (universal rule):
+#   ACS `/oidc/register` returns OAUTH_FIXED_DCR_CLIENT_ID for every connector,
+#   but Auth0 validates redirect_uri against that app's Allowed Callback URLs —
+#   the DCR-echoed redirect_uris are ignored. So EVERY connector's redirect URI
+#   must be in the Connector Callback Registry below. Add new URIs there (or via
+#   EXTRA_CONNECTOR_CALLBACKS) and re-run; use --check to verify before connecting.
 #
 set -euo pipefail
+
+# --check / -c: verify connector callbacks are allowlisted; make no changes.
+CHECK_ONLY="${CHECK_ONLY:-0}"
+if [[ "$#" -gt 0 ]]; then
+  for a in "$@"; do
+    case "$a" in
+      --check|-c) CHECK_ONLY=1 ;;
+    esac
+  done
+fi
 
 DOMAIN="${AUTH0_DOMAIN:-dev-jw5wgp2b.us.auth0.com}"
 AUDIENCE="${AUTH0_AUDIENCE:-https://prod.stewardacs.xyz/mcp/sse}"
 MGMT_AUDIENCE="https://${DOMAIN}/api/v2/"
 DB_CONNECTION="${AUTH0_DB_CONNECTION:-email}"
+# ── Connector Callback Registry (universal) ──────────────────────────────────
+# Every connector that uses the fixed DCR client must have its redirect URI here.
+# To add a new connector: add its callback to this registry (or pass it ad-hoc
+# via EXTRA_CONNECTOR_CALLBACKS) and re-run this script — Auth0 is updated for
+# ALL fixed/connector apps in one pass.
 CLAUDE_CALLBACK="https://claude.ai/api/mcp/auth_callback"
 # OpenCode remote MCP OAuth redirect (fixed port 19876, path /mcp/oauth/callback).
 OPENCODE_CALLBACK="http://127.0.0.1:19876/mcp/oauth/callback"
+# ACS OAuth broker callback (lib/acs/mcp/oauth/broker.ex). The broker accepts
+# ANY client redirect_uri and relays the Auth0 handshake through this single
+# per-host callback, so new connectors need NO Auth0 registration. Set
+# BROKER_CALLBACK for each tenant host, e.g. https://anantha.stewardacs.xyz/oauth/callback.
+BROKER_CALLBACK="${BROKER_CALLBACK:-https://anantha.stewardacs.xyz/oauth/callback}"
 # ChatGPT connector + Apps manage redirects (OpenAI docs / Auth0 MCP guides).
 # Per-app Apps SDK URLs look like https://chatgpt.com/connector/oauth/{id} —
-# Auth0 has no path wildcards; pass those via CHATGPT_EXTRA_CALLBACKS.
+# Auth0 has no path wildcards; pass those via EXTRA_CONNECTOR_CALLBACKS.
 CHATGPT_CALLBACKS=(
   "https://chatgpt.com/connector_platform_oauth_redirect"
   "https://platform.openai.com/apps-manage/oauth"
 )
 # shellcheck disable=SC2206
-CHATGPT_EXTRA_CALLBACKS=( ${CHATGPT_EXTRA_CALLBACKS:-} )
-CONNECTOR_CALLBACKS=("$CLAUDE_CALLBACK" "$OPENCODE_CALLBACK" "${CHATGPT_CALLBACKS[@]}" "${CHATGPT_EXTRA_CALLBACKS[@]}")
+EXTRA_CONNECTOR_CALLBACKS=( ${EXTRA_CONNECTOR_CALLBACKS:-} ${CHATGPT_EXTRA_CALLBACKS:-} )
+CONNECTOR_CALLBACKS=("$CLAUDE_CALLBACK" "$OPENCODE_CALLBACK" "$BROKER_CALLBACK" "${CHATGPT_CALLBACKS[@]}" "${EXTRA_CONNECTOR_CALLBACKS[@]}")
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; NC='\033[0m'
 info()  { echo -e "${CYAN}[auth0]${NC} $*"; }
@@ -74,6 +96,62 @@ api() {
     "$@"
 }
 
+# Sync the Connector Callback Registry onto an Auth0 app (fixed DCR + connector apps).
+# In CHECK_ONLY mode it reports missing callbacks instead of PATCHing.
+ensure_connector_callbacks() {
+  local cid="$1" label="$2"
+  [[ -n "$cid" ]] || return 0
+  local current missing
+  current=$(api GET "/clients/${cid}?fields=callbacks&include_fields=true" | python3 -c "
+import sys, json
+print(json.dumps(json.load(sys.stdin).get('callbacks') or []))
+")
+  missing=$(python3 -c "
+import json, sys
+have = set(json.loads(sys.argv[1]))
+want = [u for u in sys.argv[2:] if u]
+missing = sorted(set(want) - have)
+if missing:
+    print('\\n'.join(missing))
+" "$current" "${CONNECTOR_CALLBACKS[@]}")
+  if [[ -n "$missing" ]]; then
+    if [[ "$CHECK_ONLY" == "1" ]]; then
+      info "CHECK: ${label} (${cid}) is missing callbacks:"
+      echo "$missing" | sed 's/^/    - /'
+      return 1
+    fi
+    local desired
+    desired=$(python3 -c "
+import json, sys
+have = set(json.loads(sys.argv[1]))
+want = [u for u in sys.argv[2:] if u]
+print(json.dumps(sorted(have | set(want))))
+" "$current" "${CONNECTOR_CALLBACKS[@]}")
+    api PATCH "/clients/${cid}" -d "{\"callbacks\": ${desired}}" >/dev/null
+    ok "Synced callbacks on ${label} (${cid}): $(echo "$missing" | tr '\n' ' ')"
+  else
+    ok "Callbacks up-to-date on ${label} (${cid})"
+  fi
+}
+
+# Client IDs that must carry the registry: fixed DCR + known connector apps.
+connector_client_ids() {
+  local fixed="${OAUTH_FIXED_DCR_CLIENT_ID:-}"
+  api GET "/clients?fields=client_id,name&include_fields=true&per_page=100" | python3 -c "
+import sys, json
+names = {'Claude.ai MCP', 'steward_acs_mcp'}
+fixed = sys.argv[1]
+seen = set()
+for c in json.load(sys.stdin):
+    cid = c.get('client_id') or ''
+    if (c.get('name') in names or (fixed and cid == fixed)) and cid not in seen:
+        seen.add(cid)
+        print(cid)
+if fixed and fixed not in seen:
+    print(fixed)
+" "$fixed"
+}
+
 info "Fetching Management API token..."
 TOKEN_RESP=$(curl -sS --fail-with-body -X POST "https://${DOMAIN}/oauth/token" \
   -H "content-type: application/json" \
@@ -86,6 +164,20 @@ TOKEN_RESP=$(curl -sS --fail-with-body -X POST "https://${DOMAIN}/oauth/token" \
 
 MGMT_TOKEN=$(echo "$TOKEN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 ok "Management API token obtained"
+
+if [[ "$CHECK_ONLY" == "1" ]]; then
+  missing=0
+  for CID in $(connector_client_ids); do
+    NAME=$(api GET "/clients/${CID}?fields=name&include_fields=true" | python3 -c "import sys,json; print(json.load(sys.stdin).get('name') or 'fixed-dcr')")
+    ensure_connector_callbacks "$CID" "$NAME" || missing=1
+  done
+  echo ""
+  if [[ "$missing" == "1" ]]; then
+    fail "Connector callbacks missing (see above) — run ./scripts/setup-auth0.sh (no --check) to sync"
+  fi
+  ok "All connector callbacks are allowlisted"
+  exit 0
+fi
 
 info "Enabling Dynamic Client Registration (DCR)..."
 api PATCH /tenants/settings -d '{"flags":{"enable_dynamic_client_registration":true}}' >/dev/null
@@ -271,29 +363,6 @@ if [[ -n "${AUTH0_USER_EMAIL:-}" ]]; then
   ok "Assigned MCP User role to ${AUTH0_USER_EMAIL}"
 fi
 
-# Union connector callbacks onto an Auth0 app (Claude + ChatGPT share fixed DCR).
-ensure_connector_callbacks() {
-  local cid="$1" label="$2"
-  [[ -n "$cid" ]] || return 0
-  local current desired
-  current=$(api GET "/clients/${cid}?fields=callbacks&include_fields=true" | python3 -c "
-import sys, json
-print(json.dumps(json.load(sys.stdin).get('callbacks') or []))
-")
-  desired=$(python3 -c "
-import json, sys
-have = set(json.loads(sys.argv[1]))
-want = [u for u in sys.argv[2:] if u]
-merged = sorted(have | set(want))
-print(json.dumps(merged))
-changed = sorted(set(want) - have)
-print('CHANGED' if changed else 'SAME', file=sys.stderr)
-print('\\n'.join(changed), file=sys.stderr)
-" "$current" "${CONNECTOR_CALLBACKS[@]}")
-  api PATCH "/clients/${cid}" -d "{\"callbacks\": ${desired}}" >/dev/null
-  ok "Callbacks synced on ${label} (${cid})"
-}
-
 if [[ "${SKIP_CLAUDE_APP:-}" != "1" ]]; then
   info "Creating Claude.ai OAuth app (manual Client ID fallback)..."
   EXISTING=$(api GET /clients?fields=client_id,name 2>/dev/null | python3 -c "
@@ -328,20 +397,8 @@ for c in json.load(sys.stdin):
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi
 
-info "Ensuring Claude + ChatGPT + OpenCode callbacks on fixed/connector Auth0 apps..."
-for CID in $(api GET "/clients?fields=client_id,name&include_fields=true&per_page=100" | python3 -c "
-import sys, json
-names = {'Claude.ai MCP', 'steward_acs_mcp'}
-fixed = '''${OAUTH_FIXED_DCR_CLIENT_ID:-}'''.strip()
-seen = set()
-for c in json.load(sys.stdin):
-    cid = c.get('client_id') or ''
-    if (c.get('name') in names or (fixed and cid == fixed)) and cid not in seen:
-        seen.add(cid)
-        print(cid)
-if fixed and fixed not in seen:
-    print(fixed)
-"); do
+info "Syncing connector callbacks on fixed/connector Auth0 apps..."
+for CID in $(connector_client_ids); do
   NAME=$(api GET "/clients/${CID}?fields=name&include_fields=true" | python3 -c "import sys,json; print(json.load(sys.stdin).get('name') or 'fixed-dcr')")
   ensure_connector_callbacks "$CID" "$NAME"
 done
@@ -429,11 +486,11 @@ echo ""
 ok "Auth0 setup complete for ${DOMAIN}"
 echo "  MCP API:     ${AUDIENCE}"
 echo "  DCR:         enabled"
-echo "  Callbacks:   Claude + ChatGPT + OpenCode (fixed DCR client must allow all)"
+echo "  Callbacks:   ${CONNECTOR_CALLBACKS[*]}"
 echo "  Login:       Identifier First + email OTP and/or Google (no connection= pin)"
 echo "  Identity:    ACS relinks by verified email across Auth0 connections"
 echo "  RBAC:        enabled with mcp:tools"
 echo ""
-echo "Next: Remove + re-add the connector at ${AUDIENCE} (Claude or ChatGPT) and connect."
+echo "Next: Remove + re-add the connector at ${AUDIENCE} and connect."
 echo "Users choose email OTP or Google on Universal Login (same verified email)."
-echo "ChatGPT Apps SDK per-app callback? set CHATGPT_EXTRA_CALLBACKS='https://chatgpt.com/connector/oauth/<id>'"
+echo "New connector callback? EXTRA_CONNECTOR_CALLBACKS='https://<host>/<callback>' ./scripts/setup-auth0.sh"

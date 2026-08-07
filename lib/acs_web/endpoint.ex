@@ -81,6 +81,11 @@ defmodule AcsWeb.Endpoint do
       String.starts_with?(conn.request_path, "/.well-known/oauth-protected-resource") ->
         Acs.MCP.OAuth.WellKnown.call(conn, [])
 
+      String.starts_with?(conn.request_path, "/authorize") or
+        conn.request_path == "/oauth/callback" or
+          (conn.method == "POST" and conn.request_path == "/token") ->
+        Acs.MCP.OAuth.Broker.call(conn, [])
+
       String.starts_with?(conn.request_path, "/mcp") or
           String.starts_with?(conn.request_path, "/api") ->
         Acs.MCP.HTTPServer.call(conn, [])

@@ -68,12 +68,13 @@ url = "https://anantha.stewardacs.xyz/mcp/sse"
 
 ## After any work
 
-Follow `AGENTS_STEWARD.md` "After Work": save to the **remote** instance (skill_save / specs_propose / save_memory), then `acs_release_work` + `acs_submit_task_feedback` last.
+Follow `AGENTS_STEWARD.md` "After Work": save to the **remote** instance (skill_save / specs_propose / save_memory), then `steward_release_work` + `steward_submit_task_feedback` last.
 
 ## Troubleshooting
 
 - **"Authorization server issuer mismatch: expected https://anantha.stewardacs.xyz/, received https://dev-jw5wgp2b.us.auth0.com/"** — the authorization-server metadata `issuer` must equal the host the metadata was fetched from (RFC 8414 §2.1). Caddy must serve `"issuer":"https://{host}/"`, not `{$AUTH0_DOMAIN}`. Fix in `Caddyfile.multitenant`, then redeploy/reload Caddy. Server-side JWT validation is unaffected (it validates against the Auth0 issuer directly).
 - **"Protected resource metadata resource mismatch: reference '.../mcp/coding/sse', permitted '.../mcp/sse'"** — OAuth connectors must use `/mcp/sse` (the Auth0 resource identifier), not the `/mcp/coding/sse` alias. Point the remote server at `https://anantha.stewardacs.xyz/mcp/sse`.
+- **Any MCP client authenticates with zero Auth0 setup** — ACS runs an OAuth broker (`lib/acs/mcp/oauth/broker.ex`): `/authorize`, `/oauth/callback`, and `/token` are served by ACS, which accepts *any* client `redirect_uri` (https, or http on loopback) and performs the Auth0 handshake internally with a single fixed callback `https://{host}/oauth/callback`. New connectors (Codex, Cursor, Claude, ChatGPT, future ones) just point at `/mcp/sse` — no per-software Auth0 callback registration.
 - **Remote won't connect / 401** — complete the OAuth browser flow; the bearer token must be fresh. Reconnect the connector after a redeploy (JWT is short-lived).
 - **"Service not found: https://anantha.stewardacs.xyz/mcp/sse"** — the Auth0 API audience for the org is missing. Run `EXTRA_ORG_SLUGS=anantha ./scripts/ensure-auth0-org-audiences.sh`.
 - **Duplicated tools** — both servers are enabled; disable the one you aren't using.
