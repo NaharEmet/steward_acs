@@ -216,7 +216,7 @@ defmodule Acs.MCP.OAuth.Broker do
 
   # Builds the Auth0 authorize URL. Keeps the client's own params (connection,
   # login_hint, prompt, ...) but overrides everything that must be broker-owned:
-  # client_id, redirect_uri, state, code_challenge, audience.
+  # client_id, redirect_uri, state, code_challenge, audience, scope.
   defp authorize_url(conn, params, client_id, broker_state, code_challenge) do
     overridden = [
       "client_id",
@@ -226,7 +226,8 @@ defmodule Acs.MCP.OAuth.Broker do
       "code_challenge",
       "code_challenge_method",
       "audience",
-      "resource"
+      "resource",
+      "scope"
     ]
 
     query =
@@ -239,9 +240,22 @@ defmodule Acs.MCP.OAuth.Broker do
       |> Map.put("code_challenge_method", "S256")
       |> Map.put("audience", Config.resource_url_for_host(conn.host))
       |> Map.put_new("response_type", "code")
-      |> Map.put_new("scope", "mcp:tools")
+      |> Map.put("scope", requested_scope(params))
 
     "#{Config.issuer()}/authorize?#{URI.encode_query(query)}"
+  end
+
+  # Auth0 only returns a refresh token when `offline_access` is requested, so it
+  # is force-appended to whatever scope the client sent. That lets MCP clients
+  # silently renew the short-lived access token instead of re-logging-in daily.
+  defp requested_scope(params) do
+    base = params["scope"] || "mcp:tools"
+
+    if String.contains?(base, "offline_access") do
+      base
+    else
+      String.trim(base <> " offline_access")
+    end
   end
 
   defp broker_callback_url(conn) do

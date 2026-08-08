@@ -76,7 +76,7 @@ defmodule Acs.MCP.OAuth.BrokerTest do
       assert params["audience"] == "https://anantha.stewardacs.xyz/mcp/sse"
       assert params["code_challenge_method"] == "S256"
       assert params["response_type"] == "code"
-      assert params["scope"] == "mcp:tools"
+      assert params["scope"] == "mcp:tools offline_access"
       assert params["code_challenge"] != "client-challenge"
 
       broker_state = params["state"]
@@ -100,6 +100,20 @@ defmodule Acs.MCP.OAuth.BrokerTest do
       assert conn.status == 302
       location = Plug.Conn.get_resp_header(conn, "location") |> List.first()
       assert String.starts_with?(location, "https://dev-jw5wgp2b.us.auth0.com/authorize?")
+    end
+
+    test "forces offline_access into the Auth0 scope and never duplicates it" do
+      conn =
+        host_conn(:get, "/authorize", %{
+          "redirect_uri" => "http://127.0.0.1:19876/mcp/oauth/callback",
+          "scope" => "mcp:tools offline_access"
+        })
+        |> Broker.call([])
+
+      assert conn.status == 302
+      location = Plug.Conn.get_resp_header(conn, "location") |> List.first()
+      params = URI.decode_query(URI.parse(location).query)
+      assert params["scope"] == "mcp:tools offline_access"
     end
 
     test "accepts a random-port random-path loopback callback (Codex style)" do
