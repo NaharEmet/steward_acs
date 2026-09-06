@@ -82,7 +82,12 @@ defmodule Acs.Memory do
   """
   def new(attrs \\ %{}) do
     kind = attrs["kind"] || "observation"
-    default_status = if kind in @auditable_kinds, do: "proposed", else: "approved"
+
+    default_status =
+      if kind in @auditable_kinds and
+           Application.get_env(:steward_acs, :memory_auditor_enabled, true),
+         do: "proposed",
+         else: "approved"
 
     struct(__MODULE__, %{
       id: attrs["id"] || generate_id(attrs),

@@ -151,6 +151,8 @@ The file watcher debounces events (1000ms) and excludes `.obsidian/` internal fi
 | `COOKIE_SIGNING_SALT` | No | derived | Session cookie salt (set at Docker build for stable LiveView auth) |
 | `CORS_ORIGINS` | No | `*` | Comma-separated browser origins allowed for MCP CORS |
 | `AUDITOR_INTERVAL` | No | `30000` | Memory auditor polling interval (ms) |
+| `MEMORY_AUDITOR_ENABLED` | No | `false` in prod | Enable background memory quality audits |
+| `MEMORY_INTAKE_LLM` | No | `false` in prod | Enable pre-save LLM intake checks |
 | `OLLAMA_URL` | No | `http://localhost:11434` | Ollama endpoint for local embeddings |
 | `MEMORY_STORE` | No | `yaml` | Storage format: `yaml` or `obsidian` |
 | `OBSIDIAN_VAULT_PATH` | No | — | Filesystem path to Obsidian vault |

@@ -88,6 +88,20 @@ config :steward_acs,
        System.get_env("AUDITOR_INTERVAL", "30000") |> String.to_integer()
 
 config :steward_acs,
+       :memory_auditor_enabled,
+       System.get_env(
+         "MEMORY_AUDITOR_ENABLED",
+         if(config_env() == :prod, do: "false", else: "true")
+       ) in ~w(true 1 yes)
+
+config :steward_acs,
+       :memory_intake_llm,
+       System.get_env(
+         "MEMORY_INTAKE_LLM",
+         if(config_env() == :prod, do: "false", else: "true")
+       ) in ~w(true 1 yes)
+
+config :steward_acs,
        :skill_auditor_interval,
        System.get_env("SKILL_AUDITOR_INTERVAL", "60000") |> String.to_integer()
 

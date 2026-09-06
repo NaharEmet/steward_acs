@@ -150,6 +150,7 @@ defmodule Acs.Abac do
   """
   def memory_status_for_write(%__MODULE__{} = ctx, attrs) when is_map(attrs) do
     cond do
+      not Application.get_env(:steward_acs, :memory_auditor_enabled, true) -> nil
       field(attrs, "visibility", "org") == "personal" -> nil
       restricted_role?(ctx) -> "proposed"
       true -> nil

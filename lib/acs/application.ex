@@ -273,10 +273,19 @@ defmodule Acs.Application do
 
   @doc false
   def memory_background_children(_multi_tenant?, false), do: []
-  def memory_background_children(true, true), do: [Acs.Memory.Auditor]
+
+  def memory_background_children(true, true) do
+    if Application.get_env(:steward_acs, :memory_auditor_enabled, true),
+      do: [Acs.Memory.Auditor],
+      else: []
+  end
 
   def memory_background_children(false, true) do
-    [Acs.Memory.Auditor, Acs.Memory.FileWatcher, Acs.Memory.VaultSweeper]
+    if Application.get_env(:steward_acs, :memory_auditor_enabled, true) do
+      [Acs.Memory.Auditor, Acs.Memory.FileWatcher, Acs.Memory.VaultSweeper]
+    else
+      [Acs.Memory.FileWatcher, Acs.Memory.VaultSweeper]
+    end
   end
 
   defp vault_configured? do
