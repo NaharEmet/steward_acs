@@ -109,7 +109,10 @@ defmodule AcsWeb.UserAuthTest do
         |> post("/users/log_in", %{"user" => %{"username" => "admin", "password" => "secret"}})
 
       assert redirected_to(conn) == "/"
-      [set_cookie] = get_resp_header(conn, "set-cookie") |> Enum.filter(&(&1 =~ "_acs_known_accounts"))
+
+      [set_cookie] =
+        get_resp_header(conn, "set-cookie") |> Enum.filter(&(&1 =~ "_acs_known_accounts"))
+
       assert set_cookie =~ "domain=.example.test"
 
       known =
