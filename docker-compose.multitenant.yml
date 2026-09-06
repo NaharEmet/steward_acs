@@ -64,6 +64,8 @@ x-steward-acs: &steward_acs
     NIM_BASE_URL: "${NIM_BASE_URL:-}"
     TOKENROUTER_API_KEY: "${TOKENROUTER_API_KEY:-}"
     MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
+    ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+    ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}"
     OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
     TOKENROUTER_MODEL: "${TOKENROUTER_MODEL:-z-ai/glm-5.3-free}"
     # Per-location, per-call-type LLM routing (see Acs.LLM.Router).

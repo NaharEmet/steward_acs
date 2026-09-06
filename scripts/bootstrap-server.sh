@@ -10,6 +10,10 @@
 #   2. Thin REMOTE_DIR/.env from .env.multitenant (non-secret config)
 #   3. SERVER=… ACS_IMAGE_TAG=… ./scripts/bootstrap-server.sh --start
 #      or: SERVER=… ./scripts/deploy.sh --resume
+#
+# Also hardens the host (idempotent): ufw (22/80/443 only), SSH key-only
+# auth, unattended-upgrades. Run AFTER your SSH key works — password SSH
+# is disabled.
 set -euo pipefail
 
 SERVER="${SERVER:-}"
@@ -55,6 +59,34 @@ if ! command -v infisical >/dev/null 2>&1; then
   sudo apt-get install -y infisical
 fi
 infisical --version >/dev/null
+
+# --- Hardening (idempotent) ---
+# UFW: default deny inbound, allow SSH + web only.
+sudo apt-get install -y ufw >/dev/null
+if ! sudo ufw status | grep -q "Status: active"; then
+  sudo ufw default deny incoming
+  sudo ufw default allow outgoing
+  sudo ufw allow 22/tcp   comment 'SSH'
+  sudo ufw allow 80/tcp   comment 'HTTP'
+  sudo ufw allow 443/tcp  comment 'HTTPS'
+  sudo ufw --force enable
+fi
+
+# SSH: key-only auth, no root login, no password auth.
+SSHD_CONFIG=/etc/ssh/sshd_config.d/10-hardening.conf
+if [[ ! -f "$SSHD_CONFIG" ]]; then
+  printf '%s\n' \
+    'PubkeyAuthentication yes' \
+    'PasswordAuthentication no' \
+    'KbdInteractiveAuthentication no' \
+    'PermitRootLogin no' \
+    | sudo tee "$SSHD_CONFIG" >/dev/null
+  sudo sshd -t && sudo systemctl reload ssh
+fi
+
+# Unattended security upgrades.
+sudo apt-get install -y unattended-upgrades >/dev/null
+sudo dpkg-reconfigure -f noninteractive unattended-upgrades || true
 REMOTE
 
 info "Creating ${REMOTE_DIR} and syncing compose + Infisical wrapper"

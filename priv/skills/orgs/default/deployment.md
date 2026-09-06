@@ -90,9 +90,9 @@ Then start the stack:
 SERVER=ubuntu@NEW_HOST ./scripts/bootstrap-server.sh --start   # runs deploy.sh --resume (blue/green cutover)
 ```
 
-### New-server gotcha: SYNCTHING_*_API_KEY required
+### New-server security hardening
 
-`docker-compose.multitenant.yml` has 4 syncthing services (`syncthing_default/_prod/_fsgbhutan/_safetyconnect`) **not gated by any profile** (only `axiom` has `profiles:["axiom"]`), each requiring `${SYNCTHING_*_API_KEY:?Set...}` for `STGUIAPIKEY`. These keys are commented out in `.env.multitenant` (commit 23272b5) — they must live in Infisical `prod` or `bootstrap-server.sh --start` / `deploy.sh` dies at compose interpolation with `required variable SYNCTHING_*_API_KEY is missing a value`. App code does **not** read them; they only gate the compose file. Generate with `openssl rand -hex 24` and set with `infisical secrets set <NAME>=<value> --type shared` (machine identity defaults `--type` to personal for deletes; use `--type shared` for both set and delete).
+`bootstrap-server.sh` now hardens the host as part of first-time setup (idempotent, safe to re-run): UFW with default-deny inbound and only 22/80/443 open, SSH key-only auth (drop-in `/etc/ssh/sshd_config.d/10-hardening.conf`: `PasswordAuthentication no`, `PermitRootLogin no`, `KbdInteractiveAuthentication no`), and unattended-upgrades for automatic security patches. Run bootstrap **after** your SSH key is installed on the host — password SSH is disabled by the script.
 
 ### GitHub Environment secrets for the new host
 

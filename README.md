@@ -164,6 +164,8 @@ The file watcher debounces events (1000ms) and excludes `.obsidian/` internal fi
 | `OPENAI_API_KEY` | No | — | OpenAI API key for LLM evaluation |
 | `OPENAI_BASE_URL` | No | — | Custom OpenAI-compatible endpoint URL |
 | `OPENAI_MODEL` | No | — | OpenAI model name override |
+| `ANTHROPIC_API_KEY` | No | — | Anthropic API key for LLM evaluation |
+| `ANTHROPIC_MODEL` | No | `claude-haiku-4-5-20251001` | Anthropic model override |
 | `MCP_TOOLS_PATH` | No | `<app>/acs/acstools` | Comma-separated directories for YAML tool definitions |
 | `MCP_AUTH_LOCAL_FALLBACK` | No | `false` | Allow unauthenticated MCP calls from localhost |
 | `HTTP_SLEEP_MAX_MS` | No | — | Max sleep duration for `sleep` tool (ms) |
@@ -191,8 +193,9 @@ Memory auditing and semantic search need an LLM provider. Set at least one of th
 | `TOKENROUTER_API_KEY` | TokenRouter (OpenAI-compatible) |
 | `MINIMAX_API_KEY` | MiniMax |
 | `OPENAI_API_KEY` | OpenAI (also set `OPENAI_BASE_URL` / `OPENAI_MODEL` for custom endpoints) |
+| `ANTHROPIC_API_KEY` | Anthropic Messages API |
 
-You can restrict which providers are used via `ENABLED_LLM_PROVIDERS` (comma-separated, e.g. `tokenrouter,nim`). By default all enabled providers with valid API keys are tried in priority order. TokenRouter uses `https://api.tokenrouter.com/v1` and defaults to `z-ai/glm-5.3-free`.
+You can restrict which providers are used via `ENABLED_LLM_PROVIDERS` (comma-separated, e.g. `tokenrouter,nim`). By default all enabled providers with valid API keys are tried in priority order. TokenRouter uses `https://api.tokenrouter.com/v1` and defaults to `z-ai/glm-5.3-free`. Anthropic defaults to `claude-haiku-4-5-20251001`; local `.env` and production Infisical use the same variable names.
 
 ### MCP Tool Definitions
 

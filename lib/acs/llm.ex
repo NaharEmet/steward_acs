@@ -339,6 +339,68 @@ defmodule Acs.LLM do
   # Uses LLMUtils.Client with options for metrics, rate limiting, logging.
 
   defp call_provider(provider_id, prompt, call_type, prompt_chars, subject_id) do
+    if provider_id == "anthropic" do
+      call_anthropic(prompt, call_type, prompt_chars, subject_id)
+    else
+      call_openai_compatible_provider(provider_id, prompt, call_type, prompt_chars, subject_id)
+    end
+  end
+
+  defp call_anthropic(prompt, call_type, _prompt_chars, _subject_id) do
+    model =
+      Acs.LLM.Router.model_for(
+        Acs.LLM.Router.region(),
+        "anthropic",
+        call_type,
+        provider_overrides("anthropic", :model) || "claude-haiku-4-5-20251001"
+      )
+
+    {system_prompt, user_prompt} = split_prompt(prompt)
+
+    body = %{
+      model: model,
+      max_tokens: 4096,
+      temperature: 0.0,
+      messages: [%{role: "user", content: user_prompt}]
+    }
+
+    body = if system_prompt, do: Map.put(body, :system, system_prompt), else: body
+    result =
+      Req.post(
+        url: "https://api.anthropic.com/v1/messages",
+        headers: [
+          {"x-api-key", resolve_api_key("anthropic")},
+          {"anthropic-version", "2023-06-01"}
+        ],
+        json: body,
+        receive_timeout: 60_000,
+        connect_options: [timeout: 10_000]
+      )
+
+    case result do
+      {:ok, %{status: status, body: response}} when status in 200..299 ->
+        content = response["content"] |> List.first() |> then(&(&1 && &1["text"]))
+
+        case extract_evaluation(content) do
+          {:ok, evaluation} ->
+            {:ok, evaluation, "anthropic", model}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:ok, %{status: status, body: response}} ->
+        {:error, {:server_error, status, inspect(response)}}
+
+      {:error, %{reason: :timeout}} ->
+        {:error, :timeout}
+
+      {:error, reason} ->
+        {:error, {:api_error, inspect(reason)}}
+    end
+  end
+
+  defp call_openai_compatible_provider(provider_id, prompt, call_type, prompt_chars, subject_id) do
     config = config_for(provider_id)
 
     if is_nil(config) do
@@ -570,6 +632,9 @@ defmodule Acs.LLM do
     do:
       System.get_env("TOKENROUTER_MODEL") || Application.get_env(:steward_acs, :tokenrouter_model)
 
+  defp provider_overrides("anthropic", :model),
+    do: System.get_env("ANTHROPIC_MODEL") || Application.get_env(:steward_acs, :anthropic_model)
+
   defp provider_overrides(_, _), do: nil
 
   # ── App-side provider configs ────────────────────────────────────────
@@ -606,6 +671,20 @@ defmodule Acs.LLM do
       models: ["deepseek/deepseek-4-flash"],
       suppress_thinking: true,
       reasoning_effort: :none
+    },
+    "anthropic" => %{
+      id: "anthropic",
+      name: "Anthropic",
+      base_url: "https://api.anthropic.com/v1",
+      default_model: "claude-haiku-4-5-20251001",
+      auth_type: :none,
+      api_key_env: "ANTHROPIC_API_KEY",
+      supports_json_mode: false,
+      supports_system_role: true,
+      rate_limit: nil,
+      rate_window_ms: 60_000,
+      models: ["claude-haiku-4-5-20251001"],
+      suppress_thinking: false
     }
   }
 
@@ -621,6 +700,7 @@ defmodule Acs.LLM do
       System.get_env(
         case provider_id do
           "tokenrouter" -> "TOKENROUTER_API_KEY"
+          "anthropic" -> "ANTHROPIC_API_KEY"
           _ -> LLMUtils.Provider.env_key(provider_id)
         end
       )

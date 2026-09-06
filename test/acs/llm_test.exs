@@ -131,6 +131,14 @@ defmodule Acs.LLMTest do
       assert source =~ "TOKENROUTER_API_KEY"
     end
 
+    test "defines Anthropic with its native Messages endpoint and cheapest active model" do
+      source = File.read!(Path.join([__DIR__, "../../lib/acs/llm.ex"]))
+
+      assert source =~ "https://api.anthropic.com/v1/messages"
+      assert source =~ "claude-haiku-4-5-20251001"
+      assert source =~ "ANTHROPIC_API_KEY"
+    end
+
     test "get_enabled_providers includes openrouter when routed and keyed" do
       old_priority = System.get_env("LLM_PRIORITY_INTAKE")
       old_key = Application.get_env(:steward_acs, :openrouter_api_key)

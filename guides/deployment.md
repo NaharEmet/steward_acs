@@ -73,6 +73,8 @@ SERVER=ubuntu@NEW_HOST ./scripts/bootstrap-server.sh
 SERVER=ubuntu@NEW_HOST ACS_IMAGE_TAG=<sha> ./scripts/bootstrap-server.sh --start
 ```
 
+Bootstrap also hardens the host (idempotent): UFW (22/80/443 only), SSH key-only auth (`PasswordAuthentication no`, `PermitRootLogin no`), unattended-upgrades. Install your SSH key on the host **before** running it — password SSH is disabled.
+
 ### Escape hatch (laptop / emergency)
 
 Prefer Actions. Use workstation deploy only for break-glass (e.g. Actions down, or a one-off dirty hotfix you intend to replace with a clean prod build ASAP):

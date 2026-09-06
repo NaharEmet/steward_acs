@@ -317,6 +317,8 @@ config :steward_acs, :openai_model, System.get_env("OPENAI_MODEL", "")
 config :steward_acs, :openrouter_base_url, System.get_env("OPENROUTER_BASE_URL", "")
 config :steward_acs, :openrouter_model, System.get_env("OPENROUTER_MODEL", "")
 config :steward_acs, :tokenrouter_model, System.get_env("TOKENROUTER_MODEL", "")
+config :steward_acs, :anthropic_api_key, System.get_env("ANTHROPIC_API_KEY", "")
+config :steward_acs, :anthropic_model, System.get_env("ANTHROPIC_MODEL", "")
 
 config :steward_acs,
        :enabled_llm_providers,
