@@ -42,9 +42,22 @@ defmodule AcsWeb.UserAuth do
       AcsWeb.Endpoint.broadcast(live_socket_id, "disconnect", %{})
     end
 
+    redirect_to =
+      case conn.query_string |> URI.decode_query() |> Map.get("return_to") do
+        url when is_binary(url) ->
+          if String.starts_with?(url, "http") do
+            url
+          else
+            account_url(conn, "/")
+          end
+
+        _ ->
+          account_url(conn, "/")
+      end
+
     conn
     |> renew_session()
-    |> redirect(external: account_url(conn, "/"))
+    |> redirect(external: redirect_to)
   end
 
   def fetch_current_user(conn, _opts) do
