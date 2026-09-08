@@ -59,7 +59,10 @@ defmodule Acs.MetaHarness.Generator do
   end
 
   defp release_lock do
-    :ets.delete(@lock_table, :running)
+    case :ets.whereis(@lock_table) do
+      :undefined -> :ok
+      _ -> :ets.delete(@lock_table, :running)
+    end
   end
 
   defp do_generate do
