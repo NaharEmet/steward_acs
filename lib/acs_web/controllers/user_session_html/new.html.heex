@@ -14,13 +14,14 @@
         <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
           <div class="text-dim" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;">Continue as</div>
           <%= for account <- known_accounts do %>
-            <.form method="post" action={~p"/users/log_out"} style="display: contents;">
+            <form method="post" action={~p"/users/log_out"} style="display: contents;">
+              <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
               <input type="hidden" name="return_to" value={account["url"]} />
               <button type="submit" style="display: flex; flex-direction: column; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); text-decoration: none; cursor: pointer; font-family: inherit; font-size: inherit; text-align: left;">
                 <span style="font-size: 0.85rem; color: var(--text);"><%= account["name"] %></span>
                 <span style="font-size: 0.72rem; color: var(--muted);"><%= account["email"] %></span>
               </button>
-            </.form>
+            </form>
           <% end %>
         </div>
         <div class="text-dim" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;">Or sign in with another account</div>
