@@ -54,7 +54,9 @@ defmodule AcsWeb.UserAuth do
           account_url(conn, "/")
       end
 
-    Logger.warning("[LogOut] return_to: #{inspect(conn.params["return_to"])}, redirecting to: #{redirect_to}")
+    Logger.warning(
+      "[LogOut] return_to: #{inspect(conn.params["return_to"])}, redirecting to: #{redirect_to}"
+    )
 
     conn
     |> renew_session()
