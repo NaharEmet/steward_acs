@@ -44,12 +44,15 @@ defmodule AcsWeb.UserAuth do
 
     redirect_to =
       case conn.params["return_to"] do
-        url when is_binary(url) ->
+        url when is_binary(url) and url != "" ->
           if String.starts_with?(url, "http"), do: url, else: account_url(conn, "/")
 
         _ ->
           account_url(conn, "/")
       end
+
+    require Logger
+    Logger.warning("[LogOut] return_to from params: #{inspect(conn.params["return_to"])}, redirecting to: #{redirect_to}")
 
     conn
     |> renew_session()
