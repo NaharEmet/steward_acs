@@ -4,7 +4,15 @@ defmodule Acs.Accounts do
   """
   import Ecto.Query, warn: false
 
-  alias Acs.Accounts.{AccountAuditEvent, OrganizationInvitation, SessionHandoff, User, UserOrganization, UserToken}
+  alias Acs.Accounts.{
+    AccountAuditEvent,
+    OrganizationInvitation,
+    SessionHandoff,
+    User,
+    UserOrganization,
+    UserToken
+  }
+
   alias Acs.Auth0.McpRole
   alias Acs.Orgs.Organization
   alias Acs.Repo
@@ -232,7 +240,8 @@ defmodule Acs.Accounts do
 
     Repo.one(
       from u in User,
-        join: uo in UserOrganization, on: uo.user_id == u.id,
+        join: uo in UserOrganization,
+        on: uo.user_id == u.id,
         where: u.normalized_email == ^email and uo.organization_id == ^org_id,
         select: u
     )

@@ -390,7 +390,9 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
         |> MCPAuth.call([])
 
       assert %Plug.Conn{halted: true, status: 401} = result
-      assert Jason.decode!(result.resp_body)["error"] == "OAuth user is not authorized for this organization"
+
+      assert Jason.decode!(result.resp_body)["error"] ==
+               "OAuth user is not authorized for this organization"
     end
   end
 end
