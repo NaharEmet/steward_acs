@@ -42,6 +42,9 @@ defmodule AcsWeb.UserAuth do
       AcsWeb.Endpoint.broadcast(live_socket_id, "disconnect", %{})
     end
 
+    require Logger
+    Logger.warning("[LogOut] all params: #{inspect(conn.params)}")
+
     redirect_to =
       case conn.params["return_to"] do
         url when is_binary(url) and url != "" ->
@@ -51,8 +54,7 @@ defmodule AcsWeb.UserAuth do
           account_url(conn, "/")
       end
 
-    require Logger
-    Logger.warning("[LogOut] return_to from params: #{inspect(conn.params["return_to"])}, redirecting to: #{redirect_to}")
+    Logger.warning("[LogOut] return_to: #{inspect(conn.params["return_to"])}, redirecting to: #{redirect_to}")
 
     conn
     |> renew_session()
