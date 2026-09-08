@@ -42,9 +42,6 @@ defmodule AcsWeb.UserAuth do
       AcsWeb.Endpoint.broadcast(live_socket_id, "disconnect", %{})
     end
 
-    require Logger
-    Logger.warning("[LogOut] all params: #{inspect(conn.params)}")
-
     redirect_to =
       case conn.params["return_to"] do
         url when is_binary(url) and url != "" ->
@@ -53,10 +50,6 @@ defmodule AcsWeb.UserAuth do
         _ ->
           account_url(conn, "/")
       end
-
-    Logger.warning(
-      "[LogOut] return_to: #{inspect(conn.params["return_to"])}, redirecting to: #{redirect_to}"
-    )
 
     conn
     |> renew_session()
@@ -222,7 +215,18 @@ defmodule AcsWeb.UserAuth do
     if socket.assigns.current_user do
       {:cont, subscribe_to_user_disconnect(socket, socket.assigns.current_user)}
     else
-      {:halt, Phoenix.LiveView.redirect(socket, to: "/auth/log_in")}
+      # If unauthenticated on a tenant host, redirect to account host login
+      login_url =
+        case session["host_type"] do
+          "tenant" ->
+            host = account_host()
+            "https://#{host}/auth/log_in"
+
+          _ ->
+            "/auth/log_in"
+        end
+
+      {:halt, Phoenix.LiveView.redirect(socket, to: login_url)}
     end
   end
 
