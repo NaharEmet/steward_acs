@@ -4,7 +4,7 @@ defmodule Acs.Accounts do
   """
   import Ecto.Query, warn: false
 
-  alias Acs.Accounts.{AccountAuditEvent, OrganizationInvitation, SessionHandoff, User, UserToken}
+  alias Acs.Accounts.{AccountAuditEvent, OrganizationInvitation, SessionHandoff, User, UserOrganization, UserToken}
   alias Acs.Auth0.McpRole
   alias Acs.Orgs.Organization
   alias Acs.Repo
@@ -197,6 +197,48 @@ defmodule Acs.Accounts do
   end
 
   def organization_for_user(_), do: nil
+
+  def organizations_for_user(%User{} = user) do
+    user
+    |> Acs.Repo.preload(:organizations)
+    |> Map.get(:organizations, [])
+  end
+
+  def user_in_organization?(%User{id: user_id}, %Organization{id: org_id})
+      when is_integer(user_id) and is_integer(org_id) do
+    Repo.one(
+      from uo in UserOrganization,
+        where: uo.user_id == ^user_id and uo.organization_id == ^org_id,
+        select: true
+    ) == true
+  end
+
+  def user_in_organization?(_, _), do: false
+
+  def get_organization_role(%User{id: user_id}, %Organization{id: org_id})
+      when is_integer(user_id) and is_integer(org_id) do
+    Repo.one(
+      from uo in UserOrganization,
+        where: uo.user_id == ^user_id and uo.organization_id == ^org_id,
+        select: uo.org_role
+    )
+  end
+
+  def get_organization_role(_, _), do: nil
+
+  def get_user_by_email_and_org(email, %Organization{id: org_id})
+      when is_binary(email) and is_integer(org_id) do
+    email = normalize_email(email)
+
+    Repo.one(
+      from u in User,
+        join: uo in UserOrganization, on: uo.user_id == u.id,
+        where: u.normalized_email == ^email and uo.organization_id == ^org_id,
+        select: u
+    )
+  end
+
+  def get_user_by_email_and_org(_, _), do: nil
 
   @doc "Assigns a verified OIDC user as owner during the basic-auth migration."
   def bootstrap_owner(email, organization_slug)

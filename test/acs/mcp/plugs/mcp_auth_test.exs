@@ -1,3 +1,43 @@
+defmodule Acs.MCP.Plugs.MCPAuthTest.MultiOrgOIDCStrategy do
+  @behaviour Acs.MCP.Plugs.AuthStrategy
+
+  @impl true
+  def authenticate(_key, _conn) do
+    {:ok,
+     %{
+       role: "collaborator",
+       org_id: nil,
+       permissions: ["mcp:tools"],
+       agent_identity: "multi-org-user@example.test",
+       oidc_issuer: "https://issuer.example.test/",
+       oidc_subject: "multi-org-subject",
+       email: "multi-org-user@example.test",
+       allowed_teams: nil,
+       allowed_projects: nil
+     }}
+  end
+end
+
+defmodule Acs.MCP.Plugs.MCPAuthTest.NonMemberOIDCStrategy do
+  @behaviour Acs.MCP.Plugs.AuthStrategy
+
+  @impl true
+  def authenticate(_key, _conn) do
+    {:ok,
+     %{
+       role: "collaborator",
+       org_id: nil,
+       permissions: ["mcp:tools"],
+       agent_identity: "non-member-user@example.test",
+       oidc_issuer: "https://issuer.example.test/",
+       oidc_subject: "non-member-subject",
+       email: "non-member-user@example.test",
+       allowed_teams: nil,
+       allowed_projects: nil
+     }}
+  end
+end
+
 defmodule Acs.MCP.Plugs.MCPAuthTest do
   use Acs.DataCase, async: false
 
@@ -232,6 +272,125 @@ defmodule Acs.MCP.Plugs.MCPAuthTest do
 
       assert challenge =~ "resource_metadata="
       assert challenge =~ "/.well-known/oauth-protected-resource/mcp/sse"
+    end
+
+    test "authorizes OIDC user who is a member of the requested organization" do
+      alias Acs.Accounts
+      alias Acs.Orgs.Organization
+
+      original_strategies = Application.fetch_env(:steward_acs, :auth_strategies)
+
+      Application.put_env(:steward_acs, :auth_strategies, [
+        Acs.MCP.Plugs.MCPAuthTest.MultiOrgOIDCStrategy
+      ])
+
+      Acs.Org.clear_request_org()
+
+      on_exit(fn ->
+        case original_strategies do
+          {:ok, strategies} -> Application.put_env(:steward_acs, :auth_strategies, strategies)
+          :error -> Application.delete_env(:steward_acs, :auth_strategies)
+        end
+
+        Acs.Org.clear_request_org()
+      end)
+
+      organization =
+        Repo.insert!(
+          Organization.changeset(%Organization{}, %{
+            name: "Multi-Org Test Org",
+            slug: "multi-org-test",
+            subdomain: "multi-org-test",
+            provisioning_status: "ready"
+          })
+        )
+
+      {:ok, user} =
+        Accounts.register_user(%{
+          email: "multi-org-user@example.test",
+          name: "Multi Org User",
+          org: organization.slug,
+          organization_id: organization.id,
+          org_role: "member",
+          oidc_issuer: "https://issuer.example.test/",
+          oidc_subject: "multi-org-subject"
+        })
+
+      Repo.insert!(%Acs.Accounts.UserOrganization{
+        user_id: user.id,
+        organization_id: organization.id,
+        org_role: "member"
+      })
+
+      result =
+        Plug.Test.conn(:get, "/mcp/v1/messages")
+        |> Plug.Conn.assign(:current_org, organization.slug)
+        |> MCPAuth.call([])
+
+      assert result.assigns.agent_role == "collaborator"
+      assert result.assigns.agent_org_id == organization.slug
+      assert result.assigns.agent_identity == "Multi Org User"
+    end
+
+    test "rejects OIDC user who is not a member of the requested organization" do
+      alias Acs.Accounts
+      alias Acs.Orgs.Organization
+
+      original_strategies = Application.fetch_env(:steward_acs, :auth_strategies)
+
+      Application.put_env(:steward_acs, :auth_strategies, [
+        Acs.MCP.Plugs.MCPAuthTest.NonMemberOIDCStrategy
+      ])
+
+      Acs.Org.clear_request_org()
+
+      on_exit(fn ->
+        case original_strategies do
+          {:ok, strategies} -> Application.put_env(:steward_acs, :auth_strategies, strategies)
+          :error -> Application.delete_env(:steward_acs, :auth_strategies)
+        end
+
+        Acs.Org.clear_request_org()
+      end)
+
+      organization =
+        Repo.insert!(
+          Organization.changeset(%Organization{}, %{
+            name: "Non-Member Org",
+            slug: "non-member-org",
+            subdomain: "non-member-org",
+            provisioning_status: "ready"
+          })
+        )
+
+      home_org =
+        Repo.insert!(
+          Organization.changeset(%Organization{}, %{
+            name: "Home Org",
+            slug: "home-org",
+            subdomain: "home-org",
+            provisioning_status: "ready"
+          })
+        )
+
+      {:ok, _user} =
+        Accounts.register_user(%{
+          email: "non-member-user@example.test",
+          name: "Non Member User",
+          org: home_org.slug,
+          organization_id: home_org.id,
+          org_role: "member",
+          oidc_issuer: "https://issuer.example.test/",
+          oidc_subject: "non-member-subject"
+        })
+
+      result =
+        Plug.Test.conn(:get, "/mcp/v1/messages")
+        |> Plug.Conn.assign(:current_org, organization.slug)
+        |> MCPAuth.call([])
+
+      assert %Plug.Conn{halted: true, status: 401} = result
+      assert Jason.decode!(result.resp_body)["error"] == "OAuth user is not authorized for this organization"
     end
   end
 end

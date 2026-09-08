@@ -281,10 +281,11 @@ defmodule Acs.Memory.VectorIndex do
 
   defp search_similar_pg(embedding, org, limit, filters, repo) do
     vector_literal = Pgvector.encode(embedding)
-    {filter_sql, filter_params, next_param} = pg_filter_sql(filters, 3)
 
     {sql, params} =
       if org do
+        {filter_sql, filter_params, next_param} = pg_filter_sql(filters, 3)
+
         {"""
          SELECT memory_id, 1 - (embedding <=> ($1::text)::vector) AS similarity
          FROM #{@table_name}
@@ -293,11 +294,13 @@ defmodule Acs.Memory.VectorIndex do
          LIMIT $#{next_param}
          """, [vector_literal, org] ++ filter_params ++ [limit]}
       else
+        {filter_sql, filter_params, next_param} = pg_filter_sql(filters, 2)
+
         {"""
          SELECT memory_id, 1 - (embedding <=> ($1::text)::vector) AS similarity
          FROM #{@table_name}
-         ORDER BY embedding <=> ($1::text)::vector
          WHERE 1=1#{filter_sql}
+         ORDER BY embedding <=> ($1::text)::vector
          LIMIT $#{next_param - 1}
          """, [vector_literal] ++ filter_params ++ [limit]}
       end

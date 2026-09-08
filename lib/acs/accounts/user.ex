@@ -15,6 +15,8 @@ defmodule Acs.Accounts.User do
     field :org_role, :string
     field :authority_level_slug, :string
     belongs_to :organization, Acs.Orgs.Organization
+    has_many :user_organizations, Acs.Accounts.UserOrganization, foreign_key: :user_id
+    has_many :organizations, through: [:user_organizations, :organization]
 
     timestamps(type: :utc_datetime)
   end

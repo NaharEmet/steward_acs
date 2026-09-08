@@ -15,6 +15,8 @@ defmodule Acs.Orgs.Organization do
     field :provisioned_at, :utc_datetime
 
     has_many :users, Acs.Accounts.User
+    has_many :user_organizations, Acs.Accounts.UserOrganization, foreign_key: :organization_id
+    has_many :associated_users, through: [:user_organizations, :user]
     timestamps(type: :utc_datetime)
   end
 

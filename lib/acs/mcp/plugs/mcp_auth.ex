@@ -133,7 +133,18 @@ defmodule Acs.MCP.Plugs.MCPAuth do
           {:error, "OAuth user is not authorized for this organization"}
 
         user ->
-          authorize_local_user(result, user, request_org)
+          resolved_org_slug = resolved_request_org(request_org)
+
+          org =
+            Acs.Orgs.Organization |> Acs.Repo.get_by(slug: resolved_org_slug)
+
+          if org &&
+               (Acs.Accounts.user_in_organization?(user, org) ||
+                  user.organization_id == org.id) do
+            authorize_local_user(result, user, request_org)
+          else
+            {:error, "OAuth user is not authorized for this organization"}
+          end
       end
     else
       {:error, "OAuth user authorization is unavailable"}
@@ -162,25 +173,34 @@ defmodule Acs.MCP.Plugs.MCPAuth do
   end
 
   defp authorize_local_user(result, user, request_org) do
-    request_org = resolved_request_org(request_org)
+    org_slug = resolved_request_org(request_org)
 
-    case Acs.Accounts.organization_for_user(user) do
-      org when is_map(org) ->
-        with "ready" <- Map.get(org, :provisioning_status),
-             slug when is_binary(slug) and slug == request_org <- Map.get(org, :slug),
-             {:ok, role} <- oidc_role(Map.get(user, :org_role), result.permissions) do
-          # Prefer human name over Auth0 sub (email|…) / raw email for agent roster.
-          # Merge, not update syntax: strategies may omit :authority_level_slug entirely.
-          {:ok,
-           Map.merge(result, %{
-             role: role,
-             org_id: slug,
-             agent_identity: Acs.Accounts.User.display_name(user),
-             authority_level_slug: Map.get(user, :authority_level_slug)
-           })}
-        else
-          {:error, reason} when is_binary(reason) ->
-            {:error, reason}
+    case Acs.Orgs.Organization |> Acs.Repo.get_by(slug: org_slug) do
+      %Acs.Orgs.Organization{} = org ->
+        org_role =
+          case Acs.Accounts.get_organization_role(user, org) do
+            role when is_binary(role) -> role
+            _ -> if user.organization_id == org.id, do: user.org_role
+          end
+
+        case org_role do
+          org_role when is_binary(org_role) ->
+            with "ready" <- Map.get(org, :provisioning_status),
+                 {:ok, role} <- oidc_role(org_role, result.permissions) do
+              {:ok,
+               Map.merge(result, %{
+                 role: role,
+                 org_id: Map.get(org, :slug),
+                 agent_identity: Acs.Accounts.User.display_name(user),
+                 authority_level_slug: Map.get(user, :authority_level_slug)
+               })}
+            else
+              {:error, reason} when is_binary(reason) ->
+                {:error, reason}
+
+              _ ->
+                {:error, "OAuth user is not authorized for this organization"}
+            end
 
           _ ->
             {:error, "OAuth user is not authorized for this organization"}
