@@ -16,6 +16,7 @@
           <%= for account <- known_accounts do %>
             <form method="post" action={~p"/users/log_out"} style="display: contents;">
               <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+              <input type="hidden" name="_method" value="delete" />
               <input type="hidden" name="return_to" value={account["url"]} />
               <button type="submit" style="display: flex; flex-direction: column; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); text-decoration: none; cursor: pointer; font-family: inherit; font-size: inherit; text-align: left;">
                 <span style="font-size: 0.85rem; color: var(--text);"><%= account["name"] %></span>

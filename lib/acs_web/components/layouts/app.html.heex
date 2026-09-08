@@ -95,6 +95,7 @@
                 <% else %>
                   <form method="post" action={~p"/users/log_out"} style="display: contents;">
                     <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+                    <input type="hidden" name="_method" value="delete" />
                     <input type="hidden" name="return_to" value={account["url"]} />
                     <button type="submit" class="org-switch-item" style="border: 0; background: none; cursor: pointer; text-align: left; padding: 6px 12px; font-family: inherit; font-size: inherit; width: 100%; transition: all var(--transition-fast);">
                       <span class="org-switch-name"><%= account["name"] %></span>
