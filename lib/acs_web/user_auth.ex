@@ -43,13 +43,9 @@ defmodule AcsWeb.UserAuth do
     end
 
     redirect_to =
-      case conn.query_string |> URI.decode_query() |> Map.get("return_to") do
+      case conn.params["return_to"] do
         url when is_binary(url) ->
-          if String.starts_with?(url, "http") do
-            url
-          else
-            account_url(conn, "/")
-          end
+          if String.starts_with?(url, "http"), do: url, else: account_url(conn, "/")
 
         _ ->
           account_url(conn, "/")
