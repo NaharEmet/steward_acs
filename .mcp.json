@@ -12,9 +12,7 @@
       "command": "npx",
       "args": ["-y", "@axiomhq/mcp-server"],
       "env": {
-        "AXIOM_TOKEN": "xaat-5ac2759d-bb13-454e-8e09-74d2d5c34354",
-        "AXIOM_ORG_ID": "steward-prod",
-        "AXIOM_URL": "https://api.axiom.co"
+        "AXIOM_API_TOKEN": "xaat-5ac2759d-bb13-454e-8e09-74d2d5c34354"
       }
     }
   }
