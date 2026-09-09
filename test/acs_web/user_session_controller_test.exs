@@ -161,6 +161,17 @@ defmodule AcsWeb.UserSessionControllerTest do
       refute Map.has_key?(get_session(conn, :oidc_session).session_params, :connection)
     end
 
+    test "preserves the requested tenant through OIDC authorization", %{conn: conn} do
+      conn =
+        get(account_conn(conn), "/auth/log_in", %{
+          "return_to" => "/memories",
+          "org" => "buildmyhouse"
+        })
+
+      assert %{return_to: "/memories", target_org: "buildmyhouse"} =
+               get_session(conn, :oidc_session)
+    end
+
     test "starts OIDC authorization with optional AUTH0_CONNECTION pin", %{conn: conn} do
       Application.put_env(:steward_acs, :auth0_connection, "google-oauth2")
 
