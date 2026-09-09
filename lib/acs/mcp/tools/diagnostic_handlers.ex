@@ -277,7 +277,10 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
 
     stuck_count = (stuck_data || %{}) |> Map.get(:count, 0)
 
-    health = compute_memory_health(worker_status, dlq_summary, message_status_counts, stuck_count)
+    health =
+      compute_memory_health(worker_status, dlq_summary, message_status_counts, stuck_count)
+      |> Map.update!(:issues, &json_safe_health_issues/1)
+
     flow_data = compute_memory_flow(message_status_counts, worker_status, dlq_summary)
     flow_metrics = compute_memory_flow_metrics(recent_cycles)
 
@@ -429,20 +432,24 @@ defmodule Acs.MCP.Tools.DiagnosticHandlers do
   end
 
   defp check_llm_service do
-    case extension_module().fetch_llm_config() do
-      %{minimax_key: minimax_key, nim_key: nim_key}
-      when not is_nil(minimax_key) and not is_nil(nim_key) ->
-        %{status: "ok", message: "Both LLM providers configured"}
+    providers =
+      extension_module().fetch_llm_config()
+      |> Enum.filter(fn {_provider, key} -> is_binary(key) and String.trim(key) != "" end)
+      |> Enum.map(fn {provider, _key} ->
+        provider |> Atom.to_string() |> String.trim_trailing("_key")
+      end)
 
-      %{minimax_key: minimax_key} when not is_nil(minimax_key) ->
-        %{status: "warn", message: "Only MiniMax configured, NIM missing"}
-
-      %{nim_key: nim_key} when not is_nil(nim_key) ->
-        %{status: "warn", message: "Only NIM configured, MiniMax missing"}
-
-      _ ->
-        %{status: "error", message: "No LLM providers configured"}
+    case providers do
+      [] -> %{status: "error", message: "No LLM providers configured"}
+      [_provider] -> %{status: "warn", message: "Only #{hd(providers)} configured"}
+      _ -> %{status: "ok", message: "LLM providers configured: #{Enum.join(providers, ", ")}"}
     end
+  end
+
+  defp json_safe_health_issues(issues) do
+    Enum.map(issues, fn {severity, message} ->
+      %{severity: Atom.to_string(severity), message: message}
+    end)
   end
 
   defp compute_memory_health(worker_status, dlq_summary, message_status_counts, stuck_count) do

@@ -163,6 +163,7 @@ The file watcher debounces events (1000ms) and excludes `.obsidian/` internal fi
 | `TOKENROUTER_API_KEY` | No | — | TokenRouter API key for LLM evaluation |
 | `TOKENROUTER_MODEL` | No | `z-ai/glm-5.3-free` | TokenRouter model override |
 | `MINIMAX_API_KEY` | No | — | MiniMax API key for LLM evaluation |
+| `MIMO_API_KEY` | No | — | Xiaomi Mimo API key for LLM evaluation; preferred by default |
 | `OPENAI_API_KEY` | No | — | OpenAI API key for LLM evaluation |
 | `OPENAI_BASE_URL` | No | — | Custom OpenAI-compatible endpoint URL |
 | `OPENAI_MODEL` | No | — | OpenAI model name override |
@@ -194,10 +195,11 @@ Memory auditing and semantic search need an LLM provider. Set at least one of th
 | `NIM_API_KEY` | NVIDIA NIM |
 | `TOKENROUTER_API_KEY` | TokenRouter (OpenAI-compatible) |
 | `MINIMAX_API_KEY` | MiniMax |
+| `MIMO_API_KEY` | Xiaomi Mimo |
 | `OPENAI_API_KEY` | OpenAI (also set `OPENAI_BASE_URL` / `OPENAI_MODEL` for custom endpoints) |
 | `ANTHROPIC_API_KEY` | Anthropic Messages API |
 
-You can restrict which providers are used via `ENABLED_LLM_PROVIDERS` (comma-separated, e.g. `tokenrouter,nim`). By default all enabled providers with valid API keys are tried in priority order. TokenRouter uses `https://api.tokenrouter.com/v1` and defaults to `z-ai/glm-5.3-free`. Anthropic defaults to `claude-haiku-4-5-20251001`; local `.env` and production Infisical use the same variable names.
+You can restrict which providers are used via `ENABLED_LLM_PROVIDERS` (comma-separated, e.g. `mimo,nim`). By default all enabled providers with valid API keys are tried in priority order, with Mimo first. Mimo uses `https://token-plan-sgp.xiaomimimo.com/v1` and defaults to `mimo-v2.5`; TokenRouter uses `https://api.tokenrouter.com/v1` and defaults to `z-ai/glm-5.3-free`. Anthropic defaults to `claude-haiku-4-5-20251001`; local `.env` and production Infisical use the same variable names.
 
 ### MCP Tool Definitions
 
