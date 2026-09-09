@@ -231,13 +231,19 @@ defmodule Acs.AuthorityLevels do
   def ensure_defaults!(org) when is_binary(org) do
     org = normalize_org(org)
 
-    if count(org) == 0 do
-      Enum.each(@defaults, fn attrs ->
-        %AuthorityLevel{}
-        |> AuthorityLevel.changeset(Map.put(attrs, :org, org))
-        |> Repo.insert!()
-      end)
-    end
+    Repo.transaction(
+      fn ->
+        # Re-check count inside transaction to handle race conditions
+        if count(org) == 0 do
+          Enum.each(@defaults, fn attrs ->
+            %AuthorityLevel{}
+            |> AuthorityLevel.changeset(Map.put(attrs, :org, org))
+            |> Repo.insert!()
+          end)
+        end
+      end,
+      timeout: 30_000
+    )
 
     :ok
   end

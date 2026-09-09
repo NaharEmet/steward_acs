@@ -42,9 +42,19 @@ defmodule AcsWeb.UserAuth do
       AcsWeb.Endpoint.broadcast(live_socket_id, "disconnect", %{})
     end
 
+    # Prefer return_to parameter for org switching; fall back to account host login
+    redirect_to =
+      case conn.params["return_to"] do
+        url when is_binary(url) and url != "" ->
+          if String.starts_with?(url, "http"), do: url, else: account_url(conn, "/auth/log_in")
+
+        _ ->
+          account_url(conn, "/auth/log_in")
+      end
+
     conn
     |> renew_session()
-    |> redirect(external: account_url(conn, "/"))
+    |> redirect(external: redirect_to)
   end
 
   def fetch_current_user(conn, _opts) do
@@ -213,7 +223,18 @@ defmodule AcsWeb.UserAuth do
     if socket.assigns.current_user do
       {:cont, subscribe_to_user_disconnect(socket, socket.assigns.current_user)}
     else
-      {:halt, Phoenix.LiveView.redirect(socket, to: "/auth/log_in")}
+      # If unauthenticated on a tenant host, redirect to account host login
+      login_url =
+        case session["host_type"] do
+          "tenant" ->
+            host = account_host()
+            "https://#{host}/auth/log_in"
+
+          _ ->
+            "/auth/log_in"
+        end
+
+      {:halt, Phoenix.LiveView.redirect(socket, to: login_url)}
     end
   end
 
