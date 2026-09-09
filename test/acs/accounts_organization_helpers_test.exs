@@ -105,12 +105,14 @@ defmodule Acs.AccountsOrganizationHelpersTest do
     suffix = System.unique_integer([:positive])
     slug = "#{name}-#{suffix}"
 
-    Repo.insert!(Organization.changeset(%Organization{}, %{
-      name: "#{name} #{suffix}",
-      slug: slug,
-      subdomain: slug,
-      provisioning_status: "ready"
-    }))
+    Repo.insert!(
+      Organization.changeset(%Organization{}, %{
+        name: "#{name} #{suffix}",
+        slug: slug,
+        subdomain: slug,
+        provisioning_status: "ready"
+      })
+    )
   end
 
   defp insert_user_org!(user_id, org_id, role) do

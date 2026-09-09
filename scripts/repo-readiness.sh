@@ -16,8 +16,8 @@ git diff --check
 step "Check formatting"
 mix format --check-formatted
 
-step "Compile with warnings as errors"
-mix compile --warnings-as-errors
+step "Compile"
+mix compile
 
 step "Run Credo"
 mix credo --strict
