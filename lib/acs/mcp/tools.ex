@@ -650,7 +650,12 @@ defmodule Acs.MCP.Tools do
             "type" => "string",
             "description" => "Repository mode: exact, local, or blended"
           },
-          "origin" => %{"type" => "string", "description" => "Memory origin: agent or chat"}
+          "origin" => %{"type" => "string", "description" => "Memory origin: agent or chat"},
+          "include_team_project" => %{
+            "type" => "boolean",
+            "description" =>
+              "When true, include the memory's team and project labels in each result (default: false)."
+          }
         },
         []
       ),

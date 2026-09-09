@@ -153,6 +153,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
     query = args["query"]
     mode = args["mode"] || "auto"
     min_relevance = args["min_relevance"]
+    include_team_project = Map.get(args, "include_team_project", false)
     current_repo = current_repo(args)
 
     base_opts = [
@@ -181,7 +182,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
       result =
         memories
         |> Enum.map(fn m ->
-          %{
+          base = %{
             id: m.id,
             kind: m.kind,
             status: m.status,
@@ -196,6 +197,10 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
             repo: repo_label(m.repo, current_repo),
             origin: m.origin
           }
+
+          if include_team_project,
+            do: Map.merge(base, %{team: m.team, project: m.project}),
+            else: base
         end)
         |> maybe_filter_by_relevance(min_relevance)
 
@@ -205,7 +210,7 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
 
       result =
         Enum.map(memories, fn m ->
-          %{
+          base = %{
             id: m.id,
             kind: m.kind,
             status: m.status,
@@ -219,6 +224,10 @@ defmodule Acs.MCP.Tools.MemoryHandlers do
             repo: repo_label(m.repo, current_repo),
             origin: m.origin
           }
+
+          if include_team_project,
+            do: Map.merge(base, %{team: m.team, project: m.project}),
+            else: base
         end)
 
       {:ok, %{memories: result, count: length(result)}}
