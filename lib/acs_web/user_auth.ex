@@ -42,13 +42,14 @@ defmodule AcsWeb.UserAuth do
       AcsWeb.Endpoint.broadcast(live_socket_id, "disconnect", %{})
     end
 
+    # Prefer return_to parameter for org switching; fall back to account host
     redirect_to =
       case conn.params["return_to"] do
-        url when is_binary(url) and url != "" ->
-          if String.starts_with?(url, "http"), do: url, else: account_url(conn, "/")
+        url when is_binary(url) and url != "" and String.starts_with?(url, "http") ->
+          url
 
         _ ->
-          account_url(conn, "/")
+          account_url(conn, "/auth/log_in")
       end
 
     conn
