@@ -2,7 +2,7 @@ defmodule Acs.AccountsOrganizationTest do
   use Acs.DataCase, async: false
 
   alias Acs.Accounts
-  alias Acs.Accounts.{OrganizationInvitation, SessionHandoff, User}
+  alias Acs.Accounts.{OrganizationInvitation, SessionHandoff, User, UserOrganization}
   alias Acs.Orgs
   alias Acs.Orgs.Organization
 
@@ -271,6 +271,21 @@ defmodule Acs.AccountsOrganizationTest do
   end
 
   describe "session handoffs" do
+    test "allows a user handoff to a secondary organization membership" do
+      primary = organization!()
+      secondary = organization!()
+      user = member!(primary, "member")
+
+      Repo.insert!(%UserOrganization{
+        user_id: user.id,
+        organization_id: secondary.id,
+        org_role: "member"
+      })
+
+      assert {:ok, token} = Accounts.create_session_handoff(user, secondary, "/memories")
+      assert :ok = Accounts.bind_session_handoff(token, secondary, user, "browser-state")
+    end
+
     test "consumes a session handoff only once" do
       organization = organization!()
       user = member!(organization, "member")

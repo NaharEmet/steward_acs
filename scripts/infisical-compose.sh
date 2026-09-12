@@ -80,16 +80,18 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   esac
   key=${line%%=*}
   val=${line#*=}
-  # Strip surrounding quotes if present
-  if [[ "$val" == \"*\" && "$val" == *\" ]]; then
-    val=${val:1:-1}
-  elif [[ "$val" == \'*\' && "$val" == *\' ]]; then
-    val=${val:1:-1}
+  check_val="$val"
+  # Strip quotes only for placeholder detection; preserve Infisical's valid
+  # dotenv quoting/escaping when writing the value back out.
+  if [[ "$check_val" == \"*\" && "$check_val" == *\" ]]; then
+    check_val=${check_val:1:-1}
+  elif [[ "$check_val" == \'*\' && "$check_val" == *\' ]]; then
+    check_val=${check_val:1:-1}
   fi
-  case "$val" in
+  case "$check_val" in
     ''|REPLACE_ME|replace_me) continue ;;
   esac
-  printf '%s=%s\n' "$key" "$val" >>"$SECRETS_FILE"
+  printf '%s\n' "$line" >>"$SECRETS_FILE"
 done <"$tmp"
 
 env_files=()

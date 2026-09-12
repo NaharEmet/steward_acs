@@ -663,33 +663,37 @@ defmodule Acs.Accounts do
 
   def create_session_handoff(%User{} = user, organization_or_id, return_to) do
     case organization_id(organization_or_id) do
-      organization_id
-      when organization_id == user.organization_id and is_integer(organization_id) ->
-        token = raw_token()
+      organization_id when is_integer(organization_id) ->
+        if user.organization_id == organization_id or
+             user_in_organization?(user, %Organization{id: organization_id}) do
+          token = raw_token()
 
-        %SessionHandoff{}
-        |> SessionHandoff.changeset(%{
-          user_id: user.id,
-          organization_id: organization_id,
-          token_hash: hash_token(token),
-          return_to: return_to,
-          expires_at: DateTime.add(now(), @handoff_lifetime, :second)
-        })
-        |> Repo.insert()
-        |> case do
-          {:ok, handoff} ->
-            audit!(%{
-              actor_id: user.id,
-              target_user_id: user.id,
-              organization_id: organization_id,
-              event: "session_handoff.created",
-              metadata: %{"handoff_id" => handoff.id}
-            })
+          %SessionHandoff{}
+          |> SessionHandoff.changeset(%{
+            user_id: user.id,
+            organization_id: organization_id,
+            token_hash: hash_token(token),
+            return_to: return_to,
+            expires_at: DateTime.add(now(), @handoff_lifetime, :second)
+          })
+          |> Repo.insert()
+          |> case do
+            {:ok, handoff} ->
+              audit!(%{
+                actor_id: user.id,
+                target_user_id: user.id,
+                organization_id: organization_id,
+                event: "session_handoff.created",
+                metadata: %{"handoff_id" => handoff.id}
+              })
 
-            {:ok, encode_token(token)}
+              {:ok, encode_token(token)}
 
-          {:error, changeset} ->
-            {:error, changeset}
+            {:error, changeset} ->
+              {:error, changeset}
+          end
+        else
+          {:error, :unauthorized}
         end
 
       _ ->

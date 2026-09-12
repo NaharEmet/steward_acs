@@ -64,7 +64,11 @@ defmodule AcsWeb.UserSessionController do
           {:ok, %{url: url, session_params: session_params}} when is_binary(url) ->
             conn
             |> delete_session(:user_return_to)
-            |> put_session(:oidc_session, %{session_params: session_params, return_to: return_to})
+            |> put_session(:oidc_session, %{
+              session_params: session_params,
+              return_to: return_to,
+              target_org: params["org"]
+            })
             |> redirect(external: url)
 
           _ ->
@@ -86,7 +90,7 @@ defmodule AcsWeb.UserSessionController do
            ),
          {:ok, attrs} <- oidc_user_attrs(claims, Keyword.fetch!(config, :base_url)),
          {:ok, user} <- Accounts.upsert_oidc_user(attrs) do
-      complete_sign_in(conn, user, session_return_to(session))
+      complete_sign_in(conn, user, session_return_to(session), session_target_org(session))
     else
       _ -> oidc_error(conn)
     end
@@ -156,12 +160,12 @@ defmodule AcsWeb.UserSessionController do
     UserAuth.log_out_user(conn)
   end
 
-  defp complete_sign_in(conn, user, "/invitations/" <> _ = return_to) do
+  defp complete_sign_in(conn, user, "/invitations/" <> _ = return_to, _target_org) do
     UserAuth.log_in_user(conn, user, redirect_to: return_to)
   end
 
-  defp complete_sign_in(conn, user, return_to) do
-    case UserAuth.organization_for_user(user) do
+  defp complete_sign_in(conn, user, return_to, target_org) do
+    case requested_organization(user, target_org) || UserAuth.organization_for_user(user) do
       org when is_map(org) ->
         cond do
           not UserAuth.organization_ready?(org) ->
@@ -180,6 +184,23 @@ defmodule AcsWeb.UserSessionController do
         UserAuth.log_in_user(conn, user, redirect_to: "/onboarding")
     end
   end
+
+  defp session_target_org(%{target_org: org}) when is_binary(org) and org != "", do: org
+  defp session_target_org(_), do: nil
+
+  defp requested_organization(user, org_slug) when is_binary(org_slug) and org_slug != "" do
+    case Orgs.get_by_slug(org_slug) do
+      org when is_map(org) ->
+        if user.organization_id == org.id or Accounts.user_in_organization?(user, org),
+          do: org,
+          else: nil
+
+      _ ->
+        nil
+    end
+  end
+
+  defp requested_organization(_, _), do: nil
 
   defp handoff_user(conn, user, org, return_to) do
     case Accounts.create_session_handoff(user, org, return_to) do

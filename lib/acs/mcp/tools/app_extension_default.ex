@@ -62,6 +62,7 @@ defmodule Acs.MCP.Tools.AppExtension.Default do
   def fetch_llm_config do
     %{
       minimax_key: api_key(:minimax),
+      mimo_key: api_key(:mimo),
       nim_key: api_key(:nim),
       tokenrouter_key: api_key(:tokenrouter),
       openai_key: api_key(:openai)

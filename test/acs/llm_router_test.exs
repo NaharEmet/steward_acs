@@ -26,6 +26,7 @@ defmodule Acs.LLM.RouterTest do
   describe "priority_for/2 default" do
     test "returns the default list when nothing is configured" do
       assert Router.priority_for("default", "intake") == [
+               "mimo",
                "tokenrouter",
                "nim",
                "minimax",
@@ -45,7 +46,13 @@ defmodule Acs.LLM.RouterTest do
     end
 
     test "unknown region falls back to default" do
-      assert Router.priority_for("xx", "intake") == ["tokenrouter", "nim", "minimax", "openai"]
+      assert Router.priority_for("xx", "intake") == [
+               "mimo",
+               "tokenrouter",
+               "nim",
+               "minimax",
+               "openai"
+             ]
     end
   end
 
@@ -56,6 +63,7 @@ defmodule Acs.LLM.RouterTest do
       assert Router.priority_for("default", "intake") == ["openai"]
 
       assert Router.priority_for("default", "memory_audit") == [
+               "mimo",
                "tokenrouter",
                "nim",
                "minimax",

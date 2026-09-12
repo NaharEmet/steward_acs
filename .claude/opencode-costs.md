@@ -23,3 +23,4 @@ Claude models have real per-token pricing (see `~/.claude/CLAUDE.md` for current
 
 | Date | Ticket / phase | Provider/model | Tier | Cost ($) | Tokens (in/out/cache-read) | Outcome | Notes |
 |------|---------------|----------------|------|----------|---------------------------|---------|-------|
+| 2026-09-09 15:20 | query_memories include_team_project implementation | opencode/mimo-v2.5-free | free | 0 | 491 / 770 / 150208 | done | Single-shot dispatch, no stall, no drift. Delivered exact additive change (Map.merge pattern for both query/list branches), tool schema entry, and 4 targeted DB-backed tests. Verified diff matches ticket precisely; full suite 929/929 passed across 3 clean reruns (one earlier isolated flake did not reproduce, unrelated to this diff); mix credo --strict and mix format clean. Pre-existing --warnings-as-errors failure in lib/acs/mcp/error_trace.ex confirmed present on dev before this change (not a regression). |

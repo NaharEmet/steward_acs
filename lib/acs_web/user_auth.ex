@@ -117,7 +117,14 @@ defmodule AcsWeb.UserAuth do
       true ->
         login_url =
           if conn.method == "GET" do
-            account_url(conn, "/auth/log_in", %{return_to: current_path(conn)})
+            query = %{return_to: current_path(conn)}
+
+            query =
+              if conn.assigns[:current_org],
+                do: Map.put(query, :org, conn.assigns.current_org),
+                else: query
+
+            account_url(conn, "/auth/log_in", query)
           else
             account_url(conn, "/auth/log_in")
           end
