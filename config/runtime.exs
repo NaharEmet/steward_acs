@@ -91,14 +91,14 @@ config :steward_acs,
        :memory_auditor_enabled,
        System.get_env(
          "MEMORY_AUDITOR_ENABLED",
-         if(config_env() == :prod, do: "false", else: "true")
+         if(config_env() == :prod, do: "true", else: "true")
        ) in ~w(true 1 yes)
 
 config :steward_acs,
        :memory_intake_llm,
        System.get_env(
          "MEMORY_INTAKE_LLM",
-         if(config_env() == :prod, do: "false", else: "true")
+         if(config_env() == :prod, do: "true", else: "true")
        ) in ~w(true 1 yes)
 
 config :steward_acs,
