@@ -56,6 +56,8 @@ x-steward-acs: &steward_acs
     SELF_SERVICE_ORGS_ENABLED: "${SELF_SERVICE_ORGS_ENABLED:-true}"
     OLLAMA_URL: http://ollama:11434
     MEMORY_STORE: database
+    MEMORY_AUDITOR_ENABLED: "${MEMORY_AUDITOR_ENABLED:-true}"
+    MEMORY_INTAKE_LLM: "${MEMORY_INTAKE_LLM:-true}"
     # LLM providers (Infisical). Compose --env-file alone does not inject into
     # the container — each key must be listed here for memory/skill auditing.
     ENABLED_LLM_PROVIDERS: "${ENABLED_LLM_PROVIDERS:-}"
@@ -64,6 +66,7 @@ x-steward-acs: &steward_acs
     NIM_BASE_URL: "${NIM_BASE_URL:-}"
     TOKENROUTER_API_KEY: "${TOKENROUTER_API_KEY:-}"
     MINIMAX_API_KEY: "${MINIMAX_API_KEY:-}"
+    MIMO_API_KEY: "${MIMO_API_KEY:-}"
     ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
     ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}"
     OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
